@@ -67,10 +67,12 @@ nlohmann_json = { }
 type = "shared"
 sources = [
     "src/format/*.cpp",
+    "src/runtime/*.cpp",
     "src/c_api/*.cpp",
 ]
 headers = [
     "src/format/*.h",
+    "src/runtime/*.h",
     "src/c_api/*.h",
 ]
 include-directories = ["src"]

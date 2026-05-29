@@ -111,6 +111,8 @@ set(worldwalker_SOURCES
 	"src/format/ClipFlags.h"
 	"src/format/Zlib.cpp"
 	"src/format/Zlib.h"
+	"src/runtime/WorldView.cpp"
+	"src/runtime/WorldView.h"
 )
 
 add_library(worldwalker SHARED)

@@ -1,7 +1,9 @@
 #include "c_api/worldwalker_c.h"
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
+#include "runtime/WorldView.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <exception>
@@ -54,6 +56,52 @@ namespace
         std::printf("\n");
     }
 
+    // Re-read every clip word of one square through the by-coordinate runtime
+    // lookup and confirm it matches the directly-decompressed ground truth, so a
+    // coordinate-math or cache bug surfaces here rather than in the planner.
+    std::size_t crossCheckSquare(ww::runtime::WorldView &view,
+                                 const ww::format::CollisionSquareEntry &sq,
+                                 const std::vector<uint32_t> &words)
+    {
+        const int baseX = static_cast<int>(sq.squareX) * ww::format::kClipSize;
+        const int baseY = static_cast<int>(sq.squareY) * ww::format::kClipSize;
+        std::size_t mismatches = 0;
+        for (std::size_t idx = 0; idx < words.size(); ++idx)
+        {
+            const int plane = static_cast<int>(idx / (ww::format::kClipSize * ww::format::kClipSize));
+            const int lx = static_cast<int>((idx / ww::format::kClipSize) % ww::format::kClipSize);
+            const int ly = static_cast<int>(idx % ww::format::kClipSize);
+            if (view.clipAt(baseX + lx, baseY + ly, plane) != words[idx])
+            {
+                ++mismatches;
+            }
+        }
+        return mismatches;
+    }
+
+    void dumpRuntimeLookup(const ww::format::ArtifactReader &reader)
+    {
+        ww::runtime::WorldView view(reader);
+        const auto squares = reader.collisionSquares();
+        if (squares.empty())
+        {
+            std::printf("  runtime: no collision squares to cross-check\n");
+            return;
+        }
+        const ww::format::CollisionSquareEntry &sq = squares[0];
+        std::vector<uint32_t> words;
+        reader.decompressSquare(sq.squareX, sq.squareY, words);
+        const std::size_t mismatches = crossCheckSquare(view, sq, words);
+
+        const int baseX = static_cast<int>(sq.squareX) * ww::format::kClipSize;
+        const int baseY = static_cast<int>(sq.squareY) * ww::format::kClipSize;
+        std::printf("  runtime: square[0] (%u,%u) clip cross-check %zu tiles, %zu mismatches\n",
+                    sq.squareX, sq.squareY, words.size(), mismatches);
+        std::printf("  runtime: off-world clip=0x%08x | tile (%d,%d,p0) standable=%d area=%d\n",
+                    view.clipAt(-1, baseY, 0), baseX, baseY,
+                    view.isStandable(baseX, baseY, 0) ? 1 : 0, view.areaAt(baseX, baseY, 0));
+    }
+
     void dumpArtifact(const ww::format::ArtifactReader &reader)
     {
         const ww::format::ArtifactInfo &info = reader.info();
@@ -69,6 +117,7 @@ namespace
         std::printf("  teleport: %zu wilderness regions, %zu no-tele zones (cutoff=%u)\n",
                     reader.wildernessRegions().size(), reader.noTeleZones().size(),
                     reader.wildernessCutoff());
+        dumpRuntimeLookup(reader);
     }
 }
 
