@@ -111,6 +111,10 @@ set(worldwalker_SOURCES
 	"src/format/ClipFlags.h"
 	"src/format/Zlib.cpp"
 	"src/format/Zlib.h"
+	"src/runtime/AltHeuristic.cpp"
+	"src/runtime/AltHeuristic.h"
+	"src/runtime/AreaSearch.cpp"
+	"src/runtime/AreaSearch.h"
 	"src/runtime/WorldView.cpp"
 	"src/runtime/WorldView.h"
 )

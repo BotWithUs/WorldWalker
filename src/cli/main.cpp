@@ -1,6 +1,7 @@
 #include "c_api/worldwalker_c.h"
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
+#include "runtime/AreaSearch.h"
 #include "runtime/WorldView.h"
 
 #include <cstddef>
@@ -102,6 +103,88 @@ namespace
                     view.isStandable(baseX, baseY, 0) ? 1 : 0, view.areaAt(baseX, baseY, 0));
     }
 
+    // Confirm every hop's recorded AreaEdge actually connects the previous area
+    // to this one, so a reconstruction or CSR-indexing bug surfaces here. Returns
+    // the number of broken links (0 for a valid route).
+    std::size_t checkContiguity(const ww::format::ArtifactReader &reader,
+                                const ww::runtime::AreaPath &path)
+    {
+        const auto edges = reader.areaEdges();
+        std::size_t broken = 0;
+        for (std::size_t i = 1; i < path.steps.size(); ++i)
+        {
+            const int32_t e = path.steps[i].viaEdge;
+            const bool ok = e >= 0 && static_cast<std::size_t>(e) < edges.size()
+                            && edges[e].fromArea == path.steps[i - 1].area
+                            && edges[e].toArea == path.steps[i].area;
+            broken += ok ? 0u : 1u;
+        }
+        return broken;
+    }
+
+    // First area reachable in one edge from midArea that is neither midArea nor
+    // `avoid`, or -1 if none. Excluding `avoid` (the start) skips the common
+    // paired back-edge, so the harness poses a genuine multi-hop query.
+    int32_t reachableTwoHop(const ww::format::ArtifactReader &reader, int32_t midArea, int32_t avoid)
+    {
+        for (const ww::format::AreaEdgeRecord &edge : reader.areaEdges())
+        {
+            if (edge.fromArea == midArea && edge.toArea != midArea && edge.toArea != avoid)
+            {
+                return edge.toArea;
+            }
+        }
+        return -1;
+    }
+
+    void runQuery(ww::runtime::AreaSearch &search, const ww::format::ArtifactReader &reader,
+                  int32_t start, int32_t goal, const char *label)
+    {
+        ww::runtime::AreaPath path;
+        if (!search.findPath(start, goal, path))
+        {
+            std::printf("  search: %-6s %d->%d unreachable\n", label, start, goal);
+            return;
+        }
+        const std::size_t broken = checkContiguity(reader, path);
+        std::printf("  search: %-6s %d->%d ok, %zu areas, cost=%.1f, %zu broken links\n",
+                    label, start, goal, path.steps.size(),
+                    static_cast<double>(path.cost), broken);
+    }
+
+    // Drive the area-graph A* end to end on the runtime lookup layer: resolve a
+    // tile to its area through WorldView, then run a self-query, a single-edge
+    // hop, and a whole-graph endpoint query, checking each route's contiguity.
+    void dumpAreaSearch(const ww::format::ArtifactReader &reader)
+    {
+        const auto nodes = reader.areaNodes();
+        if (nodes.empty())
+        {
+            std::printf("  search: no area graph to search\n");
+            return;
+        }
+        ww::runtime::WorldView view(reader);
+        ww::runtime::AreaSearch search(reader);
+
+        const ww::format::AreaNodeRecord &n0 = nodes[0];
+        std::printf("  search: area[0] centroid (%d,%d,p%u) -> area %d via WorldView\n",
+                    n0.centroidX, n0.centroidY, n0.plane,
+                    view.areaAt(n0.centroidX, n0.centroidY, n0.plane));
+
+        runQuery(search, reader, 0, 0, "self");
+        const auto edges = reader.areaEdges();
+        if (!edges.empty())
+        {
+            runQuery(search, reader, edges[0].fromArea, edges[0].toArea, "edge0");
+            const int32_t twoHop = reachableTwoHop(reader, edges[0].toArea, edges[0].fromArea);
+            if (twoHop >= 0)
+            {
+                runQuery(search, reader, edges[0].fromArea, twoHop, "2hop");
+            }
+        }
+        runQuery(search, reader, 0, static_cast<int32_t>(nodes.size()) - 1, "ends");
+    }
+
     void dumpArtifact(const ww::format::ArtifactReader &reader)
     {
         const ww::format::ArtifactInfo &info = reader.info();
@@ -118,6 +201,7 @@ namespace
                     reader.wildernessRegions().size(), reader.noTeleZones().size(),
                     reader.wildernessCutoff());
         dumpRuntimeLookup(reader);
+        dumpAreaSearch(reader);
     }
 }
 
