@@ -3,9 +3,11 @@
 #include "build/CollisionBuilder.h"
 #include "build/CollisionLookup.h"
 #include "data/DatasetLoader.h"
+#include "data/FreshnessDeriver.h"
 #include "data/TransitionBuilder.h"
 #include "data/Transitions.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <exception>
@@ -52,6 +54,35 @@ namespace
         }
     }
 
+    struct TransitionBuildResult
+    {
+        ww::data::TransitionModel transitions;
+        uint32_t datasetHash{};
+        ww::data::TransitionReport finalize;
+        ww::data::FreshnessReport freshness;
+    };
+
+    // Load the datasets, derive cache-only vertical ladders/stairs (dataset
+    // priority), then finalize the union into the bakeable transition set.
+    TransitionBuildResult assembleTransitions(const ww::build::CollisionModel &collision,
+                                              const ww::build::CollisionLookup &lookup,
+                                              const std::string &datasetDir)
+    {
+        TransitionBuildResult out;
+        const ww::data::LoadedDatasets datasets = ww::data::loadDatasets(datasetDir);
+        out.datasetHash = datasets.datasetHash;
+
+        const ww::data::TransitionModel derived =
+            ww::data::deriveVerticalTransitions(collision, datasets.model, &out.freshness);
+
+        ww::data::TransitionModel combined = datasets.model;
+        combined.transitions.insert(combined.transitions.end(),
+                                    derived.transitions.begin(), derived.transitions.end());
+
+        out.transitions = ww::data::finalizeTransitions(combined, lookup, &out.finalize);
+        return out;
+    }
+
     int runBuild(int argc, char **argv)
     {
         if (argc < 5)
@@ -69,18 +100,18 @@ namespace
             ww::build::CollisionModel collision = ww::build::buildCollisionModel(cache, &skipped);
             ww::build::CollisionLookup lookup(collision);
 
-            const ww::data::LoadedDatasets datasets = ww::data::loadDatasets(datasetDir);
-            ww::data::TransitionReport report;
-            const ww::data::TransitionModel transitions =
-                ww::data::finalizeTransitions(datasets.model, lookup, &report);
-
-            ww::build::writeArtifact(outPath, collision, transitions, 0u, datasets.datasetHash);
+            const TransitionBuildResult tr = assembleTransitions(collision, lookup, datasetDir);
+            ww::build::writeArtifact(outPath, collision, tr.transitions, 0u, tr.datasetHash);
 
             std::printf("build: %zu squares, %zu/%zu transitions -> %s\n",
-                        collision.squares.size(), report.kept, report.input, outPath.c_str());
+                        collision.squares.size(), tr.finalize.kept, tr.finalize.input,
+                        outPath.c_str());
             std::printf("  dropped: dangling=%zu selfloop=%zu dup=%zu | snapped dest=%zu\n",
-                        report.droppedDangling, report.droppedSelfLoop, report.droppedDuplicate,
-                        report.snappedDest);
+                        tr.finalize.droppedDangling, tr.finalize.droppedSelfLoop,
+                        tr.finalize.droppedDuplicate, tr.finalize.snappedDest);
+            std::printf("  freshness: %zu vertical pairs -> +%zu derived (%zu suppressed by datasets)\n",
+                        tr.freshness.pairsFound, tr.freshness.kept,
+                        tr.freshness.droppedDatasetConflict);
             return 0;
         }
         catch (const std::exception &e)

@@ -146,6 +146,7 @@ set(wwbuild_SOURCES
 	"src/build/CollisionLookup.cpp"
 	"src/build/main.cpp"
 	"src/data/DatasetLoader.cpp"
+	"src/data/FreshnessDeriver.cpp"
 	"src/data/TransitionBuilder.cpp"
 )
 
