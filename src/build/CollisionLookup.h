@@ -25,6 +25,11 @@ namespace ww::build
         // present and the tile carries no whole-tile blocker.
         bool isWalkable(int worldX, int worldY, int plane) const;
 
+        // Raw directional clip word at a tile. Absent square, out-of-range plane,
+        // or out-of-range index all return CLIP_BLOCKED, so a step into them
+        // always fails the wall/stand checks the caller performs.
+        uint32_t clipAt(int worldX, int worldY, int plane) const;
+
     private:
         const CollisionModel &model;
         std::unordered_map<uint32_t, std::size_t> squareIndex;

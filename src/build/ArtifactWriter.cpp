@@ -153,6 +153,88 @@ namespace ww::build
             return section;
         }
 
+        void appendAreaNodes(std::vector<uint8_t> &section, const AreaGraphModel &model)
+        {
+            for (const AreaNode &node : model.nodes)
+            {
+                ww::format::AreaNodeRecord rec{};
+                rec.plane = node.plane;
+                rec.tileCount = node.tileCount;
+                rec.centroidX = node.centroidX;
+                rec.centroidY = node.centroidY;
+                rec.minX = node.minX;
+                rec.minY = node.minY;
+                rec.maxX = node.maxX;
+                rec.maxY = node.maxY;
+                appendPod(section, rec);
+            }
+        }
+
+        void appendAreaEdges(std::vector<uint8_t> &section, const AreaGraphModel &model)
+        {
+            for (const AreaEdge &edge : model.edges)
+            {
+                ww::format::AreaEdgeRecord rec{};
+                rec.fromArea = edge.fromArea;
+                rec.toArea = edge.toArea;
+                rec.transitionIndex = edge.transitionIndex;
+                rec.cost = edge.cost;
+                appendPod(section, rec);
+            }
+        }
+
+        // Abstraction section payload: header + node table + edge table + grid
+        // table + per-grid zlib blobs.
+        std::vector<uint8_t> buildAbstractionSection(const AreaGraphModel &model)
+        {
+            using namespace ww::format;
+
+            std::vector<std::vector<uint8_t>> blobs;
+            blobs.reserve(model.grids.size());
+            for (const AreaGrid &grid : model.grids)
+            {
+                const auto *raw = reinterpret_cast<const uint8_t *>(grid.ids.data());
+                blobs.push_back(zlibCompress(raw, grid.ids.size() * sizeof(int32_t)));
+            }
+
+            AbstractionSectionHeader header{};
+            header.areaCount = static_cast<uint32_t>(model.nodes.size());
+            header.edgeCount = static_cast<uint32_t>(model.edges.size());
+            header.gridCount = static_cast<uint32_t>(model.grids.size());
+
+            const uint32_t nodesBytes = header.areaCount * static_cast<uint32_t>(sizeof(AreaNodeRecord));
+            const uint32_t edgesBytes = header.edgeCount * static_cast<uint32_t>(sizeof(AreaEdgeRecord));
+            const uint32_t gridsBytes = header.gridCount * static_cast<uint32_t>(sizeof(AreaGridEntry));
+            const uint32_t blobBase =
+                static_cast<uint32_t>(sizeof(AbstractionSectionHeader)) + nodesBytes + edgesBytes + gridsBytes;
+
+            std::vector<uint8_t> section;
+            appendPod(section, header);
+            appendAreaNodes(section, model);
+            appendAreaEdges(section, model);
+
+            uint32_t blobCursor = blobBase;
+            for (std::size_t i = 0; i < model.grids.size(); ++i)
+            {
+                const AreaGrid &grid = model.grids[i];
+                AreaGridEntry entry{};
+                entry.squareX = static_cast<uint16_t>(grid.squareX);
+                entry.squareY = static_cast<uint16_t>(grid.squareY);
+                entry.plane = static_cast<uint8_t>(grid.plane);
+                entry.blobOffset = blobCursor;
+                entry.blobLength = static_cast<uint32_t>(blobs[i].size());
+                entry.rawLength = static_cast<uint32_t>(grid.ids.size() * sizeof(int32_t));
+                appendPod(section, entry);
+                blobCursor += static_cast<uint32_t>(blobs[i].size());
+            }
+
+            for (const std::vector<uint8_t> &blob : blobs)
+            {
+                section.insert(section.end(), blob.begin(), blob.end());
+            }
+            return section;
+        }
+
         void writeFile(const std::string &path, const std::vector<uint8_t> &bytes)
         {
             std::ofstream stream(path, std::ios::binary | std::ios::trunc);
@@ -171,6 +253,7 @@ namespace ww::build
 
     void writeArtifact(const std::string &path, const CollisionModel &collision,
                        const ww::data::TransitionModel &transitions,
+                       const AreaGraphModel &abstraction,
                        uint32_t cacheRevision, uint32_t datasetHash)
     {
         using namespace ww::format;
@@ -180,6 +263,10 @@ namespace ww::build
         if (!transitions.transitions.empty())
         {
             sections.push_back({SectionId::Transitions, buildTransitionSection(transitions)});
+        }
+        if (!abstraction.nodes.empty())
+        {
+            sections.push_back({SectionId::Abstraction, buildAbstractionSection(abstraction)});
         }
 
         const uint32_t sectionCount = static_cast<uint32_t>(sections.size());

@@ -1,3 +1,4 @@
+#include "build/AreaGraph.h"
 #include "build/ArtifactWriter.h"
 #include "build/CacheClient.h"
 #include "build/CollisionBuilder.h"
@@ -15,8 +16,9 @@
 
 // wwbuild — WorldWalker's offline artifact builder. Decodes the RS cache and
 // datasets into the baked artifact the runtime planner loads. `collision` bakes
-// just the directional clip grid; `build` adds the ingested transitions section.
-// Abstraction, ALT, and the teleport map land in subsequent Phase 2 sub-steps.
+// just the directional clip grid; `build` adds the transitions and abstraction
+// (area-graph) sections. ALT landmarks and the teleport-allowed map land in
+// subsequent Phase 2 sub-steps.
 namespace
 {
     int usage()
@@ -42,7 +44,8 @@ namespace
             ww::build::CacheClient cache(cacheDir, live);
             int skipped = 0;
             ww::build::CollisionModel model = ww::build::buildCollisionModel(cache, &skipped);
-            ww::build::writeArtifact(outPath, model, ww::data::TransitionModel{}, 0u, 0u);
+            ww::build::writeArtifact(outPath, model, ww::data::TransitionModel{},
+                                     ww::build::AreaGraphModel{}, 0u, 0u);
             std::printf("collision: %zu squares written to %s (%d archives skipped)\n",
                         model.squares.size(), outPath.c_str(), skipped);
             return 0;
@@ -101,7 +104,12 @@ namespace
             ww::build::CollisionLookup lookup(collision);
 
             const TransitionBuildResult tr = assembleTransitions(collision, lookup, datasetDir);
-            ww::build::writeArtifact(outPath, collision, tr.transitions, 0u, tr.datasetHash);
+
+            ww::build::AreaGraphReport ag;
+            const ww::build::AreaGraphModel abstraction =
+                ww::build::buildAreaGraph(collision, lookup, tr.transitions, &ag);
+
+            ww::build::writeArtifact(outPath, collision, tr.transitions, abstraction, 0u, tr.datasetHash);
 
             std::printf("build: %zu squares, %zu/%zu transitions -> %s\n",
                         collision.squares.size(), tr.finalize.kept, tr.finalize.input,
@@ -112,6 +120,11 @@ namespace
             std::printf("  freshness: %zu vertical pairs -> +%zu derived (%zu suppressed by datasets)\n",
                         tr.freshness.pairsFound, tr.freshness.kept,
                         tr.freshness.droppedDatasetConflict);
+            std::printf("  areas: %zu nodes, %zu edges, %zu grids (largest %zu tiles)\n",
+                        ag.areaCount, ag.edgeCount, ag.gridCount, ag.largestArea);
+            std::printf("  adjacency: %zu transitions linked | unresolved origin=%zu dest=%zu | intra=%zu global=%zu\n",
+                        ag.resolvedTransitions, ag.unresolvedOrigin, ag.unresolvedDest,
+                        ag.intraAreaSkipped, ag.globalSkipped);
             return 0;
         }
         catch (const std::exception &e)

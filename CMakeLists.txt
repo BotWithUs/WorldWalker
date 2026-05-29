@@ -140,6 +140,7 @@ set_target_properties(worldwalker PROPERTIES
 # Target: wwbuild
 set(wwbuild_SOURCES
 	cmake.toml
+	"src/build/AreaGraph.cpp"
 	"src/build/ArtifactWriter.cpp"
 	"src/build/CacheClient.cpp"
 	"src/build/CollisionBuilder.cpp"

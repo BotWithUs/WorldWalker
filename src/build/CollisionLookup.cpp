@@ -25,16 +25,16 @@ namespace ww::build
         }
     }
 
-    bool CollisionLookup::isWalkable(int worldX, int worldY, int plane) const
+    uint32_t CollisionLookup::clipAt(int worldX, int worldY, int plane) const
     {
         if (plane < 0 || plane >= format::kClipPlanes)
         {
-            return false;
+            return static_cast<uint32_t>(format::CLIP_BLOCKED);
         }
         const auto it = squareIndex.find(squareKey(worldX >> 6, worldY >> 6));
         if (it == squareIndex.end())
         {
-            return false;
+            return static_cast<uint32_t>(format::CLIP_BLOCKED);
         }
         const SquareClip &sq = model.squares[it->second];
         const std::size_t planeBase =
@@ -44,8 +44,13 @@ namespace ww::build
         const std::size_t idx = planeBase + local;
         if (idx >= sq.words.size())
         {
-            return false;
+            return static_cast<uint32_t>(format::CLIP_BLOCKED);
         }
-        return (sq.words[idx] & format::kClipStandBlockedMask) == 0u;
+        return sq.words[idx];
+    }
+
+    bool CollisionLookup::isWalkable(int worldX, int worldY, int plane) const
+    {
+        return (clipAt(worldX, worldY, plane) & format::kClipStandBlockedMask) == 0u;
     }
 }

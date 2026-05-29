@@ -154,6 +154,69 @@ namespace ww::format
         int32_t  c;        // Click: slot/option
     };
 
+    // ---- Abstraction section -------------------------------------------------
+    //
+    // A flood-filled area graph over the collision grid. An "area" is a maximal
+    // set of tiles on one plane reachable from one another by cardinal walking
+    // (wall edges respected); within an area any tile reaches any other by
+    // walking, so the planner only needs tile-level search inside a single area.
+    // Areas on different planes are always distinct. The area id is the index of
+    // its AreaNodeRecord (0..areaCount-1).
+    //
+    // Payload layout (all offsets relative to the section start):
+    //   AbstractionSectionHeader
+    //   AreaNodeRecord[areaCount]            (indexed by area id)
+    //   AreaEdgeRecord[edgeCount]            (sorted by fromArea, then toArea)
+    //   AreaGridEntry[gridCount]             (sorted by squareY, squareX, plane)
+    //   <blob region>                        (zlib streams, one per grid entry)
+    //
+    // Edges are derived from the Transitions section: a local-origin transition
+    // links the area(s) touching its origin tile to the area at its dest tile;
+    // transitionIndex points back into TransitionRecord[]. Global-origin
+    // transitions (teleports/spells) are not edges here — the planner seeds them
+    // at the search frontier. Each grid blob is an int32 area id per tile of one
+    // (square, plane), x-major then y (id -1 for blocked / unreachable tiles).
+
+    struct AbstractionSectionHeader
+    {
+        uint32_t areaCount;
+        uint32_t edgeCount;
+        uint32_t gridCount;   // number of (square, plane) area-id grids
+        uint32_t reserved;    // alignment / future flags
+    };
+
+    struct AreaNodeRecord
+    {
+        uint8_t  plane;
+        uint8_t  pad[3];
+        uint32_t tileCount;
+        int32_t  centroidX;   // mean tile x (may itself be blocked)
+        int32_t  centroidY;
+        int32_t  minX;        // bounding box, inclusive
+        int32_t  minY;
+        int32_t  maxX;
+        int32_t  maxY;
+    };
+
+    struct AreaEdgeRecord
+    {
+        int32_t  fromArea;
+        int32_t  toArea;
+        uint32_t transitionIndex;  // index into the Transitions section's TransitionRecord[]
+        float    cost;             // transition tick cost (intra-area walk cost is estimated by the planner)
+    };
+
+    struct AreaGridEntry
+    {
+        uint16_t squareX;
+        uint16_t squareY;
+        uint8_t  plane;
+        uint8_t  pad[3];
+        uint32_t blobOffset;  // byte offset (within the section) of this grid's zlib stream
+        uint32_t blobLength;  // compressed byte length
+        uint32_t rawLength;   // uncompressed byte length (== kClipSize * kClipSize * 4)
+    };
+
     static_assert(sizeof(ArtifactHeader) == 64, "ArtifactHeader must be 64 bytes");
     static_assert(sizeof(SectionEntry) == 24, "SectionEntry must be 24 bytes");
     static_assert(sizeof(CollisionSectionHeader) == 8, "CollisionSectionHeader must be 8 bytes");
@@ -162,6 +225,10 @@ namespace ww::format
     static_assert(sizeof(TransitionRecord) == 56, "TransitionRecord must be 56 bytes");
     static_assert(sizeof(RequirementRecord) == 12, "RequirementRecord must be 12 bytes");
     static_assert(sizeof(ChainStepRecord) == 16, "ChainStepRecord must be 16 bytes");
+    static_assert(sizeof(AbstractionSectionHeader) == 16, "AbstractionSectionHeader must be 16 bytes");
+    static_assert(sizeof(AreaNodeRecord) == 32, "AreaNodeRecord must be 32 bytes");
+    static_assert(sizeof(AreaEdgeRecord) == 16, "AreaEdgeRecord must be 16 bytes");
+    static_assert(sizeof(AreaGridEntry) == 20, "AreaGridEntry must be 20 bytes");
 }
 
 #endif  // WORLDWALKER_FORMAT_ARTIFACT_H
