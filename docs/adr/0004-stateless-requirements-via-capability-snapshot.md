@@ -1,0 +1,5 @@
+# WorldWalker is stateless; requirements filtered via a caller-supplied capability snapshot
+
+WorldWalker's **Planner** reads no game state of its own (the Executor, ADR 0008, touches the game only through consumer callbacks). Transition requirements are baked into the artifact as structured predicates where the data supplies them — `skill{id, level}`, `items[{id, count}]`, `varbit{id, value}`, membership (chiefly on spell/item/lodestone teleports; scenery and fairy-ring transitions are usually unconditional). At query time the caller passes a **capability snapshot** (skill levels, item/rune counts, varbit values, membership, unlocks, enabled transition kinds) and the search prunes edges the player can't meet.
+
+This keeps WorldWalker a pure function of (artifact + start + goal + snapshot), which is what lets one immutable artifact be shared across many clients/scripts in one JVM. We rejected having WorldWalker read live game state (couples it to the client, breaks purity and sharing) and rejected exposing raw predicates for the caller to evaluate (forces every consumer to re-implement skill/item/varbit semantics).

@@ -1,0 +1,5 @@
+# Collision derived from the cache; transitions sourced from external datasets
+
+Walkability splits along what the cache can and cannot yield. The per-tile **collision map is derived fresh from the RS3 cache** every build (via an extended NXTCacheLibrary map decoder), so it tracks weekly game updates — we deliberately do not consume any prebuilt collision file as a runtime input. **Transitions** (ladders, stairs, doors, fairy rings, boats, npc/object teleports, and spell/item/lodestone teleports) are **not** derivable from the cache — their destinations and requirements live in server scripts — so they come from external curated datasets (the Gibson transport data and the `nav_data` transport_links / teleport_chains / spell_teleports / item_teleports files).
+
+Cache derivation auto-pairs only unambiguous vertical ladders/stairs, purely as a freshness fallback for geometry added before the datasets catch up; the datasets are authoritative on conflict. We rejected relying on the datasets for collision (goes stale, the whole point was freshness) and rejected trying to derive transitions from the cache (the destinations simply aren't there).

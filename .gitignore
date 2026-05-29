@@ -1,0 +1,17 @@
+# Build outputs
+/build/
+/cmake-build-*/
+
+# Local Release cmkr generator (the cmkr.cmake bootstrap builds a Debug cmkr
+# that asserts on this project's cmake.toml; we use a prebuilt Release one).
+/tools/
+
+# IDE files
+/.idea/
+/.vs/
+/.vscode/
+
+# OS
+*.swp
+.DS_Store
+Thumbs.db
