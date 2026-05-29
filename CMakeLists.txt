@@ -98,12 +98,15 @@ endif()
 # Packages
 find_package(ZLIB REQUIRED)
 
+find_package(nlohmann_json REQUIRED)
+
 # Target: worldwalker
 set(worldwalker_SOURCES
 	cmake.toml
 	"src/c_api/worldwalker_c.cpp"
 	"src/c_api/worldwalker_c.h"
 	"src/format/Artifact.h"
+	"src/format/ClipFlags.h"
 	"src/format/Zlib.cpp"
 	"src/format/Zlib.h"
 )
@@ -140,7 +143,10 @@ set(wwbuild_SOURCES
 	"src/build/ArtifactWriter.cpp"
 	"src/build/CacheClient.cpp"
 	"src/build/CollisionBuilder.cpp"
+	"src/build/CollisionLookup.cpp"
 	"src/build/main.cpp"
+	"src/data/DatasetLoader.cpp"
+	"src/data/TransitionBuilder.cpp"
 )
 
 add_executable(wwbuild)
@@ -159,6 +165,7 @@ target_include_directories(wwbuild PRIVATE
 target_link_libraries(wwbuild PRIVATE
 	worldwalker
 	NXTCache::NXTCache
+	nlohmann_json::nlohmann_json
 )
 
 get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)

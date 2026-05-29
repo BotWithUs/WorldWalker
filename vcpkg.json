@@ -3,7 +3,8 @@
   "$cmkr-url": "https://github.com/build-cpp/cmkr",
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "dependencies": [
-    "zlib"
+    "zlib",
+    "nlohmann-json"
   ],
   "description": "Speed-focused C++ pathfinding library for RuneScape 3 (NXT engine)",
   "name": "worldwalker",

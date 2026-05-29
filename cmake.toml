@@ -48,10 +48,11 @@ endif()
 
 [vcpkg]
 version = "2025.06.13"
-packages = ["zlib"]
+packages = ["zlib", "nlohmann-json"]
 
 [find-package]
 ZLIB = { }
+nlohmann_json = { }
 
 # ---- Runtime query library (planner + executor + C ABI) --------------------
 # Consumers (the Java host via Panama, others) load this. The offline builder
@@ -80,15 +81,16 @@ properties.WINDOWS_EXPORT_ALL_SYMBOLS = true
 
 # ---- Offline artifact builder ----------------------------------------------
 # Decodes the cache, ingests datasets, builds the abstract graph + ALT tables,
-# and serializes the baked artifact. src/data/ (dataset ingest) is added in
-# Phase 2.
+# and serializes the baked artifact. src/data/ holds the dataset ingest (JSON via
+# nlohmann_json) — build-time only, so it links here rather than into worldwalker.
 [target.wwbuild]
 type = "executable"
 sources = [
     "src/build/*.cpp",
+    "src/data/*.cpp",
 ]
 include-directories = ["src"]
-link-libraries = ["worldwalker", "NXTCache::NXTCache"]
+link-libraries = ["worldwalker", "NXTCache::NXTCache", "nlohmann_json::nlohmann_json"]
 compile-features = ["cxx_std_23"]
 
 # ---- Dev harness (queries + benchmarks) ------------------------------------

@@ -84,10 +84,84 @@ namespace ww::format
         uint32_t rawLength;   // uncompressed byte length (== kClipWordsPerSquare * 4)
     };
 
+    // ---- Transitions section -------------------------------------------------
+    //
+    // Payload layout (all offsets relative to the section start):
+    //   TransitionSectionHeader
+    //   TransitionRecord[transitionCount]
+    //   RequirementRecord[requirementCount]   (one shared pool)
+    //   ChainStepRecord[chainStepCount]       (one shared pool)
+    //
+    // Each TransitionRecord owns a contiguous run in the requirement pool
+    // ([requirementStart, requirementStart + requirementCount)) and another in the
+    // chain pool, so records stay fixed-size and the reader can index the section
+    // directly without offset chasing. The section is stored uncompressed (small).
+
+    struct TransitionSectionHeader
+    {
+        uint32_t transitionCount;
+        uint32_t requirementCount;  // total entries in the requirement pool
+        uint32_t chainStepCount;    // total entries in the chain-step pool
+        uint32_t reserved;          // alignment / future flags
+    };
+
+    // bit0 of TransitionRecord.flags: origin is global (works from anywhere; the
+    // origin* fields are unused for such a record).
+    inline constexpr uint8_t kTransitionFlagGlobalOrigin = 0x1u;
+
+    // Mirrors ww::data::Transition. kind is ww::data::TransitionKind; code is a
+    // fairy-ring code, null-padded, all-zero when not applicable. For local-origin
+    // kinds (flag bit0 clear) origin* is the interactable object's tile — reach an
+    // adjacent walkable tile, then interact; the tile itself may be blocked.
+    struct TransitionRecord
+    {
+        uint8_t  kind;
+        uint8_t  flags;
+        uint8_t  originPlane;
+        uint8_t  destPlane;
+        int32_t  originX;
+        int32_t  originY;
+        int32_t  destX;
+        int32_t  destY;
+        int32_t  objectId;
+        uint8_t  shape;
+        uint8_t  rotation;
+        uint8_t  optionIndex;
+        uint8_t  pad0;
+        char     code[4];
+        float    cost;
+        float    costQuick;
+        uint32_t requirementStart;
+        uint32_t requirementCount;
+        uint32_t chainStart;
+        uint32_t chainCount;
+    };
+
+    struct RequirementRecord
+    {
+        uint8_t  kind;     // ww::data::RequirementKind
+        uint8_t  pad[3];
+        int32_t  id;
+        int32_t  amount;   // skill level / item count / varbit|varp value
+    };
+
+    struct ChainStepRecord
+    {
+        uint8_t  kind;     // ww::data::ChainStepKind
+        uint8_t  pad[3];
+        int32_t  a;        // Click: interface; Wait: ticks
+        int32_t  b;        // Click: component
+        int32_t  c;        // Click: slot/option
+    };
+
     static_assert(sizeof(ArtifactHeader) == 64, "ArtifactHeader must be 64 bytes");
     static_assert(sizeof(SectionEntry) == 24, "SectionEntry must be 24 bytes");
     static_assert(sizeof(CollisionSectionHeader) == 8, "CollisionSectionHeader must be 8 bytes");
     static_assert(sizeof(CollisionSquareEntry) == 20, "CollisionSquareEntry must be 20 bytes");
+    static_assert(sizeof(TransitionSectionHeader) == 16, "TransitionSectionHeader must be 16 bytes");
+    static_assert(sizeof(TransitionRecord) == 56, "TransitionRecord must be 56 bytes");
+    static_assert(sizeof(RequirementRecord) == 12, "RequirementRecord must be 12 bytes");
+    static_assert(sizeof(ChainStepRecord) == 16, "ChainStepRecord must be 16 bytes");
 }
 
 #endif  // WORLDWALKER_FORMAT_ARTIFACT_H
