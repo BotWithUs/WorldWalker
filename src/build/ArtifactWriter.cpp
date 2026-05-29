@@ -235,6 +235,49 @@ namespace ww::build
             return section;
         }
 
+        // ALT landmarks section payload: header + landmark area-id list + two
+        // table descriptors + the two zlib-compressed distance tables.
+        std::vector<uint8_t> buildAltSection(const AltLandmarksModel &model)
+        {
+            using namespace ww::format;
+            const auto *fromRaw = reinterpret_cast<const uint8_t *>(model.fromLandmark.data());
+            const auto *toRaw = reinterpret_cast<const uint8_t *>(model.toLandmark.data());
+            const std::vector<uint8_t> fromBlob =
+                zlibCompress(fromRaw, model.fromLandmark.size() * sizeof(float));
+            const std::vector<uint8_t> toBlob =
+                zlibCompress(toRaw, model.toLandmark.size() * sizeof(float));
+
+            AltLandmarksSectionHeader header{};
+            header.landmarkCount = static_cast<uint32_t>(model.landmarks.size());
+            header.areaCount = model.areaCount;
+
+            const uint32_t idsBytes = static_cast<uint32_t>(model.landmarks.size() * sizeof(int32_t));
+            const uint32_t descBytes = 2u * static_cast<uint32_t>(sizeof(AltTableDescriptor));
+            const uint32_t blobBase =
+                static_cast<uint32_t>(sizeof(AltLandmarksSectionHeader)) + idsBytes + descBytes;
+
+            AltTableDescriptor fromDesc{};
+            fromDesc.blobOffset = blobBase;
+            fromDesc.blobLength = static_cast<uint32_t>(fromBlob.size());
+            fromDesc.rawLength = static_cast<uint32_t>(model.fromLandmark.size() * sizeof(float));
+            AltTableDescriptor toDesc{};
+            toDesc.blobOffset = blobBase + static_cast<uint32_t>(fromBlob.size());
+            toDesc.blobLength = static_cast<uint32_t>(toBlob.size());
+            toDesc.rawLength = static_cast<uint32_t>(model.toLandmark.size() * sizeof(float));
+
+            std::vector<uint8_t> section;
+            appendPod(section, header);
+            for (int32_t id : model.landmarks)
+            {
+                appendPod(section, id);
+            }
+            appendPod(section, fromDesc);
+            appendPod(section, toDesc);
+            section.insert(section.end(), fromBlob.begin(), fromBlob.end());
+            section.insert(section.end(), toBlob.begin(), toBlob.end());
+            return section;
+        }
+
         void writeFile(const std::string &path, const std::vector<uint8_t> &bytes)
         {
             std::ofstream stream(path, std::ios::binary | std::ios::trunc);
@@ -254,6 +297,7 @@ namespace ww::build
     void writeArtifact(const std::string &path, const CollisionModel &collision,
                        const ww::data::TransitionModel &transitions,
                        const AreaGraphModel &abstraction,
+                       const AltLandmarksModel &altLandmarks,
                        uint32_t cacheRevision, uint32_t datasetHash)
     {
         using namespace ww::format;
@@ -267,6 +311,10 @@ namespace ww::build
         if (!abstraction.nodes.empty())
         {
             sections.push_back({SectionId::Abstraction, buildAbstractionSection(abstraction)});
+        }
+        if (!altLandmarks.landmarks.empty())
+        {
+            sections.push_back({SectionId::AltLandmarks, buildAltSection(altLandmarks)});
         }
 
         const uint32_t sectionCount = static_cast<uint32_t>(sections.size());

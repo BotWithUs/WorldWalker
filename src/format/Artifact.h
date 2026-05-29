@@ -217,6 +217,44 @@ namespace ww::format
         uint32_t rawLength;   // uncompressed byte length (== kClipSize * kClipSize * 4)
     };
 
+    // ---- ALT landmarks section -----------------------------------------------
+    //
+    // Landmark distance tables for the ALT (A*, Landmarks, Triangle-inequality)
+    // heuristic over the area graph (Abstraction section). A small set of
+    // landmark areas is chosen; Dijkstra from each precomputes, for every area,
+    // the cost to and from that landmark over the baked AreaEdge graph
+    // (point-to-point transitions; intra-area walk cost is omitted, so the
+    // distances are lower bounds — exactly what an admissible heuristic needs).
+    // Global teleports are not in this graph; the planner seeds them at the
+    // frontier. The graph is directed, so two tables are stored: fromLandmark
+    // (landmark -> area) and toLandmark (area -> landmark). Unreachable entries
+    // are stored as +infinity.
+    //
+    // Payload layout (all offsets relative to the section start):
+    //   AltLandmarksSectionHeader
+    //   int32 landmarkArea[landmarkCount]    (area id of each landmark)
+    //   AltTableDescriptor fromLandmark
+    //   AltTableDescriptor toLandmark
+    //   <blob region>                        (fromLandmark zlib stream, then toLandmark)
+    //
+    // Each decompressed table holds landmarkCount * areaCount float32 values in
+    // landmark-major order: table[landmark * areaCount + area].
+
+    struct AltLandmarksSectionHeader
+    {
+        uint32_t landmarkCount;
+        uint32_t areaCount;     // must equal the Abstraction section's areaCount
+        uint32_t reserved[2];
+    };
+
+    struct AltTableDescriptor
+    {
+        uint32_t blobOffset;  // byte offset (within the section) of the zlib stream
+        uint32_t blobLength;  // compressed byte length
+        uint32_t rawLength;   // uncompressed byte length (== landmarkCount * areaCount * 4)
+        uint32_t reserved;
+    };
+
     static_assert(sizeof(ArtifactHeader) == 64, "ArtifactHeader must be 64 bytes");
     static_assert(sizeof(SectionEntry) == 24, "SectionEntry must be 24 bytes");
     static_assert(sizeof(CollisionSectionHeader) == 8, "CollisionSectionHeader must be 8 bytes");
@@ -229,6 +267,8 @@ namespace ww::format
     static_assert(sizeof(AreaNodeRecord) == 32, "AreaNodeRecord must be 32 bytes");
     static_assert(sizeof(AreaEdgeRecord) == 16, "AreaEdgeRecord must be 16 bytes");
     static_assert(sizeof(AreaGridEntry) == 20, "AreaGridEntry must be 20 bytes");
+    static_assert(sizeof(AltLandmarksSectionHeader) == 16, "AltLandmarksSectionHeader must be 16 bytes");
+    static_assert(sizeof(AltTableDescriptor) == 16, "AltTableDescriptor must be 16 bytes");
 }
 
 #endif  // WORLDWALKER_FORMAT_ARTIFACT_H

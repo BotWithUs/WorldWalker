@@ -1,3 +1,4 @@
+#include "build/AltLandmarks.h"
 #include "build/AreaGraph.h"
 #include "build/ArtifactWriter.h"
 #include "build/CacheClient.h"
@@ -8,6 +9,7 @@
 #include "data/TransitionBuilder.h"
 #include "data/Transitions.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -16,11 +18,14 @@
 
 // wwbuild — WorldWalker's offline artifact builder. Decodes the RS cache and
 // datasets into the baked artifact the runtime planner loads. `collision` bakes
-// just the directional clip grid; `build` adds the transitions and abstraction
-// (area-graph) sections. ALT landmarks and the teleport-allowed map land in
-// subsequent Phase 2 sub-steps.
+// just the directional clip grid; `build` adds the transitions, abstraction
+// (area-graph), and ALT landmark sections. The teleport-allowed map lands in a
+// subsequent Phase 2 sub-step.
 namespace
 {
+    // ALT landmark count — a tunable; well-spread landmarks over the area graph.
+    constexpr std::size_t kLandmarkCount = 16;
+
     int usage()
     {
         std::printf("wwbuild - WorldWalker offline artifact builder\n");
@@ -45,7 +50,7 @@ namespace
             int skipped = 0;
             ww::build::CollisionModel model = ww::build::buildCollisionModel(cache, &skipped);
             ww::build::writeArtifact(outPath, model, ww::data::TransitionModel{},
-                                     ww::build::AreaGraphModel{}, 0u, 0u);
+                                     ww::build::AreaGraphModel{}, ww::build::AltLandmarksModel{}, 0u, 0u);
             std::printf("collision: %zu squares written to %s (%d archives skipped)\n",
                         model.squares.size(), outPath.c_str(), skipped);
             return 0;
@@ -109,7 +114,12 @@ namespace
             const ww::build::AreaGraphModel abstraction =
                 ww::build::buildAreaGraph(collision, lookup, tr.transitions, &ag);
 
-            ww::build::writeArtifact(outPath, collision, tr.transitions, abstraction, 0u, tr.datasetHash);
+            ww::build::AltLandmarksReport alt;
+            const ww::build::AltLandmarksModel landmarks =
+                ww::build::buildAltLandmarks(abstraction, kLandmarkCount, &alt);
+
+            ww::build::writeArtifact(outPath, collision, tr.transitions, abstraction, landmarks,
+                                     0u, tr.datasetHash);
 
             std::printf("build: %zu squares, %zu/%zu transitions -> %s\n",
                         collision.squares.size(), tr.finalize.kept, tr.finalize.input,
@@ -125,6 +135,8 @@ namespace
             std::printf("  adjacency: %zu transitions linked | unresolved origin=%zu dest=%zu | intra=%zu global=%zu\n",
                         ag.resolvedTransitions, ag.unresolvedOrigin, ag.unresolvedDest,
                         ag.intraAreaSkipped, ag.globalSkipped);
+            std::printf("  landmarks: %zu chosen from %zu candidate areas | reachable entries=%zu\n",
+                        alt.landmarkCount, alt.candidateAreas, alt.reachablePairs);
             return 0;
         }
         catch (const std::exception &e)
