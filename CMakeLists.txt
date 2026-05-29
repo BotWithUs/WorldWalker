@@ -24,6 +24,11 @@ if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS cmake.toml)
 endif()
 
+# vcpkg settings
+# Match NXTCacheLibrary's triplet so the shared vcpkg binary cache (zlib) is
+# reused and the dynamic CRT is kept (required for loading from the JVM later).
+set(VCPKG_TARGET_TRIPLET x64-windows-static-md)
+
 if(NOT DEFINED CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 23)
 endif()
@@ -44,11 +49,63 @@ if(MSVC)
     add_compile_options(/W4 /WX /permissive- /Zc:preprocessor /utf-8)
 endif()
 
+# wwbuild decodes the RS cache through the NXTCache C ABI (offline only). Import
+# the prebuilt DLL + import lib produced by NXTCacheLibrary's `cmake -B build`.
+# Override NXTCACHE_BUILD_DIR to point elsewhere; it must contain
+# <CONFIG>/NXTCache.{lib,dll}. The DLL must be on PATH (or beside wwbuild.exe)
+# at run time.
+if(NOT DEFINED NXTCACHE_BUILD_DIR)
+    set(NXTCACHE_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../NXTCacheLibrary/build")
+endif()
+if(NOT TARGET NXTCache::NXTCache)
+    add_library(NXTCache::NXTCache SHARED IMPORTED)
+    set_target_properties(NXTCache::NXTCache PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/../NXTCacheLibrary/src"
+        IMPORTED_CONFIGURATIONS "DEBUG;RELEASE"
+        IMPORTED_IMPLIB_DEBUG     "${NXTCACHE_BUILD_DIR}/Debug/NXTCache.lib"
+        IMPORTED_LOCATION_DEBUG   "${NXTCACHE_BUILD_DIR}/Debug/NXTCache.dll"
+        IMPORTED_IMPLIB_RELEASE   "${NXTCACHE_BUILD_DIR}/Release/NXTCache.lib"
+        IMPORTED_LOCATION_RELEASE "${NXTCACHE_BUILD_DIR}/Release/NXTCache.dll"
+        MAP_IMPORTED_CONFIG_RELWITHDEBINFO "Release"
+        MAP_IMPORTED_CONFIG_MINSIZEREL "Release")
+endif()
+
+if(CMKR_ROOT_PROJECT AND NOT CMKR_DISABLE_VCPKG)
+	include(FetchContent)
+	# Fix warnings about DOWNLOAD_EXTRACT_TIMESTAMP
+	if(POLICY CMP0135)
+		cmake_policy(SET CMP0135 NEW)
+	endif()
+	message(STATUS "Fetching vcpkg (2025.06.13)...")
+	FetchContent_Declare(vcpkg
+		URL
+			"https://github.com/microsoft/vcpkg/archive/refs/tags/2025.06.13.tar.gz"
+		SUBBUILD_DIR
+			"CMakeFiles/vcpkg-subbuild"
+		SOURCE_DIR
+			vcpkg
+		BINARY_DIR
+			"CMakeFiles/vcpkg-build"
+	)
+	FetchContent_MakeAvailable(vcpkg)
+
+	if(CMAKE_HOST_SYSTEM_NAME STREQUAL Darwin AND CMAKE_OSX_ARCHITECTURES STREQUAL "")
+		set(CMAKE_OSX_ARCHITECTURES ${CMAKE_HOST_SYSTEM_PROCESSOR} CACHE STRING "" FORCE)
+	endif()
+	include("${vcpkg_SOURCE_DIR}/scripts/buildsystems/vcpkg.cmake")
+endif()
+
+# Packages
+find_package(ZLIB REQUIRED)
+
 # Target: worldwalker
 set(worldwalker_SOURCES
 	cmake.toml
 	"src/c_api/worldwalker_c.cpp"
 	"src/c_api/worldwalker_c.h"
+	"src/format/Artifact.h"
+	"src/format/Zlib.cpp"
+	"src/format/Zlib.h"
 )
 
 add_library(worldwalker SHARED)
@@ -68,6 +125,10 @@ target_include_directories(worldwalker PUBLIC
 	src
 )
 
+target_link_libraries(worldwalker PUBLIC
+	ZLIB::ZLIB
+)
+
 set_target_properties(worldwalker PROPERTIES
 	WINDOWS_EXPORT_ALL_SYMBOLS
 		ON
@@ -76,6 +137,9 @@ set_target_properties(worldwalker PROPERTIES
 # Target: wwbuild
 set(wwbuild_SOURCES
 	cmake.toml
+	"src/build/ArtifactWriter.cpp"
+	"src/build/CacheClient.cpp"
+	"src/build/CollisionBuilder.cpp"
 	"src/build/main.cpp"
 )
 
@@ -94,6 +158,7 @@ target_include_directories(wwbuild PRIVATE
 
 target_link_libraries(wwbuild PRIVATE
 	worldwalker
+	NXTCache::NXTCache
 )
 
 get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)

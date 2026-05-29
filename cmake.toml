@@ -8,6 +8,10 @@ version = "0.1.0"
 description = "Speed-focused C++ pathfinding library for RuneScape 3 (NXT engine)"
 languages = ["CXX"]
 cmake-before = """
+# Match NXTCacheLibrary's triplet so the shared vcpkg binary cache (zlib) is
+# reused and the dynamic CRT is kept (required for loading from the JVM later).
+set(VCPKG_TARGET_TRIPLET x64-windows-static-md)
+
 if(NOT DEFINED CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 23)
 endif()
@@ -19,7 +23,35 @@ if(MSVC)
     add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE)
     add_compile_options(/W4 /WX /permissive- /Zc:preprocessor /utf-8)
 endif()
+
+# wwbuild decodes the RS cache through the NXTCache C ABI (offline only). Import
+# the prebuilt DLL + import lib produced by NXTCacheLibrary's `cmake -B build`.
+# Override NXTCACHE_BUILD_DIR to point elsewhere; it must contain
+# <CONFIG>/NXTCache.{lib,dll}. The DLL must be on PATH (or beside wwbuild.exe)
+# at run time.
+if(NOT DEFINED NXTCACHE_BUILD_DIR)
+    set(NXTCACHE_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../NXTCacheLibrary/build")
+endif()
+if(NOT TARGET NXTCache::NXTCache)
+    add_library(NXTCache::NXTCache SHARED IMPORTED)
+    set_target_properties(NXTCache::NXTCache PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/../NXTCacheLibrary/src"
+        IMPORTED_CONFIGURATIONS "DEBUG;RELEASE"
+        IMPORTED_IMPLIB_DEBUG     "${NXTCACHE_BUILD_DIR}/Debug/NXTCache.lib"
+        IMPORTED_LOCATION_DEBUG   "${NXTCACHE_BUILD_DIR}/Debug/NXTCache.dll"
+        IMPORTED_IMPLIB_RELEASE   "${NXTCACHE_BUILD_DIR}/Release/NXTCache.lib"
+        IMPORTED_LOCATION_RELEASE "${NXTCACHE_BUILD_DIR}/Release/NXTCache.dll"
+        MAP_IMPORTED_CONFIG_RELWITHDEBINFO "Release"
+        MAP_IMPORTED_CONFIG_MINSIZEREL "Release")
+endif()
 """
+
+[vcpkg]
+version = "2025.06.13"
+packages = ["zlib"]
+
+[find-package]
+ZLIB = { }
 
 # ---- Runtime query library (planner + executor + C ABI) --------------------
 # Consumers (the Java host via Panama, others) load this. The offline builder
@@ -33,12 +65,15 @@ endif()
 [target.worldwalker]
 type = "shared"
 sources = [
+    "src/format/*.cpp",
     "src/c_api/*.cpp",
 ]
 headers = [
+    "src/format/*.h",
     "src/c_api/*.h",
 ]
 include-directories = ["src"]
+link-libraries = ["ZLIB::ZLIB"]
 compile-features = ["cxx_std_23"]
 compile-definitions = ["WORLDWALKER_BUILDING"]
 properties.WINDOWS_EXPORT_ALL_SYMBOLS = true
@@ -53,7 +88,7 @@ sources = [
     "src/build/*.cpp",
 ]
 include-directories = ["src"]
-link-libraries = ["worldwalker"]
+link-libraries = ["worldwalker", "NXTCache::NXTCache"]
 compile-features = ["cxx_std_23"]
 
 # ---- Dev harness (queries + benchmarks) ------------------------------------
