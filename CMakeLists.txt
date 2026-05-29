@@ -106,6 +106,8 @@ set(worldwalker_SOURCES
 	"src/c_api/worldwalker_c.cpp"
 	"src/c_api/worldwalker_c.h"
 	"src/format/Artifact.h"
+	"src/format/ArtifactReader.cpp"
+	"src/format/ArtifactReader.h"
 	"src/format/ClipFlags.h"
 	"src/format/Zlib.cpp"
 	"src/format/Zlib.h"

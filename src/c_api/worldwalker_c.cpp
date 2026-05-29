@@ -1,8 +1,21 @@
 #include "worldwalker_c.h"
 
+#include "format/ArtifactReader.h"
+
 #include <cstdlib>
+#include <exception>
 #include <string>
 #include <utility>
+
+// Backs the opaque ww_artifact handle with the loaded, validated artifact.
+struct ww_artifact
+{
+    explicit ww_artifact(const char *path) : reader(std::string(path))
+    {
+    }
+
+    ww::format::ArtifactReader reader;
+};
 
 namespace
 {
@@ -29,14 +42,25 @@ void ww_free(void *ptr)
 
 ww_artifact *ww_artifact_open(const char *path)
 {
-    setLastError(std::string("ww_artifact_open: artifact loading not yet implemented (Phase 3); path=")
-                 + (path != nullptr ? path : "(null)"));
-    return nullptr;
+    if (path == nullptr)
+    {
+        setLastError("ww_artifact_open: path is null");
+        return nullptr;
+    }
+    try
+    {
+        return new ww_artifact(path);
+    }
+    catch (const std::exception &e)
+    {
+        setLastError(std::string("ww_artifact_open: ") + e.what());
+        return nullptr;
+    }
 }
 
 void ww_artifact_close(ww_artifact *artifact)
 {
-    (void)artifact;
+    delete artifact;
 }
 
 ww_context_pool *ww_context_pool_create(ww_artifact *artifact, size_t count)
