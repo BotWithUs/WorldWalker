@@ -23,8 +23,8 @@ namespace ww::format
         Collision       = 1,   // directional clip words per populated map square
         Transitions     = 2,   // reserved — transitions ingest sub-step
         Abstraction     = 3,   // reserved — abstraction graph sub-step
-        AltLandmarks    = 4,   // reserved — ALT landmark tables sub-step
-        TeleportAllowed = 5,   // reserved — teleport-allowed map sub-step
+        AltLandmarks    = 4,   // ALT landmark distance tables over the area graph
+        TeleportAllowed = 5,   // wilderness regions + curated no-teleport zones
     };
 
     // File header at offset 0, fixed 64 bytes. cacheRevision + datasetHash let
@@ -255,6 +255,58 @@ namespace ww::format
         uint32_t reserved;
     };
 
+    // ---- Teleport-allowed section --------------------------------------------
+    //
+    // Whether a Global teleport may be initiated from a Tile. Two inputs, both
+    // axis-aligned tile boxes with inclusive bounds on planes [planeMin, planeMax]:
+    //   * Wilderness regions — the wilderness level rises with y as
+    //       level = ((y - baseY) / stepY) + baseLevel
+    //     inside the box. A teleport is blocked where that level exceeds the
+    //     teleport's wilderness cutoff. defaultWildernessCutoff (20 for the
+    //     standard spellbook) is the single cutoff the runtime applies until a
+    //     per-teleport cutoff Requirement exists.
+    //   * No-teleport zones — teleporting is blocked unconditionally inside them,
+    //     independent of wilderness level. A tuning list; may be empty.
+    // Every other Tile is teleport-allowed. Stored uncompressed (a few boxes).
+    //
+    // Payload layout (all offsets relative to the section start):
+    //   TeleportAllowedSectionHeader
+    //   WildernessRegion[wildernessCount]
+    //   NoTeleZone[noTeleCount]
+
+    struct TeleportAllowedSectionHeader
+    {
+        uint32_t wildernessCount;
+        uint32_t noTeleCount;
+        uint32_t defaultWildernessCutoff;  // wilderness level at/below which standard teleports work
+        uint32_t reserved;
+    };
+
+    struct WildernessRegion
+    {
+        int32_t  minX;       // bounding box, inclusive tile coordinates
+        int32_t  minY;
+        int32_t  maxX;
+        int32_t  maxY;
+        int32_t  baseY;      // y at which the level equals baseLevel
+        int32_t  baseLevel;  // wilderness level at baseY (typically 1)
+        int32_t  stepY;      // tiles of y per wilderness level (typically 8)
+        uint8_t  planeMin;
+        uint8_t  planeMax;
+        uint8_t  pad[2];     // zero-filled
+    };
+
+    struct NoTeleZone
+    {
+        int32_t  minX;       // bounding box, inclusive tile coordinates
+        int32_t  minY;
+        int32_t  maxX;
+        int32_t  maxY;
+        uint8_t  planeMin;
+        uint8_t  planeMax;
+        uint8_t  pad[2];     // zero-filled
+    };
+
     static_assert(sizeof(ArtifactHeader) == 64, "ArtifactHeader must be 64 bytes");
     static_assert(sizeof(SectionEntry) == 24, "SectionEntry must be 24 bytes");
     static_assert(sizeof(CollisionSectionHeader) == 8, "CollisionSectionHeader must be 8 bytes");
@@ -269,6 +321,9 @@ namespace ww::format
     static_assert(sizeof(AreaGridEntry) == 20, "AreaGridEntry must be 20 bytes");
     static_assert(sizeof(AltLandmarksSectionHeader) == 16, "AltLandmarksSectionHeader must be 16 bytes");
     static_assert(sizeof(AltTableDescriptor) == 16, "AltTableDescriptor must be 16 bytes");
+    static_assert(sizeof(TeleportAllowedSectionHeader) == 16, "TeleportAllowedSectionHeader must be 16 bytes");
+    static_assert(sizeof(WildernessRegion) == 32, "WildernessRegion must be 32 bytes");
+    static_assert(sizeof(NoTeleZone) == 20, "NoTeleZone must be 20 bytes");
 }
 
 #endif  // WORLDWALKER_FORMAT_ARTIFACT_H

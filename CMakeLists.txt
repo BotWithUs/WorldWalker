@@ -149,6 +149,7 @@ set(wwbuild_SOURCES
 	"src/build/main.cpp"
 	"src/data/DatasetLoader.cpp"
 	"src/data/FreshnessDeriver.cpp"
+	"src/data/TeleportZones.cpp"
 	"src/data/TransitionBuilder.cpp"
 )
 

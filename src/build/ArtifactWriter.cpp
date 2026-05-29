@@ -1,5 +1,6 @@
 #include "build/ArtifactWriter.h"
 
+#include "data/TeleportZones.h"
 #include "data/Transitions.h"
 #include "format/Artifact.h"
 #include "format/Zlib.h"
@@ -278,6 +279,46 @@ namespace ww::build
             return section;
         }
 
+        // Teleport-allowed section payload: header + wilderness region table +
+        // no-teleport zone table. Stored uncompressed (a handful of boxes).
+        std::vector<uint8_t> buildTeleportSection(const ww::data::TeleportZonesModel &model)
+        {
+            using namespace ww::format;
+            TeleportAllowedSectionHeader header{};
+            header.wildernessCount = static_cast<uint32_t>(model.wilderness.size());
+            header.noTeleCount = static_cast<uint32_t>(model.noTele.size());
+            header.defaultWildernessCutoff = model.defaultWildernessCutoff;
+
+            std::vector<uint8_t> section;
+            appendPod(section, header);
+            for (const ww::data::WildernessRegion &w : model.wilderness)
+            {
+                WildernessRegion rec{};
+                rec.minX = w.minX;
+                rec.minY = w.minY;
+                rec.maxX = w.maxX;
+                rec.maxY = w.maxY;
+                rec.baseY = w.baseY;
+                rec.baseLevel = w.baseLevel;
+                rec.stepY = w.stepY;
+                rec.planeMin = w.planeMin;
+                rec.planeMax = w.planeMax;
+                appendPod(section, rec);
+            }
+            for (const ww::data::NoTeleZone &z : model.noTele)
+            {
+                NoTeleZone rec{};
+                rec.minX = z.minX;
+                rec.minY = z.minY;
+                rec.maxX = z.maxX;
+                rec.maxY = z.maxY;
+                rec.planeMin = z.planeMin;
+                rec.planeMax = z.planeMax;
+                appendPod(section, rec);
+            }
+            return section;
+        }
+
         void writeFile(const std::string &path, const std::vector<uint8_t> &bytes)
         {
             std::ofstream stream(path, std::ios::binary | std::ios::trunc);
@@ -298,6 +339,7 @@ namespace ww::build
                        const ww::data::TransitionModel &transitions,
                        const AreaGraphModel &abstraction,
                        const AltLandmarksModel &altLandmarks,
+                       const ww::data::TeleportZonesModel &teleportZones,
                        uint32_t cacheRevision, uint32_t datasetHash)
     {
         using namespace ww::format;
@@ -315,6 +357,10 @@ namespace ww::build
         if (!altLandmarks.landmarks.empty())
         {
             sections.push_back({SectionId::AltLandmarks, buildAltSection(altLandmarks)});
+        }
+        if (!teleportZones.wilderness.empty() || !teleportZones.noTele.empty())
+        {
+            sections.push_back({SectionId::TeleportAllowed, buildTeleportSection(teleportZones)});
         }
 
         const uint32_t sectionCount = static_cast<uint32_t>(sections.size());

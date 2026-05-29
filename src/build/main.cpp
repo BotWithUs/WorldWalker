@@ -6,6 +6,7 @@
 #include "build/CollisionLookup.h"
 #include "data/DatasetLoader.h"
 #include "data/FreshnessDeriver.h"
+#include "data/TeleportZones.h"
 #include "data/TransitionBuilder.h"
 #include "data/Transitions.h"
 
@@ -19,8 +20,8 @@
 // wwbuild — WorldWalker's offline artifact builder. Decodes the RS cache and
 // datasets into the baked artifact the runtime planner loads. `collision` bakes
 // just the directional clip grid; `build` adds the transitions, abstraction
-// (area-graph), and ALT landmark sections. The teleport-allowed map lands in a
-// subsequent Phase 2 sub-step.
+// (area-graph), ALT landmark, and teleport-allowed sections — the full Phase 2
+// artifact.
 namespace
 {
     // ALT landmark count — a tunable; well-spread landmarks over the area graph.
@@ -50,7 +51,8 @@ namespace
             int skipped = 0;
             ww::build::CollisionModel model = ww::build::buildCollisionModel(cache, &skipped);
             ww::build::writeArtifact(outPath, model, ww::data::TransitionModel{},
-                                     ww::build::AreaGraphModel{}, ww::build::AltLandmarksModel{}, 0u, 0u);
+                                     ww::build::AreaGraphModel{}, ww::build::AltLandmarksModel{},
+                                     ww::data::TeleportZonesModel{}, 0u, 0u);
             std::printf("collision: %zu squares written to %s (%d archives skipped)\n",
                         model.squares.size(), outPath.c_str(), skipped);
             return 0;
@@ -118,8 +120,10 @@ namespace
             const ww::build::AltLandmarksModel landmarks =
                 ww::build::buildAltLandmarks(abstraction, kLandmarkCount, &alt);
 
+            const ww::data::TeleportZonesModel teleportZones = ww::data::buildTeleportZones();
+
             ww::build::writeArtifact(outPath, collision, tr.transitions, abstraction, landmarks,
-                                     0u, tr.datasetHash);
+                                     teleportZones, 0u, tr.datasetHash);
 
             std::printf("build: %zu squares, %zu/%zu transitions -> %s\n",
                         collision.squares.size(), tr.finalize.kept, tr.finalize.input,
@@ -137,6 +141,9 @@ namespace
                         ag.intraAreaSkipped, ag.globalSkipped);
             std::printf("  landmarks: %zu chosen from %zu candidate areas | reachable entries=%zu\n",
                         alt.landmarkCount, alt.candidateAreas, alt.reachablePairs);
+            std::printf("  teleport zones: %zu wilderness regions, %zu no-tele zones (cutoff=%u)\n",
+                        teleportZones.wilderness.size(), teleportZones.noTele.size(),
+                        static_cast<unsigned>(teleportZones.defaultWildernessCutoff));
             return 0;
         }
         catch (const std::exception &e)
