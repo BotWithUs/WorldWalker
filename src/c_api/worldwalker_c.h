@@ -14,11 +14,14 @@
  *  - Threading: the artifact is immutable and safe to share across threads. A
  *    single search context (borrowed from a pool) is NOT safe for concurrent use;
  *    the pool hands out one per query. ww_last_error()'s buffer is thread-local.
+ *  - Naming: opaque handles are snake_case (ww_artifact, ww_context_pool). POD
+ *    wire shapes used by the executor are PascalCase (WwTile, WwGoal, WwEvent,
+ *    WwCallbacks…) so the C++ runtime layer can typedef-alias them and share
+ *    storage byte-for-byte — see exec/Callbacks.h.
  *
- * The query and executor surfaces (ww_query, ww_executor_run, the callback
- * vtable and POD structs) land in Phase 5 — see docs/adr/0008, 0010 and the
- * implementation plan. This header currently covers lifecycle, versioning,
- * error reporting, and memory only.
+ * The remaining query surface (ww_query and its result PODs) lands in Phase 5
+ * — see docs/adr/0008, 0010 and the implementation plan. The executor surface
+ * is published here as of Phase 4e.
  */
 
 #ifndef WORLDWALKER_C_H
@@ -86,6 +89,137 @@ WW_API ww_context_pool *ww_context_pool_create(ww_artifact *artifact, size_t cou
 /* Destroy a context pool. Safe to pass NULL. Must outlive every in-flight
    query that borrowed from it. */
 WW_API void ww_context_pool_destroy(ww_context_pool *pool);
+
+/* ---- Executor wire shapes ---------------------------------------------- */
+
+/* World tile coordinate. Mirrors the runtime planner's (x, y, plane) tuple. */
+typedef struct WwTile
+{
+    int32_t x;
+    int32_t y;
+    int32_t plane;
+} WwTile;
+
+/* Acceptance set for ww_executor_run. The query succeeds when the player's
+   tile lies within a Chebyshev radius around (x, y, plane) on the same plane.
+   radius == 0 demands the exact tile. A negative radius is treated as 0. */
+typedef struct WwGoal
+{
+    int32_t x;
+    int32_t y;
+    int32_t plane;
+    int32_t radius;
+} WwGoal;
+
+/* Terminal status of one ww_executor_run call. Returned as int32_t so the ABI
+   is enum-agnostic; values stay in lock-step with ww::exec::WwStatus. */
+#define WW_STATUS_ARRIVED   0
+#define WW_STATUS_FAILED    1
+#define WW_STATUS_CANCELLED 2
+
+/* Progress-event discriminator. Reserved values for future event kinds land
+   at the end; the host should treat an unknown kind as "ignore". Values stay
+   in lock-step with ww::exec::WwEventKind. */
+#define WW_EVENT_STEP_ADVANCED        0  /* executor advanced to a new Step in the Plan */
+#define WW_EVENT_WALKING_TO_INTERACT  1  /* approaching a Transition's interact-tile */
+#define WW_EVENT_TELEPORT_INITIATED   2  /* executor began running a global teleport */
+#define WW_EVENT_STUCK                3  /* stuck deadline elapsed on the current step */
+#define WW_EVENT_REPLAN_STARTED       4  /* re-invoking the planner in-process */
+#define WW_EVENT_ARRIVED              5  /* reached the acceptance set */
+#define WW_EVENT_FAILED               6  /* unrecoverable error */
+
+/* Single progress event. stepIndex and transitionIndex are -1 when not
+   applicable to the kind (e.g., Arrived has neither). `kind` is one of the
+   WW_EVENT_* sentinels above. */
+typedef struct WwEvent
+{
+    int32_t kind;
+    int32_t pad;
+    int32_t stepIndex;
+    int32_t transitionIndex;
+} WwEvent;
+
+/* One (id, value) pair in a sparse Capability snapshot. Mirrors the
+   CapabilitySnapshot setters: skill level, item count, varbit value, varp
+   value — all int32 so one shape covers every kind. */
+typedef struct WwCapabilityEntry
+{
+    int32_t id;
+    int32_t value;
+} WwCapabilityEntry;
+
+/* Per-re-plan capability snapshot, pulled live through readCapability. Each
+   run is a pointer + count borrowed from the host; the executor copies the
+   entries it needs into a runtime::CapabilitySnapshot, then returns from
+   the callback (after which the runs may be reused / freed by the host). */
+typedef struct WwCapabilitySnapshot
+{
+    const WwCapabilityEntry *skills;
+    size_t                   skillCount;
+    const WwCapabilityEntry *items;
+    size_t                   itemCount;
+    const WwCapabilityEntry *varbits;
+    size_t                   varbitCount;
+    const WwCapabilityEntry *varps;
+    size_t                   varpCount;
+} WwCapabilitySnapshot;
+
+/* ---- Executor callback vtable ------------------------------------------ */
+
+/* Reads — pulled live by the executor; must be cheap and side-effect-free. */
+typedef void    (*WwReadPositionFn)(void *user, WwTile *outTile);
+typedef void    (*WwReadCapabilityFn)(void *user, WwCapabilitySnapshot *outSnapshot);
+typedef int32_t (*WwReadVarbitFn)(void *user, int32_t id);
+typedef int32_t (*WwIsInterfaceOpenFn)(void *user, int32_t interfaceId);
+
+/* Actions — fire-and-forget; the executor sequences them with sleepTicks
+   and re-polls reads between calls to detect arrival / drift / stuck. */
+typedef void (*WwWalkToFn)(void *user, WwTile target);
+typedef void (*WwInteractFn)(void *user, int32_t objectId, WwTile tile, int32_t optionIndex);
+typedef void (*WwRunChainStepFn)(void *user, int32_t chainIndex, int32_t stepIndex);
+typedef void (*WwSleepTicksFn)(void *user, int32_t ticks);
+
+/* Control — polled each loop turn. Returning non-zero aborts the run with
+   WW_STATUS_CANCELLED at the next safe point. */
+typedef int32_t (*WwShouldCancelFn)(void *user);
+
+/* Progress — optional. NULL disables reporting. Called from the executor
+   thread; must not retain the WwEvent pointer past the callback return. */
+typedef void (*WwOnEventFn)(void *user, const WwEvent *event);
+
+/* Consumer-supplied callback vtable. Every non-NULL function pointer is
+   required; onEvent may be NULL. `user` is an opaque cookie threaded into
+   every call. The executor never copies these fields — the vtable must
+   outlive the ww_executor_run call. */
+typedef struct WwCallbacks
+{
+    void *user;
+
+    WwReadPositionFn    readPosition;
+    WwReadCapabilityFn  readCapability;
+    WwReadVarbitFn      readVarbit;
+    WwIsInterfaceOpenFn isInterfaceOpen;
+
+    WwWalkToFn       walkTo;
+    WwInteractFn     interact;
+    WwRunChainStepFn runChainStep;
+    WwSleepTicksFn   sleepTicks;
+
+    WwShouldCancelFn shouldCancel;
+    WwOnEventFn      onEvent;
+} WwCallbacks;
+
+/* ---- Executor entry ----------------------------------------------------- */
+
+/* Block the calling thread, plan a route from the player's live position to
+   `goal`, walk it (re-planning in-process as needed), and report progress
+   through `callbacks`. Returns one of WW_STATUS_ARRIVED / WW_STATUS_FAILED /
+   WW_STATUS_CANCELLED. On invalid arguments or an internal exception, sets
+   the thread-local last error and returns WW_STATUS_FAILED. */
+WW_API int32_t ww_executor_run(ww_artifact      *artifact,
+                                ww_context_pool *pool,
+                                WwGoal           goal,
+                                const WwCallbacks *callbacks);
 
 #ifdef __cplusplus
 }  /* extern "C" */

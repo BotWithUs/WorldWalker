@@ -1,148 +1,68 @@
 #ifndef WORLDWALKER_EXEC_CALLBACKS_H
 #define WORLDWALKER_EXEC_CALLBACKS_H
 
-#include <cstddef>
+#include "c_api/worldwalker_c.h"
+
 #include <cstdint>
 
-// POD wire-shapes the WorldWalker executor exchanges with its host. These types
-// are deliberately C-ABI-shaped (plain integers + pointers, fixed sizes, no
-// virtual tables, no STL); Phase 5 publishes them through worldwalker_c.h with
-// nothing more than a using-alias so the runtime layout matches byte-for-byte.
-//
-// Function-pointer typedefs are declared with `extern "C"` linkage so the same
-// callback addresses passed from a C consumer through the C ABI can be invoked
-// here without any thunk.
+// C++ view of the executor wire-shapes that are canonically defined in the
+// flat C header (c_api/worldwalker_c.h). The C surface is the single source of
+// truth so a Java/Panama consumer and the C++ executor read the same bytes;
+// here we re-publish the structs and callback typedefs into the ww::exec
+// namespace via using-aliases and keep the C++-friendly strongly-typed enums
+// for WwStatus / WwEventKind, with static_asserts pinning them to the C
+// WW_STATUS_* / WW_EVENT_* sentinels.
 
 namespace ww::exec
 {
-    // World tile coordinate. Mirrors the runtime planner's (x, y, plane) tuple.
-    struct WwTile
-    {
-        int32_t x;
-        int32_t y;
-        int32_t plane;
-    };
+    using ::WwTile;
+    using ::WwGoal;
+    using ::WwEvent;
+    using ::WwCapabilityEntry;
+    using ::WwCapabilitySnapshot;
 
-    static_assert(sizeof(WwTile) == 12, "WwTile must be 12 bytes (wire layout)");
+    static_assert(sizeof(WwTile)               == 12, "WwTile must be 12 bytes (wire layout)");
+    static_assert(sizeof(WwGoal)               == 16, "WwGoal must be 16 bytes (wire layout)");
+    static_assert(sizeof(WwEvent)              == 16, "WwEvent must be 16 bytes (wire layout)");
+    static_assert(sizeof(WwCapabilityEntry)    == 8,  "WwCapabilityEntry must be 8 bytes");
 
-    // Acceptance set for ww_executor_run. The query succeeds when the player's
-    // tile lies within a Chebyshev radius around (x, y, plane) on the same plane.
-    // radius == 0 demands the exact tile. A negative radius is treated as 0.
-    struct WwGoal
-    {
-        int32_t x;
-        int32_t y;
-        int32_t plane;
-        int32_t radius;
-    };
-
-    static_assert(sizeof(WwGoal) == 16, "WwGoal must be 16 bytes (wire layout)");
-
-    // Terminal status of one ww_executor_run call.
+    // Strongly-typed enum mirror of the WW_STATUS_* sentinels. int32_t
+    // underlying type matches what ww_executor_run returns, so the C ABI sees
+    // identical bits regardless of which view callers use.
     enum class WwStatus : int32_t
     {
-        Arrived   = 0,
-        Failed    = 1,
-        Cancelled = 2,
+        Arrived   = WW_STATUS_ARRIVED,
+        Failed    = WW_STATUS_FAILED,
+        Cancelled = WW_STATUS_CANCELLED,
     };
 
-    // Progress-event discriminator. Reserved values for future event kinds land
-    // at the end; the host should treat an unknown kind as "ignore".
+    // Strongly-typed enum mirror of the WW_EVENT_* sentinels. Stored in
+    // WwEvent::kind as int32_t on the wire.
     enum class WwEventKind : int32_t
     {
-        StepAdvanced       = 0,  // executor advanced to a new Step in the Plan
-        WalkingToInteract  = 1,  // approaching a Transition's interact-tile
-        TeleportInitiated  = 2,  // executor began running a global teleport
-        Stuck              = 3,  // stuck deadline elapsed on the current step
-        ReplanStarted      = 4,  // re-invoking the planner in-process
-        Arrived            = 5,  // reached the acceptance set
-        Failed             = 6,  // unrecoverable error (out: planner returned false, etc.)
+        StepAdvanced       = WW_EVENT_STEP_ADVANCED,
+        WalkingToInteract  = WW_EVENT_WALKING_TO_INTERACT,
+        TeleportInitiated  = WW_EVENT_TELEPORT_INITIATED,
+        Stuck              = WW_EVENT_STUCK,
+        ReplanStarted      = WW_EVENT_REPLAN_STARTED,
+        Arrived            = WW_EVENT_ARRIVED,
+        Failed             = WW_EVENT_FAILED,
     };
 
-    // Single progress event. stepIndex and transitionIndex are -1 when not
-    // applicable to the kind (e.g., StepAdvanced has both; Arrived has neither).
-    struct WwEvent
-    {
-        WwEventKind kind;
-        int32_t     pad;
-        int32_t     stepIndex;
-        int32_t     transitionIndex;
-    };
+    using ::WwReadPositionFn;
+    using ::WwReadCapabilityFn;
+    using ::WwReadVarbitFn;
+    using ::WwIsInterfaceOpenFn;
+    using ::WwWalkToFn;
+    using ::WwInteractFn;
+    using ::WwRunChainStepFn;
+    using ::WwSleepTicksFn;
+    using ::WwShouldCancelFn;
+    using ::WwOnEventFn;
 
-    static_assert(sizeof(WwEvent) == 16, "WwEvent must be 16 bytes (wire layout)");
-
-    // One (id, value) pair in a sparse Capability snapshot. Mirrors the
-    // CapabilitySnapshot setters: skill level, item count, varbit value, varp
-    // value — all int32 so one shape covers every kind.
-    struct WwCapabilityEntry
-    {
-        int32_t id;
-        int32_t value;
-    };
-
-    static_assert(sizeof(WwCapabilityEntry) == 8, "WwCapabilityEntry must be 8 bytes");
-
-    // Per-re-plan capability snapshot, pulled live through readCapability. Each
-    // run is a pointer + count borrowed from the host; the executor copies the
-    // entries it needs into a runtime::CapabilitySnapshot, then returns from
-    // the callback (after which the runs may be reused / freed by the host).
-    struct WwCapabilitySnapshot
-    {
-        const WwCapabilityEntry *skills;
-        std::size_t              skillCount;
-        const WwCapabilityEntry *items;
-        std::size_t              itemCount;
-        const WwCapabilityEntry *varbits;
-        std::size_t              varbitCount;
-        const WwCapabilityEntry *varps;
-        std::size_t              varpCount;
-    };
-
-    extern "C"
-    {
-        // Reads — pulled live by the executor; must be cheap and side-effect-free.
-        using WwReadPositionFn    = void    (*)(void *user, WwTile *outTile);
-        using WwReadCapabilityFn  = void    (*)(void *user, WwCapabilitySnapshot *outSnapshot);
-        using WwReadVarbitFn      = int32_t (*)(void *user, int32_t id);
-        using WwIsInterfaceOpenFn = int32_t (*)(void *user, int32_t interfaceId);
-
-        // Actions — fire-and-forget; the executor sequences them with sleepTicks
-        // and re-polls reads between calls to detect arrival / drift / stuck.
-        using WwWalkToFn       = void (*)(void *user, WwTile target);
-        using WwInteractFn     = void (*)(void *user, int32_t objectId, WwTile tile, int32_t optionIndex);
-        using WwRunChainStepFn = void (*)(void *user, int32_t chainIndex, int32_t stepIndex);
-        using WwSleepTicksFn   = void (*)(void *user, int32_t ticks);
-
-        // Control — polled each loop turn. Returning non-zero aborts the run with
-        // WwStatus::Cancelled at the next safe point.
-        using WwShouldCancelFn = int32_t (*)(void *user);
-
-        // Progress — optional. Null disables reporting. Called from the executor
-        // thread; must not retain the WwEvent pointer past the callback return.
-        using WwOnEventFn = void (*)(void *user, const WwEvent *event);
-    }
-
-    // Consumer-supplied callback vtable. Every non-null function pointer is
-    // required; onEvent may be null. `user` is an opaque cookie threaded into
-    // every call. The executor never copies these fields — the vtable must
-    // outlive the ww_executor_run call.
-    struct Callbacks
-    {
-        void *user;
-
-        WwReadPositionFn    readPosition;
-        WwReadCapabilityFn  readCapability;
-        WwReadVarbitFn      readVarbit;
-        WwIsInterfaceOpenFn isInterfaceOpen;
-
-        WwWalkToFn       walkTo;
-        WwInteractFn     interact;
-        WwRunChainStepFn runChainStep;
-        WwSleepTicksFn   sleepTicks;
-
-        WwShouldCancelFn shouldCancel;
-        WwOnEventFn      onEvent;
-    };
+    // Alias for the C vtable so existing C++ code reads ww::exec::Callbacks
+    // while sharing the byte layout with WwCallbacks at the FFI boundary.
+    using Callbacks = ::WwCallbacks;
 }
 
 #endif  // WORLDWALKER_EXEC_CALLBACKS_H

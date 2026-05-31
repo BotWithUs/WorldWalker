@@ -85,7 +85,7 @@ namespace ww::exec
         {
             return;
         }
-        const WwEvent event{ kind, 0, stepIndex, transitionIndex };
+        const WwEvent event{ static_cast<int32_t>(kind), 0, stepIndex, transitionIndex };
         callbacks->onEvent(callbacks->user, &event);
     }
 

@@ -1,5 +1,7 @@
 #include "worldwalker_c.h"
 
+#include "exec/Callbacks.h"
+#include "exec/Executor.h"
 #include "format/ArtifactReader.h"
 #include "runtime/ContextPool.h"
 
@@ -103,6 +105,54 @@ ww_context_pool *ww_context_pool_create(ww_artifact *artifact, size_t count)
 void ww_context_pool_destroy(ww_context_pool *pool)
 {
     delete pool;
+}
+
+int32_t ww_executor_run(ww_artifact      *artifact,
+                         ww_context_pool *pool,
+                         WwGoal           goal,
+                         const WwCallbacks *callbacks)
+{
+    if (artifact == nullptr)
+    {
+        setLastError("ww_executor_run: artifact is null");
+        return WW_STATUS_FAILED;
+    }
+    if (pool == nullptr)
+    {
+        setLastError("ww_executor_run: pool is null");
+        return WW_STATUS_FAILED;
+    }
+    if (callbacks == nullptr)
+    {
+        setLastError("ww_executor_run: callbacks is null");
+        return WW_STATUS_FAILED;
+    }
+    // Every non-null function pointer documented as required must be provided;
+    // onEvent is the lone optional. Detecting a missing entry here means the
+    // crash inside the executor's tight loop is replaced with a clean status.
+    if (callbacks->readPosition    == nullptr
+     || callbacks->readCapability  == nullptr
+     || callbacks->readVarbit      == nullptr
+     || callbacks->isInterfaceOpen == nullptr
+     || callbacks->walkTo          == nullptr
+     || callbacks->interact        == nullptr
+     || callbacks->runChainStep    == nullptr
+     || callbacks->sleepTicks      == nullptr
+     || callbacks->shouldCancel    == nullptr)
+    {
+        setLastError("ww_executor_run: callbacks vtable missing a required function pointer");
+        return WW_STATUS_FAILED;
+    }
+    try
+    {
+        ww::exec::Executor executor(artifact->reader, pool->pool, *callbacks);
+        return static_cast<int32_t>(executor.run(goal));
+    }
+    catch (const std::exception &e)
+    {
+        setLastError(std::string("ww_executor_run: ") + e.what());
+        return WW_STATUS_FAILED;
+    }
 }
 
 }  // extern "C"

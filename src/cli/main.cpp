@@ -1122,12 +1122,13 @@ namespace
     {
         ExecHarness *h = static_cast<ExecHarness *>(user);
         ++h->onEventCalls;
-        h->lastEventKind = event->kind;
-        if (event->kind == ww::exec::WwEventKind::Stuck)
+        const auto kind = static_cast<ww::exec::WwEventKind>(event->kind);
+        h->lastEventKind = kind;
+        if (kind == ww::exec::WwEventKind::Stuck)
         {
             ++h->stuckEvents;
         }
-        else if (event->kind == ww::exec::WwEventKind::ReplanStarted)
+        else if (kind == ww::exec::WwEventKind::ReplanStarted)
         {
             ++h->replanStartedEvents;
             // SimulateReplanRecovery: the executor has just consumed one
@@ -1140,7 +1141,7 @@ namespace
         }
     }
 
-    void dumpExecutor(const ww::format::ArtifactReader &reader)
+    void dumpExecutor(const ww::format::ArtifactReader &reader, const char *artifactPath)
     {
         const auto nodes = reader.areaNodes();
         if (nodes.empty())
@@ -1340,9 +1341,59 @@ namespace
         std::printf("  exec:   replan landed at (%d,%d,p%d), goal (%d,%d,p%d)\n",
                     harness4.position.x, harness4.position.y, harness4.position.plane,
                     farthest.x, farthest.y, plane);
+
+        // Test 5: drive the same walk-only goal as Test 2 through the public C
+        // ABI (ww_executor_run) instead of constructing the C++ Executor
+        // directly. Validates that the artifact / pool handles, the WwCallbacks
+        // wire-shape, and the FFI entry all round-trip cleanly — this is the
+        // surface Java + Panama will bind in Phase 5.
+        if (artifactPath == nullptr)
+        {
+            std::printf("  exec:   ffi test skipped (no artifact path)\n");
+            return;
+        }
+        ww_artifact *cArt = ww_artifact_open(artifactPath);
+        if (cArt == nullptr)
+        {
+            std::printf("  exec:   ffi ww_artifact_open failed: %s\n", ww_last_error());
+            return;
+        }
+        ww_context_pool *cPool = ww_context_pool_create(cArt, 1);
+        if (cPool == nullptr)
+        {
+            std::printf("  exec:   ffi ww_context_pool_create failed: %s\n", ww_last_error());
+            ww_artifact_close(cArt);
+            return;
+        }
+
+        ExecHarness harness5{};
+        harness5.mode = ExecHarnessMode::SimulateInstantWalk;
+        harness5.position = ww::exec::WwTile{ n0.centroidX, n0.centroidY, plane };
+        harness5.lastEventKind = ww::exec::WwEventKind::Failed;
+
+        WwCallbacks cb5 = cbProto;
+        cb5.user = &harness5;
+
+        const WwGoal goal5{ farthest.x, farthest.y, plane, 0 };
+        const int32_t status5 = ww_executor_run(cArt, cPool, goal5, &cb5);
+
+        std::printf("  exec:   ffi status=%d (expect 0=Arrived) lastEvent=%d (expect %d)\n",
+                    static_cast<int>(status5),
+                    static_cast<int>(harness5.lastEventKind),
+                    static_cast<int>(ww::exec::WwEventKind::Arrived));
+        std::printf("  exec:   ffi walks=%d sleeps=%d cancels=%d reads=%d events=%d abort=%d (expect abort=0)\n",
+                    harness5.walkToCalls, harness5.sleepTicksCalls,
+                    harness5.shouldCancelCalls, harness5.readPositionCalls,
+                    harness5.onEventCalls, harness5.abortIfCalled);
+        std::printf("  exec:   ffi landed at (%d,%d,p%d), goal (%d,%d,p%d)\n",
+                    harness5.position.x, harness5.position.y, harness5.position.plane,
+                    farthest.x, farthest.y, plane);
+
+        ww_context_pool_destroy(cPool);
+        ww_artifact_close(cArt);
     }
 
-    void dumpArtifact(const ww::format::ArtifactReader &reader)
+    void dumpArtifact(const ww::format::ArtifactReader &reader, const char *artifactPath)
     {
         const ww::format::ArtifactInfo &info = reader.info();
         std::printf("  formatVersion=%u cacheRevision=%u datasetHash=0x%08x\n", info.formatVersion,
@@ -1362,7 +1413,7 @@ namespace
         dumpTileSearch(reader);
         dumpPathAssembly(reader);
         dumpContextPool(reader);
-        dumpExecutor(reader);
+        dumpExecutor(reader, artifactPath);
     }
 }
 
@@ -1380,7 +1431,7 @@ int main(int argc, char **argv)
     {
         const ww::format::ArtifactReader reader(argv[1]);
         std::printf("artifact: %s\n", argv[1]);
-        dumpArtifact(reader);
+        dumpArtifact(reader, argv[1]);
     }
     catch (const std::exception &e)
     {
