@@ -1,6 +1,7 @@
 #include "worldwalker_c.h"
 
 #include "format/ArtifactReader.h"
+#include "runtime/ContextPool.h"
 
 #include <cstdlib>
 #include <exception>
@@ -15,6 +16,19 @@ struct ww_artifact
     }
 
     ww::format::ArtifactReader reader;
+};
+
+// Backs the opaque ww_context_pool handle with the bounded search-context pool.
+// The pool borrows the artifact's reader, so the caller is responsible for
+// destroying the pool before closing its underlying artifact.
+struct ww_context_pool
+{
+    ww_context_pool(const ww::format::ArtifactReader &reader, std::size_t count)
+        : pool(reader, count)
+    {
+    }
+
+    ww::runtime::ContextPool pool;
 };
 
 namespace
@@ -65,15 +79,30 @@ void ww_artifact_close(ww_artifact *artifact)
 
 ww_context_pool *ww_context_pool_create(ww_artifact *artifact, size_t count)
 {
-    (void)artifact;
-    (void)count;
-    setLastError("ww_context_pool_create: not yet implemented (Phase 3)");
-    return nullptr;
+    if (artifact == nullptr)
+    {
+        setLastError("ww_context_pool_create: artifact is null");
+        return nullptr;
+    }
+    if (count == 0)
+    {
+        setLastError("ww_context_pool_create: count must be > 0");
+        return nullptr;
+    }
+    try
+    {
+        return new ww_context_pool(artifact->reader, count);
+    }
+    catch (const std::exception &e)
+    {
+        setLastError(std::string("ww_context_pool_create: ") + e.what());
+        return nullptr;
+    }
 }
 
 void ww_context_pool_destroy(ww_context_pool *pool)
 {
-    (void)pool;
+    delete pool;
 }
 
 }  // extern "C"

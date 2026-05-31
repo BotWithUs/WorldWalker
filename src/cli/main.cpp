@@ -4,7 +4,9 @@
 #include "format/ArtifactReader.h"
 #include "runtime/AreaSearch.h"
 #include "runtime/CapabilitySnapshot.h"
+#include "runtime/ContextPool.h"
 #include "runtime/PathAssembler.h"
+#include "runtime/SearchContext.h"
 #include "runtime/TeleportPolicy.h"
 #include "runtime/TileSearch.h"
 #include "runtime/WorldView.h"
@@ -840,6 +842,57 @@ namespace
         dumpTeleportSeeding(reader, view, areaSearch, assembler);
     }
 
+    // Exercise the bounded search-context pool: build a 2-slot pool, validate the
+    // tryAcquire saturation pattern (two grants then a refusal), release one,
+    // verify the slot reopens, then drive a same-tile self-assemble through the
+    // borrowed context to prove the bundled components wire up correctly.
+    // Blocking acquire() is not exercised here — the deterministic harness avoids
+    // sleep-based thread sync; the executor in Phase 4 will drive it for real.
+    void dumpContextPool(const ww::format::ArtifactReader &reader)
+    {
+        constexpr std::size_t kPoolSize = 2;
+        ww::runtime::ContextPool pool(reader, kPoolSize);
+        std::printf("  pool:   size=%zu free=%zu\n", pool.size(), pool.freeCount());
+
+        ww::runtime::SearchContext *c1 = nullptr;
+        ww::runtime::SearchContext *c2 = nullptr;
+        ww::runtime::SearchContext *c3 = nullptr;
+        const bool got1 = pool.tryAcquire(c1);
+        const bool got2 = pool.tryAcquire(c2);
+        const bool got3 = pool.tryAcquire(c3);
+        std::printf("  pool:   tryAcquire seq=%d,%d,%d (expect 1,1,0) free=%zu\n",
+                    got1 ? 1 : 0, got2 ? 1 : 0, got3 ? 1 : 0, pool.freeCount());
+        if (!got1 || !got2 || got3)
+        {
+            std::printf("  pool:   FAIL acquisition pattern\n");
+            if (got1) { pool.release(*c1); }
+            if (got2) { pool.release(*c2); }
+            return;
+        }
+
+        pool.release(*c1);
+        ww::runtime::SearchContext *c4 = nullptr;
+        const bool got4 = pool.tryAcquire(c4);
+        std::printf("  pool:   reacquire after release=%d free=%zu\n",
+                    got4 ? 1 : 0, pool.freeCount());
+
+        const auto nodes = reader.areaNodes();
+        if (got4 && !nodes.empty())
+        {
+            const ww::format::AreaNodeRecord &n0 = nodes[0];
+            const int32_t plane = static_cast<int32_t>(n0.plane);
+            ww::runtime::Plan plan;
+            const bool ok = c4->assembler.assemble(n0.centroidX, n0.centroidY, plane,
+                                                   n0.centroidX, n0.centroidY, plane, plan);
+            std::printf("  pool:   borrowed self-assemble ok=%d steps=%zu cost=%.1f\n",
+                        ok ? 1 : 0, plan.steps.size(), static_cast<double>(plan.cost));
+        }
+
+        if (got4) { pool.release(*c4); }
+        pool.release(*c2);
+        std::printf("  pool:   final free=%zu (expect %zu)\n", pool.freeCount(), kPoolSize);
+    }
+
     void dumpArtifact(const ww::format::ArtifactReader &reader)
     {
         const ww::format::ArtifactInfo &info = reader.info();
@@ -859,6 +912,7 @@ namespace
         dumpAreaSearch(reader);
         dumpTileSearch(reader);
         dumpPathAssembly(reader);
+        dumpContextPool(reader);
     }
 }
 
