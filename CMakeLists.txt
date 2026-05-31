@@ -118,6 +118,7 @@ set(worldwalker_SOURCES
 	"src/runtime/CapabilitySnapshot.h"
 	"src/runtime/PathAssembler.cpp"
 	"src/runtime/PathAssembler.h"
+	"src/runtime/TeleportPolicy.h"
 	"src/runtime/TileSearch.cpp"
 	"src/runtime/TileSearch.h"
 	"src/runtime/WorldView.cpp"

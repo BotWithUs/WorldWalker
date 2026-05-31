@@ -1,9 +1,11 @@
 #include "c_api/worldwalker_c.h"
+#include "data/Transitions.h"
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
 #include "runtime/AreaSearch.h"
 #include "runtime/CapabilitySnapshot.h"
 #include "runtime/PathAssembler.h"
+#include "runtime/TeleportPolicy.h"
 #include "runtime/TileSearch.h"
 #include "runtime/WorldView.h"
 
@@ -544,6 +546,248 @@ namespace
         }
     }
 
+    // isTeleportAllowed self-check against synthetic wilderness + no-tele boxes
+    // — the predicate is exercised regardless of what the artifact under test
+    // bakes. The wilderness box rises one level per 8 tiles starting at y=3200
+    // (so y=3200..3207 is level 1, y=3360..3367 is level 21); the no-tele box
+    // is a small unconditional block. Returns true on all eight expected
+    // outcomes.
+    bool teleportPolicySelfCheck()
+    {
+        ww::format::WildernessRegion w{};
+        w.minX = 3000;
+        w.minY = 3200;
+        w.maxX = 3100;
+        w.maxY = 3700;
+        w.baseY = 3200;
+        w.baseLevel = 1;
+        w.stepY = 8;
+        w.planeMin = 0;
+        w.planeMax = 0;
+        ww::format::NoTeleZone z{};
+        z.minX = 3500;
+        z.minY = 3500;
+        z.maxX = 3520;
+        z.maxY = 3520;
+        z.planeMin = 0;
+        z.planeMax = 0;
+        const std::vector<ww::format::WildernessRegion> wild = {w};
+        const std::vector<ww::format::NoTeleZone> noTele = {z};
+        using ww::runtime::isTeleportAllowed;
+        return isTeleportAllowed(noTele, wild, 20, 1000, 1000, 0)     // outside any box
+            && isTeleportAllowed(noTele, wild, 20, 3050, 3200, 0)     // wild level 1
+            && isTeleportAllowed(noTele, wild, 20, 3050, 3352, 0)     // wild level 20
+            && !isTeleportAllowed(noTele, wild, 20, 3050, 3360, 0)    // wild level 21 > cutoff
+            && isTeleportAllowed(noTele, wild, 30, 3050, 3360, 0)     // raised cutoff
+            && !isTeleportAllowed(noTele, wild, 20, 3510, 3510, 0)    // inside no-tele
+            && !isTeleportAllowed(noTele, wild, 20, 1000, 1000, 4)    // bad plane (high)
+            && !isTeleportAllowed(noTele, wild, 20, 1000, 1000, -1);  // bad plane (low)
+    }
+
+    // Build a maximally permissive capability snapshot from the artifact's full
+    // requirement pool: every Skill/Item id ends up at the highest amount any
+    // requirement names; every Varbit/Varp ends up at the last value it was
+    // asked for. Conflicting exact-match requirements (two globals demanding
+    // different values of the same varbit) cannot all pass, but each individual
+    // global remains independently exercisable via the build-from-reqs pattern.
+    void buildPermissiveSnapshotFromArtifact(const ww::format::ArtifactReader &reader,
+                                             ww::runtime::CapabilitySnapshot &outSnapshot)
+    {
+        for (const ww::format::RequirementRecord &r : reader.requirements())
+        {
+            switch (static_cast<ww::data::RequirementKind>(r.kind))
+            {
+                case ww::data::RequirementKind::Skill:
+                    if (outSnapshot.skillLevel(r.id) < r.amount)
+                    {
+                        outSnapshot.setSkillLevel(r.id, r.amount);
+                    }
+                    break;
+                case ww::data::RequirementKind::Item:
+                    if (outSnapshot.itemCount(r.id) < r.amount)
+                    {
+                        outSnapshot.setItemCount(r.id, r.amount);
+                    }
+                    break;
+                case ww::data::RequirementKind::Varbit:
+                    outSnapshot.setVarbit(r.id, r.amount);
+                    break;
+                case ww::data::RequirementKind::Varp:
+                    outSnapshot.setVarp(r.id, r.amount);
+                    break;
+            }
+        }
+    }
+
+    // First global the permissive snapshot accepts whose destArea is NOT
+    // reachable from startArea by the unfiltered area-graph search at any cost
+    // less than the teleport itself — i.e. seeding will win. Iterates because
+    // the artifact mixes teleports of widely varying cost; some land in
+    // walking-reachable areas and would be dominated, others land in components
+    // that can only be entered via teleport. Returns false when no global both
+    // satisfies the snapshot and dominates walking; then the harness reports the
+    // pool counts and skips the e2e exercise.
+    bool pickSeedDominatingGlobal(const ww::format::ArtifactReader &reader,
+                                  ww::runtime::WorldView &view,
+                                  ww::runtime::AreaSearch &areaSearch,
+                                  int32_t startArea,
+                                  const ww::runtime::CapabilitySnapshot &snapshot,
+                                  uint32_t &outTxIndex, int32_t &outDestArea)
+    {
+        const auto txs = reader.transitions();
+        const auto reqs = reader.requirements();
+        ww::runtime::AreaPath walkProbe;
+        for (uint32_t i = 0; i < txs.size(); ++i)
+        {
+            const ww::format::TransitionRecord &tx = txs[i];
+            if ((tx.flags & ww::format::kTransitionFlagGlobalOrigin) == 0u)
+            {
+                continue;
+            }
+            const uint64_t end = static_cast<uint64_t>(tx.requirementStart) + tx.requirementCount;
+            if (end > reqs.size())
+            {
+                continue;
+            }
+            if (!ww::runtime::meetsRequirements(&snapshot,
+                                                reqs.subspan(tx.requirementStart,
+                                                             tx.requirementCount)))
+            {
+                continue;
+            }
+            const int32_t destArea =
+                view.areaAt(tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane));
+            if (destArea < 0)
+            {
+                continue;
+            }
+            const bool walkOk = areaSearch.findPath(startArea, destArea, walkProbe);
+            if (walkOk && walkProbe.cost <= tx.cost)
+            {
+                continue;
+            }
+            outTxIndex = i;
+            outDestArea = destArea;
+            return true;
+        }
+        return false;
+    }
+
+    // Count global-origin transitions and how many are accepted by each of an
+    // empty snapshot and the permissive snapshot built from the artifact.
+    void countGlobalAcceptance(const ww::format::ArtifactReader &reader,
+                               const ww::runtime::CapabilitySnapshot &permissive,
+                               std::size_t &outTotal, std::size_t &outEmpty,
+                               std::size_t &outPermissive)
+    {
+        const auto txs = reader.transitions();
+        const auto reqs = reader.requirements();
+        const ww::runtime::CapabilitySnapshot empty;
+        outTotal = 0;
+        outEmpty = 0;
+        outPermissive = 0;
+        for (const ww::format::TransitionRecord &tx : txs)
+        {
+            if ((tx.flags & ww::format::kTransitionFlagGlobalOrigin) == 0u)
+            {
+                continue;
+            }
+            ++outTotal;
+            const uint64_t end = static_cast<uint64_t>(tx.requirementStart) + tx.requirementCount;
+            if (end > reqs.size())
+            {
+                continue;
+            }
+            const auto run = reqs.subspan(tx.requirementStart, tx.requirementCount);
+            if (ww::runtime::meetsRequirements(&empty, run))
+            {
+                ++outEmpty;
+            }
+            if (ww::runtime::meetsRequirements(&permissive, run))
+            {
+                ++outPermissive;
+            }
+        }
+    }
+
+    // Phase 3d-4 exercise: policy self-check, global-pool size and capability
+    // acceptance breakdown, and (when an eligible global exists) an end-to-end
+    // plan whose goal is the chosen teleport's destination — verifying that the
+    // plan's first step is the seeded Transition.
+    void dumpTeleportSeeding(const ww::format::ArtifactReader &reader,
+                             ww::runtime::WorldView &view,
+                             ww::runtime::AreaSearch &areaSearch,
+                             ww::runtime::PathAssembler &assembler)
+    {
+        std::printf("  tele:   policy self-check: %s\n",
+                    teleportPolicySelfCheck() ? "ok" : "FAIL");
+
+        ww::runtime::CapabilitySnapshot permissive;
+        buildPermissiveSnapshotFromArtifact(reader, permissive);
+        std::size_t globalsTotal = 0;
+        std::size_t globalsEmpty = 0;
+        std::size_t globalsPermissive = 0;
+        countGlobalAcceptance(reader, permissive, globalsTotal, globalsEmpty, globalsPermissive);
+        std::printf("  tele:   globals %zu (empty-snapshot accepts %zu, permissive %zu)\n",
+                    globalsTotal, globalsEmpty, globalsPermissive);
+
+        const auto nodes = reader.areaNodes();
+        if (nodes.empty())
+        {
+            return;
+        }
+        const ww::format::AreaNodeRecord &startNode = nodes[0];
+        const int32_t startPlane = static_cast<int32_t>(startNode.plane);
+        const int32_t startArea =
+            view.areaAt(startNode.centroidX, startNode.centroidY, startPlane);
+        uint32_t txIndex = 0;
+        int32_t destArea = -1;
+        if (startArea < 0
+            || !pickSeedDominatingGlobal(reader, view, areaSearch, startArea, permissive,
+                                         txIndex, destArea))
+        {
+            std::printf("  tele:   no global dominates walking from start area for e2e\n");
+            return;
+        }
+        const ww::format::TransitionRecord &chosenTx = reader.transitions()[txIndex];
+        const int32_t goalX = chosenTx.destX;
+        const int32_t goalY = chosenTx.destY;
+        const int32_t goalPlane = static_cast<int32_t>(chosenTx.destPlane);
+        const bool startAllowed =
+            ww::runtime::isTeleportAllowed(reader, startNode.centroidX, startNode.centroidY,
+                                           startPlane);
+        std::printf("  tele:   pick tx%u cost=%.1f dest=(%d,%d,p%d) destArea=%d;"
+                    " start=(%d,%d,p%d) %s\n",
+                    txIndex, static_cast<double>(chosenTx.cost), goalX, goalY, goalPlane, destArea,
+                    startNode.centroidX, startNode.centroidY, startPlane,
+                    startAllowed ? "tele-allowed" : "tele-blocked");
+        ww::runtime::Plan plan;
+        const bool ok = assembler.assemble(startNode.centroidX, startNode.centroidY, startPlane,
+                                           goalX, goalY, goalPlane, &permissive, plan);
+        if (!ok)
+        {
+            std::printf("  tele:   e2e plan unreachable\n");
+            return;
+        }
+        std::size_t walks = 0;
+        std::size_t hops = 0;
+        for (const ww::runtime::Step &s : plan.steps)
+        {
+            walks += s.kind == ww::runtime::StepKind::Walk ? 1u : 0u;
+            hops += s.kind == ww::runtime::StepKind::Transition ? 1u : 0u;
+        }
+        const std::size_t broken = checkPlan(view, reader, plan);
+        const ww::runtime::Step &leading = plan.steps.front();
+        const bool leadingIsTele = leading.kind == ww::runtime::StepKind::Transition
+            && leading.transitionIndex == txIndex;
+        std::printf("  tele:   e2e %zu steps (%zu walk + %zu hop) cost=%.1f %zu broken leading=%s\n",
+                    plan.steps.size(), walks, hops, static_cast<double>(plan.cost), broken,
+                    leadingIsTele ? "Transition(seeded)"
+                                  : (leading.kind == ww::runtime::StepKind::Transition
+                                         ? "Transition(other)"
+                                         : "Walk"));
+    }
+
     // Drive PathAssembler end to end: a same-area refinement, a cross-area route
     // (with at least one Transition step), and an off-map goal that must come back
     // unreachable. Validates step count, walk/hop breakdown, and contiguity.
@@ -593,6 +837,7 @@ namespace
         }
 
         dumpCapabilityFilter(reader, view, areaSearch);
+        dumpTeleportSeeding(reader, view, areaSearch, assembler);
     }
 
     void dumpArtifact(const ww::format::ArtifactReader &reader)

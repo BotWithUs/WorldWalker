@@ -21,11 +21,29 @@ namespace ww::runtime
 
     // An ordered area-level route: areas from start (front) to goal (back), and
     // the total traversed transition tick cost. steps is empty when no route was
-    // found.
+    // found. leadingTransition is -1 for routes that walk out of the start area;
+    // otherwise it is the artifact-relative TransitionRecord index of a global-
+    // origin teleport seeded at the search frontier — the route then begins at
+    // that transition's destination area (the steps.front() entry), and the
+    // teleport's own cost is already folded into AreaPath.cost.
     struct AreaPath
     {
         std::vector<AreaPathStep> steps;
         float cost{};
+        int32_t leadingTransition{-1};
+    };
+
+    // One global-origin teleport made available at the search frontier of a
+    // findPath call: arrive in `destArea` for `cost` ticks by executing the
+    // transition at `transitionIndex` (artifact-relative). The caller is
+    // responsible for the upstream filtering — teleport-allowed at the start
+    // tile, capability requirements satisfied — so the search itself simply
+    // treats each seed as a candidate alternative to walking out of startArea.
+    struct FrontierSeed
+    {
+        int32_t  destArea;
+        float    cost;
+        uint32_t transitionIndex;
     };
 
     // A priority-queue entry: an area keyed by its A* f-score. Namespace-scope so
@@ -60,19 +78,27 @@ namespace ww::runtime
         // Least-cost area route from startArea to goalArea. Returns false (and
         // leaves outPath.steps empty) when either id is out of range or no route
         // exists; a start == goal query yields a single-step path at cost 0.
-        // The two-arg overload accepts every transition; the three-arg overload
-        // filters edges whose underlying TransitionRecord has Requirements the
-        // borrowed CapabilitySnapshot does not satisfy (nullptr is equivalent to
-        // the two-arg overload).
+        // The two-arg overload accepts every transition and seeds nothing; the
+        // three-arg overload additionally filters edges whose underlying
+        // TransitionRecord has Requirements the borrowed CapabilitySnapshot does
+        // not satisfy (nullptr is equivalent to the two-arg overload); the four-
+        // arg overload additionally seeds the open set with one alternative entry
+        // per FrontierSeed at its declared cost, so a teleport that lands closer
+        // to goal can beat walking out of startArea. The seeds span is borrowed
+        // for the call only and may be empty.
         bool findPath(int32_t startArea, int32_t goalArea, AreaPath &outPath);
         bool findPath(int32_t startArea, int32_t goalArea,
                       const CapabilitySnapshot *capabilities, AreaPath &outPath);
+        bool findPath(int32_t startArea, int32_t goalArea,
+                      const CapabilitySnapshot *capabilities,
+                      std::span<const FrontierSeed> seeds, AreaPath &outPath);
 
     private:
         void buildAdjacency();
         void resetScratch();
         void relax(int32_t u, std::span<const format::AreaEdgeRecord> edges,
                    const AltHeuristic &heuristic);
+        void seedFrontier(std::span<const FrontierSeed> seeds, const AltHeuristic &heuristic);
         void reconstruct(int32_t startArea, int32_t goalArea, AreaPath &outPath) const;
         bool meetsTransitionRequirements(uint32_t transitionIndex) const;
 
@@ -85,8 +111,8 @@ namespace ww::runtime
         uint32_t areaCount;
         std::vector<uint32_t> edgeOffset;   // CSR: area a's edges are [edgeOffset[a], edgeOffset[a+1])
         std::vector<float> bestCost;        // g-score per area (scratch)
-        std::vector<int32_t> cameFromArea;  // predecessor area (scratch)
-        std::vector<int32_t> cameFromEdge;  // AreaEdge index entered through (scratch)
+        std::vector<int32_t> cameFromArea;  // predecessor area (-1 unset, -2 frontier-seeded) (scratch)
+        std::vector<int32_t> cameFromEdge;  // AreaEdge index entered through; or, when cameFromArea==-2, the seed's transitionIndex (scratch)
         std::vector<uint8_t> settled;       // closed-set flag (scratch)
         std::vector<OpenEntry> openHeap;    // binary min-heap of the open set (scratch)
         const CapabilitySnapshot *currentSnapshot{nullptr};  // borrowed for one findPath; nullptr accepts all edges

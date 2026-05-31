@@ -121,12 +121,28 @@ namespace ww::runtime
                                  int32_t &cursorX, int32_t &cursorY, int32_t &cursorPlane,
                                  Plan &outPlan);
 
+        // Populate seedScratch with one FrontierSeed per global-origin transition
+        // whose Requirements the borrowed snapshot satisfies and whose dest tile
+        // lands in a valid area. Cleared first; left empty when the caller has
+        // already determined the start tile is not teleport-allowed.
+        void buildGlobalTeleportSeeds(const CapabilitySnapshot *capabilities);
+
+        // When AreaSearch recorded a frontier-seeded entry in areaPath, emit a
+        // Transition step at the cursor (the start tile — global teleports cast
+        // in place) and snap the cursor to the transition's destination tile.
+        // No-op when the area route walked out of startArea normally or when the
+        // recorded transition index is out of range.
+        void emitLeadingTransition(std::span<const format::TransitionRecord> transitions,
+                                   int32_t &cursorX, int32_t &cursorY, int32_t &cursorPlane,
+                                   Plan &outPlan);
+
         const format::ArtifactReader *artifact;
         WorldView *view;
         AreaSearch *areaSearch;
         TileSearch *tileSearch;
-        AreaPath areaPath;   // reusable scratch for the area-level route
-        TilePath tilePath;   // reusable scratch for each refined segment
+        AreaPath areaPath;                       // reusable scratch for the area-level route
+        TilePath tilePath;                       // reusable scratch for each refined segment
+        std::vector<FrontierSeed> seedScratch;   // reusable scratch for global-teleport frontier seeds
     };
 }
 

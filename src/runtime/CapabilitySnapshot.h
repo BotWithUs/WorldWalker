@@ -5,6 +5,7 @@
 #include "format/Artifact.h"
 
 #include <cstdint>
+#include <span>
 #include <unordered_map>
 
 namespace ww::runtime
@@ -94,6 +95,28 @@ namespace ww::runtime
         std::unordered_map<int32_t, int32_t> varbits;
         std::unordered_map<int32_t, int32_t> varps;
     };
+
+    // Convenience predicate over a Requirement run: every record in `reqs` must
+    // be satisfied. A null snapshot accepts everything (the no-gate default used
+    // by the unfiltered overloads). Used by both AreaSearch (edge gating) and
+    // PathAssembler (global-teleport seed gating) so the two sites share one
+    // rule for what "this transition's requirements are met" means.
+    inline bool meetsRequirements(const CapabilitySnapshot *snapshot,
+                                  std::span<const format::RequirementRecord> reqs)
+    {
+        if (snapshot == nullptr)
+        {
+            return true;
+        }
+        for (const format::RequirementRecord &r : reqs)
+        {
+            if (!snapshot->meets(r))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 }
 
 #endif  // WORLDWALKER_RUNTIME_CAPABILITYSNAPSHOT_H

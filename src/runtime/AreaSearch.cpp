@@ -118,24 +118,60 @@ namespace ww::runtime
         {
             return false;
         }
-        for (uint32_t r = tx.requirementStart; r < end; ++r)
-        {
-            if (!currentSnapshot->meets(reqs[r]))
-            {
-                return false;
-            }
-        }
-        return true;
+        return meetsRequirements(currentSnapshot,
+                                 reqs.subspan(tx.requirementStart, tx.requirementCount));
     }
 
+    // Push every valid FrontierSeed onto the open heap as an alternative entry
+    // to startArea: arrive in destArea at seed.cost (with cameFromArea sentinel
+    // -2 marking "via teleport" and cameFromEdge holding the seed's transition
+    // index so reconstruct can recover the leading teleport). A seed costing at
+    // least as much as the current bestCost is ignored — walking already wins,
+    // or another seed already dominates this destination.
+    void AreaSearch::seedFrontier(std::span<const FrontierSeed> seeds,
+                                  const AltHeuristic &heuristic)
+    {
+        for (const FrontierSeed &seed : seeds)
+        {
+            if (!isValidArea(seed.destArea))
+            {
+                continue;
+            }
+            const uint32_t a = static_cast<uint32_t>(seed.destArea);
+            if (seed.cost >= bestCost[a])
+            {
+                continue;
+            }
+            bestCost[a] = seed.cost;
+            cameFromArea[a] = -2;
+            cameFromEdge[a] = static_cast<int32_t>(seed.transitionIndex);
+            openHeap.push_back({seed.cost + heuristic.estimate(a), seed.destArea});
+            std::push_heap(openHeap.begin(), openHeap.end(), ByPriority{});
+        }
+    }
+
+    // Trace the predecessor chain from goal back to either startArea (normal
+    // walk-out path) or a frontier-seeded destination (cameFromArea sentinel
+    // -2; the chain terminates there and outPath.leadingTransition captures the
+    // seed's transition index). The reversed steps front the route's entry area
+    // — startArea or the teleport's destArea — so PathAssembler can drive its
+    // cursor from a single uniform front-to-back iteration.
     void AreaSearch::reconstruct(int32_t startArea, int32_t goalArea, AreaPath &outPath) const
     {
         outPath.cost = bestCost[static_cast<uint32_t>(goalArea)];
         int32_t area = goalArea;
         while (area != startArea)
         {
+            const int32_t prev = cameFromArea[static_cast<uint32_t>(area)];
+            if (prev == -2)
+            {
+                outPath.leadingTransition = cameFromEdge[static_cast<uint32_t>(area)];
+                outPath.steps.push_back({area, -1});
+                std::reverse(outPath.steps.begin(), outPath.steps.end());
+                return;
+            }
             outPath.steps.push_back({area, cameFromEdge[static_cast<uint32_t>(area)]});
-            area = cameFromArea[static_cast<uint32_t>(area)];
+            area = prev;
         }
         outPath.steps.push_back({startArea, -1});
         std::reverse(outPath.steps.begin(), outPath.steps.end());
@@ -143,14 +179,22 @@ namespace ww::runtime
 
     bool AreaSearch::findPath(int32_t startArea, int32_t goalArea, AreaPath &outPath)
     {
-        return findPath(startArea, goalArea, nullptr, outPath);
+        return findPath(startArea, goalArea, nullptr, {}, outPath);
     }
 
     bool AreaSearch::findPath(int32_t startArea, int32_t goalArea,
                               const CapabilitySnapshot *capabilities, AreaPath &outPath)
     {
+        return findPath(startArea, goalArea, capabilities, {}, outPath);
+    }
+
+    bool AreaSearch::findPath(int32_t startArea, int32_t goalArea,
+                              const CapabilitySnapshot *capabilities,
+                              std::span<const FrontierSeed> seeds, AreaPath &outPath)
+    {
         outPath.steps.clear();
         outPath.cost = 0.0f;
+        outPath.leadingTransition = -1;
         currentSnapshot = capabilities;
         if (!isValidArea(startArea) || !isValidArea(goalArea))
         {
@@ -168,6 +212,7 @@ namespace ww::runtime
 
         bestCost[static_cast<uint32_t>(startArea)] = 0.0f;
         openHeap.push_back({heuristic.estimate(static_cast<uint32_t>(startArea)), startArea});
+        seedFrontier(seeds, heuristic);
         while (!openHeap.empty())
         {
             std::pop_heap(openHeap.begin(), openHeap.end(), ByPriority{});

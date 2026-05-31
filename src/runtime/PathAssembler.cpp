@@ -1,6 +1,7 @@
 #include "runtime/PathAssembler.h"
 
 #include "format/Artifact.h"
+#include "runtime/TeleportPolicy.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -145,6 +146,64 @@ namespace ww::runtime
         return assemble(startX, startY, startPlane, goalX, goalY, goalPlane, nullptr, outPlan);
     }
 
+    // Enumerate every Global-origin transition the borrowed snapshot accepts and
+    // whose destination tile lies in a valid baked area, emitting one seed per
+    // accepted candidate. Cleared at entry so the caller can always read the
+    // resulting span without preconditioning. Caller decides upstream whether
+    // the start tile is teleport-allowed; this routine only sees transitions.
+    void PathAssembler::buildGlobalTeleportSeeds(const CapabilitySnapshot *capabilities)
+    {
+        seedScratch.clear();
+        const std::span<const format::TransitionRecord> transitions = artifact->transitions();
+        const std::span<const format::RequirementRecord> reqs = artifact->requirements();
+        for (uint32_t i = 0; i < transitions.size(); ++i)
+        {
+            const format::TransitionRecord &tx = transitions[i];
+            if ((tx.flags & format::kTransitionFlagGlobalOrigin) == 0u)
+            {
+                continue;
+            }
+            const uint64_t end = static_cast<uint64_t>(tx.requirementStart) + tx.requirementCount;
+            if (end > reqs.size())
+            {
+                continue;
+            }
+            if (!meetsRequirements(capabilities,
+                                   reqs.subspan(tx.requirementStart, tx.requirementCount)))
+            {
+                continue;
+            }
+            const int32_t destArea =
+                view->areaAt(tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane));
+            if (destArea < 0)
+            {
+                continue;
+            }
+            seedScratch.push_back({destArea, tx.cost, i});
+        }
+    }
+
+    void PathAssembler::emitLeadingTransition(std::span<const format::TransitionRecord> transitions,
+                                              int32_t &cursorX, int32_t &cursorY,
+                                              int32_t &cursorPlane, Plan &outPlan)
+    {
+        if (areaPath.leadingTransition < 0
+            || static_cast<std::size_t>(areaPath.leadingTransition) >= transitions.size())
+        {
+            return;
+        }
+        const format::TransitionRecord &tx =
+            transitions[static_cast<std::size_t>(areaPath.leadingTransition)];
+        outPlan.steps.push_back({StepKind::Transition,
+                                 static_cast<uint8_t>(cursorPlane), 0u,
+                                 cursorX, cursorY,
+                                 static_cast<uint32_t>(areaPath.leadingTransition)});
+        outPlan.cost += tx.cost;
+        cursorX = tx.destX;
+        cursorY = tx.destY;
+        cursorPlane = static_cast<int32_t>(tx.destPlane);
+    }
+
     bool PathAssembler::assemble(int32_t startX, int32_t startY, int32_t startPlane,
                                  int32_t goalX, int32_t goalY, int32_t goalPlane,
                                  const CapabilitySnapshot *capabilities, Plan &outPlan)
@@ -161,18 +220,28 @@ namespace ww::runtime
         {
             return appendWalkSegment(startX, startY, goalX, goalY, startPlane, startArea, outPlan);
         }
-        if (!areaSearch->findPath(startArea, goalArea, capabilities, areaPath))
+        seedScratch.clear();
+        if (isTeleportAllowed(*artifact, startX, startY, startPlane))
+        {
+            buildGlobalTeleportSeeds(capabilities);
+        }
+        if (!areaSearch->findPath(startArea, goalArea, capabilities,
+                                  std::span<const FrontierSeed>(seedScratch), areaPath))
         {
             return false;
         }
         // Cursor tracks the player's notional tile as the route plays out: walks
         // advance it, transitions snap it to the destination, the closing walk
-        // drives it to the goal.
+        // drives it to the goal. A leading global teleport (recorded by
+        // AreaSearch in areaPath.leadingTransition) snaps the cursor from start
+        // to the teleport's destination before any walking — the player casts
+        // in place.
         const std::span<const format::AreaEdgeRecord> edges = artifact->areaEdges();
         const std::span<const format::TransitionRecord> transitions = artifact->transitions();
         int32_t cursorX = startX;
         int32_t cursorY = startY;
         int32_t cursorPlane = startPlane;
+        emitLeadingTransition(transitions, cursorX, cursorY, cursorPlane, outPlan);
         for (std::size_t i = 1; i < areaPath.steps.size(); ++i)
         {
             if (!appendTransitionHop(i, edges, transitions, cursorX, cursorY, cursorPlane, outPlan))
