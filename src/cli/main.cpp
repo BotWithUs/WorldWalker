@@ -895,16 +895,32 @@ namespace
         std::printf("  pool:   final free=%zu (expect %zu)\n", pool.freeCount(), kPoolSize);
     }
 
-    // Counters + fixed position for the Executor harness. Routed via the
+    // Counters + simulated position for the Executor harness. Routed via the
     // Callbacks.user cookie so each function pointer stays a plain extern "C"
-    // entry. Action callbacks bump abortIfCalled — the 4a happy path stays
-    // inside readPosition + onEvent.
+    // entry. Two modes share the same struct:
+    //   AbortOnAction        — short-circuit / start==goal tests; any action
+    //                          callback bumps abortIfCalled (test fails loud
+    //                          if the executor tries to walk when it shouldn't).
+    //   SimulateInstantWalk  — walk-loop test; walkTo updates `position` so
+    //                          the next readPosition reports the player as
+    //                          arrived at the clicked tile. sleepTicks and
+    //                          shouldCancel are silent no-ops.
+    enum class ExecHarnessMode : uint8_t
+    {
+        AbortOnAction       = 0,
+        SimulateInstantWalk = 1,
+    };
+
     struct ExecHarness
     {
-        ww::exec::WwTile position;
-        int readPositionCalls;
-        int onEventCalls;
-        int abortIfCalled;
+        ww::exec::WwTile      position;
+        ExecHarnessMode       mode;
+        int                   readPositionCalls;
+        int                   onEventCalls;
+        int                   walkToCalls;
+        int                   sleepTicksCalls;
+        int                   shouldCancelCalls;
+        int                   abortIfCalled;
         ww::exec::WwEventKind lastEventKind;
     };
 
@@ -936,10 +952,18 @@ namespace
         return 0;
     }
 
-    extern "C" void harnessWalkTo(void *user, ww::exec::WwTile)
+    extern "C" void harnessWalkTo(void *user, ww::exec::WwTile target)
     {
         ExecHarness *h = static_cast<ExecHarness *>(user);
-        ++h->abortIfCalled;
+        ++h->walkToCalls;
+        if (h->mode == ExecHarnessMode::SimulateInstantWalk)
+        {
+            h->position = target;
+        }
+        else
+        {
+            ++h->abortIfCalled;
+        }
     }
 
     extern "C" void harnessInteract(void *user, int32_t, ww::exec::WwTile, int32_t)
@@ -957,13 +981,21 @@ namespace
     extern "C" void harnessSleepTicks(void *user, int32_t)
     {
         ExecHarness *h = static_cast<ExecHarness *>(user);
-        ++h->abortIfCalled;
+        ++h->sleepTicksCalls;
+        if (h->mode == ExecHarnessMode::AbortOnAction)
+        {
+            ++h->abortIfCalled;
+        }
     }
 
     extern "C" int32_t harnessShouldCancel(void *user)
     {
         ExecHarness *h = static_cast<ExecHarness *>(user);
-        ++h->abortIfCalled;
+        ++h->shouldCancelCalls;
+        if (h->mode == ExecHarnessMode::AbortOnAction)
+        {
+            ++h->abortIfCalled;
+        }
         return 0;
     }
 
@@ -987,12 +1019,8 @@ namespace
         const ww::format::AreaNodeRecord &n0 = nodes[0];
         const int32_t plane = static_cast<int32_t>(n0.plane);
 
-        ExecHarness harness{};
-        harness.position = ww::exec::WwTile{ n0.centroidX, n0.centroidY, plane };
-        harness.lastEventKind = ww::exec::WwEventKind::Failed;
-
-        const ww::exec::Callbacks cb{
-            &harness,
+        const ww::exec::Callbacks cbProto{
+            nullptr,
             harnessReadPosition,
             harnessReadCapability,
             harnessReadVarbit,
@@ -1005,17 +1033,69 @@ namespace
             harnessOnEvent,
         };
 
-        ww::exec::Executor executor(reader, pool, cb);
-        const ww::exec::WwGoal goal{ n0.centroidX, n0.centroidY, plane, 0 };
-        const ww::exec::WwStatus status = executor.run(goal);
+        // Test 1: start == goal -> short-circuit Arrived. No action callbacks
+        // should fire; abortIfCalled must stay at 0.
+        {
+            ExecHarness harness{};
+            harness.mode = ExecHarnessMode::AbortOnAction;
+            harness.position = ww::exec::WwTile{ n0.centroidX, n0.centroidY, plane };
+            harness.lastEventKind = ww::exec::WwEventKind::Failed;
 
-        std::printf("  exec:   start==goal status=%d (expect 0=Arrived) free=%zu\n",
-                    static_cast<int>(status), pool.freeCount());
-        std::printf("  exec:   readPosition=%d onEvent=%d lastEvent=%d (expect 1,1,%d) actions=%d (expect 0)\n",
-                    harness.readPositionCalls, harness.onEventCalls,
-                    static_cast<int>(harness.lastEventKind),
-                    static_cast<int>(ww::exec::WwEventKind::Arrived),
-                    harness.abortIfCalled);
+            ww::exec::Callbacks cb = cbProto;
+            cb.user = &harness;
+
+            ww::exec::Executor executor(reader, pool, cb);
+            const ww::exec::WwGoal goal{ n0.centroidX, n0.centroidY, plane, 0 };
+            const ww::exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   start==goal status=%d (expect 0=Arrived) free=%zu\n",
+                        static_cast<int>(status), pool.freeCount());
+            std::printf("  exec:   readPosition=%d onEvent=%d lastEvent=%d (expect 1,1,%d) actions=%d (expect 0)\n",
+                        harness.readPositionCalls, harness.onEventCalls,
+                        static_cast<int>(harness.lastEventKind),
+                        static_cast<int>(ww::exec::WwEventKind::Arrived),
+                        harness.abortIfCalled);
+        }
+
+        // Test 2: walk-only plan from the centroid to the farthest same-area
+        // tile within 24 hops. With SimulateInstantWalk, every walkTo flips
+        // the simulated position to the target, so each Walk step arrives on
+        // its first poll. Expected counts per step: 1 walkTo, 1 sleepTicks,
+        // 1 shouldCancel, 2 readPosition, 1 StepAdvanced event. Plus the
+        // single pre-plan readPosition and the terminal Arrived event.
+        ww::runtime::WorldView view(reader);
+        const int32_t area0 = view.areaAt(n0.centroidX, n0.centroidY, plane);
+        const ww::runtime::TilePoint farthest =
+            farthestInArea(view, n0.centroidX, n0.centroidY, plane, area0, 24);
+        if (farthest.x == n0.centroidX && farthest.y == n0.centroidY)
+        {
+            std::printf("  exec:   walk-loop skipped (no in-area target distinct from start)\n");
+            return;
+        }
+
+        ExecHarness harness2{};
+        harness2.mode = ExecHarnessMode::SimulateInstantWalk;
+        harness2.position = ww::exec::WwTile{ n0.centroidX, n0.centroidY, plane };
+        harness2.lastEventKind = ww::exec::WwEventKind::Failed;
+
+        ww::exec::Callbacks cb2 = cbProto;
+        cb2.user = &harness2;
+
+        ww::exec::Executor executor2(reader, pool, cb2);
+        const ww::exec::WwGoal goal2{ farthest.x, farthest.y, plane, 0 };
+        const ww::exec::WwStatus status2 = executor2.run(goal2);
+
+        std::printf("  exec:   walk-loop status=%d (expect 0=Arrived) free=%zu lastEvent=%d (expect %d)\n",
+                    static_cast<int>(status2), pool.freeCount(),
+                    static_cast<int>(harness2.lastEventKind),
+                    static_cast<int>(ww::exec::WwEventKind::Arrived));
+        std::printf("  exec:   walks=%d sleeps=%d cancels=%d reads=%d events=%d abort=%d (expect abort=0)\n",
+                    harness2.walkToCalls, harness2.sleepTicksCalls,
+                    harness2.shouldCancelCalls, harness2.readPositionCalls,
+                    harness2.onEventCalls, harness2.abortIfCalled);
+        std::printf("  exec:   walk-loop landed at (%d,%d,p%d), goal (%d,%d,p%d)\n",
+                    harness2.position.x, harness2.position.y, harness2.position.plane,
+                    farthest.x, farthest.y, plane);
     }
 
     void dumpArtifact(const ww::format::ArtifactReader &reader)
