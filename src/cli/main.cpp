@@ -425,12 +425,15 @@ namespace
     }
 
     // First traversable area edge whose underlying transition carries a non-empty
-    // embedded chain (chainCount > 0) and resolves to a standable interact-tile
-    // within radius 2 of the origin. Returns the same outputs as
-    // pickCrossAreaPair so the executor harness can swap the source picker in
-    // when it wants the chain-loop body exercised. Returns false when every
-    // traversable edge has an empty chain (the assembler tests' bare-Transport
-    // edge), in which case the caller falls back to pickCrossAreaPair.
+    // embedded chain (chainCount > 0) AND no requirements (Phase 4d's executor
+    // passes a freshly-snapshotted CapabilitySnapshot to assemble(), so a
+    // req-bearing edge would be filtered out of the route and break the test).
+    // Resolves to a standable interact-tile within radius 2 of the origin.
+    // Returns the same outputs as pickCrossAreaPair so the executor harness can
+    // swap the source picker in when it wants the chain-loop body exercised.
+    // Returns false when every traversable edge has an empty chain or carries
+    // requirements, in which case the caller falls back to pickCrossAreaPair
+    // and verifies ungated-ness post-pick.
     bool pickChainedCrossAreaPair(const ww::format::ArtifactReader &reader,
                                   ww::runtime::WorldView &view,
                                   ww::runtime::TilePoint &outStart, int32_t &outStartPlane,
@@ -449,6 +452,10 @@ namespace
                 continue;
             }
             if (edge.transitionIndex >= txs.size() || txs[edge.transitionIndex].chainCount == 0u)
+            {
+                continue;
+            }
+            if (txs[edge.transitionIndex].requirementCount != 0u)
             {
                 continue;
             }
@@ -975,11 +982,18 @@ namespace
     //                          count silently; isInterfaceOpen reports the
     //                          dialog open immediately so the chain doesn't
     //                          stall on the open-poll budget.
+    //   SimulateReplanRecovery — Phase 4d re-plan path. walkTo only updates
+    //                          the simulated position when walkToUpdatesPosition
+    //                          is true — initially false so the first walk
+    //                          stalls and trips the stuck event. On the
+    //                          ReplanStarted event the harness flips the flag
+    //                          so the re-planned walk arrives normally.
     enum class ExecHarnessMode : uint8_t
     {
-        AbortOnAction       = 0,
-        SimulateInstantWalk = 1,
-        SimulateTransition  = 2,
+        AbortOnAction         = 0,
+        SimulateInstantWalk   = 1,
+        SimulateTransition    = 2,
+        SimulateReplanRecovery = 3,
     };
 
     struct ExecHarness
@@ -995,6 +1009,9 @@ namespace
         int                   runChainStepCalls;
         int                   isInterfaceOpenCalls;
         int                   abortIfCalled;
+        int                   stuckEvents;
+        int                   replanStartedEvents;
+        bool                  walkToUpdatesPosition;
         ww::exec::WwEventKind lastEventKind;
     };
 
@@ -1007,8 +1024,11 @@ namespace
 
     extern "C" void harnessReadCapability(void *user, ww::exec::WwCapabilitySnapshot *outSnapshot)
     {
-        ExecHarness *h = static_cast<ExecHarness *>(user);
-        ++h->abortIfCalled;
+        // Phase 4d: planFrom() always pulls a snapshot, so this fires on every
+        // plan / re-plan. An empty snapshot exercises the capability-aware
+        // overload without admitting any req-bearing transition (Test 3 picks
+        // ungated transitions for that reason).
+        static_cast<void>(user);
         *outSnapshot = ww::exec::WwCapabilitySnapshot{};
     }
 
@@ -1039,6 +1059,17 @@ namespace
             || h->mode == ExecHarnessMode::SimulateTransition)
         {
             h->position = target;
+        }
+        else if (h->mode == ExecHarnessMode::SimulateReplanRecovery)
+        {
+            // Stall until the harness flips walkToUpdatesPosition on the
+            // executor's first ReplanStarted event. The first walk never
+            // moves the simulated player, so the stalled-distance counter
+            // trips at kStalledPollsTrip polls → Stuck → run() re-plans.
+            if (h->walkToUpdatesPosition)
+            {
+                h->position = target;
+            }
         }
         else
         {
@@ -1092,6 +1123,21 @@ namespace
         ExecHarness *h = static_cast<ExecHarness *>(user);
         ++h->onEventCalls;
         h->lastEventKind = event->kind;
+        if (event->kind == ww::exec::WwEventKind::Stuck)
+        {
+            ++h->stuckEvents;
+        }
+        else if (event->kind == ww::exec::WwEventKind::ReplanStarted)
+        {
+            ++h->replanStartedEvents;
+            // SimulateReplanRecovery: the executor has just consumed one
+            // re-plan from its budget. Flipping the flag lets the next walk
+            // arrive normally so the run terminates Arrived.
+            if (h->mode == ExecHarnessMode::SimulateReplanRecovery)
+            {
+                h->walkToUpdatesPosition = true;
+            }
+        }
     }
 
     void dumpExecutor(const ww::format::ArtifactReader &reader)
@@ -1206,6 +1252,16 @@ namespace
 
         const auto &edge = reader.areaEdges()[edgeIdx];
         const auto &tx   = reader.transitions()[edge.transitionIndex];
+        // The fallback pickCrossAreaPair admits req-bearing transitions; with
+        // an empty capability snapshot the planner would filter them out and
+        // the test would lose its picked edge. Skip in that case (rare on
+        // realistic artifacts; chained ungated edges dominate).
+        if (tx.requirementCount != 0u)
+        {
+            std::printf("  exec:   transition test skipped (picked edge tx%u has %u reqs)\n",
+                        edge.transitionIndex, tx.requirementCount);
+            return;
+        }
         const bool isGlobal = (tx.flags & ww::format::kTransitionFlagGlobalOrigin) != 0;
         int32_t clickCount = 0;
         int32_t waitCount  = 0;
@@ -1249,6 +1305,41 @@ namespace
                     harness3.walkToCalls, harness3.sleepTicksCalls,
                     harness3.shouldCancelCalls, harness3.readPositionCalls,
                     harness3.onEventCalls, harness3.abortIfCalled);
+
+        // Test 4: stuck → re-plan → recover. The first walk's walkTo does NOT
+        // advance the simulated position, so the stalled-distance counter
+        // trips at kStalledPollsTrip polls and walkOneStep emits Stuck and
+        // returns Failed. run() then issues ReplanStarted; on that event the
+        // harness flips walkToUpdatesPosition = true, so the re-planned walk
+        // arrives on its first poll. Final terminal: Arrived. This exercises
+        // the entire 4d re-plan path — capability snapshot pull, planFrom,
+        // walk-failure recovery — without touching transitions.
+        ExecHarness harness4{};
+        harness4.mode = ExecHarnessMode::SimulateReplanRecovery;
+        harness4.position = ww::exec::WwTile{ n0.centroidX, n0.centroidY, plane };
+        harness4.lastEventKind = ww::exec::WwEventKind::Failed;
+        harness4.walkToUpdatesPosition = false;
+
+        ww::exec::Callbacks cb4 = cbProto;
+        cb4.user = &harness4;
+
+        ww::exec::Executor executor4(reader, pool, cb4);
+        const ww::exec::WwGoal goal4{ farthest.x, farthest.y, plane, 0 };
+        const ww::exec::WwStatus status4 = executor4.run(goal4);
+
+        std::printf("  exec:   replan status=%d (expect 0=Arrived) free=%zu lastEvent=%d (expect %d)\n",
+                    static_cast<int>(status4), pool.freeCount(),
+                    static_cast<int>(harness4.lastEventKind),
+                    static_cast<int>(ww::exec::WwEventKind::Arrived));
+        std::printf("  exec:   stucks=%d replans=%d (expect stucks>=1, replans>=1)\n",
+                    harness4.stuckEvents, harness4.replanStartedEvents);
+        std::printf("  exec:   walks=%d sleeps=%d cancels=%d reads=%d events=%d abort=%d (expect abort=0)\n",
+                    harness4.walkToCalls, harness4.sleepTicksCalls,
+                    harness4.shouldCancelCalls, harness4.readPositionCalls,
+                    harness4.onEventCalls, harness4.abortIfCalled);
+        std::printf("  exec:   replan landed at (%d,%d,p%d), goal (%d,%d,p%d)\n",
+                    harness4.position.x, harness4.position.y, harness4.position.plane,
+                    farthest.x, farthest.y, plane);
     }
 
     void dumpArtifact(const ww::format::ArtifactReader &reader)

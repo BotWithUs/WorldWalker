@@ -2,8 +2,10 @@
 
 #include "data/Transitions.h"
 #include "format/Artifact.h"
+#include "runtime/CapabilitySnapshot.h"
 #include "runtime/PathAssembler.h"
 #include "runtime/SearchContext.h"
+#include "runtime/TeleportPolicy.h"
 
 #include <algorithm>
 #include <chrono>
@@ -32,6 +34,14 @@ namespace ww::exec
         constexpr int32_t kInterfaceOpenPollTicks = 2;   // ~1.2s between isInterfaceOpen polls
         constexpr int32_t kInterfaceOpenMaxPolls  = 10;  // ~12s budget per Click step
         constexpr int32_t kPostChainSettleTicks   = 2;   // ~1.2s wait for the engine to commit dest
+
+        // Re-plan budget (Phase 4d). Each walk-stuck recovery and each
+        // teleport-allowed flip consumes one re-plan; the cap stops a
+        // pathological loop (e.g., a planner that keeps proposing the same
+        // unreachable step) from running forever. Three is enough for the
+        // realistic worst cases (one stuck recovery + one wilderness-exit
+        // teleport re-plan + a margin) without inviting tail-latency surprises.
+        constexpr int32_t kMaxReplans = 3;
 
         // Chebyshev distance on the same plane; INT32_MAX on plane mismatch so
         // a teleport mid-walk reads as "infinitely far" and trips the stall
@@ -79,7 +89,8 @@ namespace ww::exec
         callbacks->onEvent(callbacks->user, &event);
     }
 
-    WwStatus Executor::walkOneStep(const runtime::Step &step, int32_t stepIndex)
+    WwStatus Executor::walkOneStep(const runtime::Step &step, int32_t stepIndex,
+                                   WwTile &outPosition)
     {
         const WwTile target{ step.targetX, step.targetY, static_cast<int32_t>(step.plane) };
         callbacks->walkTo(callbacks->user, target);
@@ -88,6 +99,7 @@ namespace ww::exec
         const auto stepStart = std::chrono::steady_clock::now();
         WwTile lastPos{};
         callbacks->readPosition(callbacks->user, &lastPos);
+        outPosition = lastPos;
         int32_t stalledPolls = 0;
 
         while (true)
@@ -100,6 +112,7 @@ namespace ww::exec
 
             WwTile pos{};
             callbacks->readPosition(callbacks->user, &pos);
+            outPosition = pos;
             if (chebyshev(pos, target) <= kArrivalChebyshev)
             {
                 return WwStatus::Arrived;
@@ -127,12 +140,15 @@ namespace ww::exec
         }
     }
 
-    WwStatus Executor::executeTransitionStep(const runtime::Step &step, int32_t stepIndex)
+    WwStatus Executor::executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
+                                             WwTile &outPosition)
     {
+        // The terminal Failed event is emitted by run() with both stepIndex
+        // and transitionIndex; failure paths here just return WwStatus::Failed
+        // so the dispatch site can carry the indices through.
         const auto txs = artifact->transitions();
         if (step.transitionIndex >= txs.size())
         {
-            emit(WwEventKind::Failed, stepIndex, static_cast<int32_t>(step.transitionIndex));
             return WwStatus::Failed;
         }
         const format::TransitionRecord &tx = txs[step.transitionIndex];
@@ -142,7 +158,6 @@ namespace ww::exec
         const std::size_t chainEnd   = chainStart + tx.chainCount;
         if (chainEnd > chain.size())
         {
-            emit(WwEventKind::Failed, stepIndex, static_cast<int32_t>(step.transitionIndex));
             return WwStatus::Failed;
         }
 
@@ -185,7 +200,6 @@ namespace ww::exec
                     }
                     if (polls >= kInterfaceOpenMaxPolls)
                     {
-                        emit(WwEventKind::Failed, stepIndex, transitionIndex);
                         return WwStatus::Failed;
                     }
                     callbacks->sleepTicks(callbacks->user, kInterfaceOpenPollTicks);
@@ -200,11 +214,52 @@ namespace ww::exec
             }
         }
 
-        // Let the engine commit the destination position. Phase 4d will
-        // explicitly resync via readPosition + drift re-plan; for 4c the next
-        // Walk step's initial readPosition picks up the new position naturally.
+        // Let the engine commit the destination position before sampling it.
+        // run() uses this position to decide whether the goal is satisfied
+        // and whether to re-plan on a teleport-allowed flip.
         callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
+        callbacks->readPosition(callbacks->user, &outPosition);
         return WwStatus::Arrived;
+    }
+
+    void Executor::copyCapabilities(const WwCapabilitySnapshot &src,
+                                    runtime::CapabilitySnapshot &dst)
+    {
+        for (std::size_t i = 0; i < src.skillCount; ++i)
+        {
+            dst.setSkillLevel(src.skills[i].id, src.skills[i].value);
+        }
+        for (std::size_t i = 0; i < src.itemCount; ++i)
+        {
+            dst.setItemCount(src.items[i].id, src.items[i].value);
+        }
+        for (std::size_t i = 0; i < src.varbitCount; ++i)
+        {
+            dst.setVarbit(src.varbits[i].id, src.varbits[i].value);
+        }
+        for (std::size_t i = 0; i < src.varpCount; ++i)
+        {
+            dst.setVarp(src.varps[i].id, src.varps[i].value);
+        }
+    }
+
+    bool Executor::planFrom(const WwTile &start, const WwGoal &goal,
+                            runtime::SearchContext &context, runtime::Plan &outPlan) const
+    {
+        // Snapshot host state into a runtime::CapabilitySnapshot. Re-plans
+        // therefore reflect mid-walk state changes (an item picked up, a
+        // teleport tab newly available) at the cost of one readCapability
+        // call per (re-)plan. The snapshot is stack-allocated and consumed
+        // entirely by assemble() — the assembler stores nothing from it.
+        runtime::CapabilitySnapshot snapshot;
+        WwCapabilitySnapshot raw{};
+        callbacks->readCapability(callbacks->user, &raw);
+        copyCapabilities(raw, snapshot);
+
+        return context.assembler.assemble(
+            start.x, start.y, start.plane,
+            goal.x, goal.y, goal.plane,
+            &snapshot, outPlan);
     }
 
     WwStatus Executor::run(WwGoal goal)
@@ -217,16 +272,14 @@ namespace ww::exec
             return WwStatus::Arrived;
         }
 
-        // Borrow a SearchContext for the entire run so Phase 4d can re-invoke
-        // the planner on the same context without re-acquiring through the
-        // pool (ADR 0007: contexts are heap-allocated and never relocated).
+        // Borrow a SearchContext for the entire run so re-plans (4d) reuse
+        // the same context without re-acquiring through the pool (ADR 0007:
+        // contexts are heap-allocated and never relocated). Held until every
+        // return path below.
         runtime::SearchContext &context = pool->acquire();
+
         runtime::Plan plan;
-        const bool assembled = context.assembler.assemble(
-            position.x, position.y, position.plane,
-            goal.x, goal.y, goal.plane,
-            /*capabilities=*/nullptr, plan);
-        if (!assembled)
+        if (!planFrom(position, goal, context, plan))
         {
             pool->release(context);
             emit(WwEventKind::Failed);
@@ -234,49 +287,144 @@ namespace ww::exec
         }
         if (plan.steps.empty())
         {
-            // Planner agrees we're at the goal even though position fell
-            // outside the radius (e.g., the goal tile is unwalkable but the
-            // start tile lies on its acceptance set at the area level).
+            // Planner agrees we're at the goal even though the live position
+            // fell outside the explicit radius (e.g., the goal tile is
+            // unwalkable but the start tile lies on its acceptance set at
+            // the area level).
             pool->release(context);
             emit(WwEventKind::Arrived);
             return WwStatus::Arrived;
         }
 
-        WwStatus result = WwStatus::Arrived;
-        int32_t failedStepIndex = -1;
+        // Snapshot the teleport-allowed predicate at the planner's anchor
+        // position so the post-step check can detect a false→true flip and
+        // re-plan with global teleports newly considerable (ADR 0009).
+        bool teleAllowedAtLastPlan = runtime::isTeleportAllowed(
+            *artifact, position.x, position.y, position.plane);
+
+        int32_t replansUsed         = 0;
+        int32_t failedStepIndex     = -1;
         int32_t failedTransitionIndex = -1;
-        for (std::size_t i = 0; i < plan.steps.size(); ++i)
+        WwStatus terminal           = WwStatus::Arrived;
+        bool arrivedEmitted         = false;
+
+        std::size_t i = 0;
+        while (i < plan.steps.size())
         {
             const runtime::Step &step = plan.steps[i];
-            const int32_t stepIndex = static_cast<int32_t>(i);
+            const int32_t stepIndex   = static_cast<int32_t>(i);
+
+            WwStatus stepResult;
             if (step.kind == runtime::StepKind::Walk)
             {
-                result = walkOneStep(step, stepIndex);
+                stepResult = walkOneStep(step, stepIndex, position);
             }
             else
             {
-                result = executeTransitionStep(step, stepIndex);
+                stepResult = executeTransitionStep(step, stepIndex, position);
             }
-            if (result != WwStatus::Arrived)
+
+            if (stepResult == WwStatus::Cancelled)
             {
-                failedStepIndex = stepIndex;
-                if (step.kind == runtime::StepKind::Transition)
-                {
-                    failedTransitionIndex = static_cast<int32_t>(step.transitionIndex);
-                }
+                terminal = WwStatus::Cancelled;
                 break;
             }
-        }
-        pool->release(context);
 
-        if (result == WwStatus::Arrived)
+            if (stepResult == WwStatus::Failed)
+            {
+                // Transition failures and exhausted re-plan budgets are
+                // terminal. Walk failures (the Stuck event was emitted
+                // inside walkOneStep) consume one re-plan.
+                const bool isTransition = step.kind == runtime::StepKind::Transition;
+                if (isTransition || replansUsed >= kMaxReplans)
+                {
+                    failedStepIndex = stepIndex;
+                    if (isTransition)
+                    {
+                        failedTransitionIndex = static_cast<int32_t>(step.transitionIndex);
+                    }
+                    terminal = WwStatus::Failed;
+                    break;
+                }
+
+                // Walk-stuck recovery: re-read the position (walkOneStep
+                // wrote the last sample to it already, but a host that
+                // teleports us between samples might have moved further),
+                // and re-plan.
+                callbacks->readPosition(callbacks->user, &position);
+                ++replansUsed;
+                emit(WwEventKind::ReplanStarted, stepIndex);
+                if (!planFrom(position, goal, context, plan))
+                {
+                    failedStepIndex = stepIndex;
+                    terminal = WwStatus::Failed;
+                    break;
+                }
+                if (plan.steps.empty())
+                {
+                    terminal = WwStatus::Arrived;
+                    emit(WwEventKind::Arrived);
+                    arrivedEmitted = true;
+                    break;
+                }
+                teleAllowedAtLastPlan = runtime::isTeleportAllowed(
+                    *artifact, position.x, position.y, position.plane);
+                i = 0;
+                continue;
+            }
+
+            // Step Arrived. walkOneStep / executeTransitionStep wrote the
+            // live position into `position`; use it for the goal check and
+            // the teleport-allowed flip without a redundant readPosition.
+            if (isInsideGoal(position, goal))
+            {
+                terminal = WwStatus::Arrived;
+                emit(WwEventKind::Arrived);
+                arrivedEmitted = true;
+                break;
+            }
+            const bool teleAllowedNow = runtime::isTeleportAllowed(
+                *artifact, position.x, position.y, position.plane);
+            if (teleAllowedNow && !teleAllowedAtLastPlan && replansUsed < kMaxReplans)
+            {
+                ++replansUsed;
+                emit(WwEventKind::ReplanStarted, stepIndex);
+                if (!planFrom(position, goal, context, plan))
+                {
+                    failedStepIndex = stepIndex;
+                    terminal = WwStatus::Failed;
+                    break;
+                }
+                if (plan.steps.empty())
+                {
+                    terminal = WwStatus::Arrived;
+                    emit(WwEventKind::Arrived);
+                    arrivedEmitted = true;
+                    break;
+                }
+                teleAllowedAtLastPlan = true;
+                i = 0;
+                continue;
+            }
+            teleAllowedAtLastPlan = teleAllowedNow;
+            ++i;
+        }
+
+        // Drained every step without an isInsideGoal short-circuit: the
+        // assembler's final step lands at (or within radius of) the goal,
+        // so a clean drain is success.
+        if (i >= plan.steps.size() && terminal == WwStatus::Arrived && !arrivedEmitted)
         {
             emit(WwEventKind::Arrived);
+            arrivedEmitted = true;
         }
-        else if (result == WwStatus::Failed)
+
+        pool->release(context);
+
+        if (terminal == WwStatus::Failed)
         {
             emit(WwEventKind::Failed, failedStepIndex, failedTransitionIndex);
         }
-        return result;
+        return terminal;
     }
 }
