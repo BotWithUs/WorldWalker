@@ -105,6 +105,9 @@ set(worldwalker_SOURCES
 	cmake.toml
 	"src/c_api/worldwalker_c.cpp"
 	"src/c_api/worldwalker_c.h"
+	"src/exec/Callbacks.h"
+	"src/exec/Executor.cpp"
+	"src/exec/Executor.h"
 	"src/format/Artifact.h"
 	"src/format/ArtifactReader.cpp"
 	"src/format/ArtifactReader.h"

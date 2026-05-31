@@ -1,5 +1,7 @@
 #include "c_api/worldwalker_c.h"
 #include "data/Transitions.h"
+#include "exec/Callbacks.h"
+#include "exec/Executor.h"
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
 #include "runtime/AreaSearch.h"
@@ -893,6 +895,129 @@ namespace
         std::printf("  pool:   final free=%zu (expect %zu)\n", pool.freeCount(), kPoolSize);
     }
 
+    // Counters + fixed position for the Executor harness. Routed via the
+    // Callbacks.user cookie so each function pointer stays a plain extern "C"
+    // entry. Action callbacks bump abortIfCalled — the 4a happy path stays
+    // inside readPosition + onEvent.
+    struct ExecHarness
+    {
+        ww::exec::WwTile position;
+        int readPositionCalls;
+        int onEventCalls;
+        int abortIfCalled;
+        ww::exec::WwEventKind lastEventKind;
+    };
+
+    extern "C" void harnessReadPosition(void *user, ww::exec::WwTile *outTile)
+    {
+        ExecHarness *h = static_cast<ExecHarness *>(user);
+        ++h->readPositionCalls;
+        *outTile = h->position;
+    }
+
+    extern "C" void harnessReadCapability(void *user, ww::exec::WwCapabilitySnapshot *outSnapshot)
+    {
+        ExecHarness *h = static_cast<ExecHarness *>(user);
+        ++h->abortIfCalled;
+        *outSnapshot = ww::exec::WwCapabilitySnapshot{};
+    }
+
+    extern "C" int32_t harnessReadVarbit(void *user, int32_t)
+    {
+        ExecHarness *h = static_cast<ExecHarness *>(user);
+        ++h->abortIfCalled;
+        return 0;
+    }
+
+    extern "C" int32_t harnessIsInterfaceOpen(void *user, int32_t)
+    {
+        ExecHarness *h = static_cast<ExecHarness *>(user);
+        ++h->abortIfCalled;
+        return 0;
+    }
+
+    extern "C" void harnessWalkTo(void *user, ww::exec::WwTile)
+    {
+        ExecHarness *h = static_cast<ExecHarness *>(user);
+        ++h->abortIfCalled;
+    }
+
+    extern "C" void harnessInteract(void *user, int32_t, ww::exec::WwTile, int32_t)
+    {
+        ExecHarness *h = static_cast<ExecHarness *>(user);
+        ++h->abortIfCalled;
+    }
+
+    extern "C" void harnessRunChainStep(void *user, int32_t, int32_t)
+    {
+        ExecHarness *h = static_cast<ExecHarness *>(user);
+        ++h->abortIfCalled;
+    }
+
+    extern "C" void harnessSleepTicks(void *user, int32_t)
+    {
+        ExecHarness *h = static_cast<ExecHarness *>(user);
+        ++h->abortIfCalled;
+    }
+
+    extern "C" int32_t harnessShouldCancel(void *user)
+    {
+        ExecHarness *h = static_cast<ExecHarness *>(user);
+        ++h->abortIfCalled;
+        return 0;
+    }
+
+    extern "C" void harnessOnEvent(void *user, const ww::exec::WwEvent *event)
+    {
+        ExecHarness *h = static_cast<ExecHarness *>(user);
+        ++h->onEventCalls;
+        h->lastEventKind = event->kind;
+    }
+
+    void dumpExecutor(const ww::format::ArtifactReader &reader)
+    {
+        const auto nodes = reader.areaNodes();
+        if (nodes.empty())
+        {
+            std::printf("  exec:   skipped (no area nodes)\n");
+            return;
+        }
+
+        ww::runtime::ContextPool pool(reader, 1);
+        const ww::format::AreaNodeRecord &n0 = nodes[0];
+        const int32_t plane = static_cast<int32_t>(n0.plane);
+
+        ExecHarness harness{};
+        harness.position = ww::exec::WwTile{ n0.centroidX, n0.centroidY, plane };
+        harness.lastEventKind = ww::exec::WwEventKind::Failed;
+
+        const ww::exec::Callbacks cb{
+            &harness,
+            harnessReadPosition,
+            harnessReadCapability,
+            harnessReadVarbit,
+            harnessIsInterfaceOpen,
+            harnessWalkTo,
+            harnessInteract,
+            harnessRunChainStep,
+            harnessSleepTicks,
+            harnessShouldCancel,
+            harnessOnEvent,
+        };
+
+        ww::exec::Executor executor(reader, pool, cb);
+        const ww::exec::WwGoal goal{ n0.centroidX, n0.centroidY, plane, 0 };
+        const ww::exec::WwStatus status = executor.run(goal);
+
+        std::printf("  exec:   start==goal status=%d (expect 0=Arrived) free=%zu\n",
+                    static_cast<int>(status), pool.freeCount());
+        std::printf("  exec:   readPosition=%d onEvent=%d lastEvent=%d (expect 1,1,%d) actions=%d (expect 0)\n",
+                    harness.readPositionCalls, harness.onEventCalls,
+                    static_cast<int>(harness.lastEventKind),
+                    static_cast<int>(ww::exec::WwEventKind::Arrived),
+                    harness.abortIfCalled);
+    }
+
     void dumpArtifact(const ww::format::ArtifactReader &reader)
     {
         const ww::format::ArtifactInfo &info = reader.info();
@@ -913,6 +1038,7 @@ namespace
         dumpTileSearch(reader);
         dumpPathAssembly(reader);
         dumpContextPool(reader);
+        dumpExecutor(reader);
     }
 }
 
