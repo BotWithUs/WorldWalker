@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <exception>
 #include <string>
 #include <vector>
@@ -1388,6 +1389,42 @@ namespace
         std::printf("  exec:   ffi landed at (%d,%d,p%d), goal (%d,%d,p%d)\n",
                     harness5.position.x, harness5.position.y, harness5.position.plane,
                     farthest.x, farthest.y, plane);
+
+        // Test 6: drive ww_query (the C ABI query entry) for the same walk-only
+        // plan as Test 2 and compare the returned WwPath byte-for-byte to a
+        // direct in-process assembler.assemble call. Validates the FFI surface
+        // (handles, capability-snapshot wire shape, malloc'd steps buffer,
+        // ww_path_free lifecycle) and that the memcpy across the boundary
+        // preserves the runtime::Step layout.
+        ww::runtime::AreaSearch refAreaSearch(reader);
+        ww::runtime::TileSearch refTileSearch(view);
+        ww::runtime::PathAssembler refAssembler(reader, view, refAreaSearch, refTileSearch);
+        ww::runtime::Plan refPlan;
+        const bool refOk = refAssembler.assemble(n0.centroidX, n0.centroidY, plane,
+                                                 farthest.x, farthest.y, plane, refPlan);
+
+        const WwTile queryStart{ n0.centroidX, n0.centroidY, plane };
+        const WwGoal queryGoal{ farthest.x, farthest.y, plane, 0 };
+        WwPath ffiPath{};
+        const ww_result queryStatus = ww_query(cArt, cPool, queryStart, queryGoal,
+                                                nullptr, &ffiPath);
+
+        const bool stepsMatch = (refOk && queryStatus == WW_OK
+                              && ffiPath.stepCount == refPlan.steps.size()
+                              && (ffiPath.stepCount == 0
+                                  || std::memcmp(ffiPath.steps, refPlan.steps.data(),
+                                                 ffiPath.stepCount * sizeof(WwStep)) == 0));
+        const bool costMatch = (refOk && queryStatus == WW_OK
+                              && ffiPath.cost == refPlan.cost);
+        std::printf("  exec:   ffi query status=%d (expect 0=OK) steps=%zu (ref=%zu match=%d) cost=%.1f (ref=%.1f match=%d)\n",
+                    static_cast<int>(queryStatus), ffiPath.stepCount, refPlan.steps.size(),
+                    stepsMatch ? 1 : 0, static_cast<double>(ffiPath.cost),
+                    static_cast<double>(refPlan.cost), costMatch ? 1 : 0);
+
+        ww_path_free(&ffiPath);
+        std::printf("  exec:   ffi query post-free steps=%p stepCount=%zu cost=%.1f\n",
+                    static_cast<void *>(ffiPath.steps), ffiPath.stepCount,
+                    static_cast<double>(ffiPath.cost));
 
         ww_context_pool_destroy(cPool);
         ww_artifact_close(cArt);

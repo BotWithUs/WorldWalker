@@ -15,13 +15,14 @@
  *    single search context (borrowed from a pool) is NOT safe for concurrent use;
  *    the pool hands out one per query. ww_last_error()'s buffer is thread-local.
  *  - Naming: opaque handles are snake_case (ww_artifact, ww_context_pool). POD
- *    wire shapes used by the executor are PascalCase (WwTile, WwGoal, WwEvent,
- *    WwCallbacks…) so the C++ runtime layer can typedef-alias them and share
- *    storage byte-for-byte — see exec/Callbacks.h.
+ *    wire shapes used by the executor and the query surface are PascalCase
+ *    (WwTile, WwGoal, WwEvent, WwCallbacks, WwStep, WwPath…) so the C++
+ *    runtime layer can typedef-alias them and share storage byte-for-byte —
+ *    see exec/Callbacks.h.
  *
- * The remaining query surface (ww_query and its result PODs) lands in Phase 5
- * — see docs/adr/0008, 0010 and the implementation plan. The executor surface
- * is published here as of Phase 4e.
+ * Surfaces published here:
+ *   Phase 4e — executor (ww_executor_run, WwCallbacks, WwEvent, WwGoal, …)
+ *   Phase 5a — query    (ww_query, ww_path_free, WwStep, WwPath)
  */
 
 #ifndef WORLDWALKER_C_H
@@ -220,6 +221,61 @@ WW_API int32_t ww_executor_run(ww_artifact      *artifact,
                                 ww_context_pool *pool,
                                 WwGoal           goal,
                                 const WwCallbacks *callbacks);
+
+/* ---- Query result shapes ----------------------------------------------- */
+
+/* StepKind discriminator. Values stay in lock-step with
+   ww::runtime::StepKind. */
+#define WW_STEP_KIND_WALK       0  /* move toward (targetX, targetY, plane); arrival ends the step */
+#define WW_STEP_KIND_TRANSITION 1  /* at (targetX, targetY, plane), invoke the transitionIndex'th
+                                      TransitionRecord and run its embedded chain */
+
+/* One emitted action of an assembled Plan. Mirrors ww::runtime::Step
+   byte-for-byte (asserted at the C++ side). transitionIndex is UINT32_MAX
+   for Walk steps. */
+typedef struct WwStep
+{
+    uint8_t  kind;             /* WW_STEP_KIND_* */
+    uint8_t  plane;
+    uint16_t pad;              /* zero-filled */
+    int32_t  targetX;
+    int32_t  targetY;
+    uint32_t transitionIndex;
+} WwStep;
+
+/* An assembled path returned by ww_query. The steps buffer is owned by the
+   library and must be released with ww_path_free; stepCount may be zero
+   (start == goal at the area level) on a WW_OK result. */
+typedef struct WwPath
+{
+    WwStep *steps;
+    size_t  stepCount;
+    float   cost;
+    int32_t pad;               /* keeps the struct naturally 8-byte aligned */
+} WwPath;
+
+/* ---- Query entry -------------------------------------------------------- */
+
+/* Plan a route from `start` to `goal` against the immutable artifact, using
+   one borrowed search context from `pool`. The goal's radius field is
+   currently ignored — the planner plans to (goal.x, goal.y, goal.plane)
+   exactly — and is reserved for a future "plan to acceptance set" pass.
+   `capabilities` may be NULL, in which case all requirement-gated transitions
+   are admitted. On WW_OK, *outPath holds a malloc'd steps array (release
+   with ww_path_free); on any error, outPath is left zero-initialised.
+   Returns WW_OK on success, WW_ERR_INVALID for null/invalid arguments,
+   WW_ERR_NOT_FOUND when no route exists, WW_ERR_INTERNAL on an unexpected
+   exception. */
+WW_API ww_result ww_query(ww_artifact                *artifact,
+                           ww_context_pool            *pool,
+                           WwTile                      start,
+                           WwGoal                      goal,
+                           const WwCapabilitySnapshot *capabilities,
+                           WwPath                     *outPath);
+
+/* Release a path produced by ww_query and zero its fields. Safe to call on
+   a zero-initialised WwPath or with path == NULL. */
+WW_API void ww_path_free(WwPath *path);
 
 #ifdef __cplusplus
 }  /* extern "C" */
