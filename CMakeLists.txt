@@ -115,6 +115,7 @@ set(worldwalker_SOURCES
 	"src/runtime/AltHeuristic.h"
 	"src/runtime/AreaSearch.cpp"
 	"src/runtime/AreaSearch.h"
+	"src/runtime/CapabilitySnapshot.h"
 	"src/runtime/PathAssembler.cpp"
 	"src/runtime/PathAssembler.h"
 	"src/runtime/TileSearch.cpp"

@@ -75,6 +75,10 @@ namespace ww::runtime
             {
                 continue;
             }
+            if (!meetsTransitionRequirements(edges[i].transitionIndex))
+            {
+                continue;
+            }
             const float nd = bestCost[ua] + edges[i].cost;
             if (nd >= bestCost[static_cast<uint32_t>(v)])
             {
@@ -86,6 +90,42 @@ namespace ww::runtime
             openHeap.push_back({nd + heuristic.estimate(static_cast<uint32_t>(v)), v});
             std::push_heap(openHeap.begin(), openHeap.end(), ByPriority{});
         }
+    }
+
+    // Look up the edge's TransitionRecord and require every RequirementRecord in
+    // its run to be satisfied. A null snapshot accepts all edges; a malformed
+    // record range or bad transitionIndex is treated as failure so the search
+    // never relaxes an edge whose gate cannot be evaluated.
+    bool AreaSearch::meetsTransitionRequirements(uint32_t transitionIndex) const
+    {
+        if (currentSnapshot == nullptr)
+        {
+            return true;
+        }
+        const std::span<const format::TransitionRecord> transitions = artifact->transitions();
+        if (transitionIndex >= transitions.size())
+        {
+            return false;
+        }
+        const format::TransitionRecord &tx = transitions[transitionIndex];
+        if (tx.requirementCount == 0u)
+        {
+            return true;
+        }
+        const std::span<const format::RequirementRecord> reqs = artifact->requirements();
+        const uint64_t end = static_cast<uint64_t>(tx.requirementStart) + tx.requirementCount;
+        if (end > reqs.size())
+        {
+            return false;
+        }
+        for (uint32_t r = tx.requirementStart; r < end; ++r)
+        {
+            if (!currentSnapshot->meets(reqs[r]))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     void AreaSearch::reconstruct(int32_t startArea, int32_t goalArea, AreaPath &outPath) const
@@ -103,8 +143,15 @@ namespace ww::runtime
 
     bool AreaSearch::findPath(int32_t startArea, int32_t goalArea, AreaPath &outPath)
     {
+        return findPath(startArea, goalArea, nullptr, outPath);
+    }
+
+    bool AreaSearch::findPath(int32_t startArea, int32_t goalArea,
+                              const CapabilitySnapshot *capabilities, AreaPath &outPath)
+    {
         outPath.steps.clear();
         outPath.cost = 0.0f;
+        currentSnapshot = capabilities;
         if (!isValidArea(startArea) || !isValidArea(goalArea))
         {
             return false;

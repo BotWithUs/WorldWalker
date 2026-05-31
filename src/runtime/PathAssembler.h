@@ -4,6 +4,7 @@
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
 #include "runtime/AreaSearch.h"
+#include "runtime/CapabilitySnapshot.h"
 #include "runtime/TileSearch.h"
 #include "runtime/WorldView.h"
 
@@ -82,9 +83,18 @@ namespace ww::runtime
         // or any refined segment is unreachable. A same-area query skips the
         // area-graph search entirely; a start == goal query yields an empty step
         // list and cost 0.
+        //
+        // The capability-aware overload forwards a CapabilitySnapshot to
+        // AreaSearch so transitions whose Requirements are not satisfied are
+        // excluded from the area route; nullptr is equivalent to the no-snapshot
+        // overload. The snapshot is consulted only for inter-area transition
+        // gating — same-area routing (pure walking) is unfiltered by design.
         bool assemble(int32_t startX, int32_t startY, int32_t startPlane,
                       int32_t goalX, int32_t goalY, int32_t goalPlane,
                       Plan &outPlan);
+        bool assemble(int32_t startX, int32_t startY, int32_t startPlane,
+                      int32_t goalX, int32_t goalY, int32_t goalPlane,
+                      const CapabilitySnapshot *capabilities, Plan &outPlan);
 
     private:
         // Find the closest standable tile to (originX, originY) that belongs to

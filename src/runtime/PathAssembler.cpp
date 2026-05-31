@@ -142,6 +142,13 @@ namespace ww::runtime
                                  int32_t goalX, int32_t goalY, int32_t goalPlane,
                                  Plan &outPlan)
     {
+        return assemble(startX, startY, startPlane, goalX, goalY, goalPlane, nullptr, outPlan);
+    }
+
+    bool PathAssembler::assemble(int32_t startX, int32_t startY, int32_t startPlane,
+                                 int32_t goalX, int32_t goalY, int32_t goalPlane,
+                                 const CapabilitySnapshot *capabilities, Plan &outPlan)
+    {
         outPlan.steps.clear();
         outPlan.cost = 0.0f;
         const int32_t startArea = view->areaAt(startX, startY, startPlane);
@@ -154,7 +161,7 @@ namespace ww::runtime
         {
             return appendWalkSegment(startX, startY, goalX, goalY, startPlane, startArea, outPlan);
         }
-        if (!areaSearch->findPath(startArea, goalArea, areaPath))
+        if (!areaSearch->findPath(startArea, goalArea, capabilities, areaPath))
         {
             return false;
         }

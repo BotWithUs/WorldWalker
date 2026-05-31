@@ -2,6 +2,7 @@
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
 #include "runtime/AreaSearch.h"
+#include "runtime/CapabilitySnapshot.h"
 #include "runtime/PathAssembler.h"
 #include "runtime/TileSearch.h"
 #include "runtime/WorldView.h"
@@ -417,6 +418,132 @@ namespace
         return false;
     }
 
+    // First traversable area edge whose underlying transition carries a non-empty
+    // requirement run. Used by the capability-filter exercise to isolate the
+    // filter behavior to a single known edge instead of relying on the route
+    // search to bump into one.
+    bool pickRequiredCrossAreaPair(const ww::format::ArtifactReader &reader,
+                                   ww::runtime::WorldView &view, std::size_t &outEdgeIndex)
+    {
+        const auto edges = reader.areaEdges();
+        const auto txs = reader.transitions();
+        const auto nodes = reader.areaNodes();
+        for (std::size_t i = 0; i < edges.size(); ++i)
+        {
+            const ww::format::AreaEdgeRecord &edge = edges[i];
+            if (static_cast<std::size_t>(edge.fromArea) >= nodes.size()
+                || static_cast<std::size_t>(edge.toArea) >= nodes.size())
+            {
+                continue;
+            }
+            if (edge.transitionIndex >= txs.size()
+                || txs[edge.transitionIndex].requirementCount == 0u)
+            {
+                continue;
+            }
+            if (!isTraversableEdge(reader, view, edge))
+            {
+                continue;
+            }
+            outEdgeIndex = i;
+            return true;
+        }
+        return false;
+    }
+
+    // CapabilitySnapshot::meets() self-check against synthetic RequirementRecords
+    // — exercises the predicate even when no req-bearing area edge is present in
+    // the artifact under test. Returns true on the expected eight outcomes.
+    bool capabilityPredicateSelfCheck()
+    {
+        ww::runtime::CapabilitySnapshot s;
+        s.setSkillLevel(1, 70);
+        s.setItemCount(2, 5);
+        s.setVarbit(3, 4);
+        s.setVarp(4, 9);
+        const auto make = [](uint8_t kind, int32_t id, int32_t amount)
+        {
+            ww::format::RequirementRecord r{};
+            r.kind = kind;
+            r.id = id;
+            r.amount = amount;
+            return r;
+        };
+        return s.meets(make(0, 1, 60)) && !s.meets(make(0, 1, 80))
+            && s.meets(make(1, 2, 5))  && !s.meets(make(1, 2, 6))
+            && s.meets(make(2, 3, 4))  && !s.meets(make(2, 3, 5))
+            && s.meets(make(3, 4, 9))  && !s.meets(make(3, 4, 10));
+    }
+
+    // Phase 3d-3 exercise: validate the predicate against synthetic records,
+    // count how many transitions and how many area edges carry requirements
+    // (most reqs live on global-origin transitions, which are NOT area edges —
+    // they're the 3d-4 frontier-seeding case), and when a req-bearing area edge
+    // exists, run AreaSearch unfiltered (nullptr snapshot) vs gated by an empty
+    // CapabilitySnapshot so the gate must re-route or come back blocked.
+    void dumpCapabilityFilter(const ww::format::ArtifactReader &reader,
+                              ww::runtime::WorldView &view, ww::runtime::AreaSearch &areaSearch)
+    {
+        std::printf("  caps:   predicate self-check: %s\n",
+                    capabilityPredicateSelfCheck() ? "ok" : "FAIL");
+
+        const auto edges = reader.areaEdges();
+        const auto txs = reader.transitions();
+        std::size_t reqTxs = 0;
+        std::size_t reqGlobalTxs = 0;
+        for (const ww::format::TransitionRecord &tx : txs)
+        {
+            if (tx.requirementCount == 0u)
+            {
+                continue;
+            }
+            ++reqTxs;
+            if ((tx.flags & ww::format::kTransitionFlagGlobalOrigin) != 0u)
+            {
+                ++reqGlobalTxs;
+            }
+        }
+        std::size_t reqEdges = 0;
+        for (const ww::format::AreaEdgeRecord &e : edges)
+        {
+            if (e.transitionIndex < txs.size() && txs[e.transitionIndex].requirementCount > 0u)
+            {
+                ++reqEdges;
+            }
+        }
+        std::printf("  caps:   transitions w/ reqs: %zu (%zu global, %zu local); area edges w/ reqs: %zu / %zu\n",
+                    reqTxs, reqGlobalTxs, reqTxs - reqGlobalTxs, reqEdges, edges.size());
+
+        std::size_t reqEdgeIdx = 0;
+        if (!pickRequiredCrossAreaPair(reader, view, reqEdgeIdx))
+        {
+            std::printf("  caps:   no traversable req-bearing area edge to exercise filter end-to-end\n");
+            return;
+        }
+        const ww::format::AreaEdgeRecord &re = edges[reqEdgeIdx];
+        const ww::format::TransitionRecord &rtx = txs[re.transitionIndex];
+        std::printf("  caps:   req-edge%zu area%d->area%d tx%u reqs=%u\n", reqEdgeIdx, re.fromArea,
+                    re.toArea, re.transitionIndex, rtx.requirementCount);
+
+        ww::runtime::AreaPath openPath;
+        ww::runtime::AreaPath gatedPath;
+        const bool openOk = areaSearch.findPath(re.fromArea, re.toArea, openPath);
+        const ww::runtime::CapabilitySnapshot empty;
+        const bool gatedOk = areaSearch.findPath(re.fromArea, re.toArea, &empty, gatedPath);
+        std::printf("  caps:   open=%s(%zu steps, cost=%.1f) gated=%s", openOk ? "ok" : "X",
+                    openPath.steps.size(), static_cast<double>(openPath.cost),
+                    gatedOk ? "ok" : "blocked");
+        if (gatedOk)
+        {
+            std::printf("(%zu steps, cost=%.1f)\n", gatedPath.steps.size(),
+                        static_cast<double>(gatedPath.cost));
+        }
+        else
+        {
+            std::printf("\n");
+        }
+    }
+
     // Drive PathAssembler end to end: a same-area refinement, a cross-area route
     // (with at least one Transition step), and an off-map goal that must come back
     // unreachable. Validates step count, walk/hop breakdown, and contiguity.
@@ -464,6 +591,8 @@ namespace
         {
             std::printf("  plan:   no traversable cross-area edge available\n");
         }
+
+        dumpCapabilityFilter(reader, view, areaSearch);
     }
 
     void dumpArtifact(const ww::format::ArtifactReader &reader)

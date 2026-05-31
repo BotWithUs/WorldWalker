@@ -3,6 +3,7 @@
 
 #include "format/ArtifactReader.h"
 #include "runtime/AltHeuristic.h"
+#include "runtime/CapabilitySnapshot.h"
 
 #include <cstdint>
 #include <span>
@@ -59,7 +60,13 @@ namespace ww::runtime
         // Least-cost area route from startArea to goalArea. Returns false (and
         // leaves outPath.steps empty) when either id is out of range or no route
         // exists; a start == goal query yields a single-step path at cost 0.
+        // The two-arg overload accepts every transition; the three-arg overload
+        // filters edges whose underlying TransitionRecord has Requirements the
+        // borrowed CapabilitySnapshot does not satisfy (nullptr is equivalent to
+        // the two-arg overload).
         bool findPath(int32_t startArea, int32_t goalArea, AreaPath &outPath);
+        bool findPath(int32_t startArea, int32_t goalArea,
+                      const CapabilitySnapshot *capabilities, AreaPath &outPath);
 
     private:
         void buildAdjacency();
@@ -67,6 +74,7 @@ namespace ww::runtime
         void relax(int32_t u, std::span<const format::AreaEdgeRecord> edges,
                    const AltHeuristic &heuristic);
         void reconstruct(int32_t startArea, int32_t goalArea, AreaPath &outPath) const;
+        bool meetsTransitionRequirements(uint32_t transitionIndex) const;
 
         bool isValidArea(int32_t area) const
         {
@@ -81,6 +89,7 @@ namespace ww::runtime
         std::vector<int32_t> cameFromEdge;  // AreaEdge index entered through (scratch)
         std::vector<uint8_t> settled;       // closed-set flag (scratch)
         std::vector<OpenEntry> openHeap;    // binary min-heap of the open set (scratch)
+        const CapabilitySnapshot *currentSnapshot{nullptr};  // borrowed for one findPath; nullptr accepts all edges
     };
 }
 
