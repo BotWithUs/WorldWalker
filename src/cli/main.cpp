@@ -2,6 +2,7 @@
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
 #include "runtime/AreaSearch.h"
+#include "runtime/PathAssembler.h"
 #include "runtime/TileSearch.h"
 #include "runtime/WorldView.h"
 
@@ -282,6 +283,189 @@ namespace
                      plane, area0, "offmap");
     }
 
+    // Sanity-check an assembled Plan: every Walk lands on a standable tile, every
+    // Transition references a valid TransitionRecord whose origin is reachable
+    // from the prior step. Returns the number of broken steps (0 for a valid plan).
+    std::size_t checkPlan(ww::runtime::WorldView &view, const ww::format::ArtifactReader &reader,
+                          const ww::runtime::Plan &plan)
+    {
+        std::size_t broken = 0;
+        const auto transitions = reader.transitions();
+        for (const ww::runtime::Step &s : plan.steps)
+        {
+            if (s.kind == ww::runtime::StepKind::Walk)
+            {
+                broken += view.isStandable(s.targetX, s.targetY, static_cast<int>(s.plane)) ? 0u : 1u;
+                continue;
+            }
+            const bool indexOk = s.transitionIndex < transitions.size();
+            const bool standOk = view.isStandable(s.targetX, s.targetY, static_cast<int>(s.plane));
+            broken += (indexOk && standOk) ? 0u : 1u;
+        }
+        return broken;
+    }
+
+    void runPlanQuery(ww::runtime::PathAssembler &assembler, ww::runtime::WorldView &view,
+                      const ww::format::ArtifactReader &reader, int32_t sx, int32_t sy, int32_t sp,
+                      int32_t gx, int32_t gy, int32_t gp, const char *label)
+    {
+        ww::runtime::Plan plan;
+        if (!assembler.assemble(sx, sy, sp, gx, gy, gp, plan))
+        {
+            std::printf("  plan:   %-6s (%d,%d,p%d)->(%d,%d,p%d) unreachable\n", label, sx, sy, sp,
+                        gx, gy, gp);
+            return;
+        }
+        std::size_t walks = 0;
+        std::size_t hops = 0;
+        for (const ww::runtime::Step &s : plan.steps)
+        {
+            walks += s.kind == ww::runtime::StepKind::Walk ? 1u : 0u;
+            hops += s.kind == ww::runtime::StepKind::Transition ? 1u : 0u;
+        }
+        const std::size_t broken = checkPlan(view, reader, plan);
+        std::printf("  plan:   %-6s (%d,%d,p%d)->(%d,%d,p%d) ok, %zu steps (%zu walk + %zu hop),"
+                    " cost=%.1f, %zu broken\n",
+                    label, sx, sy, sp, gx, gy, gp, plan.steps.size(), walks, hops,
+                    static_cast<double>(plan.cost), broken);
+    }
+
+    // True when the AreaEdge's transition has a standable interact-tile in its
+    // declared fromArea within a small radius of the origin — i.e., the assembler
+    // can actually traverse it. Filters out artifact edges where the from-area
+    // attribution is too loose for tile refinement.
+    bool isTraversableEdge(const ww::format::ArtifactReader &reader, ww::runtime::WorldView &view,
+                           const ww::format::AreaEdgeRecord &edge)
+    {
+        const auto txs = reader.transitions();
+        if (edge.transitionIndex >= txs.size())
+        {
+            return false;
+        }
+        const auto &tx = txs[edge.transitionIndex];
+        const int32_t plane = static_cast<int32_t>(tx.originPlane);
+        for (int32_t dy = -2; dy <= 2; ++dy)
+        {
+            for (int32_t dx = -2; dx <= 2; ++dx)
+            {
+                const int32_t x = tx.originX + dx;
+                const int32_t y = tx.originY + dy;
+                if (view.isStandable(x, y, plane) && view.areaAt(x, y, plane) == edge.fromArea)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Pick the first AreaEdge whose transition is traversable: a standable
+    // interact-tile in the declared fromArea exists at radius <= 2 of the origin.
+    // The start is that interact-tile (so the cross-area harness query targets the
+    // transition itself, not a long intra-area trek through whatever the artifact
+    // calls fromArea), and the goal is the transition's destination tile.
+    bool pickCrossAreaPair(const ww::format::ArtifactReader &reader, ww::runtime::WorldView &view,
+                           ww::runtime::TilePoint &outStart, int32_t &outStartPlane,
+                           ww::runtime::TilePoint &outGoal, int32_t &outGoalPlane,
+                           std::size_t &outEdgeIndex)
+    {
+        const auto nodes = reader.areaNodes();
+        const auto edges = reader.areaEdges();
+        const auto txs = reader.transitions();
+        for (std::size_t i = 0; i < edges.size(); ++i)
+        {
+            const ww::format::AreaEdgeRecord &edge = edges[i];
+            if (static_cast<std::size_t>(edge.fromArea) >= nodes.size()
+                || static_cast<std::size_t>(edge.toArea) >= nodes.size())
+            {
+                continue;
+            }
+            if (!isTraversableEdge(reader, view, edge))
+            {
+                continue;
+            }
+            const auto &tx = txs[edge.transitionIndex];
+            const int32_t plane = static_cast<int32_t>(tx.originPlane);
+            // First in-area neighbor of the origin tile, in the same scan order
+            // PathAssembler::resolveInteractTile uses, so the harness starts
+            // exactly where the transition step will be emitted.
+            for (int32_t r = 0; r <= 2; ++r)
+            {
+                for (int32_t dy = -r; dy <= r; ++dy)
+                {
+                    for (int32_t dx = -r; dx <= r; ++dx)
+                    {
+                        if (std::max(std::abs(dx), std::abs(dy)) != r)
+                        {
+                            continue;
+                        }
+                        const int32_t x = tx.originX + dx;
+                        const int32_t y = tx.originY + dy;
+                        if (view.isStandable(x, y, plane) && view.areaAt(x, y, plane) == edge.fromArea)
+                        {
+                            outStart = {x, y};
+                            outStartPlane = plane;
+                            outGoal = {tx.destX, tx.destY};
+                            outGoalPlane = static_cast<int32_t>(tx.destPlane);
+                            outEdgeIndex = i;
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    // Drive PathAssembler end to end: a same-area refinement, a cross-area route
+    // (with at least one Transition step), and an off-map goal that must come back
+    // unreachable. Validates step count, walk/hop breakdown, and contiguity.
+    void dumpPathAssembly(const ww::format::ArtifactReader &reader)
+    {
+        const auto nodes = reader.areaNodes();
+        if (nodes.empty())
+        {
+            std::printf("  plan:   no area graph to assemble against\n");
+            return;
+        }
+        ww::runtime::WorldView view(reader);
+        ww::runtime::AreaSearch areaSearch(reader);
+        ww::runtime::TileSearch tileSearch(view);
+        ww::runtime::PathAssembler assembler(reader, view, areaSearch, tileSearch);
+
+        const ww::format::AreaNodeRecord &n0 = nodes[0];
+        const int32_t plane = static_cast<int32_t>(n0.plane);
+        const int32_t area0 = view.areaAt(n0.centroidX, n0.centroidY, plane);
+        const ww::runtime::TilePoint goal =
+            farthestInArea(view, n0.centroidX, n0.centroidY, plane, area0, 24);
+
+        runPlanQuery(assembler, view, reader, n0.centroidX, n0.centroidY, plane, goal.x, goal.y,
+                     plane, "inarea");
+        runPlanQuery(assembler, view, reader, n0.centroidX, n0.centroidY, plane,
+                     n0.centroidX + 4096, n0.centroidY, plane, "offmap");
+
+        ww::runtime::TilePoint startTile{};
+        ww::runtime::TilePoint goalTile{};
+        int32_t startPlane = 0;
+        int32_t goalPlane = 0;
+        std::size_t edgeIdx = 0;
+        if (pickCrossAreaPair(reader, view, startTile, startPlane, goalTile, goalPlane, edgeIdx))
+        {
+            const auto &e = reader.areaEdges()[edgeIdx];
+            const auto &tx = reader.transitions()[e.transitionIndex];
+            std::printf("  plan:   edge%zu area%d->area%d via tx%u kind=%u origin=(%d,%d,p%u)"
+                        " dest=(%d,%d,p%u)\n",
+                        edgeIdx, e.fromArea, e.toArea, e.transitionIndex, tx.kind,
+                        tx.originX, tx.originY, tx.originPlane, tx.destX, tx.destY, tx.destPlane);
+            runPlanQuery(assembler, view, reader, startTile.x, startTile.y, startPlane, goalTile.x,
+                         goalTile.y, goalPlane, "cross");
+        }
+        else
+        {
+            std::printf("  plan:   no traversable cross-area edge available\n");
+        }
+    }
+
     void dumpArtifact(const ww::format::ArtifactReader &reader)
     {
         const ww::format::ArtifactInfo &info = reader.info();
@@ -300,6 +484,7 @@ namespace
         dumpRuntimeLookup(reader);
         dumpAreaSearch(reader);
         dumpTileSearch(reader);
+        dumpPathAssembly(reader);
     }
 }
 
