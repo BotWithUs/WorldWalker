@@ -425,6 +425,68 @@ namespace
     }
 
     // First traversable area edge whose underlying transition carries a non-empty
+    // embedded chain (chainCount > 0) and resolves to a standable interact-tile
+    // within radius 2 of the origin. Returns the same outputs as
+    // pickCrossAreaPair so the executor harness can swap the source picker in
+    // when it wants the chain-loop body exercised. Returns false when every
+    // traversable edge has an empty chain (the assembler tests' bare-Transport
+    // edge), in which case the caller falls back to pickCrossAreaPair.
+    bool pickChainedCrossAreaPair(const ww::format::ArtifactReader &reader,
+                                  ww::runtime::WorldView &view,
+                                  ww::runtime::TilePoint &outStart, int32_t &outStartPlane,
+                                  ww::runtime::TilePoint &outGoal, int32_t &outGoalPlane,
+                                  std::size_t &outEdgeIndex)
+    {
+        const auto nodes = reader.areaNodes();
+        const auto edges = reader.areaEdges();
+        const auto txs = reader.transitions();
+        for (std::size_t i = 0; i < edges.size(); ++i)
+        {
+            const ww::format::AreaEdgeRecord &edge = edges[i];
+            if (static_cast<std::size_t>(edge.fromArea) >= nodes.size()
+                || static_cast<std::size_t>(edge.toArea) >= nodes.size())
+            {
+                continue;
+            }
+            if (edge.transitionIndex >= txs.size() || txs[edge.transitionIndex].chainCount == 0u)
+            {
+                continue;
+            }
+            if (!isTraversableEdge(reader, view, edge))
+            {
+                continue;
+            }
+            const auto &tx = txs[edge.transitionIndex];
+            const int32_t plane = static_cast<int32_t>(tx.originPlane);
+            for (int32_t r = 0; r <= 2; ++r)
+            {
+                for (int32_t dy = -r; dy <= r; ++dy)
+                {
+                    for (int32_t dx = -r; dx <= r; ++dx)
+                    {
+                        if (std::max(std::abs(dx), std::abs(dy)) != r)
+                        {
+                            continue;
+                        }
+                        const int32_t x = tx.originX + dx;
+                        const int32_t y = tx.originY + dy;
+                        if (view.isStandable(x, y, plane) && view.areaAt(x, y, plane) == edge.fromArea)
+                        {
+                            outStart = {x, y};
+                            outStartPlane = plane;
+                            outGoal = {tx.destX, tx.destY};
+                            outGoalPlane = static_cast<int32_t>(tx.destPlane);
+                            outEdgeIndex = i;
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    // First traversable area edge whose underlying transition carries a non-empty
     // requirement run. Used by the capability-filter exercise to isolate the
     // filter behavior to a single known edge instead of relying on the route
     // search to bump into one.
@@ -897,18 +959,27 @@ namespace
 
     // Counters + simulated position for the Executor harness. Routed via the
     // Callbacks.user cookie so each function pointer stays a plain extern "C"
-    // entry. Two modes share the same struct:
+    // entry. Three modes share the same struct:
     //   AbortOnAction        — short-circuit / start==goal tests; any action
     //                          callback bumps abortIfCalled (test fails loud
     //                          if the executor tries to walk when it shouldn't).
     //   SimulateInstantWalk  — walk-loop test; walkTo updates `position` so
     //                          the next readPosition reports the player as
     //                          arrived at the clicked tile. sleepTicks and
-    //                          shouldCancel are silent no-ops.
+    //                          shouldCancel are silent no-ops. interact /
+    //                          runChainStep / isInterfaceOpen still bump
+    //                          abortIfCalled (a walk-only plan must not touch
+    //                          them).
+    //   SimulateTransition   — walk + transition test; walkTo / sleepTicks /
+    //                          shouldCancel as above; interact / runChainStep
+    //                          count silently; isInterfaceOpen reports the
+    //                          dialog open immediately so the chain doesn't
+    //                          stall on the open-poll budget.
     enum class ExecHarnessMode : uint8_t
     {
         AbortOnAction       = 0,
         SimulateInstantWalk = 1,
+        SimulateTransition  = 2,
     };
 
     struct ExecHarness
@@ -920,6 +991,9 @@ namespace
         int                   walkToCalls;
         int                   sleepTicksCalls;
         int                   shouldCancelCalls;
+        int                   interactCalls;
+        int                   runChainStepCalls;
+        int                   isInterfaceOpenCalls;
         int                   abortIfCalled;
         ww::exec::WwEventKind lastEventKind;
     };
@@ -948,6 +1022,11 @@ namespace
     extern "C" int32_t harnessIsInterfaceOpen(void *user, int32_t)
     {
         ExecHarness *h = static_cast<ExecHarness *>(user);
+        ++h->isInterfaceOpenCalls;
+        if (h->mode == ExecHarnessMode::SimulateTransition)
+        {
+            return 1;
+        }
         ++h->abortIfCalled;
         return 0;
     }
@@ -956,7 +1035,8 @@ namespace
     {
         ExecHarness *h = static_cast<ExecHarness *>(user);
         ++h->walkToCalls;
-        if (h->mode == ExecHarnessMode::SimulateInstantWalk)
+        if (h->mode == ExecHarnessMode::SimulateInstantWalk
+            || h->mode == ExecHarnessMode::SimulateTransition)
         {
             h->position = target;
         }
@@ -969,13 +1049,21 @@ namespace
     extern "C" void harnessInteract(void *user, int32_t, ww::exec::WwTile, int32_t)
     {
         ExecHarness *h = static_cast<ExecHarness *>(user);
-        ++h->abortIfCalled;
+        ++h->interactCalls;
+        if (h->mode != ExecHarnessMode::SimulateTransition)
+        {
+            ++h->abortIfCalled;
+        }
     }
 
     extern "C" void harnessRunChainStep(void *user, int32_t, int32_t)
     {
         ExecHarness *h = static_cast<ExecHarness *>(user);
-        ++h->abortIfCalled;
+        ++h->runChainStepCalls;
+        if (h->mode != ExecHarnessMode::SimulateTransition)
+        {
+            ++h->abortIfCalled;
+        }
     }
 
     extern "C" void harnessSleepTicks(void *user, int32_t)
@@ -1096,6 +1184,71 @@ namespace
         std::printf("  exec:   walk-loop landed at (%d,%d,p%d), goal (%d,%d,p%d)\n",
                     harness2.position.x, harness2.position.y, harness2.position.plane,
                     farthest.x, farthest.y, plane);
+
+        // Test 3: cross-area plan that crosses one Transition. Prefer a
+        // chained transition so the Click/Wait dispatch in the chain loop is
+        // exercised; if none exists in the artifact, fall back to any
+        // traversable edge — that still verifies the interact + loop-
+        // machinery + post-chain settle paths.
+        ww::runtime::TilePoint startTile{};
+        ww::runtime::TilePoint goalTile{};
+        int32_t startPlane = 0;
+        int32_t goalPlane = 0;
+        std::size_t edgeIdx = 0;
+        const bool picked =
+            pickChainedCrossAreaPair(reader, view, startTile, startPlane, goalTile, goalPlane, edgeIdx)
+            || pickCrossAreaPair(reader, view, startTile, startPlane, goalTile, goalPlane, edgeIdx);
+        if (!picked)
+        {
+            std::printf("  exec:   transition test skipped (no traversable cross-area edge)\n");
+            return;
+        }
+
+        const auto &edge = reader.areaEdges()[edgeIdx];
+        const auto &tx   = reader.transitions()[edge.transitionIndex];
+        const bool isGlobal = (tx.flags & ww::format::kTransitionFlagGlobalOrigin) != 0;
+        int32_t clickCount = 0;
+        int32_t waitCount  = 0;
+        const auto chain = reader.chainSteps();
+        for (uint32_t i = 0; i < tx.chainCount; ++i)
+        {
+            const auto &cs = chain[tx.chainStart + i];
+            if (cs.kind == static_cast<uint8_t>(ww::data::ChainStepKind::Click))
+            {
+                ++clickCount;
+            }
+            else
+            {
+                ++waitCount;
+            }
+        }
+        std::printf("  exec:   tx%u kind=%u global=%d chain: %d clicks + %d waits\n",
+                    edge.transitionIndex, tx.kind, isGlobal ? 1 : 0, clickCount, waitCount);
+
+        ExecHarness harness3{};
+        harness3.mode = ExecHarnessMode::SimulateTransition;
+        harness3.position = ww::exec::WwTile{ startTile.x, startTile.y, startPlane };
+        harness3.lastEventKind = ww::exec::WwEventKind::Failed;
+
+        ww::exec::Callbacks cb3 = cbProto;
+        cb3.user = &harness3;
+
+        ww::exec::Executor executor3(reader, pool, cb3);
+        const ww::exec::WwGoal goal3{ goalTile.x, goalTile.y, goalPlane, 0 };
+        const ww::exec::WwStatus status3 = executor3.run(goal3);
+
+        std::printf("  exec:   transition status=%d (expect 0=Arrived) free=%zu lastEvent=%d (expect %d)\n",
+                    static_cast<int>(status3), pool.freeCount(),
+                    static_cast<int>(harness3.lastEventKind),
+                    static_cast<int>(ww::exec::WwEventKind::Arrived));
+        std::printf("  exec:   interacts=%d (expect %d) chainSteps=%d (expect %d) ifaceOpen=%d (>= %d)\n",
+                    harness3.interactCalls, isGlobal ? 0 : 1,
+                    harness3.runChainStepCalls, clickCount,
+                    harness3.isInterfaceOpenCalls, clickCount);
+        std::printf("  exec:   walks=%d sleeps=%d cancels=%d reads=%d events=%d abort=%d (expect abort=0)\n",
+                    harness3.walkToCalls, harness3.sleepTicksCalls,
+                    harness3.shouldCancelCalls, harness3.readPositionCalls,
+                    harness3.onEventCalls, harness3.abortIfCalled);
     }
 
     void dumpArtifact(const ww::format::ArtifactReader &reader)

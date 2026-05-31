@@ -1,5 +1,7 @@
 #include "exec/Executor.h"
 
+#include "data/Transitions.h"
+#include "format/Artifact.h"
 #include "runtime/PathAssembler.h"
 #include "runtime/SearchContext.h"
 
@@ -19,6 +21,17 @@ namespace ww::exec
         constexpr int32_t kArrivalChebyshev     = 1;     // accept being within 1 tile of step target
         constexpr int32_t kStalledPollsTrip     = 3;     // N polls with no progress => stuck
         constexpr int32_t kStuckTimeoutMs       = 20000; // 20s wall-clock per Walk step
+
+        // Transition-step tunables (Phase 4c). Interface-open polling lets the
+        // executor wait for an interact-opened dialog before clicking inside
+        // it; the budget is wall-clock-cheap because each poll is one
+        // isInterfaceOpen call plus a short sleep. The settle wait absorbs the
+        // engine tick between the chain's final action and the position
+        // committing at the destination, so the next walkOneStep reads a
+        // stable position.
+        constexpr int32_t kInterfaceOpenPollTicks = 2;   // ~1.2s between isInterfaceOpen polls
+        constexpr int32_t kInterfaceOpenMaxPolls  = 10;  // ~12s budget per Click step
+        constexpr int32_t kPostChainSettleTicks   = 2;   // ~1.2s wait for the engine to commit dest
 
         // Chebyshev distance on the same plane; INT32_MAX on plane mismatch so
         // a teleport mid-walk reads as "infinitely far" and trips the stall
@@ -114,6 +127,86 @@ namespace ww::exec
         }
     }
 
+    WwStatus Executor::executeTransitionStep(const runtime::Step &step, int32_t stepIndex)
+    {
+        const auto txs = artifact->transitions();
+        if (step.transitionIndex >= txs.size())
+        {
+            emit(WwEventKind::Failed, stepIndex, static_cast<int32_t>(step.transitionIndex));
+            return WwStatus::Failed;
+        }
+        const format::TransitionRecord &tx = txs[step.transitionIndex];
+
+        const auto chain = artifact->chainSteps();
+        const std::size_t chainStart = tx.chainStart;
+        const std::size_t chainEnd   = chainStart + tx.chainCount;
+        if (chainEnd > chain.size())
+        {
+            emit(WwEventKind::Failed, stepIndex, static_cast<int32_t>(step.transitionIndex));
+            return WwStatus::Failed;
+        }
+
+        const int32_t transitionIndex = static_cast<int32_t>(step.transitionIndex);
+        const bool isGlobal = (tx.flags & format::kTransitionFlagGlobalOrigin) != 0;
+        emit(WwEventKind::StepAdvanced, stepIndex, transitionIndex);
+
+        if (!isGlobal)
+        {
+            // Click the world object from the interact-tile (the prior Walk
+            // step put the player there). The object tile itself may be
+            // blocked; the engine resolves the click from an adjacent tile.
+            const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
+            callbacks->interact(callbacks->user, tx.objectId, origin, static_cast<int32_t>(tx.optionIndex));
+        }
+        else
+        {
+            emit(WwEventKind::TeleportInitiated, stepIndex, transitionIndex);
+        }
+
+        for (std::size_t i = 0; i < tx.chainCount; ++i)
+        {
+            if (callbacks->shouldCancel(callbacks->user) != 0)
+            {
+                return WwStatus::Cancelled;
+            }
+            const format::ChainStepRecord &cs = chain[chainStart + i];
+            const int32_t stepIndexInChain = static_cast<int32_t>(i);
+            if (cs.kind == static_cast<uint8_t>(data::ChainStepKind::Click))
+            {
+                // Wait for the target interface to appear, then fire the click.
+                // The host knows how to dispatch the click from (transitionIndex,
+                // stepIndexInChain) since it can index into the same artifact.
+                int32_t polls = 0;
+                while (callbacks->isInterfaceOpen(callbacks->user, cs.a) == 0)
+                {
+                    if (callbacks->shouldCancel(callbacks->user) != 0)
+                    {
+                        return WwStatus::Cancelled;
+                    }
+                    if (polls >= kInterfaceOpenMaxPolls)
+                    {
+                        emit(WwEventKind::Failed, stepIndex, transitionIndex);
+                        return WwStatus::Failed;
+                    }
+                    callbacks->sleepTicks(callbacks->user, kInterfaceOpenPollTicks);
+                    ++polls;
+                }
+                callbacks->runChainStep(callbacks->user, transitionIndex, stepIndexInChain);
+            }
+            else
+            {
+                // Wait: a=ticks to sleep.
+                callbacks->sleepTicks(callbacks->user, cs.a);
+            }
+        }
+
+        // Let the engine commit the destination position. Phase 4d will
+        // explicitly resync via readPosition + drift re-plan; for 4c the next
+        // Walk step's initial readPosition picks up the new position naturally.
+        callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
+        return WwStatus::Arrived;
+    }
+
     WwStatus Executor::run(WwGoal goal)
     {
         WwTile position{ 0, 0, 0 };
@@ -159,20 +252,18 @@ namespace ww::exec
             if (step.kind == runtime::StepKind::Walk)
             {
                 result = walkOneStep(step, stepIndex);
-                if (result != WwStatus::Arrived)
-                {
-                    failedStepIndex = stepIndex;
-                    break;
-                }
             }
             else
             {
-                // Phase 4c will execute interact + chain. For 4b a Transition
-                // step trips the terminal Failed below, carrying its index so
-                // the host can tell which step was unhandled.
-                result = WwStatus::Failed;
+                result = executeTransitionStep(step, stepIndex);
+            }
+            if (result != WwStatus::Arrived)
+            {
                 failedStepIndex = stepIndex;
-                failedTransitionIndex = static_cast<int32_t>(step.transitionIndex);
+                if (step.kind == runtime::StepKind::Transition)
+                {
+                    failedTransitionIndex = static_cast<int32_t>(step.transitionIndex);
+                }
                 break;
             }
         }
