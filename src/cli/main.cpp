@@ -2,11 +2,14 @@
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
 #include "runtime/AreaSearch.h"
+#include "runtime/TileSearch.h"
 #include "runtime/WorldView.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <exception>
 #include <string>
 #include <vector>
@@ -185,6 +188,100 @@ namespace
         runQuery(search, reader, 0, static_cast<int32_t>(nodes.size()) - 1, "ends");
     }
 
+    // Pick a standable in-constraint goal as far as possible from the centroid
+    // within `radius`, so the tile search has to plan a genuine multi-step route
+    // rather than a trivial neighbour hop. Falls back to the centroid itself.
+    ww::runtime::TilePoint farthestInArea(ww::runtime::WorldView &view, int32_t cx, int32_t cy,
+                                          int32_t plane, int32_t area, int32_t radius)
+    {
+        ww::runtime::TilePoint best{cx, cy};
+        int32_t bestDist = 0;
+        for (int32_t dx = -radius; dx <= radius; ++dx)
+        {
+            for (int32_t dy = -radius; dy <= radius; ++dy)
+            {
+                const int32_t x = cx + dx;
+                const int32_t y = cy + dy;
+                const int32_t dist = std::max(std::abs(dx), std::abs(dy));
+                if (dist > bestDist && view.isStandable(x, y, plane) && view.areaAt(x, y, plane) == area)
+                {
+                    bestDist = dist;
+                    best = {x, y};
+                }
+            }
+        }
+        return best;
+    }
+
+    // Confirm every tile of a refined path is standable, in-constraint, and one
+    // legal-distance step from its predecessor, so a reconstruction, area-bound,
+    // or corner-cut bug surfaces here. Returns the number of broken tiles.
+    std::size_t checkTilePath(ww::runtime::WorldView &view, const ww::runtime::TilePath &path,
+                              int32_t plane, int32_t areaConstraint)
+    {
+        std::size_t broken = 0;
+        for (std::size_t i = 0; i < path.tiles.size(); ++i)
+        {
+            const ww::runtime::TilePoint &t = path.tiles[i];
+            const bool stand = view.isStandable(t.x, t.y, plane);
+            const bool inArea = areaConstraint < 0 || view.areaAt(t.x, t.y, plane) == areaConstraint;
+            bool adjacent = true;
+            if (i > 0)
+            {
+                const int32_t dx = std::abs(t.x - path.tiles[i - 1].x);
+                const int32_t dy = std::abs(t.y - path.tiles[i - 1].y);
+                adjacent = dx <= 1 && dy <= 1 && (dx + dy) > 0;
+            }
+            broken += (stand && inArea && adjacent) ? 0u : 1u;
+        }
+        return broken;
+    }
+
+    void runTileQuery(ww::runtime::TileSearch &search, ww::runtime::WorldView &view, int32_t sx,
+                      int32_t sy, int32_t gx, int32_t gy, int32_t plane, int32_t areaConstraint,
+                      const char *label)
+    {
+        ww::runtime::TilePath path;
+        if (!search.findPath(sx, sy, gx, gy, plane, areaConstraint, path))
+        {
+            std::printf("  tile:   %-6s (%d,%d)->(%d,%d) unreachable\n", label, sx, sy, gx, gy);
+            return;
+        }
+        const std::size_t broken = checkTilePath(view, path, plane, areaConstraint);
+        std::printf("  tile:   %-6s (%d,%d)->(%d,%d) ok, %zu tiles, cost=%.1f, %zu broken\n",
+                    label, sx, sy, gx, gy, path.tiles.size(),
+                    static_cast<double>(path.cost), broken);
+    }
+
+    // Drive the tile-level refinement A* end to end on the runtime lookup layer:
+    // resolve area[0]'s centroid, then run a self-query, a within-area route to
+    // the farthest reachable in-area tile (and the same goal unconstrained), and
+    // an off-map goal that must come back unreachable.
+    void dumpTileSearch(const ww::format::ArtifactReader &reader)
+    {
+        const auto nodes = reader.areaNodes();
+        if (nodes.empty())
+        {
+            std::printf("  tile:   no area graph to refine\n");
+            return;
+        }
+        ww::runtime::WorldView view(reader);
+        ww::runtime::TileSearch search(view);
+
+        const ww::format::AreaNodeRecord &n0 = nodes[0];
+        const int32_t plane = static_cast<int32_t>(n0.plane);
+        const int32_t area0 = view.areaAt(n0.centroidX, n0.centroidY, plane);
+
+        runTileQuery(search, view, n0.centroidX, n0.centroidY, n0.centroidX, n0.centroidY, plane,
+                     area0, "self");
+        const ww::runtime::TilePoint goal =
+            farthestInArea(view, n0.centroidX, n0.centroidY, plane, area0, 24);
+        runTileQuery(search, view, n0.centroidX, n0.centroidY, goal.x, goal.y, plane, area0, "inarea");
+        runTileQuery(search, view, n0.centroidX, n0.centroidY, goal.x, goal.y, plane, -1, "free");
+        runTileQuery(search, view, n0.centroidX, n0.centroidY, n0.centroidX + 4096, n0.centroidY,
+                     plane, area0, "offmap");
+    }
+
     void dumpArtifact(const ww::format::ArtifactReader &reader)
     {
         const ww::format::ArtifactInfo &info = reader.info();
@@ -202,6 +299,7 @@ namespace
                     reader.wildernessCutoff());
         dumpRuntimeLookup(reader);
         dumpAreaSearch(reader);
+        dumpTileSearch(reader);
     }
 }
 

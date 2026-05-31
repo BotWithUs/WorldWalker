@@ -115,6 +115,8 @@ set(worldwalker_SOURCES
 	"src/runtime/AltHeuristic.h"
 	"src/runtime/AreaSearch.cpp"
 	"src/runtime/AreaSearch.h"
+	"src/runtime/TileSearch.cpp"
+	"src/runtime/TileSearch.h"
 	"src/runtime/WorldView.cpp"
 	"src/runtime/WorldView.h"
 )
