@@ -104,6 +104,13 @@ namespace ww::runtime
         bool resolveInteractTile(int32_t originX, int32_t originY, int32_t plane,
                                  int32_t area, int32_t &outX, int32_t &outY) const;
 
+        // When the requested goal tile is blocked (off-area), find the nearest
+        // standable tile within kGoalSnapRadius and report it (and its area) as
+        // the effective goal. Returns false when the goal is buried too deep in
+        // blocked terrain for any walkable stand-in to be found.
+        bool resolveGoalTile(int32_t goalX, int32_t goalY, int32_t plane,
+                             int32_t &outX, int32_t &outY, int32_t &outArea) const;
+
         // Refine (fromX, fromY) -> (toX, toY) inside `area` and append chunked
         // WALK steps to outPlan. Each step's target advances at most kWalkChunkTiles
         // along the refined path; the final step always lands on the end tile.

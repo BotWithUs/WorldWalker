@@ -25,6 +25,14 @@ namespace ww::runtime
         // origin itself (typically a one-tile object) plus the surrounding ring.
         constexpr int32_t kInteractSearchRadius = 2;
 
+        // Chebyshev radius searched around a blocked goal tile for the nearest
+        // standable stand-in. A flag dropped on a wall, a closed door, or the
+        // footprint of an object (e.g. a ladder tile) is not itself standable;
+        // rather than fail the whole query, snap the goal to the closest walkable
+        // tile so the route lands the player as near the requested spot as the
+        // collision allows. 3 reaches across a 2-wide object plus its wall ring.
+        constexpr int32_t kGoalSnapRadius = 3;
+
         constexpr uint32_t kNoTransitionIndex = std::numeric_limits<uint32_t>::max();
 
         // Plane is stored as uint8_t on the wire but flows through the assembler
@@ -83,6 +91,41 @@ namespace ww::runtime
                     {
                         outX = x;
                         outY = y;
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    // Outward Chebyshev-ring scan for the nearest standable, in-area tile to a
+    // blocked goal. Unlike resolveInteractTile this is not pinned to a known
+    // area — a blocked tile has no area of its own — so it accepts the first
+    // standable neighbour that belongs to any area, which is by construction the
+    // room the wall/object sits against. Returns false when nothing standable
+    // lies within kGoalSnapRadius (goal is deep in blocked terrain).
+    bool PathAssembler::resolveGoalTile(int32_t goalX, int32_t goalY, int32_t plane,
+                                        int32_t &outX, int32_t &outY, int32_t &outArea) const
+    {
+        for (int32_t r = 1; r <= kGoalSnapRadius; ++r)
+        {
+            for (int32_t dy = -r; dy <= r; ++dy)
+            {
+                for (int32_t dx = -r; dx <= r; ++dx)
+                {
+                    if (std::max(std::abs(dx), std::abs(dy)) != r)
+                    {
+                        continue;  // inner rings handled in earlier iterations
+                    }
+                    const int32_t x = goalX + dx;
+                    const int32_t y = goalY + dy;
+                    const int32_t area = view->areaAt(x, y, plane);
+                    if (area >= 0 && view->isStandable(x, y, plane))
+                    {
+                        outX = x;
+                        outY = y;
+                        outArea = area;
                         return true;
                     }
                 }
@@ -267,10 +310,20 @@ namespace ww::runtime
             return false;
         }
         const int32_t startArea = view->areaAt(startX, startY, startPlane);
-        const int32_t goalArea = view->areaAt(goalX, goalY, goalPlane);
-        if (startArea < 0 || goalArea < 0)
+        if (startArea < 0)
         {
             return false;
+        }
+        int32_t goalArea = view->areaAt(goalX, goalY, goalPlane);
+        if (goalArea < 0)
+        {
+            // The requested goal tile is blocked (wall / closed door / object
+            // footprint). Snap to the nearest standable tile so the route still
+            // lands the player against the intended spot instead of failing.
+            if (!resolveGoalTile(goalX, goalY, goalPlane, goalX, goalY, goalArea))
+            {
+                return false;
+            }
         }
 
         Plan local;
