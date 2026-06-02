@@ -1519,6 +1519,16 @@ int main(int argc, char **argv)
         return runDoorProbe(argv[2], std::atoi(argv[3]));
     }
 
+    if (std::strcmp(argv[1], "txnear") == 0)
+    {
+        if (argc < 6)
+        {
+            std::printf("usage: wwcli txnear <artifact.wwa> <x> <y> <radius>\n");
+            return 1;
+        }
+        return runTxNear(argv[2], std::atoi(argv[3]), std::atoi(argv[4]), std::atoi(argv[5]));
+    }
+
     if (std::strcmp(argv[1], "bench") == 0)
     {
         if (argc < 3)

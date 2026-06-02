@@ -366,6 +366,79 @@ int runDoorProbe(const char *wwaPath, int txIndex)
     }
 }
 
+int runTxNear(const char *wwaPath, int x, int y, int radius)
+{
+    try
+    {
+        const ww::format::ArtifactReader reader(wwaPath);
+        ww::runtime::WorldView view(reader);
+
+        std::printf("txnear: tile (%d,%d) radius=%d\n", x, y, radius);
+        for (int p = 0; p <= 3; ++p)
+        {
+            std::printf("txnear:   plane %d: stand=%d area=%d clip=0x%08x\n", p,
+                        view.isStandable(x, y, p) ? 1 : 0, view.areaAt(x, y, p),
+                        view.clipAt(x, y, p));
+        }
+
+        const auto txs = reader.transitions();
+        int hits = 0;
+        for (uint32_t i = 0; i < txs.size(); ++i)
+        {
+            const ww::format::TransitionRecord &tx = txs[i];
+            const int od = chebyshev(tx.originX, tx.originY, x, y);
+            const int dd = chebyshev(tx.destX, tx.destY, x, y);
+            if (od > radius && dd > radius)
+            {
+                continue;
+            }
+            ++hits;
+            const int oa = view.areaAt(tx.originX, tx.originY, static_cast<int>(tx.originPlane));
+            const int da = view.areaAt(tx.destX, tx.destY, static_cast<int>(tx.destPlane));
+            std::printf("txnear:   tx%u kind=%u obj=%d opt=%d flags=0x%x origin=(%d,%d,p%u)a%d"
+                        " dest=(%d,%d,p%u)a%d cost=%.1f [od=%d dd=%d]\n",
+                        i, tx.kind, tx.objectId, tx.optionIndex, tx.flags, tx.originX, tx.originY,
+                        tx.originPlane, oa, tx.destX, tx.destY, tx.destPlane, da,
+                        static_cast<double>(tx.cost), od, dd);
+        }
+        std::printf("txnear: %d transition(s) within radius\n", hits);
+
+        // Scan the bbox for tiles carrying crossing/blocker clip bits the
+        // deriver keys on — a ladder/stair the cache marked but the bake never
+        // turned into a transition shows up here as a CLIP_PLANE_CHANGE /
+        // CLIP_CLIMBOVER / CLIP_AGILITY tile with no matching tx above.
+        struct Bit { uint32_t mask; const char *name; };
+        const Bit bits[] = {
+            {0x10000000u, "PLANE_CHANGE"}, {0x20000000u, "CLIMBOVER"},
+            {0x08000000u, "AGILITY"},      {0x04000000u, "DOOR"},
+        };
+        for (int p = 0; p <= 3; ++p)
+        {
+            for (int yy = y + radius; yy >= y - radius; --yy)
+            {
+                for (int xx = x - radius; xx <= x + radius; ++xx)
+                {
+                    const uint32_t c = view.clipAt(xx, yy, p);
+                    for (const Bit &b : bits)
+                    {
+                        if ((c & b.mask) != 0u)
+                        {
+                            std::printf("txnear:   clip %-12s (%d,%d,p%d) a%d clip=0x%08x\n",
+                                        b.name, xx, yy, p, view.areaAt(xx, yy, p), c);
+                        }
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+    catch (const std::exception &e)
+    {
+        std::printf("txnear: failed: %s\n", e.what());
+        return 1;
+    }
+}
+
 int runDoorPaths(const char *wwaPath)
 {
     try

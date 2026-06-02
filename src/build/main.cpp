@@ -247,6 +247,34 @@ int main(int argc, char **argv)
     {
         return runBuild(argc, argv);
     }
+    if (std::strcmp(argv[1], "crossings") == 0)
+    {
+        if (argc < 5)
+        {
+            std::fprintf(stderr, "usage: wwbuild crossings <cache_dir> <sqx> <sqy>\n");
+            return 2;
+        }
+        try
+        {
+            ww::build::CacheClient cache(argv[2], false);
+            std::vector<ww::build::Crossing> xs;
+            const bool present = cache.crossings(std::atoi(argv[3]), std::atoi(argv[4]), xs);
+            std::printf("crossings: square (%s,%s) present=%d count=%zu\n", argv[3], argv[4],
+                        present ? 1 : 0, xs.size());
+            for (const ww::build::Crossing &c : xs)
+            {
+                std::printf("  kind=%u obj=%d (%d,%d,p%u) shape=%u rot=%u size=%ux%u opt=%u dir=%u\n",
+                            c.kind, c.objectId, c.worldX, c.worldY, c.plane, c.shape, c.rotation,
+                            c.sizeX, c.sizeY, c.optionIndex, c.climbDir);
+            }
+            return 0;
+        }
+        catch (const std::exception &e)
+        {
+            std::fprintf(stderr, "crossings: failed: %s\n", e.what());
+            return 1;
+        }
+    }
     std::fprintf(stderr, "unknown command: %s\n", argv[1]);
     return usage();
 }

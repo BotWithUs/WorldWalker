@@ -22,4 +22,11 @@ int runDoorPaths(const char *wwaPath);
 // failed to wire as an area-graph edge.
 int runDoorProbe(const char *wwaPath, int txIndex);
 
+// `wwcli txnear <artifact.wwa> <x> <y> <radius>` — diagnostic: print
+// standability/area for the tile on every plane, then list every transition
+// whose origin or destination falls within `radius` (Chebyshev) of (x,y) on
+// any plane. Used to find out why a goal tile has no route — e.g. an upstairs
+// position with no derived plane-change transition into it.
+int runTxNear(const char *wwaPath, int x, int y, int radius);
+
 #endif  // WORLDWALKER_CLI_DOORPATHS_H
