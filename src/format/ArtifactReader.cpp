@@ -300,6 +300,23 @@ namespace ww::format
         const AltTableDescriptor toDesc =
             readPod<AltTableDescriptor>(bytes, cursor + sizeof(AltTableDescriptor));
 
+        // Validate the descriptors against the expected table shape BEFORE
+        // handing them to the zlib decompressor. zlibDecompress allocates a
+        // `rawLength`-sized buffer up front; a corrupt artifact with a
+        // 0xFFFFFFFF rawLength would otherwise trigger a ~4 GB allocation
+        // before any sanity check ran.
+        const uint64_t expectedRaw = static_cast<uint64_t>(header.landmarkCount)
+                                   * static_cast<uint64_t>(header.areaCount)
+                                   * static_cast<uint64_t>(sizeof(float));
+        if (fromDesc.rawLength != expectedRaw)
+        {
+            throw std::runtime_error("ArtifactReader: alt fromLandmark raw length mismatch");
+        }
+        if (toDesc.rawLength != expectedRaw)
+        {
+            throw std::runtime_error("ArtifactReader: alt toLandmark raw length mismatch");
+        }
+
         fromLandmarkData = decompressFloatTable(fromDesc, entry.offset);
         toLandmarkData = decompressFloatTable(toDesc, entry.offset);
     }

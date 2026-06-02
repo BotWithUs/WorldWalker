@@ -200,6 +200,12 @@ endif()
 # Target: wwcli
 set(wwcli_SOURCES
 	cmake.toml
+	"src/cli/Bench.cpp"
+	"src/cli/CrossCheck.cpp"
+	"src/cli/DoorPaths.cpp"
+	"src/cli/PathExport.cpp"
+	"src/cli/ScriptedPaths.cpp"
+	"src/cli/WallShapeTests.cpp"
 	"src/cli/main.cpp"
 )
 
@@ -218,6 +224,7 @@ target_include_directories(wwcli PRIVATE
 
 target_link_libraries(wwcli PRIVATE
 	worldwalker
+	nlohmann_json::nlohmann_json
 )
 
 get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)

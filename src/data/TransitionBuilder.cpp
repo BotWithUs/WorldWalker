@@ -7,6 +7,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <functional>
+#include <limits>
 #include <unordered_set>
 #include <utility>
 
@@ -17,8 +19,12 @@ namespace ww::data
         using ww::build::CollisionLookup;
 
         // Tunables (plan follow-up): per-kind default tick costs and the endpoint
-        // snap radius. Dataset `cost` floats are a legacy heuristic unit, not ticks,
-        // so cost is derived here from chain wait-steps plus these defaults.
+        // snap radius. The dataset format does NOT carry a per-transition cost
+        // field today, and wwbuild owns cost computation: chain Wait steps
+        // accumulated against a per-kind base. If the dataset ever grows a
+        // `cost_ticks` field, route that through Transition::cost in the loader
+        // AND short-circuit computeCost here — relying on cost==0 as the
+        // sentinel would clash with a legitimate zero-cost transition.
         constexpr float kTransportTicks = 3.0f;
         constexpr float kFairyRingTicks = 5.0f;
         constexpr float kTeleportChainTicks = 5.0f;
@@ -52,8 +58,12 @@ namespace ww::data
             return waits + baseTicks(t.kind);
         }
 
-        // Move (x, y) to the nearest standable tile within `radius` (Chebyshev),
-        // searching outward ring by ring. Returns false if none is walkable.
+        // Move (x, y) to the *closest* standable tile within `radius` (Chebyshev),
+        // ring by ring. Inside each ring the candidate with the smallest squared-
+        // Euclidean distance wins, with deterministic (dy, dx) tiebreak — so a
+        // ring-1 cardinal neighbour is preferred over the dx-major-first corner,
+        // and the bake is reproducible across runs. Returns false if no walkable
+        // tile sits within the radius.
         bool snapToWalkable(const CollisionLookup &collision, int &x, int &y, int plane,
                             int radius, bool &outMoved)
         {
@@ -63,22 +73,43 @@ namespace ww::data
             }
             for (int r = 1; r <= radius; ++r)
             {
-                for (int dx = -r; dx <= r; ++dx)
+                int bestDx = 0;
+                int bestDy = 0;
+                int64_t bestSq = std::numeric_limits<int64_t>::max();
+                bool found = false;
+                for (int dy = -r; dy <= r; ++dy)
                 {
-                    for (int dy = -r; dy <= r; ++dy)
+                    for (int dx = -r; dx <= r; ++dx)
                     {
                         if (std::max(std::abs(dx), std::abs(dy)) != r)
                         {
                             continue;
                         }
-                        if (collision.isWalkable(x + dx, y + dy, plane))
+                        if (!collision.isWalkable(x + dx, y + dy, plane))
                         {
-                            x += dx;
-                            y += dy;
-                            outMoved = true;
-                            return true;
+                            continue;
+                        }
+                        const int64_t sq =
+                            static_cast<int64_t>(dx) * dx + static_cast<int64_t>(dy) * dy;
+                        // Lexicographic tiebreak on (sq, dy, dx) makes the choice
+                        // deterministic without depending on iteration order.
+                        if (!found || sq < bestSq
+                            || (sq == bestSq && (dy < bestDy
+                                                 || (dy == bestDy && dx < bestDx))))
+                        {
+                            bestSq = sq;
+                            bestDx = dx;
+                            bestDy = dy;
+                            found = true;
                         }
                     }
+                }
+                if (found)
+                {
+                    x += bestDx;
+                    y += bestDy;
+                    outMoved = true;
+                    return true;
                 }
             }
             return false;
@@ -140,55 +171,66 @@ namespace ww::data
             return Outcome::Kept;
         }
 
-        void hashBytes(uint64_t &h, const void *data, std::size_t n)
+        // Identity key for dedup. Two transitions match when their endpoint
+        // tuple AND kind agree — independent of objectId / shape / rotation /
+        // chain padding — so a dataset entry and a derived freshness entry
+        // pointing at the same ladder collapse to one. First-seen wins: the
+        // dataset is processed before the derived candidates in main.cpp, so
+        // dataset transitions take precedence on a tie.
+        struct EndpointKey
         {
-            const auto *p = static_cast<const uint8_t *>(data);
-            for (std::size_t i = 0; i < n; ++i)
-            {
-                h ^= p[i];
-                h *= 1099511628211ull;
-            }
+            TransitionKind kind;
+            int32_t originX;
+            int32_t originY;
+            uint8_t originPlane;
+            int32_t destX;
+            int32_t destY;
+            uint8_t destPlane;
+            bool isGlobalOrigin;
+        };
+
+        bool operator==(const EndpointKey &a, const EndpointKey &b)
+        {
+            return a.kind            == b.kind
+                && a.isGlobalOrigin  == b.isGlobalOrigin
+                && a.originX         == b.originX
+                && a.originY         == b.originY
+                && a.originPlane     == b.originPlane
+                && a.destX           == b.destX
+                && a.destY           == b.destY
+                && a.destPlane       == b.destPlane;
         }
 
-        template <typename T>
-        void hashPod(uint64_t &h, const T &value)
+        struct EndpointKeyHash
         {
-            hashBytes(h, &value, sizeof(T));
-        }
+            std::size_t operator()(const EndpointKey &k) const noexcept
+            {
+                // FNV-1a 64-bit over the fixed-layout key.
+                uint64_t h = 1469598103934665603ull;
+                auto mix = [&h](uint64_t v)
+                {
+                    for (int i = 0; i < 8; ++i)
+                    {
+                        h ^= static_cast<uint8_t>(v >> (i * 8));
+                        h *= 1099511628211ull;
+                    }
+                };
+                mix(static_cast<uint64_t>(k.kind));
+                mix(static_cast<uint64_t>(k.isGlobalOrigin));
+                mix(static_cast<uint64_t>(static_cast<uint32_t>(k.originX)));
+                mix(static_cast<uint64_t>(static_cast<uint32_t>(k.originY)));
+                mix(static_cast<uint64_t>(k.originPlane));
+                mix(static_cast<uint64_t>(static_cast<uint32_t>(k.destX)));
+                mix(static_cast<uint64_t>(static_cast<uint32_t>(k.destY)));
+                mix(static_cast<uint64_t>(k.destPlane));
+                return static_cast<std::size_t>(h);
+            }
+        };
 
-        // Full-content fingerprint. Two transitions sharing it are exact duplicates;
-        // this only ever collapses true duplicates, never merges distinct edges that
-        // happen to share origin+dest+kind (e.g. two spells to the same tile).
-        uint64_t fingerprint(const Transition &t)
+        EndpointKey endpointKey(const Transition &t)
         {
-            uint64_t h = 1469598103934665603ull;
-            hashPod(h, t.kind);
-            hashPod(h, t.isGlobalOrigin);
-            hashPod(h, t.originX);
-            hashPod(h, t.originY);
-            hashPod(h, t.originPlane);
-            hashPod(h, t.destX);
-            hashPod(h, t.destY);
-            hashPod(h, t.destPlane);
-            hashPod(h, t.objectId);
-            hashPod(h, t.shape);
-            hashPod(h, t.rotation);
-            hashPod(h, t.optionIndex);
-            hashBytes(h, t.code, sizeof(t.code));
-            for (const Requirement &r : t.requirements)
-            {
-                hashPod(h, r.kind);
-                hashPod(h, r.id);
-                hashPod(h, r.amount);
-            }
-            for (const ChainStep &s : t.chain)
-            {
-                hashPod(h, s.kind);
-                hashPod(h, s.a);
-                hashPod(h, s.b);
-                hashPod(h, s.c);
-            }
-            return h;
+            return {t.kind, t.originX, t.originY, t.originPlane,
+                    t.destX, t.destY, t.destPlane, t.isGlobalOrigin};
         }
     }
 
@@ -201,7 +243,7 @@ namespace ww::data
         report.input = raw.transitions.size();
         result.transitions.reserve(raw.transitions.size());
 
-        std::unordered_set<uint64_t> seen;
+        std::unordered_set<EndpointKey, EndpointKeyHash> seen;
         seen.reserve(raw.transitions.size() * 2 + 1);
 
         for (const Transition &source : raw.transitions)
@@ -218,7 +260,11 @@ namespace ww::data
                 ++report.droppedSelfLoop;
                 continue;
             }
-            if (!seen.insert(fingerprint(t)).second)
+            // Dedup on (kind, origin, dest, isGlobalOrigin). Snapping above
+            // may have moved dest, so we key after snap — two dataset entries
+            // that snap to the same destination collapse, as do a dataset
+            // entry and a derived freshness entry at the same effective tile.
+            if (!seen.insert(endpointKey(t)).second)
             {
                 ++report.droppedDuplicate;
                 continue;

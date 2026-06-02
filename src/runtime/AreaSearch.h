@@ -96,9 +96,12 @@ namespace ww::runtime
     private:
         void buildAdjacency();
         void resetScratch();
+        // Each helper takes its heuristic by ref so the implementation in
+        // .cpp can name the parameter `h` and not collide with the member.
+        // (No name-hiding warning under /W4 /WX.)
         void relax(int32_t u, std::span<const format::AreaEdgeRecord> edges,
-                   const AltHeuristic &heuristic);
-        void seedFrontier(std::span<const FrontierSeed> seeds, const AltHeuristic &heuristic);
+                   const AltHeuristic &h);
+        void seedFrontier(std::span<const FrontierSeed> seeds, const AltHeuristic &h);
         void reconstruct(int32_t startArea, int32_t goalArea, AreaPath &outPath) const;
         bool meetsTransitionRequirements(uint32_t transitionIndex) const;
 
@@ -115,6 +118,7 @@ namespace ww::runtime
         std::vector<int32_t> cameFromEdge;  // AreaEdge index entered through; or, when cameFromArea==-2, the seed's transitionIndex (scratch)
         std::vector<uint8_t> settled;       // closed-set flag (scratch)
         std::vector<OpenEntry> openHeap;    // binary min-heap of the open set (scratch)
+        AltHeuristic heuristic;             // landmark bound; owns its per-query goal-distance scratch
         const CapabilitySnapshot *currentSnapshot{nullptr};  // borrowed for one findPath; nullptr accepts all edges
     };
 }

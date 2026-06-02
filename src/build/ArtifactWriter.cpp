@@ -7,9 +7,11 @@
 
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <ios>
 #include <stdexcept>
+#include <system_error>
 #include <vector>
 
 namespace ww::build
@@ -319,18 +321,69 @@ namespace ww::build
             return section;
         }
 
+        // Atomic write: serialize to `path.tmp`, flush + close, then rename
+        // over `path`. A mid-write failure (disk full, signal, antivirus
+        // delete) leaves the *temporary* corrupted file behind — not the
+        // user's existing artifact — so the next wwbuild invocation either
+        // sees the rename complete (good artifact) or the rename never
+        // happened (old artifact still in place). On any failure path the
+        // temp file is best-effort removed so /tmp doesn't accumulate junk.
         void writeFile(const std::string &path, const std::vector<uint8_t> &bytes)
         {
-            std::ofstream stream(path, std::ios::binary | std::ios::trunc);
-            if (!stream)
+            namespace fs = std::filesystem;
+            const fs::path target(path);
+            fs::path tmp = target;
+            tmp += ".tmp";
+
+            // Best-effort: drop any stale tmp from a previous crashed run so
+            // the truncating ofstream below starts from a clean slot.
+            std::error_code ignore;
+            fs::remove(tmp, ignore);
+
+            try
             {
-                throw std::runtime_error("failed to open artifact for writing: " + path);
+                std::ofstream stream(tmp, std::ios::binary | std::ios::trunc);
+                if (!stream)
+                {
+                    throw std::runtime_error("failed to open artifact tmp for writing: "
+                                             + tmp.string());
+                }
+                stream.write(reinterpret_cast<const char *>(bytes.data()),
+                             static_cast<std::streamsize>(bytes.size()));
+                stream.flush();
+                if (!stream)
+                {
+                    throw std::runtime_error("failed to write artifact tmp: " + tmp.string());
+                }
+                stream.close();
+                if (!stream)
+                {
+                    throw std::runtime_error("failed to close artifact tmp: " + tmp.string());
+                }
             }
-            stream.write(reinterpret_cast<const char *>(bytes.data()),
-                         static_cast<std::streamsize>(bytes.size()));
-            if (!stream)
+            catch (...)
             {
-                throw std::runtime_error("failed to write artifact: " + path);
+                fs::remove(tmp, ignore);
+                throw;
+            }
+
+            // std::filesystem::rename on MSVC's stdlib uses MoveFileExW with
+            // MOVEFILE_REPLACE_EXISTING, atomically replacing the destination
+            // on the same volume. If the platform implementation declines to
+            // overwrite, fall back to remove + rename — not strictly atomic,
+            // but no worse than the prior trunc-and-write behavior.
+            std::error_code ec;
+            fs::rename(tmp, target, ec);
+            if (ec)
+            {
+                fs::remove(target, ignore);
+                fs::rename(tmp, target, ec);
+                if (ec)
+                {
+                    fs::remove(tmp, ignore);
+                    throw std::runtime_error("failed to publish artifact " + target.string()
+                                             + ": " + ec.message());
+                }
             }
         }
     }

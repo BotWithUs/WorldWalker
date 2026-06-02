@@ -64,7 +64,13 @@ typedef int                     ww_result;
 /* ---- Error + memory ----------------------------------------------------- */
 
 /* Last error message produced on this thread, or "" if none. Owned by the
-   library — do not free. */
+   library — do not free.
+   IMPORTANT: the buffer is thread-local on the OS calling thread. Read it
+   ONLY on the same thread that just made the failing call (and before that
+   thread makes another library call), otherwise you may read another
+   thread's stale message. For Java / virtual-thread callers, the carrier is
+   pinned across the downcall so consulting ww_last_error() in the same
+   try/catch as the call is safe; reading it out-of-band is not. */
 WW_API const char *ww_last_error(void);
 
 /* Free a buffer returned by any getter. Safe to pass NULL. */
@@ -279,6 +285,23 @@ WW_API void ww_path_free(WwPath *path);
 
 #ifdef __cplusplus
 }  /* extern "C" */
+
+/* Pin the wire layout from inside the C ABI header — the static_asserts fire
+   in every translation unit that includes the header (in C++ mode), so a
+   future edit that grows / reorders a field can't ship without also updating
+   the Java MemoryLayout side. The values match WorldWalkerLayouts.assertSize
+   on the Java side.
+
+   sizeof(bool) is implementation-defined in pure C; we don't use it in any of
+   these structs. */
+static_assert(sizeof(WwTile)              == 12, "WwTile must be 12 bytes (wire)");
+static_assert(sizeof(WwGoal)              == 16, "WwGoal must be 16 bytes (wire)");
+static_assert(sizeof(WwEvent)             == 16, "WwEvent must be 16 bytes (wire)");
+static_assert(sizeof(WwCapabilityEntry)   == 8,  "WwCapabilityEntry must be 8 bytes (wire)");
+static_assert(sizeof(WwCapabilitySnapshot) == 64, "WwCapabilitySnapshot must be 64 bytes (wire)");
+static_assert(sizeof(WwCallbacks)         == 88, "WwCallbacks must be 88 bytes (wire) — 11 ptrs of 8 bytes each on x64");
+static_assert(sizeof(WwStep)              == 16, "WwStep must be 16 bytes (wire)");
+static_assert(sizeof(WwPath)              == 24, "WwPath must be 24 bytes (wire) — ptr+size_t+float+pad");
 #endif
 
 #endif  /* WORLDWALKER_C_H */

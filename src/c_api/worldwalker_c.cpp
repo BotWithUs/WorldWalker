@@ -231,21 +231,12 @@ ww_result ww_query(ww_artifact                *artifact,
         const ww::runtime::CapabilitySnapshot *snapshotPtr =
             (capabilities != nullptr) ? &snapshot : nullptr;
 
-        ww::runtime::SearchContext &context = pool->pool.acquire();
+        // RAII lease — released on scope exit even when assemble() throws.
+        ww::runtime::ContextLease lease = pool->pool.acquire();
         ww::runtime::Plan plan;
-        bool ok = false;
-        try
-        {
-            ok = context.assembler.assemble(start.x, start.y, start.plane,
-                                            goal.x, goal.y, goal.plane,
-                                            snapshotPtr, plan);
-        }
-        catch (...)
-        {
-            pool->pool.release(context);
-            throw;
-        }
-        pool->pool.release(context);
+        const bool ok = lease->assembler.assemble(start.x, start.y, start.plane,
+                                                  goal.x, goal.y, goal.plane,
+                                                  snapshotPtr, plan);
 
         if (!ok)
         {

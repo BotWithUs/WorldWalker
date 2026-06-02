@@ -26,7 +26,8 @@ namespace ww::runtime
 
     AreaSearch::AreaSearch(const format::ArtifactReader &reader)
         : artifact(&reader),
-          areaCount(static_cast<uint32_t>(reader.areaNodes().size()))
+          areaCount(static_cast<uint32_t>(reader.areaNodes().size())),
+          heuristic(reader)
     {
         buildAdjacency();
         bestCost.assign(areaCount, 0.0f);
@@ -65,7 +66,7 @@ namespace ww::runtime
     }
 
     void AreaSearch::relax(int32_t u, std::span<const format::AreaEdgeRecord> edges,
-                           const AltHeuristic &heuristic)
+                           const AltHeuristic &h)
     {
         const uint32_t ua = static_cast<uint32_t>(u);
         for (uint32_t i = edgeOffset[ua]; i < edgeOffset[ua + 1u]; ++i)
@@ -87,7 +88,7 @@ namespace ww::runtime
             bestCost[static_cast<uint32_t>(v)] = nd;
             cameFromArea[static_cast<uint32_t>(v)] = u;
             cameFromEdge[static_cast<uint32_t>(v)] = static_cast<int32_t>(i);
-            openHeap.push_back({nd + heuristic.estimate(static_cast<uint32_t>(v)), v});
+            openHeap.push_back({nd + h.estimate(static_cast<uint32_t>(v)), v});
             std::push_heap(openHeap.begin(), openHeap.end(), ByPriority{});
         }
     }
@@ -128,12 +129,33 @@ namespace ww::runtime
     // index so reconstruct can recover the leading teleport). A seed costing at
     // least as much as the current bestCost is ignored — walking already wins,
     // or another seed already dominates this destination.
+    //
+    // Defensive re-validation: the caller (PathAssembler::buildGlobalTeleportSeeds)
+    // already filters for kTransitionFlagGlobalOrigin and capability requirements,
+    // but we re-check both here so a future caller that hand-rolls seeds cannot
+    // bypass the gate. The cost of a per-seed bounds + flag + requirement check
+    // is negligible against the search itself, and it eliminates a class of
+    // "seeded unauthorized teleport" bugs at the boundary.
     void AreaSearch::seedFrontier(std::span<const FrontierSeed> seeds,
-                                  const AltHeuristic &heuristic)
+                                  const AltHeuristic &h)
     {
+        const std::span<const format::TransitionRecord> transitions = artifact->transitions();
         for (const FrontierSeed &seed : seeds)
         {
             if (!isValidArea(seed.destArea))
+            {
+                continue;
+            }
+            if (seed.transitionIndex >= transitions.size())
+            {
+                continue;
+            }
+            const format::TransitionRecord &tx = transitions[seed.transitionIndex];
+            if ((tx.flags & format::kTransitionFlagGlobalOrigin) == 0u)
+            {
+                continue;
+            }
+            if (!meetsTransitionRequirements(seed.transitionIndex))
             {
                 continue;
             }
@@ -145,7 +167,7 @@ namespace ww::runtime
             bestCost[a] = seed.cost;
             cameFromArea[a] = -2;
             cameFromEdge[a] = static_cast<int32_t>(seed.transitionIndex);
-            openHeap.push_back({seed.cost + heuristic.estimate(a), seed.destArea});
+            openHeap.push_back({seed.cost + h.estimate(a), seed.destArea});
             std::push_heap(openHeap.begin(), openHeap.end(), ByPriority{});
         }
     }
@@ -207,7 +229,7 @@ namespace ww::runtime
         }
 
         const std::span<const format::AreaEdgeRecord> edges = artifact->areaEdges();
-        const AltHeuristic heuristic(*artifact, static_cast<uint32_t>(goalArea));
+        heuristic.prepare(static_cast<uint32_t>(goalArea));
         resetScratch();
 
         bestCost[static_cast<uint32_t>(startArea)] = 0.0f;

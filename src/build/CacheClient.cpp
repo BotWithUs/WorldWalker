@@ -1,5 +1,7 @@
 #include "build/CacheClient.h"
 
+#include "format/Artifact.h"
+
 #include <stdexcept>
 #include <string>
 
@@ -62,6 +64,20 @@ namespace ww::build
         outClip.planeMask = planeMask;
         outClip.words.assign(words, words + count);
         nxt_free(words);
+        // The WW collision format requires every square to ship all 4 planes
+        // worth of clip words (kClipWordsPerSquare = kClipPlanes * 64 * 64).
+        // A producer that ever returns a popcount(planeMask)-sized buffer (the
+        // old prior-nav-stack layout) would silently mis-size the artifact's
+        // per-square blob and the runtime would read garbage for planes 1-3.
+        // Fail loud at the build boundary so the divergence shows up here,
+        // not as wrong paths at runtime.
+        if (outClip.words.size() != ww::format::kClipWordsPerSquare)
+        {
+            throw std::runtime_error("CacheClient: nxt_get_mapsquare_clip returned "
+                                     + std::to_string(outClip.words.size())
+                                     + " words, expected "
+                                     + std::to_string(ww::format::kClipWordsPerSquare));
+        }
         return true;
     }
 }

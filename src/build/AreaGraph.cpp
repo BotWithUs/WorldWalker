@@ -230,17 +230,59 @@ namespace ww::build
             }
         }
 
-        // Areas touching a transition's origin object — the tiles you could stand
-        // on to interact. The object tile itself is often blocked, so its 3x3
-        // neighbourhood is scanned; a door on a boundary yields both sides.
-        std::set<int32_t> collectOriginAreas(const AreaMap &map, const Transition &t)
+        // True when a unit standing at (fromX, fromY, plane) cannot step
+        // toward (dx, dy) because that direction is wall-blocked on the
+        // source tile. Wall edges are reflected onto both endpoints, so the
+        // source-side check is sufficient for "is the step into origin
+        // sealed by a door / shape boundary". (dx, dy) is in {-1, 0, 1}^2
+        // \ {(0, 0)}.
+        bool wallBlocksStepFrom(const CollisionLookup &lookup, int fromX, int fromY, int plane,
+                                int dx, int dy)
+        {
+            const uint32_t flags = lookup.clipAt(fromX, fromY, plane);
+            uint32_t mask = 0;
+            if (dx ==  0 && dy ==  1) mask = format::CLIP_WALL_N;
+            else if (dx ==  1 && dy ==  1) mask = format::CLIP_WALL_NE;
+            else if (dx ==  1 && dy ==  0) mask = format::CLIP_WALL_E;
+            else if (dx ==  1 && dy == -1) mask = format::CLIP_WALL_SE;
+            else if (dx ==  0 && dy == -1) mask = format::CLIP_WALL_S;
+            else if (dx == -1 && dy == -1) mask = format::CLIP_WALL_SW;
+            else if (dx == -1 && dy ==  0) mask = format::CLIP_WALL_W;
+            else if (dx == -1 && dy ==  1) mask = format::CLIP_WALL_NW;
+            return (flags & mask) != 0u;
+        }
+
+        // Areas touching a transition's origin object — the tiles you could
+        // stand on to interact. The object tile itself is often blocked, so
+        // its 3x3 neighbourhood is scanned; a door on a boundary yields the
+        // side(s) reachable WITHOUT crossing a wall. The previous version
+        // ignored wall flags and so emitted AreaEdges through the un-reachable
+        // side of doors, sending the runtime to walk to the wrong side first.
+        std::set<int32_t> collectOriginAreas(const AreaMap &map, const CollisionLookup &lookup,
+                                             const Transition &t)
         {
             std::set<int32_t> areas;
             for (int ox = -1; ox <= 1; ++ox)
             {
                 for (int oy = -1; oy <= 1; ++oy)
                 {
-                    const int32_t a = map.areaAt(t.originX + ox, t.originY + oy, t.originPlane);
+                    if (ox == 0 && oy == 0)
+                    {
+                        continue;  // origin itself is the object tile
+                    }
+                    const int candX = t.originX + ox;
+                    const int candY = t.originY + oy;
+                    // Step from the candidate tile back toward the origin
+                    // (direction = -ox, -oy). If a wall on the candidate's
+                    // side blocks that step, the door / wall sits between
+                    // the candidate and the object — exclude this side.
+                    if (wallBlocksStepFrom(lookup, candX, candY,
+                                            static_cast<int>(t.originPlane),
+                                            -ox, -oy))
+                    {
+                        continue;
+                    }
+                    const int32_t a = map.areaAt(candX, candY, t.originPlane);
                     if (a >= 0)
                     {
                         areas.insert(a);
@@ -274,7 +316,10 @@ namespace ww::build
         }
 
         void resolveAdjacency(const TransitionModel &transitions, const AreaMap &map,
-                              std::vector<AreaEdge> &outEdges, AreaGraphReport &report)
+                              const CollisionLookup &lookup,
+                              std::vector<AreaEdge> &outEdges,
+                              std::vector<GlobalTeleport> &outGlobals,
+                              AreaGraphReport &report)
         {
             for (std::size_t i = 0; i < transitions.transitions.size(); ++i)
             {
@@ -282,6 +327,14 @@ namespace ww::build
                 if (t.isGlobalOrigin)
                 {
                     ++report.globalSkipped;
+                    // Resolve the destination so the ALT bake can include
+                    // this teleport as an admissibility-preserving virtual
+                    // edge from the teleport hub.
+                    const int32_t destArea = map.areaAt(t.destX, t.destY, t.destPlane);
+                    if (destArea >= 0)
+                    {
+                        outGlobals.push_back({destArea, t.cost, static_cast<uint32_t>(i)});
+                    }
                     continue;
                 }
                 const int32_t destArea = map.areaAt(t.destX, t.destY, t.destPlane);
@@ -290,7 +343,7 @@ namespace ww::build
                     ++report.unresolvedDest;
                     continue;
                 }
-                const std::set<int32_t> fromAreas = collectOriginAreas(map, t);
+                const std::set<int32_t> fromAreas = collectOriginAreas(map, lookup, t);
                 if (fromAreas.empty())
                 {
                     ++report.unresolvedOrigin;
@@ -349,7 +402,7 @@ namespace ww::build
         AreaGraphReport report;
 
         labelAreas(collision, lookup, map, model.nodes);
-        resolveAdjacency(transitions, map, model.edges, report);
+        resolveAdjacency(transitions, map, lookup, model.edges, model.globalTeleports, report);
         std::sort(model.edges.begin(), model.edges.end(), edgeLess);
 
         model.grids = map.takeGrids();

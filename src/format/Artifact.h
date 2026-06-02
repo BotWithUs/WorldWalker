@@ -1,6 +1,7 @@
 #ifndef WORLDWALKER_FORMAT_ARTIFACT_H
 #define WORLDWALKER_FORMAT_ARTIFACT_H
 
+#include <bit>
 #include <cstdint>
 
 // On-disk layout of the baked WorldWalker artifact. POD structs only; every
@@ -8,6 +9,14 @@
 // (wwbuild) and the runtime reader (worldwalker) both include this header, so
 // any layout change is a single source of truth. A schema-breaking change must
 // bump kArtifactFormatVersion so the loader fails loud rather than misreading.
+//
+// The byte order is intentionally not portable: the writer and reader memcpy
+// PODs verbatim, so an attempt to build or load on a big-endian host would
+// produce silent corruption. Fail loud at compile time instead.
+static_assert(std::endian::native == std::endian::little,
+              "WorldWalker artifact format is little-endian only "
+              "(see writer/reader memcpy paths in ArtifactWriter / ArtifactReader)");
+
 namespace ww::format
 {
     // 'W','W','A','L' as a little-endian uint32.

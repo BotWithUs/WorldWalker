@@ -10,12 +10,15 @@
 #include "data/TransitionBuilder.h"
 #include "data/Transitions.h"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <exception>
+#include <filesystem>
 #include <string>
+#include <system_error>
 
 // wwbuild — WorldWalker's offline artifact builder. Decodes the RS cache and
 // datasets into the baked artifact the runtime planner loads. `collision` bakes
@@ -36,6 +39,45 @@ namespace
         return 2;
     }
 
+    // Poor-man's cache revision: hash the mtimes of the primary NXTCache data
+    // files (main_file_cache.dat2 + .js5, with directory mtime as fallback)
+    // into a stable uint32. NXTCacheLibrary's C ABI does not yet expose the
+    // engine's own cache revision; once it does, route that through here
+    // instead. Until then, an mtime-derived value is enough for the runtime's
+    // "soft-warn on stale artifact" path to function — it changes every time
+    // the cache does, which is the contract that matters.
+    uint32_t deriveCacheRevision(const std::string &cacheDir)
+    {
+        namespace fs = std::filesystem;
+        auto stamp = [](const fs::path &p) -> int64_t
+        {
+            std::error_code ec;
+            const auto t = fs::last_write_time(p, ec);
+            if (ec) { return 0; }
+            return t.time_since_epoch().count();
+        };
+        const fs::path dir(cacheDir);
+        const int64_t parts[] = {
+            stamp(dir / "main_file_cache.dat2"),
+            stamp(dir / "main_file_cache.js5"),
+            stamp(dir),
+        };
+        // FNV-1a 32 over the three mtime words. A non-existent file
+        // contributes 0; the resulting hash still changes when one of the
+        // others does.
+        uint32_t h = 2166136261u;
+        for (const int64_t v : parts)
+        {
+            const auto u = static_cast<uint64_t>(v);
+            for (int i = 0; i < 8; ++i)
+            {
+                h ^= static_cast<uint8_t>(u >> (i * 8));
+                h *= 16777619u;
+            }
+        }
+        return h;
+    }
+
     int runCollision(int argc, char **argv)
     {
         if (argc < 4)
@@ -52,7 +94,8 @@ namespace
             ww::build::CollisionModel model = ww::build::buildCollisionModel(cache, &skipped);
             ww::build::writeArtifact(outPath, model, ww::data::TransitionModel{},
                                      ww::build::AreaGraphModel{}, ww::build::AltLandmarksModel{},
-                                     ww::data::TeleportZonesModel{}, 0u, 0u);
+                                     ww::data::TeleportZonesModel{},
+                                     deriveCacheRevision(cacheDir), 0u);
             std::printf("collision: %zu squares written to %s (%d archives skipped)\n",
                         model.squares.size(), outPath.c_str(), skipped);
             return 0;
@@ -123,7 +166,8 @@ namespace
             const ww::data::TeleportZonesModel teleportZones = ww::data::buildTeleportZones();
 
             ww::build::writeArtifact(outPath, collision, tr.transitions, abstraction, landmarks,
-                                     teleportZones, 0u, tr.datasetHash);
+                                     teleportZones, deriveCacheRevision(cacheDir),
+                                     tr.datasetHash);
 
             std::printf("build: %zu squares, %zu/%zu transitions -> %s\n",
                         collision.squares.size(), tr.finalize.kept, tr.finalize.input,

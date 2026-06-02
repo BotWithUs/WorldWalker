@@ -24,12 +24,26 @@ namespace ww::runtime
     // When the artifact bakes no landmarks, estimate() returns 0, degrading A* to
     // Dijkstra rather than failing. The borrowed reader must outlive the
     // heuristic.
+    //
+    // Per-query allocation budget: the two `landmarks`-sized goal-distance
+    // caches are owned by this class and resized once at construction. Each
+    // prepare(goalArea) refills them in place — no fresh allocations per query.
     class AltHeuristic
     {
     public:
-        AltHeuristic(const format::ArtifactReader &reader, uint32_t goalArea);
+        explicit AltHeuristic(const format::ArtifactReader &reader);
 
-        // Admissible lower-bound tick cost from `area` to the goal area.
+        AltHeuristic(const AltHeuristic &) = delete;
+        AltHeuristic &operator=(const AltHeuristic &) = delete;
+        AltHeuristic(AltHeuristic &&) = default;
+        AltHeuristic &operator=(AltHeuristic &&) = default;
+
+        // Bind to a new goal area: refills the per-landmark goal-distance
+        // caches. Cheap (O(landmarks)); call at the top of each findPath
+        // instead of constructing a fresh heuristic.
+        void prepare(uint32_t goalArea);
+
+        // Admissible lower-bound tick cost from `area` to the prepared goal area.
         float estimate(uint32_t area) const;
 
     private:

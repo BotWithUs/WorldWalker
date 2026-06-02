@@ -14,16 +14,21 @@ namespace ww::runtime
         constexpr int kSquareShift = 6;                  // 64 tiles per square edge
         constexpr int kLocalMask = format::kClipSize - 1;
 
-        uint32_t squareKey(int squareX, int squareY)
+        // Non-overlapping 16/16 packing — squareX up to 65535, squareY up to
+        // 65535, no aliasing.
+        uint64_t squareKey(int squareX, int squareY)
         {
-            return (static_cast<uint32_t>(squareY) << 16) | (static_cast<uint32_t>(squareX) & 0xFFFFu);
+            return (static_cast<uint64_t>(static_cast<uint32_t>(squareY)) << 32)
+                 |  static_cast<uint64_t>(static_cast<uint32_t>(squareX));
         }
 
-        uint32_t gridKey(int squareX, int squareY, int plane)
+        // Non-overlapping 16/16/8 packing — squareX up to 65535, squareY up to
+        // 65535, plane up to 255, no aliasing under any RS3 cache size.
+        uint64_t gridKey(int squareX, int squareY, int plane)
         {
-            return (static_cast<uint32_t>(squareY) << 16)
-                 | ((static_cast<uint32_t>(squareX) & 0xFFFu) << 4)
-                 | (static_cast<uint32_t>(plane) & 0xFu);
+            return (static_cast<uint64_t>(static_cast<uint32_t>(squareY)) << 40)
+                 | (static_cast<uint64_t>(static_cast<uint32_t>(squareX)) << 8)
+                 | (static_cast<uint64_t>(plane) & 0xFFu);
         }
 
         // Clip words are plane-major, then x (west-east), then y (south-north).
@@ -55,7 +60,7 @@ namespace ww::runtime
 
     const std::vector<uint32_t> &WorldView::squareWords(int squareX, int squareY)
     {
-        const uint32_t key = squareKey(squareX, squareY);
+        const uint64_t key = squareKey(squareX, squareY);
         const auto it = clipCache.find(key);
         if (it != clipCache.end())
         {
@@ -68,7 +73,7 @@ namespace ww::runtime
 
     const std::vector<int32_t> &WorldView::gridIds(int squareX, int squareY, int plane)
     {
-        const uint32_t key = gridKey(squareX, squareY, plane);
+        const uint64_t key = gridKey(squareX, squareY, plane);
         const auto it = gridCache.find(key);
         if (it != gridCache.end())
         {

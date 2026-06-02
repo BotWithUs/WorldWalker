@@ -8,21 +8,99 @@
 #include <cstddef>
 #include <memory>
 #include <mutex>
+#include <unordered_set>
 #include <vector>
 
 namespace ww::runtime
 {
+    class ContextPool;
+
+    // Move-only RAII handle around one borrowed SearchContext. Releases the
+    // borrow on destruction, so any throw between acquire and the use of the
+    // context still returns it to the pool — closing the deadlock-on-leak
+    // window the old "raw reference + explicit release()" API had. Default-
+    // constructed leases hold no context and are no-ops on destruction.
+    //
+    // Not thread-safe; intended to be held by one stack frame for the
+    // duration of a query / executor run, exactly like a unique_ptr.
+    class ContextLease
+    {
+    public:
+        ContextLease() noexcept : pool(nullptr), context(nullptr) {}
+        ContextLease(ContextPool *pool, SearchContext *context) noexcept
+            : pool(pool), context(context)
+        {
+        }
+        ~ContextLease()
+        {
+            reset();
+        }
+
+        ContextLease(const ContextLease &) = delete;
+        ContextLease &operator=(const ContextLease &) = delete;
+
+        ContextLease(ContextLease &&other) noexcept
+            : pool(other.pool), context(other.context)
+        {
+            other.pool = nullptr;
+            other.context = nullptr;
+        }
+
+        ContextLease &operator=(ContextLease &&other) noexcept
+        {
+            if (this != &other)
+            {
+                reset();
+                pool = other.pool;
+                context = other.context;
+                other.pool = nullptr;
+                other.context = nullptr;
+            }
+            return *this;
+        }
+
+        // True while a context is held; false after reset / move-out.
+        explicit operator bool() const noexcept
+        {
+            return context != nullptr;
+        }
+
+        SearchContext &operator*() const noexcept
+        {
+            return *context;
+        }
+
+        SearchContext *operator->() const noexcept
+        {
+            return context;
+        }
+
+        SearchContext *get() const noexcept
+        {
+            return context;
+        }
+
+        // Eagerly release back to the pool. Subsequent operator*/operator->
+        // are undefined; explicit operator bool reports false.
+        void reset() noexcept;
+
+    private:
+        ContextPool *pool;
+        SearchContext *context;
+    };
+
     // Bounded pool of reusable SearchContexts over a shared, immutable artifact
     // (ADR 0007). A query or executor run borrows one context for its duration
-    // via acquire() and returns it via release(). When every context is in use,
-    // acquire() blocks on a condition variable until one is returned — a virtual
-    // thread therefore only blocks when CPU parallelism is already saturated, so
-    // scratch memory stays flat as clients/scripts scale.
+    // via acquire() and returns it implicitly when the returned ContextLease
+    // is destroyed. When every context is in use, acquire() blocks on a
+    // condition variable until one is returned — a virtual thread therefore
+    // only blocks when CPU parallelism is already saturated, so scratch memory
+    // stays flat as clients/scripts scale.
     //
     // The artifact is borrowed; it must outlive the pool, which in turn must
     // outlive every context borrowed from it. The contexts are heap-allocated
-    // and never relocated, so a borrower may hold the returned reference for
-    // the duration of its query without re-acquiring through the pool.
+    // and never relocated, so a borrower may hold the returned lease for the
+    // duration of its query without re-acquiring through the pool.
     class ContextPool
     {
     public:
@@ -37,18 +115,14 @@ namespace ww::runtime
         ContextPool &operator=(ContextPool &&) = delete;
 
         // Borrow a SearchContext, blocking until one is available. The returned
-        // reference must be returned exactly once via release(); double-release
-        // or releasing a context from a different pool is undefined behavior.
-        SearchContext &acquire();
+        // lease releases the borrow on destruction; move it to transfer
+        // ownership.
+        ContextLease acquire();
 
-        // Non-blocking variant: when a context is immediately available, writes
-        // it to outContext and returns true; otherwise leaves outContext
-        // unchanged and returns false.
-        bool tryAcquire(SearchContext *&outContext);
-
-        // Return a previously acquired context to the pool, waking one waiter.
-        // The pool recycles the context's per-query cache before re-listing it.
-        void release(SearchContext &context);
+        // Non-blocking variant: when a context is immediately available, the
+        // returned lease holds it; otherwise the returned lease is empty
+        // (evaluates to false).
+        ContextLease tryAcquire();
 
         // Total context count (does not change after construction).
         std::size_t size() const
@@ -61,8 +135,19 @@ namespace ww::runtime
         std::size_t freeCount() const;
 
     private:
+        // The ContextLease destructor calls back into the pool to return its
+        // borrowed context. Kept private so callers cannot construct a release
+        // path that bypasses the outstanding-set bookkeeping.
+        friend class ContextLease;
+        void release(SearchContext *context) noexcept;
+
         std::vector<std::unique_ptr<SearchContext>> contexts;
         std::vector<SearchContext *> freeList;
+        // Tracks contexts currently leased out. A release() that targets a
+        // pointer not in this set is silently dropped — a double-release would
+        // otherwise corrupt the freeList by listing the same context twice and
+        // hand it out to two callers, trampling each other's scratch.
+        std::unordered_set<SearchContext *> outstanding;
         mutable std::mutex m;
         std::condition_variable cv;
     };

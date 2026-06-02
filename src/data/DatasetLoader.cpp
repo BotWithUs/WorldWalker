@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -56,6 +57,50 @@ namespace ww::data
             }
         }
 
+        // Required-field reader. Loudly fails the build on missing or
+        // non-integer fields rather than letting `value(key, 0)` quietly
+        // invent a transition rooted at tile (0, 0, 0). Missed fields are
+        // typos / dataset-format drift; either way the build should surface
+        // the bad record by file + key, not bake a broken transition.
+        int readRequiredInt(const json &node, const char *key, const char *context)
+        {
+            if (!node.contains(key))
+            {
+                throw std::runtime_error(std::string(context)
+                                         + ": missing required field '"
+                                         + key + "'");
+            }
+            const json &v = node.at(key);
+            if (!v.is_number_integer())
+            {
+                throw std::runtime_error(std::string(context)
+                                         + ": field '" + key
+                                         + "' must be an integer");
+            }
+            return v.get<int>();
+        }
+
+        // Optional-field reader that still enforces integer typing when
+        // present. value<int>(key, default) on a JSON float silently
+        // truncates in some nlohmann configurations; this helper closes
+        // that bug class at a single site.
+        int readOptionalInt(const json &node, const char *key, int defaultValue,
+                            const char *context)
+        {
+            if (!node.contains(key))
+            {
+                return defaultValue;
+            }
+            const json &v = node.at(key);
+            if (!v.is_number_integer())
+            {
+                throw std::runtime_error(std::string(context)
+                                         + ": field '" + key
+                                         + "' must be an integer if present");
+            }
+            return v.get<int>();
+        }
+
         void parseRequirements(const json &node, std::vector<Requirement> &out)
         {
             if (!node.contains("requirements") || !node.at("requirements").is_object())
@@ -66,23 +111,31 @@ namespace ww::data
             if (req.contains("skill") && req.at("skill").is_object())
             {
                 const json &s = req.at("skill");
-                out.push_back({RequirementKind::Skill, s.value("id", -1), s.value("level", 0)});
+                out.push_back({RequirementKind::Skill,
+                               readOptionalInt(s, "id", -1, "requirements.skill"),
+                               readOptionalInt(s, "level", 0, "requirements.skill")});
             }
             if (req.contains("varbit") && req.at("varbit").is_object())
             {
                 const json &v = req.at("varbit");
-                out.push_back({RequirementKind::Varbit, v.value("id", -1), v.value("value", 0)});
+                out.push_back({RequirementKind::Varbit,
+                               readOptionalInt(v, "id", -1, "requirements.varbit"),
+                               readOptionalInt(v, "value", 0, "requirements.varbit")});
             }
             if (req.contains("varp") && req.at("varp").is_object())
             {
                 const json &v = req.at("varp");
-                out.push_back({RequirementKind::Varp, v.value("id", -1), v.value("value", 0)});
+                out.push_back({RequirementKind::Varp,
+                               readOptionalInt(v, "id", -1, "requirements.varp"),
+                               readOptionalInt(v, "value", 0, "requirements.varp")});
             }
             if (req.contains("items") && req.at("items").is_array())
             {
                 for (const json &it : req.at("items"))
                 {
-                    out.push_back({RequirementKind::Item, it.value("id", -1), it.value("count", 1)});
+                    out.push_back({RequirementKind::Item,
+                                   readOptionalInt(it, "id", -1, "requirements.item"),
+                                   readOptionalInt(it, "count", 1, "requirements.item")});
                 }
             }
         }
@@ -98,14 +151,28 @@ namespace ww::data
                 if (step.contains("click") && step.at("click").is_array())
                 {
                     const json &c = step.at("click");
+                    if (!c.empty() && !c[0].is_number_integer())
+                    {
+                        throw std::runtime_error("chain.click[0] must be an integer");
+                    }
                     const int a = c.size() > 0 ? c[0].get<int>() : 0;
-                    const int b = c.size() > 1 ? c[1].get<int>() : 0;
-                    const int d = c.size() > 2 ? c[2].get<int>() : 0;
+                    const int b = c.size() > 1
+                        ? (c[1].is_number_integer()
+                            ? c[1].get<int>()
+                            : throw std::runtime_error("chain.click[1] must be an integer"))
+                        : 0;
+                    const int d = c.size() > 2
+                        ? (c[2].is_number_integer()
+                            ? c[2].get<int>()
+                            : throw std::runtime_error("chain.click[2] must be an integer"))
+                        : 0;
                     out.push_back({ChainStepKind::Click, a, b, d});
                 }
                 else if (step.contains("wait"))
                 {
-                    out.push_back({ChainStepKind::Wait, step.value("wait", 0), 0, 0});
+                    out.push_back({ChainStepKind::Wait,
+                                   readOptionalInt(step, "wait", 0, "chain.wait"),
+                                   0, 0});
                 }
             }
         }
@@ -120,16 +187,23 @@ namespace ww::data
             {
                 Transition t;
                 t.kind = TransitionKind::Transport;
-                t.originX = e.value("x", 0);
-                t.originY = e.value("y", 0);
-                t.originPlane = static_cast<uint8_t>(e.value("plane", 0));
-                t.destX = e.value("dest_x", 0);
-                t.destY = e.value("dest_y", 0);
-                t.destPlane = static_cast<uint8_t>(e.value("dest_plane", 0));
-                t.objectId = e.value("object_id", -1);
-                t.shape = static_cast<uint8_t>(e.value("shape", 0));
-                t.rotation = static_cast<uint8_t>(e.value("rotation", 0));
-                t.optionIndex = static_cast<uint8_t>(e.value("option_index", 0));
+                t.originX = readRequiredInt(e, "x", "transport_links");
+                t.originY = readRequiredInt(e, "y", "transport_links");
+                t.originPlane = static_cast<uint8_t>(
+                    readRequiredInt(e, "plane", "transport_links"));
+                t.destX = readRequiredInt(e, "dest_x", "transport_links");
+                t.destY = readRequiredInt(e, "dest_y", "transport_links");
+                t.destPlane = static_cast<uint8_t>(
+                    readRequiredInt(e, "dest_plane", "transport_links"));
+                t.objectId = readOptionalInt(e, "object_id", -1, "transport_links");
+                t.shape = static_cast<uint8_t>(
+                    readOptionalInt(e, "shape", 0, "transport_links"));
+                t.rotation = static_cast<uint8_t>(
+                    readOptionalInt(e, "rotation", 0, "transport_links"));
+                t.optionIndex = static_cast<uint8_t>(
+                    readOptionalInt(e, "option_index", 0, "transport_links"));
+                parseRequirements(e, t.requirements);
+                parseChain(e, t.chain);
                 model.transitions.push_back(std::move(t));
             }
         }
@@ -146,14 +220,23 @@ namespace ww::data
                 const std::string type = e.value("type", std::string{});
                 t.kind = (type == "fairy_ring") ? TransitionKind::FairyRing
                                                 : TransitionKind::TeleportChain;
-                t.originX = e.value("origin_x", 0);
-                t.originY = e.value("origin_y", 0);
-                t.originPlane = static_cast<uint8_t>(e.value("origin_plane", 0));
-                t.destX = e.value("dest_x", 0);
-                t.destY = e.value("dest_y", 0);
-                t.destPlane = static_cast<uint8_t>(e.value("dest_plane", 0));
-                t.objectId = e.value("object_id", -1);
+                t.originX = readRequiredInt(e, "origin_x", "teleport_chains");
+                t.originY = readRequiredInt(e, "origin_y", "teleport_chains");
+                t.originPlane = static_cast<uint8_t>(
+                    readRequiredInt(e, "origin_plane", "teleport_chains"));
+                t.destX = readRequiredInt(e, "dest_x", "teleport_chains");
+                t.destY = readRequiredInt(e, "dest_y", "teleport_chains");
+                t.destPlane = static_cast<uint8_t>(
+                    readRequiredInt(e, "dest_plane", "teleport_chains"));
+                t.objectId = readOptionalInt(e, "object_id", -1, "teleport_chains");
                 copyCode(t.code, e.value("code", std::string{}));
+                // Previously omitted: per-entry capability gates and embedded
+                // chain step lists were dropped at parse time, so every fairy
+                // ring / teleport chain landed in the artifact with empty
+                // requirements + empty chain, leaving the executor with
+                // nothing to run.
+                parseRequirements(e, t.requirements);
+                parseChain(e, t.chain);
                 model.transitions.push_back(std::move(t));
             }
         }
@@ -169,9 +252,22 @@ namespace ww::data
                 Transition t;
                 t.kind = TransitionKind::Spell;
                 t.isGlobalOrigin = e.value("global", true);
-                t.destX = e.value("dest_x", 0);
-                t.destY = e.value("dest_y", 0);
-                t.destPlane = static_cast<uint8_t>(e.value("dest_plane", 0));
+                t.destX = readRequiredInt(e, "dest_x", "spell_teleports");
+                t.destY = readRequiredInt(e, "dest_y", "spell_teleports");
+                t.destPlane = static_cast<uint8_t>(
+                    readRequiredInt(e, "dest_plane", "spell_teleports"));
+                // Non-global spells require an origin tile — otherwise the
+                // build would emit a transition rooted at (0,0,0). Read it
+                // strictly when isGlobalOrigin=false; global spells default
+                // origin to (0,0,0) which is unused (the executor casts in
+                // place from the player's tile).
+                if (!t.isGlobalOrigin)
+                {
+                    t.originX = readRequiredInt(e, "origin_x", "spell_teleports(non-global)");
+                    t.originY = readRequiredInt(e, "origin_y", "spell_teleports(non-global)");
+                    t.originPlane = static_cast<uint8_t>(
+                        readRequiredInt(e, "origin_plane", "spell_teleports(non-global)"));
+                }
                 parseRequirements(e, t.requirements);
                 parseChain(e, t.chain);
                 model.transitions.push_back(std::move(t));
@@ -192,13 +288,13 @@ namespace ww::data
         LodestoneConfig readLodestoneConfig(const json &cfg)
         {
             LodestoneConfig c;
-            c.openInterface = cfg.value("open_interface", 0);
-            c.openComponent = cfg.value("open_component", 0);
-            c.openOption = cfg.value("open_option", 1);
-            c.selectInterface = cfg.value("select_interface", 0);
-            c.selectOption = cfg.value("select_option", 1);
-            c.openWait = cfg.value("open_wait", 0);
-            c.teleportWait = cfg.value("teleport_wait", 0);
+            c.openInterface = readOptionalInt(cfg, "open_interface", 0, "lodestones.config");
+            c.openComponent = readOptionalInt(cfg, "open_component", 0, "lodestones.config");
+            c.openOption = readOptionalInt(cfg, "open_option", 1, "lodestones.config");
+            c.selectInterface = readOptionalInt(cfg, "select_interface", 0, "lodestones.config");
+            c.selectOption = readOptionalInt(cfg, "select_option", 1, "lodestones.config");
+            c.openWait = readOptionalInt(cfg, "open_wait", 0, "lodestones.config");
+            c.teleportWait = readOptionalInt(cfg, "teleport_wait", 0, "lodestones.config");
             return c;
         }
 
@@ -229,11 +325,14 @@ namespace ww::data
                 Transition t;
                 t.kind = TransitionKind::Lodestone;
                 t.isGlobalOrigin = true;
-                t.destX = d.value("x", 0);
-                t.destY = d.value("y", 0);
-                t.destPlane = static_cast<uint8_t>(d.value("plane", 0));
+                t.destX = readRequiredInt(d, "x", "lodestones.destination");
+                t.destY = readRequiredInt(d, "y", "lodestones.destination");
+                t.destPlane = static_cast<uint8_t>(
+                    readRequiredInt(d, "plane", "lodestones.destination"));
                 parseRequirements(d, t.requirements);
-                buildLodestoneChain(cfg, d.value("component", 0), t.chain);
+                buildLodestoneChain(cfg,
+                                    readOptionalInt(d, "component", 0, "lodestones.destination"),
+                                    t.chain);
                 model.transitions.push_back(std::move(t));
             }
         }

@@ -274,14 +274,16 @@ namespace ww::exec
 
         // Borrow a SearchContext for the entire run so re-plans (4d) reuse
         // the same context without re-acquiring through the pool (ADR 0007:
-        // contexts are heap-allocated and never relocated). Held until every
-        // return path below.
-        runtime::SearchContext &context = pool->acquire();
+        // contexts are heap-allocated and never relocated). The lease's
+        // destructor returns it to the pool on every exit path — including
+        // the implicit throw paths inside planFrom() / walkOneStep() — so
+        // there is no "forgot to release on this branch" failure mode here.
+        runtime::ContextLease lease = pool->acquire();
+        runtime::SearchContext &context = *lease;
 
         runtime::Plan plan;
         if (!planFrom(position, goal, context, plan))
         {
-            pool->release(context);
             emit(WwEventKind::Failed);
             return WwStatus::Failed;
         }
@@ -291,7 +293,6 @@ namespace ww::exec
             // fell outside the explicit radius (e.g., the goal tile is
             // unwalkable but the start tile lies on its acceptance set at
             // the area level).
-            pool->release(context);
             emit(WwEventKind::Arrived);
             return WwStatus::Arrived;
         }
@@ -419,12 +420,11 @@ namespace ww::exec
             arrivedEmitted = true;
         }
 
-        pool->release(context);
-
         if (terminal == WwStatus::Failed)
         {
             emit(WwEventKind::Failed, failedStepIndex, failedTransitionIndex);
         }
         return terminal;
+        // lease destructor returns the context to the pool here.
     }
 }

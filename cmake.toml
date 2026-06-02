@@ -98,9 +98,11 @@ link-libraries = ["worldwalker", "NXTCache::NXTCache", "nlohmann_json::nlohmann_
 compile-features = ["cxx_std_23"]
 
 # ---- Dev harness (queries + benchmarks) ------------------------------------
+# nlohmann_json is linked for the `wwcli path` subcommand's JSON export
+# (PathExport.cpp) — input to the standalone Leaflet viewer in tools/viewer/.
 [target.wwcli]
 type = "executable"
 sources = ["src/cli/*.cpp"]
 include-directories = ["src"]
-link-libraries = ["worldwalker"]
+link-libraries = ["worldwalker", "nlohmann_json::nlohmann_json"]
 compile-features = ["cxx_std_23"]

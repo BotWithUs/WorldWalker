@@ -37,6 +37,19 @@ namespace ww::build
         float cost{};
     };
 
+    // A global-origin teleport's resolved destination + cost, exposed for the
+    // ALT landmark bake. Global teleports do NOT appear in `edges` (they are
+    // seeded at the search frontier at runtime), but they DO contribute to
+    // the true shortest-path distances ALT needs to be admissible — so the
+    // landmark Dijkstra reads this list and threads them through a virtual
+    // teleport hub when computing distFromLandmark / distToLandmark.
+    struct GlobalTeleport
+    {
+        int32_t  destArea{};        // baked area id of the teleport's destination tile
+        float    cost{};            // tick cost (cast chain wait + per-kind base)
+        uint32_t transitionIndex{}; // index into the finalized transition list
+    };
+
     // The area-id grid for one (square, plane): kClipSize*kClipSize int32 ids in
     // x-major then y order, -1 for blocked / unreachable tiles.
     struct AreaGrid
@@ -49,9 +62,10 @@ namespace ww::build
 
     struct AreaGraphModel
     {
-        std::vector<AreaNode> nodes;   // indexed by area id
-        std::vector<AreaEdge> edges;   // sorted by (fromArea, toArea)
-        std::vector<AreaGrid> grids;   // sorted by (squareY, squareX, plane)
+        std::vector<AreaNode> nodes;                  // indexed by area id
+        std::vector<AreaEdge> edges;                  // sorted by (fromArea, toArea)
+        std::vector<AreaGrid> grids;                  // sorted by (squareY, squareX, plane)
+        std::vector<GlobalTeleport> globalTeleports;  // resolved global-origin teleports
     };
 
     // Build-log accounting for buildAreaGraph.

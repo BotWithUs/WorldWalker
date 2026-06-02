@@ -61,8 +61,12 @@ namespace ww::runtime
         const std::vector<int32_t> &gridIds(int squareX, int squareY, int plane);
 
         const format::ArtifactReader *artifact;
-        std::unordered_map<uint32_t, std::vector<uint32_t>> clipCache;
-        std::unordered_map<uint32_t, std::vector<int32_t>> gridCache;
+        // 64-bit non-overlapping keys (squareY << 32 | squareX, and
+        // squareY << 40 | squareX << 8 | plane) so squareX, squareY, and plane
+        // can never alias under any cache size — RS3 has at most ~128 squares
+        // per axis but the room is free.
+        std::unordered_map<uint64_t, std::vector<uint32_t>> clipCache;
+        std::unordered_map<uint64_t, std::vector<int32_t>> gridCache;
     };
 }
 

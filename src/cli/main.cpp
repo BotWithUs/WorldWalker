@@ -1,4 +1,10 @@
 #include "c_api/worldwalker_c.h"
+#include "cli/Bench.h"
+#include "cli/CrossCheck.h"
+#include "cli/DoorPaths.h"
+#include "cli/PathExport.h"
+#include "cli/ScriptedPaths.h"
+#include "cli/WallShapeTests.h"
 #include "data/Transitions.h"
 #include "exec/Callbacks.h"
 #include "exec/Executor.h"
@@ -915,53 +921,47 @@ namespace
     }
 
     // Exercise the bounded search-context pool: build a 2-slot pool, validate the
-    // tryAcquire saturation pattern (two grants then a refusal), release one,
-    // verify the slot reopens, then drive a same-tile self-assemble through the
-    // borrowed context to prove the bundled components wire up correctly.
-    // Blocking acquire() is not exercised here — the deterministic harness avoids
-    // sleep-based thread sync; the executor in Phase 4 will drive it for real.
+    // tryAcquire saturation pattern (two grants then a refusal), drop one
+    // lease, verify the slot reopens, then drive a same-tile self-assemble
+    // through the borrowed context to prove the bundled components wire up
+    // correctly. Blocking acquire() is not exercised here — the deterministic
+    // harness avoids sleep-based thread sync; the executor drives it for real.
     void dumpContextPool(const ww::format::ArtifactReader &reader)
     {
         constexpr std::size_t kPoolSize = 2;
         ww::runtime::ContextPool pool(reader, kPoolSize);
         std::printf("  pool:   size=%zu free=%zu\n", pool.size(), pool.freeCount());
 
-        ww::runtime::SearchContext *c1 = nullptr;
-        ww::runtime::SearchContext *c2 = nullptr;
-        ww::runtime::SearchContext *c3 = nullptr;
-        const bool got1 = pool.tryAcquire(c1);
-        const bool got2 = pool.tryAcquire(c2);
-        const bool got3 = pool.tryAcquire(c3);
+        ww::runtime::ContextLease l1 = pool.tryAcquire();
+        ww::runtime::ContextLease l2 = pool.tryAcquire();
+        ww::runtime::ContextLease l3 = pool.tryAcquire();
         std::printf("  pool:   tryAcquire seq=%d,%d,%d (expect 1,1,0) free=%zu\n",
-                    got1 ? 1 : 0, got2 ? 1 : 0, got3 ? 1 : 0, pool.freeCount());
-        if (!got1 || !got2 || got3)
+                    l1 ? 1 : 0, l2 ? 1 : 0, l3 ? 1 : 0, pool.freeCount());
+        if (!l1 || !l2 || l3)
         {
             std::printf("  pool:   FAIL acquisition pattern\n");
-            if (got1) { pool.release(*c1); }
-            if (got2) { pool.release(*c2); }
             return;
         }
 
-        pool.release(*c1);
-        ww::runtime::SearchContext *c4 = nullptr;
-        const bool got4 = pool.tryAcquire(c4);
+        l1.reset();  // returns slot 1
+        ww::runtime::ContextLease l4 = pool.tryAcquire();
         std::printf("  pool:   reacquire after release=%d free=%zu\n",
-                    got4 ? 1 : 0, pool.freeCount());
+                    l4 ? 1 : 0, pool.freeCount());
 
         const auto nodes = reader.areaNodes();
-        if (got4 && !nodes.empty())
+        if (l4 && !nodes.empty())
         {
             const ww::format::AreaNodeRecord &n0 = nodes[0];
             const int32_t plane = static_cast<int32_t>(n0.plane);
             ww::runtime::Plan plan;
-            const bool ok = c4->assembler.assemble(n0.centroidX, n0.centroidY, plane,
+            const bool ok = l4->assembler.assemble(n0.centroidX, n0.centroidY, plane,
                                                    n0.centroidX, n0.centroidY, plane, plan);
             std::printf("  pool:   borrowed self-assemble ok=%d steps=%zu cost=%.1f\n",
                         ok ? 1 : 0, plan.steps.size(), static_cast<double>(plan.cost));
         }
 
-        if (got4) { pool.release(*c4); }
-        pool.release(*c2);
+        l4.reset();
+        l2.reset();
         std::printf("  pool:   final free=%zu (expect %zu)\n", pool.freeCount(), kPoolSize);
     }
 
@@ -1461,7 +1461,74 @@ int main(int argc, char **argv)
     if (argc < 2)
     {
         std::printf("usage: wwcli <artifact.wwa>\n");
+        std::printf("       wwcli crosscheck <artifact.wwa> <collision_map.bin>\n");
+        std::printf("       wwcli walltest\n");
+        std::printf("       wwcli scripted <artifact.wwa>\n");
+        std::printf("       wwcli doors <artifact.wwa>\n");
+        std::printf("       wwcli bench <artifact.wwa>\n");
+        std::printf("       wwcli path <artifact.wwa> <fromX> <fromY> <fromPlane>"
+                    " <toX> <toY> <toPlane> [--out path.json]\n");
         return 0;
+    }
+
+    if (std::strcmp(argv[1], "crosscheck") == 0)
+    {
+        if (argc < 4)
+        {
+            std::printf("usage: wwcli crosscheck <artifact.wwa> <collision_map.bin>\n");
+            return 1;
+        }
+        return runCrossCheck(argv[2], argv[3]);
+    }
+
+    if (std::strcmp(argv[1], "walltest") == 0)
+    {
+        return runWallShapeTests();
+    }
+
+    if (std::strcmp(argv[1], "scripted") == 0)
+    {
+        if (argc < 3)
+        {
+            std::printf("usage: wwcli scripted <artifact.wwa>\n");
+            return 1;
+        }
+        return runScriptedPaths(argv[2]);
+    }
+
+    if (std::strcmp(argv[1], "doors") == 0)
+    {
+        if (argc < 3)
+        {
+            std::printf("usage: wwcli doors <artifact.wwa>\n");
+            return 1;
+        }
+        return runDoorPaths(argv[2]);
+    }
+
+    if (std::strcmp(argv[1], "doorprobe") == 0)
+    {
+        if (argc < 4)
+        {
+            std::printf("usage: wwcli doorprobe <artifact.wwa> <txIndex>\n");
+            return 1;
+        }
+        return runDoorProbe(argv[2], std::atoi(argv[3]));
+    }
+
+    if (std::strcmp(argv[1], "bench") == 0)
+    {
+        if (argc < 3)
+        {
+            std::printf("usage: wwcli bench <artifact.wwa>\n");
+            return 1;
+        }
+        return runBench(argv[2]);
+    }
+
+    if (std::strcmp(argv[1], "path") == 0)
+    {
+        return runPathExport(argc - 2, argv + 2);
     }
 
     try
