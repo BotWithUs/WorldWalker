@@ -173,13 +173,21 @@ namespace ww::exec
         const bool isGlobal = (tx.flags & format::kTransitionFlagGlobalOrigin) != 0;
         emit(WwEventKind::StepAdvanced, stepIndex, transitionIndex);
 
+        bool issuedAction = true;
         if (!isGlobal)
         {
             // Click the world object from the interact-tile (the prior Walk
             // step put the player there). The object tile itself may be
             // blocked; the engine resolves the click from an adjacent tile.
+            // interact returns zero when it was a no-op — the baked loc is
+            // gone from the live scene, which for a door means it is already
+            // open (open doors are a different loc id). Nothing was issued, so
+            // there is no action to settle for; we skip the post-chain wait
+            // below and the next Walk step flows straight through the doorway.
             const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
-            callbacks->interact(callbacks->user, tx.objectId, origin, static_cast<int32_t>(tx.optionIndex));
+            issuedAction =
+                callbacks->interact(callbacks->user, tx.objectId, origin,
+                                    static_cast<int32_t>(tx.optionIndex)) != 0;
         }
         else
         {
@@ -224,8 +232,18 @@ namespace ww::exec
 
         // Let the engine commit the destination position before sampling it.
         // run() uses this position to decide whether the goal is satisfied
-        // and whether to re-plan on a teleport-allowed flip.
-        callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
+        // and whether to re-plan on a teleport-allowed flip. Skip the wait when
+        // nothing was actually done: a no-op interact on an already-open door
+        // (issuedAction == false, no chain) leaves the avatar exactly where the
+        // prior Walk left it, so there is no late-committing destination to
+        // absorb — pausing here is the dead "walk up, stop, wait" the door
+        // never needed. Teleports/stairs (global or chain-bearing) and any
+        // issued click still settle as before.
+        const bool didAct = isGlobal || issuedAction || tx.chainCount > 0;
+        if (didAct)
+        {
+            callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
+        }
         callbacks->readPosition(callbacks->user, &outPosition);
         return WwStatus::Arrived;
     }

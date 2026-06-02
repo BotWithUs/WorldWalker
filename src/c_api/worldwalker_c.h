@@ -182,7 +182,11 @@ typedef int32_t (*WwIsInterfaceOpenFn)(void *user, int32_t interfaceId);
 /* Actions — fire-and-forget; the executor sequences them with sleepTicks
    and re-polls reads between calls to detect arrival / drift / stuck. */
 typedef void (*WwWalkToFn)(void *user, WwTile target);
-typedef void (*WwInteractFn)(void *user, int32_t objectId, WwTile tile, int32_t optionIndex);
+/* interact returns non-zero if it actually issued a game action, zero if it was
+   a no-op (e.g. the baked loc is absent because a door is already open). The
+   executor uses this to skip the post-action settle wait when nothing was done,
+   so an already-open door flows straight through instead of pausing. */
+typedef int32_t (*WwInteractFn)(void *user, int32_t objectId, WwTile tile, int32_t optionIndex);
 typedef void (*WwRunChainStepFn)(void *user, int32_t chainIndex, int32_t stepIndex);
 typedef void (*WwSleepTicksFn)(void *user, int32_t ticks);
 

@@ -1078,7 +1078,7 @@ namespace
         }
     }
 
-    extern "C" void harnessInteract(void *user, int32_t, ww::exec::WwTile, int32_t)
+    extern "C" int32_t harnessInteract(void *user, int32_t, ww::exec::WwTile, int32_t)
     {
         ExecHarness *h = static_cast<ExecHarness *>(user);
         ++h->interactCalls;
@@ -1086,6 +1086,9 @@ namespace
         {
             ++h->abortIfCalled;
         }
+        // The harness always "issues" the action, so the executor settles as
+        // before — the SimulateTransition step counts depend on that wait.
+        return 1;
     }
 
     extern "C" void harnessRunChainStep(void *user, int32_t, int32_t)
