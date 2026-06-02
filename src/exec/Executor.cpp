@@ -21,6 +21,14 @@ namespace ww::exec
         // the stuck deadline is wall-clock (executor links the CRT DLL).
         constexpr int32_t kPollTicks            = 2;     // ~1.2s game time between polls
         constexpr int32_t kArrivalChebyshev     = 1;     // accept being within 1 tile of step target
+        // Human walkers don't wait to land on each waypoint before clicking the
+        // next — they click ahead while still moving, so motion is continuous.
+        // When another Walk step follows, hand off this far out from the current
+        // chunk endpoint so the next walkTo fires mid-stride. The tight
+        // kArrivalChebyshev is kept for the last walk before an interact /
+        // Transition (and the final approach to goal), where landing on the
+        // exact interact tile matters. Open tuning per CONTEXT.md.
+        constexpr int32_t kHandoffChebyshev     = 3;     // re-click the next chunk this far out
         constexpr int32_t kStalledPollsTrip     = 3;     // N polls with no progress => stuck
         constexpr int32_t kStuckTimeoutMs       = 20000; // 20s wall-clock per Walk step
 
@@ -90,7 +98,7 @@ namespace ww::exec
     }
 
     WwStatus Executor::walkOneStep(const runtime::Step &step, int32_t stepIndex,
-                                   WwTile &outPosition)
+                                   int32_t arrivalRadius, WwTile &outPosition)
     {
         const WwTile target{ step.targetX, step.targetY, static_cast<int32_t>(step.plane) };
         callbacks->walkTo(callbacks->user, target);
@@ -113,7 +121,7 @@ namespace ww::exec
             WwTile pos{};
             callbacks->readPosition(callbacks->user, &pos);
             outPosition = pos;
-            if (chebyshev(pos, target) <= kArrivalChebyshev)
+            if (chebyshev(pos, target) <= arrivalRadius)
             {
                 return WwStatus::Arrived;
             }
@@ -318,7 +326,15 @@ namespace ww::exec
             WwStatus stepResult;
             if (step.kind == runtime::StepKind::Walk)
             {
-                stepResult = walkOneStep(step, stepIndex, position);
+                // Hand off to the next chunk while still moving when another
+                // Walk follows; arrive tight when the next step is an interact
+                // (Transition) or this is the final approach to the goal, where
+                // the exact tile matters.
+                const bool nextIsWalk = (i + 1 < plan.steps.size())
+                    && plan.steps[i + 1].kind == runtime::StepKind::Walk;
+                const int32_t arrivalRadius =
+                    nextIsWalk ? kHandoffChebyshev : kArrivalChebyshev;
+                stepResult = walkOneStep(step, stepIndex, arrivalRadius, position);
             }
             else
             {

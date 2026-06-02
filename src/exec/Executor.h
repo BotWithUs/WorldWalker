@@ -32,7 +32,9 @@ namespace ww::exec
     // before infinite-loop pathologies do.
     //
     // Walk step: walkTo(target), then poll readPosition with sleepTicks between
-    // samples; arrival = within kArrivalChebyshev tiles of the step target. A
+    // samples; arrival = within the caller-supplied radius of the step target
+    // (kHandoffChebyshev when another Walk follows, so the next click fires
+    // mid-stride; kArrivalChebyshev when the next action needs an exact tile). A
     // stalled-distance counter (no progress for N polls) and a wall-clock
     // deadline together detect "stuck" and surface as Failed; shouldCancel
     // polled before every sleep aborts with Cancelled. The final live
@@ -97,8 +99,14 @@ namespace ww::exec
         // StepAdvanced once at entry; emits Stuck on either failure path.
         // Writes the final sampled position to outPosition so run() can drive
         // re-plan / teleport-allowed checks without a redundant readPosition.
+        //
+        // arrivalRadius is the Chebyshev distance at which the step counts as
+        // done: run() passes the wider kHandoffChebyshev when another Walk
+        // follows (so the next click fires while the avatar is still moving,
+        // instead of stopping on each waypoint) and the tight kArrivalChebyshev
+        // when the next action needs the avatar on an exact tile.
         WwStatus walkOneStep(const runtime::Step &step, int32_t stepIndex,
-                             WwTile &outPosition);
+                             int32_t arrivalRadius, WwTile &outPosition);
 
         // Drive one Transition step's interact + embedded chain. Looks up
         // the TransitionRecord, validates its chain range, fires interact for
