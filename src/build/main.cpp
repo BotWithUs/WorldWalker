@@ -4,6 +4,7 @@
 #include "build/CacheClient.h"
 #include "build/CollisionBuilder.h"
 #include "build/CollisionLookup.h"
+#include "data/CrossingDeriver.h"
 #include "data/DatasetLoader.h"
 #include "data/FreshnessDeriver.h"
 #include "data/TeleportZones.h"
@@ -107,30 +108,58 @@ namespace
         }
     }
 
+    // Map cache index: each archive id encodes a square (x = id & 0x7F, y = id >> 7).
+    constexpr int kMapIndex = 5;
+
     struct TransitionBuildResult
     {
         ww::data::TransitionModel transitions;
         uint32_t datasetHash{};
         ww::data::TransitionReport finalize;
         ww::data::FreshnessReport freshness;
+        ww::data::CrossingReport doors;
     };
 
-    // Load the datasets, derive cache-only vertical ladders/stairs (dataset
-    // priority), then finalize the union into the bakeable transition set.
+    // Decode the interactable crossings (doors / ladders-stairs / climb-overs /
+    // agility) across every map square once, so the transition derivers can name
+    // the loc to interact with — the clip grid alone cannot.
+    std::vector<ww::build::Crossing> gatherCrossings(const ww::build::CacheClient &cache)
+    {
+        std::vector<ww::build::Crossing> all;
+        std::vector<ww::build::Crossing> square;
+        for (int id : cache.archiveIds(kMapIndex))
+        {
+            const int squareX = id & 0x7F;
+            const int squareY = id >> 7;
+            if (cache.crossings(squareX, squareY, square))
+            {
+                all.insert(all.end(), square.begin(), square.end());
+            }
+        }
+        return all;
+    }
+
+    // Load the datasets, derive cache-only vertical ladders/stairs and doors
+    // (dataset priority), then finalize the union into the bakeable transition set.
     TransitionBuildResult assembleTransitions(const ww::build::CollisionModel &collision,
                                               const ww::build::CollisionLookup &lookup,
+                                              const std::vector<ww::build::Crossing> &crossings,
                                               const std::string &datasetDir)
     {
         TransitionBuildResult out;
         const ww::data::LoadedDatasets datasets = ww::data::loadDatasets(datasetDir);
         out.datasetHash = datasets.datasetHash;
 
-        const ww::data::TransitionModel derived =
-            ww::data::deriveVerticalTransitions(collision, datasets.model, &out.freshness);
+        const ww::data::TransitionModel derived = ww::data::deriveVerticalTransitions(
+            collision, datasets.model, crossings, &out.freshness);
+        const ww::data::TransitionModel doors =
+            ww::data::deriveDoorTransitions(crossings, lookup, &out.doors);
 
         ww::data::TransitionModel combined = datasets.model;
         combined.transitions.insert(combined.transitions.end(),
                                     derived.transitions.begin(), derived.transitions.end());
+        combined.transitions.insert(combined.transitions.end(),
+                                    doors.transitions.begin(), doors.transitions.end());
 
         out.transitions = ww::data::finalizeTransitions(combined, lookup, &out.finalize);
         return out;
@@ -153,7 +182,10 @@ namespace
             ww::build::CollisionModel collision = ww::build::buildCollisionModel(cache, &skipped);
             ww::build::CollisionLookup lookup(collision);
 
-            const TransitionBuildResult tr = assembleTransitions(collision, lookup, datasetDir);
+            const std::vector<ww::build::Crossing> crossings = gatherCrossings(cache);
+
+            const TransitionBuildResult tr =
+                assembleTransitions(collision, lookup, crossings, datasetDir);
 
             ww::build::AreaGraphReport ag;
             const ww::build::AreaGraphModel abstraction =
@@ -178,6 +210,9 @@ namespace
             std::printf("  freshness: %zu vertical pairs -> +%zu derived (%zu suppressed by datasets)\n",
                         tr.freshness.pairsFound, tr.freshness.kept,
                         tr.freshness.droppedDatasetConflict);
+            std::printf("  doors: %zu crossings -> +%zu directed hops (%zu blocked-origin, %zu no-edge)\n",
+                        tr.doors.doorCrossings, tr.doors.emitted,
+                        tr.doors.blockedOrigin, tr.doors.noEdge);
             std::printf("  areas: %zu nodes, %zu edges, %zu grids (largest %zu tiles)\n",
                         ag.areaCount, ag.edgeCount, ag.gridCount, ag.largestArea);
             std::printf("  adjacency: %zu transitions linked | unresolved origin=%zu dest=%zu | intra=%zu global=%zu\n",

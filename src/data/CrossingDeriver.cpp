@@ -1,0 +1,115 @@
+#include "data/CrossingDeriver.h"
+
+#include "data/Transitions.h"
+#include "format/ClipFlags.h"
+
+#include <cstdint>
+
+namespace ww::data
+{
+    namespace
+    {
+        // One of the eight wall edges of a tile, paired with the step (dx, dy) to
+        // the neighbour across it. A door's blocked edge means you cross it by
+        // interacting with the door rather than walking. Mirrors the wall-bit
+        // layout in format::ClipFlags and the executor's wall checks.
+        struct WallEdge
+        {
+            uint32_t bit;
+            int dx;
+            int dy;
+        };
+
+        constexpr WallEdge kWallEdges[] = {
+            {format::CLIP_WALL_N,  0,  1},
+            {format::CLIP_WALL_NE, 1,  1},
+            {format::CLIP_WALL_E,  1,  0},
+            {format::CLIP_WALL_SE, 1, -1},
+            {format::CLIP_WALL_S,  0, -1},
+            {format::CLIP_WALL_SW,-1, -1},
+            {format::CLIP_WALL_W, -1,  0},
+            {format::CLIP_WALL_NW,-1,  1},
+        };
+
+        // Build one raw Transport transition origin->dest carrying the door loc.
+        Transition makeDoorHop(const ww::build::Crossing &c, int fromX, int fromY,
+                               int toX, int toY, int plane)
+        {
+            Transition t;
+            t.kind = TransitionKind::Transport;
+            t.isGlobalOrigin = false;
+            t.originX = fromX;
+            t.originY = fromY;
+            t.originPlane = static_cast<uint8_t>(plane);
+            t.destX = toX;
+            t.destY = toY;
+            t.destPlane = static_cast<uint8_t>(plane);
+            t.objectId = c.objectId;
+            t.shape = c.shape;
+            t.rotation = c.rotation;
+            t.optionIndex = (c.optionIndex == 0xFF) ? 0u : c.optionIndex;
+            return t;
+        }
+    }
+
+    TransitionModel deriveDoorTransitions(const std::vector<ww::build::Crossing> &crossings,
+                                          const ww::build::CollisionLookup &lookup,
+                                          CrossingReport *outReport)
+    {
+        TransitionModel result;
+        CrossingReport report;
+
+        for (const ww::build::Crossing &c : crossings)
+        {
+            if (c.kind != static_cast<uint8_t>(ww::build::CrossingKind::Door))
+            {
+                continue;
+            }
+            ++report.doorCrossings;
+
+            const int lx = c.worldX;
+            const int ly = c.worldY;
+            const int plane = c.plane;
+
+            // The door loc must sit on a standable tile to be an origin we can
+            // walk to and click. Object-footprint doors (blocked loc tile) carry
+            // no wall bits anyway and are left to the dataset.
+            if (!lookup.isWalkable(lx, ly, plane))
+            {
+                ++report.blockedOrigin;
+                continue;
+            }
+
+            const uint32_t clip = lookup.clipAt(lx, ly, plane);
+            bool any = false;
+            for (const WallEdge &e : kWallEdges)
+            {
+                if ((clip & e.bit) == 0u)
+                {
+                    continue;
+                }
+                const int nx = lx + e.dx;
+                const int ny = ly + e.dy;
+                if (!lookup.isWalkable(nx, ny, plane))
+                {
+                    continue;
+                }
+                // Both directions: stand on either side, click the same door loc.
+                result.transitions.push_back(makeDoorHop(c, lx, ly, nx, ny, plane));
+                result.transitions.push_back(makeDoorHop(c, nx, ny, lx, ly, plane));
+                report.emitted += 2;
+                any = true;
+            }
+            if (!any)
+            {
+                ++report.noEdge;
+            }
+        }
+
+        if (outReport != nullptr)
+        {
+            *outReport = report;
+        }
+        return result;
+    }
+}

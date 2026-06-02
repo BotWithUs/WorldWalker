@@ -167,6 +167,7 @@ set(wwbuild_SOURCES
 	"src/build/CollisionBuilder.cpp"
 	"src/build/CollisionLookup.cpp"
 	"src/build/main.cpp"
+	"src/data/CrossingDeriver.cpp"
 	"src/data/DatasetLoader.cpp"
 	"src/data/FreshnessDeriver.cpp"
 	"src/data/TeleportZones.cpp"

@@ -1,5 +1,6 @@
 #include "data/FreshnessDeriver.h"
 
+#include "build/CacheClient.h"
 #include "build/CollisionBuilder.h"
 #include "data/Transitions.h"
 #include "format/Artifact.h"
@@ -7,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
@@ -48,8 +50,28 @@ namespace ww::data
             return origins;
         }
 
+        // (x, y, plane) -> the PlaneChange crossing that names the climbable loc
+        // at that tile. First crossing at a tile wins (duplicates are rare).
+        using PlaneChangeMap = std::unordered_map<uint64_t, const ww::build::Crossing *>;
+
+        PlaneChangeMap collectPlaneChangeCrossings(const std::vector<ww::build::Crossing> &crossings)
+        {
+            PlaneChangeMap byTile;
+            byTile.reserve(crossings.size() * 2 + 1);
+            for (const ww::build::Crossing &c : crossings)
+            {
+                if (c.kind != static_cast<uint8_t>(ww::build::CrossingKind::PlaneChange))
+                {
+                    continue;
+                }
+                byTile.emplace(originKey(c.worldX, c.worldY, c.plane), &c);
+            }
+            return byTile;
+        }
+
         void addCandidate(TransitionModel &outModel, FreshnessReport &report,
                           const std::unordered_set<uint64_t> &datasetOrigins,
+                          const PlaneChangeMap &planeChange,
                           int x, int y, int fromPlane, int toPlane)
         {
             ++report.emitted;
@@ -67,6 +89,20 @@ namespace ww::data
             t.destX = x;
             t.destY = y;
             t.destPlane = static_cast<uint8_t>(toPlane);
+
+            // Stamp the climbable loc id + option from the crossing at the origin
+            // tile/plane so the executor can interact with it. Without a match the
+            // candidate keeps objectId == -1 (cannot be executed).
+            const auto it = planeChange.find(originKey(x, y, fromPlane));
+            if (it != planeChange.end())
+            {
+                const ww::build::Crossing &c = *it->second;
+                t.objectId = c.objectId;
+                t.shape = c.shape;
+                t.rotation = c.rotation;
+                t.optionIndex = (c.optionIndex == 0xFF) ? 0u : c.optionIndex;
+            }
+
             outModel.transitions.push_back(std::move(t));
             ++report.kept;
         }
@@ -75,6 +111,7 @@ namespace ww::data
         // lowerPlane and lowerPlane + 1, emitting an up edge and a down edge.
         void scanPlanePair(const SquareClip &sq, int baseX, int baseY, int lowerPlane,
                            const std::unordered_set<uint64_t> &datasetOrigins,
+                           const PlaneChangeMap &planeChange,
                            TransitionModel &outModel, FreshnessReport &report)
         {
             const uint8_t pairMask =
@@ -97,13 +134,16 @@ namespace ww::data
                     ++report.pairsFound;
                     const int wx = baseX + lx;
                     const int wy = baseY + ly;
-                    addCandidate(outModel, report, datasetOrigins, wx, wy, lowerPlane, lowerPlane + 1);
-                    addCandidate(outModel, report, datasetOrigins, wx, wy, lowerPlane + 1, lowerPlane);
+                    addCandidate(outModel, report, datasetOrigins, planeChange,
+                                 wx, wy, lowerPlane, lowerPlane + 1);
+                    addCandidate(outModel, report, datasetOrigins, planeChange,
+                                 wx, wy, lowerPlane + 1, lowerPlane);
                 }
             }
         }
 
         void scanSquare(const SquareClip &sq, const std::unordered_set<uint64_t> &datasetOrigins,
+                        const PlaneChangeMap &planeChange,
                         TransitionModel &outModel, FreshnessReport &report)
         {
             if (sq.words.size() < format::kClipWordsPerSquare)
@@ -114,21 +154,23 @@ namespace ww::data
             const int baseY = sq.squareY * format::kClipSize;
             for (int p = 0; p + 1 < format::kClipPlanes; ++p)
             {
-                scanPlanePair(sq, baseX, baseY, p, datasetOrigins, outModel, report);
+                scanPlanePair(sq, baseX, baseY, p, datasetOrigins, planeChange, outModel, report);
             }
         }
     }
 
     TransitionModel deriveVerticalTransitions(const ww::build::CollisionModel &collision,
                                               const TransitionModel &datasets,
+                                              const std::vector<ww::build::Crossing> &crossings,
                                               FreshnessReport *outReport)
     {
         TransitionModel result;
         FreshnessReport report;
         const std::unordered_set<uint64_t> datasetOrigins = collectDatasetOrigins(datasets);
+        const PlaneChangeMap planeChange = collectPlaneChangeCrossings(crossings);
         for (const SquareClip &sq : collision.squares)
         {
-            scanSquare(sq, datasetOrigins, result, report);
+            scanSquare(sq, datasetOrigins, planeChange, result, report);
         }
         if (outReport != nullptr)
         {

@@ -19,6 +19,38 @@ namespace ww::build
         std::vector<uint32_t> words;
     };
 
+    // Which interaction class a crossing loc belongs to. Mirrors the
+    // NXT_CROSSING_* macros and maps::CrossingKind.
+    enum class CrossingKind : uint8_t
+    {
+        Door        = 0,
+        ClimbOver   = 1,
+        PlaneChange = 2,
+        Agility     = 3,
+    };
+
+    // An interactable scenery crossing (door / climb-over / ladder-stair /
+    // agility shortcut) at an absolute world tile, carrying the loc id +
+    // geometry the transition deriver needs. WorldWalker-side mirror of the
+    // C ABI's nxt_crossing; CacheClient::crossings translates between them.
+    struct Crossing
+    {
+        int32_t objectId{};
+        int32_t worldX{};
+        int32_t worldY{};
+        uint8_t plane{};
+        uint8_t shape{};
+        uint8_t rotation{};
+        uint8_t kind{};         // CrossingKind
+        uint8_t sizeX{1};
+        uint8_t sizeY{1};
+        uint8_t optionIndex{};  // 0-based; 0xFF if none
+        uint8_t climbDir{};     // PlaneChange: bit0 up, bit1 down
+    };
+
+    inline constexpr uint8_t kClimbUp   = 0x1;
+    inline constexpr uint8_t kClimbDown = 0x2;
+
     // RAII wrapper over the NXTCache C ABI for offline cache decode.
     // Non-copyable. The constructor throws std::runtime_error on open failure.
     class CacheClient
@@ -36,6 +68,12 @@ namespace ww::build
         // Decode one map square's clip. Returns false if the square is absent
         // from the cache; throws std::runtime_error on a decode error.
         bool mapSquareClip(int squareX, int squareY, SquareClip &outClip) const;
+
+        // Decode one map square's interactable crossings into outCrossings
+        // (cleared first). Returns false if the square is absent; throws
+        // std::runtime_error on a decode error. An empty present square returns
+        // true with outCrossings empty.
+        bool crossings(int squareX, int squareY, std::vector<Crossing> &outCrossings) const;
 
     private:
         nxt_cache *handle;

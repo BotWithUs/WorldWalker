@@ -80,4 +80,42 @@ namespace ww::build
         }
         return true;
     }
+
+    bool CacheClient::crossings(int squareX, int squareY,
+                                std::vector<Crossing> &outCrossings) const
+    {
+        outCrossings.clear();
+        nxt_crossing *records = nullptr;
+        size_t count = 0;
+        nxt_result rc = nxt_get_mapsquare_crossings(handle, squareX, squareY, &records, &count);
+        if (rc == NXT_ERR_NOT_FOUND)
+        {
+            return false;
+        }
+        if (rc != NXT_OK)
+        {
+            throw std::runtime_error(std::string("nxt_get_mapsquare_crossings failed: ")
+                                     + nxt_last_error());
+        }
+        outCrossings.reserve(count);
+        for (size_t i = 0; i < count; ++i)
+        {
+            const nxt_crossing &r = records[i];
+            Crossing c;
+            c.objectId    = r.object_id;
+            c.worldX      = r.world_x;
+            c.worldY      = r.world_y;
+            c.plane       = r.plane;
+            c.shape       = r.shape;
+            c.rotation    = r.rotation;
+            c.kind        = r.kind;
+            c.sizeX       = r.size_x;
+            c.sizeY       = r.size_y;
+            c.optionIndex = r.option_index;
+            c.climbDir    = r.climb_dir;
+            outCrossings.push_back(c);
+        }
+        nxt_free(records);
+        return true;
+    }
 }

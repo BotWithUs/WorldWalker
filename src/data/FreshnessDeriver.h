@@ -1,10 +1,12 @@
 #ifndef WORLDWALKER_DATA_FRESHNESSDERIVER_H
 #define WORLDWALKER_DATA_FRESHNESSDERIVER_H
 
+#include "build/CacheClient.h"
 #include "build/CollisionBuilder.h"
 #include "data/Transitions.h"
 
 #include <cstddef>
+#include <vector>
 
 namespace ww::data
 {
@@ -22,16 +24,19 @@ namespace ww::data
     // datasets catch up is still traversable. A column (x, y) is paired only when
     // BOTH (x, y, p) and (x, y, p + 1) carry CLIP_PLANE_CHANGE — the unambiguous
     // same-tile / adjacent-plane case; cache derivation never invents a far-region
-    // link. Each pair yields two Transport transitions (up and down) with
-    // objectId == -1, since the ladder object id cannot be recovered from clip flags
-    // (the executor resolves the actual object at the origin tile at run time).
+    // link. Each pair yields two Transport transitions (up and down).
     //
     // `datasets` is authoritative: a candidate whose origin tile + plane matches any
     // non-global dataset transition is dropped. The returned transitions are raw
     // (uncosted, unsnapped) — feed them through finalizeTransitions alongside the
     // dataset transitions. *outReport (nullable) receives the counts.
+    // `crossings` supplies the loc id + click option for each plane-change tile
+    // (a PlaneChange crossing at the origin tile/plane): the up/down transitions
+    // are stamped with that objectId + optionIndex so the executor can climb them.
+    // A pair with no matching crossing falls back to objectId == -1.
     TransitionModel deriveVerticalTransitions(const ww::build::CollisionModel &collision,
                                               const TransitionModel &datasets,
+                                              const std::vector<ww::build::Crossing> &crossings,
                                               FreshnessReport *outReport);
 }
 
