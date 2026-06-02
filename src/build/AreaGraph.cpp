@@ -343,12 +343,37 @@ namespace ww::build
                     ++report.unresolvedDest;
                     continue;
                 }
-                const std::set<int32_t> fromAreas = collectOriginAreas(map, lookup, t);
+                std::set<int32_t> fromAreas = collectOriginAreas(map, lookup, t);
                 if (fromAreas.empty())
                 {
                     ++report.unresolvedOrigin;
                     continue;
                 }
+
+                // A vertical transition (stairs/ladder) is a fully-blocked loc
+                // tile, so it is the flood-fill block itself — not a wall flag —
+                // that separates the structure the stairs live in from the open
+                // ground beside it. collectOriginAreas only consults wall flags,
+                // so it admits BOTH the room the stairs are in and the adjacent
+                // outdoors, and the planner then "climbs" from the wrong side of
+                // the wall (it never reaches the usable tile and stalls). The
+                // room that actually owns the staircase is the one directly
+                // beneath the upper landing: the (already-snapped) destination
+                // tile projected onto the origin plane. When that area is one of
+                // the collected sides it is the only legal approach — drop the
+                // rest. Same-plane transitions (doors) keep a directional wall
+                // flag and are left untouched.
+                if (t.originPlane != t.destPlane)
+                {
+                    const int32_t ownerArea =
+                        map.areaAt(t.destX, t.destY, static_cast<int>(t.originPlane));
+                    if (ownerArea >= 0 && fromAreas.count(ownerArea) != 0)
+                    {
+                        fromAreas = {ownerArea};
+                        ++report.verticalApproachPinned;
+                    }
+                }
+
                 if (emitEdges(fromAreas, destArea, i, t.cost, outEdges, report))
                 {
                     ++report.resolvedTransitions;

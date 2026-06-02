@@ -80,6 +80,7 @@ namespace ww::build
         std::size_t unresolvedDest{};       // local transitions whose dest tile is in no area
         std::size_t intraAreaSkipped{};     // edges dropped because from == to (walk suffices)
         std::size_t globalSkipped{};        // global-origin transitions (seeded at the frontier)
+        std::size_t verticalApproachPinned{}; // stairs/ladders pinned to the room beneath the landing
     };
 
     // Flood-fill the collision grid into per-plane areas and derive coarse edges
