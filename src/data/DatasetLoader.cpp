@@ -364,4 +364,32 @@ namespace ww::data
         result.datasetHash = hash;
         return result;
     }
+
+    LoadedDatasets loadGlobalTeleports(const std::string &directory)
+    {
+        LoadedDatasets result;
+        uint32_t hash = 2166136261u;
+        // Only the global-origin teleport datasets. transport_links /
+        // teleport_chains are local transitions wired into the baked area graph
+        // and cannot be supplied at runtime, so they are deliberately skipped.
+        loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash);
+        loadOne(directory, "item_teleports.json", &parseLodestones, result.model, hash);
+        result.datasetHash = hash;
+
+        // Defensive: keep only global-origin transitions. The two files above
+        // produce global teleports today, but a non-global spell (origin_x set)
+        // would have no area-graph edge baked for it, so it could never be
+        // reached — drop it rather than append a dead record.
+        std::vector<Transition> kept;
+        kept.reserve(result.model.transitions.size());
+        for (Transition &t : result.model.transitions)
+        {
+            if (t.isGlobalOrigin)
+            {
+                kept.push_back(std::move(t));
+            }
+        }
+        result.model.transitions = std::move(kept);
+        return result;
+    }
 }

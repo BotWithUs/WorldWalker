@@ -58,6 +58,19 @@ namespace ww::runtime
                                   x, y, kNoTransitionIndex});
             return true;
         }
+
+        // Octile distance in the planner's cost units (cardinal 1.0, diagonal
+        // sqrt(2)). An admissible lower bound on the tile-walk cost between two
+        // same-plane tiles — obstacles only make the real path longer — so it is
+        // safe to use to prune teleport candidates that cannot beat a known plan.
+        float octileDistance(int32_t dx, int32_t dy)
+        {
+            dx = dx < 0 ? -dx : dx;
+            dy = dy < 0 ? -dy : dy;
+            const int32_t lo = dx < dy ? dx : dy;
+            const int32_t hi = dx < dy ? dy : dx;
+            return static_cast<float>(hi - lo) + static_cast<float>(lo) * 1.41421356f;
+        }
     }
 
     PathAssembler::PathAssembler(const format::ArtifactReader &reader, WorldView &view,
@@ -269,29 +282,40 @@ namespace ww::runtime
         }
     }
 
-    void PathAssembler::emitLeadingTransition(std::span<const format::TransitionRecord> transitions,
-                                              int32_t &cursorX, int32_t &cursorY,
-                                              int32_t &cursorPlane, Plan &outPlan)
+    void PathAssembler::emitGlobalTeleport(uint32_t transitionIndex,
+                                           int32_t &cursorX, int32_t &cursorY,
+                                           int32_t &cursorPlane, Plan &outPlan)
     {
-        if (areaPath.leadingTransition < 0
-            || static_cast<std::size_t>(areaPath.leadingTransition) >= transitions.size())
+        const std::span<const format::TransitionRecord> transitions = artifact->transitions();
+        if (transitionIndex >= transitions.size())
         {
             return;
         }
-        const format::TransitionRecord &tx =
-            transitions[static_cast<std::size_t>(areaPath.leadingTransition)];
+        const format::TransitionRecord &tx = transitions[transitionIndex];
         if (!isLegalPlane(cursorPlane) || !isLegalPlane(static_cast<int32_t>(tx.destPlane)))
         {
             return;
         }
+        // A global teleport is cast in place: the Transition step sits at the
+        // current cursor (start tile), then the cursor snaps to the dest.
         outPlan.steps.push_back({StepKind::Transition,
                                  static_cast<uint8_t>(cursorPlane), 0u,
-                                 cursorX, cursorY,
-                                 static_cast<uint32_t>(areaPath.leadingTransition)});
+                                 cursorX, cursorY, transitionIndex});
         outPlan.cost += tx.cost;
         cursorX = tx.destX;
         cursorY = tx.destY;
         cursorPlane = static_cast<int32_t>(tx.destPlane);
+    }
+
+    void PathAssembler::emitLeadingTransition(int32_t &cursorX, int32_t &cursorY,
+                                              int32_t &cursorPlane, Plan &outPlan)
+    {
+        if (areaPath.leadingTransition < 0)
+        {
+            return;
+        }
+        emitGlobalTeleport(static_cast<uint32_t>(areaPath.leadingTransition),
+                           cursorX, cursorY, cursorPlane, outPlan);
     }
 
     // Builds the plan into a local scratch and moves it into outPlan only on
@@ -326,50 +350,133 @@ namespace ww::runtime
             }
         }
 
-        Plan local;
-        if (startArea == goalArea)
-        {
-            if (!appendWalkSegment(startX, startY, goalX, goalY, startPlane, startArea, local))
-            {
-                return false;
-            }
-            outPlan = std::move(local);
-            return true;
-        }
+        // Teleport seeds feed both the inter-area backbone search and the
+        // goal-area landing optimisation below, so build them once up front.
         seedScratch.clear();
-        if (isTeleportAllowed(*artifact, startX, startY, startPlane))
+        const bool teleportAllowed = isTeleportAllowed(*artifact, startX, startY, startPlane);
+        if (teleportAllowed)
         {
             buildGlobalTeleportSeeds(capabilities);
         }
+
+        // Baseline route: a same-area query is a pure tile-level walk; otherwise
+        // the seeded area-graph search (which already teleports across area
+        // boundaries when that is cheaper).
+        Plan best;
+        bool haveBest = false;
+        if (startArea == goalArea)
+        {
+            Plan walk;
+            if (appendWalkSegment(startX, startY, goalX, goalY, startPlane, startArea, walk))
+            {
+                best = std::move(walk);
+                haveBest = true;
+            }
+        }
+        else
+        {
+            Plan route;
+            if (assembleAreaRoute(startX, startY, startPlane, startArea,
+                                  goalX, goalY, goalArea, capabilities, route))
+            {
+                best = std::move(route);
+                haveBest = true;
+            }
+        }
+
+        // Goal-area teleport landing. The area graph only knows that a teleport
+        // "reaches the goal's area", not which one lands CLOSEST to the goal —
+        // and it never seeds for a same-area query at all. Both matter when the
+        // goal sits deep inside a huge area (the overworld landmass is only a
+        // handful of areas): the nearest lodestone can save a several-hundred-
+        // tile walk. So consider, at tile level, every seedable teleport whose
+        // dest is in the goal's area, ordered by an admissible estimate (its
+        // cost + octile to the goal) so the scan stops as soon as no remaining
+        // candidate can beat the best realised plan. A global teleport casts in
+        // place, so it can always replace the start->goal leg outright.
+        if (teleportAllowed)
+        {
+            const std::span<const format::TransitionRecord> txs = artifact->transitions();
+            teleCandidateScratch.clear();
+            for (std::size_t s = 0; s < seedScratch.size(); ++s)
+            {
+                const FrontierSeed &seed = seedScratch[s];
+                if (seed.destArea != goalArea)
+                {
+                    continue;
+                }
+                const format::TransitionRecord &tx = txs[seed.transitionIndex];
+                const float estimate =
+                    seed.cost + octileDistance(tx.destX - goalX, tx.destY - goalY);
+                teleCandidateScratch.push_back({estimate, static_cast<uint32_t>(s)});
+            }
+            std::sort(teleCandidateScratch.begin(), teleCandidateScratch.end(),
+                      [](const TeleCandidate &a, const TeleCandidate &b)
+                      { return a.estimate < b.estimate; });
+            for (const TeleCandidate &cand : teleCandidateScratch)
+            {
+                if (haveBest && cand.estimate >= best.cost)
+                {
+                    break;  // estimate is a lower bound; nothing cheaper remains
+                }
+                const FrontierSeed &seed = seedScratch[cand.seedIndex];
+                Plan tele;
+                int32_t cx = startX;
+                int32_t cy = startY;
+                int32_t cp = startPlane;
+                emitGlobalTeleport(seed.transitionIndex, cx, cy, cp, tele);
+                if (!appendWalkSegment(cx, cy, goalX, goalY, cp, goalArea, tele))
+                {
+                    continue;
+                }
+                if (!haveBest || tele.cost < best.cost)
+                {
+                    best = std::move(tele);
+                    haveBest = true;
+                }
+            }
+        }
+
+        if (!haveBest)
+        {
+            return false;
+        }
+        outPlan = std::move(best);
+        return true;
+    }
+
+    // Cursor tracks the player's notional tile as the route plays out: walks
+    // advance it, transitions snap it to the destination, the closing walk drives
+    // it to the goal. A leading global teleport (recorded by AreaSearch in
+    // areaPath.leadingTransition) snaps the cursor from start to the teleport's
+    // destination before any walking — the player casts in place.
+    bool PathAssembler::assembleAreaRoute(int32_t startX, int32_t startY, int32_t startPlane,
+                                          int32_t startArea, int32_t goalX, int32_t goalY,
+                                          int32_t goalArea,
+                                          const CapabilitySnapshot *capabilities, Plan &outPlan)
+    {
         if (!areaSearch->findPath(startArea, goalArea, capabilities,
                                   std::span<const FrontierSeed>(seedScratch), areaPath))
         {
             return false;
         }
-        // Cursor tracks the player's notional tile as the route plays out: walks
-        // advance it, transitions snap it to the destination, the closing walk
-        // drives it to the goal. A leading global teleport (recorded by
-        // AreaSearch in areaPath.leadingTransition) snaps the cursor from start
-        // to the teleport's destination before any walking — the player casts
-        // in place.
         const std::span<const format::AreaEdgeRecord> edges = artifact->areaEdges();
         const std::span<const format::TransitionRecord> transitions = artifact->transitions();
         int32_t cursorX = startX;
         int32_t cursorY = startY;
         int32_t cursorPlane = startPlane;
-        emitLeadingTransition(transitions, cursorX, cursorY, cursorPlane, local);
+        emitLeadingTransition(cursorX, cursorY, cursorPlane, outPlan);
         for (std::size_t i = 1; i < areaPath.steps.size(); ++i)
         {
-            if (!appendTransitionHop(i, edges, transitions, cursorX, cursorY, cursorPlane, local))
+            if (!appendTransitionHop(i, edges, transitions, cursorX, cursorY, cursorPlane, outPlan))
             {
                 return false;
             }
         }
-        if (!appendWalkSegment(cursorX, cursorY, goalX, goalY, cursorPlane, goalArea, local))
+        if (!appendWalkSegment(cursorX, cursorY, goalX, goalY, cursorPlane, goalArea, outPlan))
         {
             return false;
         }
-        outPlan = std::move(local);
         return true;
     }
 }

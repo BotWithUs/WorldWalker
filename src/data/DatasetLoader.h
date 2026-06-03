@@ -20,6 +20,14 @@ namespace ww::data
     // partial dataset still produces an artifact. Throws (a nlohmann json
     // exception, derived from std::exception) on malformed JSON in a present file.
     LoadedDatasets loadDatasets(const std::string &directory);
+
+    // Parse ONLY the global-origin teleport datasets in `directory`
+    // (spell_teleports.json + item_teleports.json) into a raw transition model,
+    // keeping only global-origin transitions. Used by the runtime to load
+    // scripter-editable teleports without re-baking; transport_links /
+    // teleport_chains are skipped (those are local, baked into the area graph).
+    // Missing files are skipped; throws on malformed JSON in a present file.
+    LoadedDatasets loadGlobalTeleports(const std::string &directory);
 }
 
 #endif  // WORLDWALKER_DATA_DATASETLOADER_H

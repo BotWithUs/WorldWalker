@@ -161,6 +161,33 @@ namespace
         combined.transitions.insert(combined.transitions.end(),
                                     doors.transitions.begin(), doors.transitions.end());
 
+        // Global teleports (spell + lodestone) are NOT baked: they are loaded
+        // from editable JSON at runtime (ww_artifact_load_teleports) so scripters
+        // can edit them without re-baking. Drop any that came in via the dataset
+        // dir so the runtime-loaded set isn't double-counted. The .wwa carries
+        // collision + areas + local/door crossings; runtime JSON carries globals.
+        // (Today's doors-only dataset has none, so this normally drops zero.)
+        std::size_t droppedGlobals = 0;
+        {
+            ww::data::TransitionModel localOnly;
+            localOnly.transitions.reserve(combined.transitions.size());
+            for (ww::data::Transition &t : combined.transitions)
+            {
+                if (t.isGlobalOrigin)
+                {
+                    ++droppedGlobals;
+                    continue;
+                }
+                localOnly.transitions.push_back(std::move(t));
+            }
+            combined = std::move(localOnly);
+        }
+        if (droppedGlobals > 0)
+        {
+            std::printf("wwbuild: dropped %zu global teleport(s) from bake "
+                        "(runtime-loaded via ww_artifact_load_teleports)\n", droppedGlobals);
+        }
+
         out.transitions = ww::data::finalizeTransitions(combined, lookup, &out.finalize);
         return out;
     }

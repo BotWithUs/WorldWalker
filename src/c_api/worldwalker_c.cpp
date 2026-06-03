@@ -6,6 +6,7 @@
 #include "runtime/CapabilitySnapshot.h"
 #include "runtime/ContextPool.h"
 #include "runtime/PathAssembler.h"
+#include "runtime/RuntimeTeleports.h"
 #include "runtime/SearchContext.h"
 
 #include <cstdlib>
@@ -110,6 +111,25 @@ ww_artifact *ww_artifact_open(const char *path)
 void ww_artifact_close(ww_artifact *artifact)
 {
     delete artifact;
+}
+
+ww_result ww_artifact_load_teleports(ww_artifact *artifact, const char *dir)
+{
+    if (artifact == nullptr || dir == nullptr)
+    {
+        setLastError("ww_artifact_load_teleports: null artifact or dir");
+        return WW_ERR_INVALID;
+    }
+    try
+    {
+        ww::runtime::loadGlobalTeleportsInto(artifact->reader, std::string(dir));
+        return WW_OK;
+    }
+    catch (const std::exception &e)
+    {
+        setLastError(std::string("ww_artifact_load_teleports: ") + e.what());
+        return WW_ERR_INVALID;
+    }
 }
 
 ww_context_pool *ww_context_pool_create(ww_artifact *artifact, size_t count)

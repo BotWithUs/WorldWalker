@@ -1,6 +1,7 @@
 #include "data/TransitionBuilder.h"
 
 #include "build/CollisionLookup.h"
+#include "data/TransitionCost.h"
 #include "data/Transitions.h"
 
 #include <algorithm>
@@ -18,45 +19,10 @@ namespace ww::data
     {
         using ww::build::CollisionLookup;
 
-        // Tunables (plan follow-up): per-kind default tick costs and the endpoint
-        // snap radius. The dataset format does NOT carry a per-transition cost
-        // field today, and wwbuild owns cost computation: chain Wait steps
-        // accumulated against a per-kind base. If the dataset ever grows a
-        // `cost_ticks` field, route that through Transition::cost in the loader
-        // AND short-circuit computeCost here — relying on cost==0 as the
-        // sentinel would clash with a legitimate zero-cost transition.
-        constexpr float kTransportTicks = 3.0f;
-        constexpr float kFairyRingTicks = 5.0f;
-        constexpr float kTeleportChainTicks = 5.0f;
-        constexpr float kSpellBaseTicks = 1.0f;
-        constexpr float kLodestoneBaseTicks = 1.0f;
+        // Endpoint snap radius. Per-kind tick costs and computeCost() now live in
+        // data/TransitionCost.h (shared with the runtime teleport loader so both
+        // paths cost identically).
         constexpr int kSnapRadius = 5;
-
-        float baseTicks(TransitionKind kind)
-        {
-            switch (kind)
-            {
-                case TransitionKind::Transport:     return kTransportTicks;
-                case TransitionKind::FairyRing:     return kFairyRingTicks;
-                case TransitionKind::TeleportChain: return kTeleportChainTicks;
-                case TransitionKind::Spell:         return kSpellBaseTicks;
-                case TransitionKind::Lodestone:     return kLodestoneBaseTicks;
-            }
-            return kTransportTicks;
-        }
-
-        float computeCost(const Transition &t)
-        {
-            float waits = 0.0f;
-            for (const ChainStep &s : t.chain)
-            {
-                if (s.kind == ChainStepKind::Wait)
-                {
-                    waits += static_cast<float>(s.a);
-                }
-            }
-            return waits + baseTicks(t.kind);
-        }
 
         // Move (x, y) to the *closest* standable tile within `radius` (Chebyshev),
         // ring by ring. Inside each ring the candidate with the smallest squared-

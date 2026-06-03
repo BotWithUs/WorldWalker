@@ -128,6 +128,22 @@ namespace ww::runtime
                                  int32_t &cursorX, int32_t &cursorY, int32_t &cursorPlane,
                                  Plan &outPlan);
 
+        // Run the seeded area-graph search startArea -> goalArea and stitch the
+        // resulting area route into Walk/Transition steps. seedScratch must
+        // already hold the global-teleport frontier seeds. Returns false when no
+        // area route exists or a segment is unreachable.
+        bool assembleAreaRoute(int32_t startX, int32_t startY, int32_t startPlane,
+                               int32_t startArea, int32_t goalX, int32_t goalY,
+                               int32_t goalArea, const CapabilitySnapshot *capabilities,
+                               Plan &outPlan);
+
+        // Emit a global-teleport Transition step at the cursor (cast in place)
+        // and snap the cursor to the transition's destination. No-op when the
+        // index is out of range or a plane is illegal.
+        void emitGlobalTeleport(uint32_t transitionIndex,
+                                int32_t &cursorX, int32_t &cursorY, int32_t &cursorPlane,
+                                Plan &outPlan);
+
         // Populate seedScratch with one FrontierSeed per global-origin transition
         // whose Requirements the borrowed snapshot satisfies and whose dest tile
         // lands in a valid area. Cleared first; left empty when the caller has
@@ -139,9 +155,17 @@ namespace ww::runtime
         // in place) and snap the cursor to the transition's destination tile.
         // No-op when the area route walked out of startArea normally or when the
         // recorded transition index is out of range.
-        void emitLeadingTransition(std::span<const format::TransitionRecord> transitions,
-                                   int32_t &cursorX, int32_t &cursorY, int32_t &cursorPlane,
+        void emitLeadingTransition(int32_t &cursorX, int32_t &cursorY, int32_t &cursorPlane,
                                    Plan &outPlan);
+
+        // A global teleport whose dest lands in the goal's area, paired with an
+        // admissible lower-bound cost estimate (teleport cost + octile to goal)
+        // used to order and prune candidates. seedIndex indexes seedScratch.
+        struct TeleCandidate
+        {
+            float    estimate;
+            uint32_t seedIndex;
+        };
 
         const format::ArtifactReader *artifact;
         WorldView *view;
@@ -150,6 +174,7 @@ namespace ww::runtime
         AreaPath areaPath;                       // reusable scratch for the area-level route
         TilePath tilePath;                       // reusable scratch for each refined segment
         std::vector<FrontierSeed> seedScratch;   // reusable scratch for global-teleport frontier seeds
+        std::vector<TeleCandidate> teleCandidateScratch;  // reusable scratch for goal-area teleport ranking
     };
 }
 

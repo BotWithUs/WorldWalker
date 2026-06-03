@@ -97,6 +97,28 @@ namespace ww::format
             return {chainStepPool.data(), chainStepPool.size()};
         }
 
+        // ---- Runtime teleports (appended after bake) ------------------------
+        // Global teleports (spell + lodestone) are loaded from editable JSON at
+        // runtime and appended onto the baked transition / requirement / chain
+        // pools. Globals never appear in baked AreaEdgeRecords (those reference
+        // only the baked prefix), so appending past the baked count is safe and
+        // is picked up automatically by the planner's frontier seeding and by
+        // the executor (both index the full transitions() / chainSteps() spans).
+        //
+        // NOT thread-safe with concurrent query / execution — the caller must
+        // serialise these against ww_query / ww_executor_run.
+
+        // Append POD records onto the owned pools. Each appended TransitionRecord
+        // must already carry requirementStart / chainStart offsets relative to
+        // the pools' CURRENT sizes (i.e. the post-truncate state).
+        void appendTransitions(std::span<const TransitionRecord> transitions,
+                               std::span<const RequirementRecord> requirements,
+                               std::span<const ChainStepRecord> chainSteps);
+
+        // Drop everything appended since load, restoring the baked prefix. Makes
+        // a reload (truncate + re-append) idempotent.
+        void truncateToBaked();
+
         // ---- Abstraction (area graph) ---------------------------------------
         bool hasAbstraction() const
         {
@@ -198,6 +220,11 @@ namespace ww::format
         std::vector<TransitionRecord> transitionTable;
         std::vector<RequirementRecord> requirementPool;
         std::vector<ChainStepRecord> chainStepPool;
+        // Baked prefix lengths, captured after decodeTransitions; runtime
+        // teleport appends sit past these and truncateToBaked() rewinds to them.
+        std::size_t bakedTransitionCount{};
+        std::size_t bakedRequirementCount{};
+        std::size_t bakedChainCount{};
 
         std::vector<AreaNodeRecord> areaNodeTable;
         std::vector<AreaEdgeRecord> areaEdgeTable;

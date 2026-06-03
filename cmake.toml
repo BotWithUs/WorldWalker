@@ -70,15 +70,23 @@ sources = [
     "src/runtime/*.cpp",
     "src/exec/*.cpp",
     "src/c_api/*.cpp",
+    # Runtime-loaded global teleports (spell + lodestone) are parsed from
+    # editable JSON at open time, not baked. DatasetLoader is collision-free
+    # (JSON via nlohmann only), so it compiles into the runtime DLL. wwbuild
+    # links worldwalker and reuses this exported copy rather than recompiling.
+    "src/data/DatasetLoader.cpp",
 ]
 headers = [
     "src/format/*.h",
     "src/runtime/*.h",
     "src/exec/*.h",
     "src/c_api/*.h",
+    "src/data/DatasetLoader.h",
+    "src/data/Transitions.h",
+    "src/data/TransitionCost.h",
 ]
 include-directories = ["src"]
-link-libraries = ["ZLIB::ZLIB"]
+link-libraries = ["ZLIB::ZLIB", "nlohmann_json::nlohmann_json"]
 compile-features = ["cxx_std_23"]
 compile-definitions = ["WORLDWALKER_BUILDING"]
 properties.WINDOWS_EXPORT_ALL_SYMBOLS = true
@@ -91,7 +99,13 @@ properties.WINDOWS_EXPORT_ALL_SYMBOLS = true
 type = "executable"
 sources = [
     "src/build/*.cpp",
-    "src/data/*.cpp",
+    # src/data/*.cpp except DatasetLoader.cpp — that one compiles into
+    # worldwalker (runtime teleport loading) and is reused here via the export,
+    # so listing it again would double-compile it. Add new src/data files here.
+    "src/data/CrossingDeriver.cpp",
+    "src/data/FreshnessDeriver.cpp",
+    "src/data/TeleportZones.cpp",
+    "src/data/TransitionBuilder.cpp",
 ]
 include-directories = ["src"]
 link-libraries = ["worldwalker", "NXTCache::NXTCache", "nlohmann_json::nlohmann_json"]

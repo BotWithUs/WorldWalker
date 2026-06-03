@@ -14,6 +14,7 @@
 #include "runtime/CapabilitySnapshot.h"
 #include "runtime/ContextPool.h"
 #include "runtime/PathAssembler.h"
+#include "runtime/RuntimeTeleports.h"
 #include "runtime/SearchContext.h"
 #include "runtime/TeleportPolicy.h"
 #include "runtime/TileSearch.h"
@@ -342,6 +343,65 @@ namespace
                     " cost=%.1f, %zu broken\n",
                     label, sx, sy, sp, gx, gy, gp, plan.steps.size(), walks, hops,
                     static_cast<double>(plan.cost), broken);
+    }
+
+    // teleports — load the scripter-editable global teleports (spell + lodestone)
+    // from a dataset dir onto the artifact, then report the appended set and
+    // (optionally) plan start->goal so a route via a teleport is observable
+    // without the game. Exercises the same loadGlobalTeleportsInto + frontier
+    // seeding the runtime uses.
+    int runTeleports(int argc, char **argv)
+    {
+        try
+        {
+            ww::format::ArtifactReader reader(argv[0]);
+            const std::size_t added = ww::runtime::loadGlobalTeleportsInto(reader, argv[1]);
+            const auto txs = reader.transitions();
+            std::size_t globals = 0;
+            for (const ww::format::TransitionRecord &tx : txs)
+            {
+                globals += (tx.flags & ww::format::kTransitionFlagGlobalOrigin) != 0u ? 1u : 0u;
+            }
+            std::printf("teleports: appended %zu from %s; artifact now %zu transitions, "
+                        "%zu global-origin\n",
+                        added, argv[1], txs.size(), globals);
+
+            ww::runtime::WorldView view(reader);
+            std::size_t seedable = 0;
+            for (std::size_t i = 0; i < txs.size(); ++i)
+            {
+                const ww::format::TransitionRecord &tx = txs[i];
+                if ((tx.flags & ww::format::kTransitionFlagGlobalOrigin) == 0u)
+                {
+                    continue;
+                }
+                const int32_t destArea =
+                    view.areaAt(tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane));
+                seedable += destArea >= 0 ? 1u : 0u;
+                std::printf("  tx%zu kind=%u dest=(%d,%d,p%u) area=%d cost=%.1f reqs=%u chain=%u%s\n",
+                            i, tx.kind, tx.destX, tx.destY, tx.destPlane, destArea,
+                            static_cast<double>(tx.cost), tx.requirementCount, tx.chainCount,
+                            destArea < 0 ? "  [OFF-AREA: never seeded]" : "");
+            }
+            std::printf("teleports: %zu/%zu global dests land in a valid area (seedable)\n",
+                        seedable, globals);
+
+            if (argc >= 8)
+            {
+                ww::runtime::AreaSearch areaSearch(reader);
+                ww::runtime::TileSearch tileSearch(view);
+                ww::runtime::PathAssembler assembler(reader, view, areaSearch, tileSearch);
+                runPlanQuery(assembler, view, reader, std::atoi(argv[2]), std::atoi(argv[3]),
+                             std::atoi(argv[4]), std::atoi(argv[5]), std::atoi(argv[6]),
+                             std::atoi(argv[7]), "tele");
+            }
+            return 0;
+        }
+        catch (const std::exception &e)
+        {
+            std::printf("teleports: failed: %s\n", e.what());
+            return 1;
+        }
     }
 
     // True when the AreaEdge's transition has a standable interact-tile in its
@@ -1091,7 +1151,7 @@ namespace
         return 1;
     }
 
-    extern "C" void harnessRunChainStep(void *user, int32_t, int32_t)
+    extern "C" void harnessRunChainStep(void *user, int32_t, int32_t, int32_t)
     {
         ExecHarness *h = static_cast<ExecHarness *>(user);
         ++h->runChainStepCalls;
@@ -1527,6 +1587,17 @@ int main(int argc, char **argv)
             return 1;
         }
         return runTxNear(argv[2], std::atoi(argv[3]), std::atoi(argv[4]), std::atoi(argv[5]));
+    }
+
+    if (std::strcmp(argv[1], "teleports") == 0)
+    {
+        if (argc < 4)
+        {
+            std::printf("usage: wwcli teleports <artifact.wwa> <dataset_dir> "
+                        "[<sx> <sy> <sp> <gx> <gy> <gp>]\n");
+            return 1;
+        }
+        return runTeleports(argc - 2, argv + 2);
     }
 
     if (std::strcmp(argv[1], "bench") == 0)

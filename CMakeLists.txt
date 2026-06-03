@@ -105,6 +105,10 @@ set(worldwalker_SOURCES
 	cmake.toml
 	"src/c_api/worldwalker_c.cpp"
 	"src/c_api/worldwalker_c.h"
+	"src/data/DatasetLoader.cpp"
+	"src/data/DatasetLoader.h"
+	"src/data/TransitionCost.h"
+	"src/data/Transitions.h"
 	"src/exec/Callbacks.h"
 	"src/exec/Executor.cpp"
 	"src/exec/Executor.h"
@@ -123,6 +127,8 @@ set(worldwalker_SOURCES
 	"src/runtime/ContextPool.h"
 	"src/runtime/PathAssembler.cpp"
 	"src/runtime/PathAssembler.h"
+	"src/runtime/RuntimeTeleports.cpp"
+	"src/runtime/RuntimeTeleports.h"
 	"src/runtime/SearchContext.h"
 	"src/runtime/TeleportPolicy.h"
 	"src/runtime/TileSearch.cpp"
@@ -150,6 +156,7 @@ target_include_directories(worldwalker PUBLIC
 
 target_link_libraries(worldwalker PUBLIC
 	ZLIB::ZLIB
+	nlohmann_json::nlohmann_json
 )
 
 set_target_properties(worldwalker PROPERTIES
@@ -168,7 +175,6 @@ set(wwbuild_SOURCES
 	"src/build/CollisionLookup.cpp"
 	"src/build/main.cpp"
 	"src/data/CrossingDeriver.cpp"
-	"src/data/DatasetLoader.cpp"
 	"src/data/FreshnessDeriver.cpp"
 	"src/data/TeleportZones.cpp"
 	"src/data/TransitionBuilder.cpp"

@@ -201,12 +201,12 @@ namespace ww::exec
                 return WwStatus::Cancelled;
             }
             const format::ChainStepRecord &cs = chain[chainStart + i];
-            const int32_t stepIndexInChain = static_cast<int32_t>(i);
             if (cs.kind == static_cast<uint8_t>(data::ChainStepKind::Click))
             {
                 // Wait for the target interface to appear, then fire the click.
-                // The host knows how to dispatch the click from (transitionIndex,
-                // stepIndexInChain) since it can index into the same artifact.
+                // cs.a/b/c are (interface, component, option) — passed straight
+                // to the host so it can issue the component interaction without
+                // needing access to the artifact's chain data.
                 int32_t polls = 0;
                 while (callbacks->isInterfaceOpen(callbacks->user, cs.a) == 0)
                 {
@@ -221,7 +221,7 @@ namespace ww::exec
                     callbacks->sleepTicks(callbacks->user, kInterfaceOpenPollTicks);
                     ++polls;
                 }
-                callbacks->runChainStep(callbacks->user, transitionIndex, stepIndexInChain);
+                callbacks->runChainStep(callbacks->user, cs.a, cs.b, cs.c);
             }
             else
             {

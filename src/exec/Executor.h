@@ -46,8 +46,8 @@ namespace ww::exec
     // optionIndex); for global-origin emit TeleportInitiated and skip the
     // interact. Then iterate the embedded chain — for each Click, poll
     // isInterfaceOpen(targetInterface) with sleepTicks between polls until it
-    // opens (or the budget elapses → Failed) then runChainStep(transitionIndex,
-    // stepIndexInChain); for each Wait, sleepTicks(ticks). After a short
+    // opens (or the budget elapses → Failed) then runChainStep(interface,
+    // component, option); for each Wait, sleepTicks(ticks). After a short
     // post-chain settle the live position is read out (the engine commits the
     // destination during the settle). Transition Failed is terminal — re-plan
     // does not retry it.

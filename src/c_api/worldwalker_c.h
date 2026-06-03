@@ -86,6 +86,18 @@ WW_API ww_artifact *ww_artifact_open(const char *path);
 /* Release an artifact handle. Safe to pass NULL. */
 WW_API void ww_artifact_close(ww_artifact *artifact);
 
+/* Load (or reload) the scripter-editable global teleports — spell_teleports.json
+   and item_teleports.json in `dir` — and append them onto the artifact's
+   transitions so the planner considers them and the executor can fire them.
+   Re-loadable: each call replaces the previously loaded set. Missing files are
+   skipped. Returns WW_OK on success (including zero teleports), an error code
+   on malformed JSON (call ww_last_error).
+
+   MUTATES the artifact: it is NOT safe to call concurrently with ww_query or
+   ww_executor_run on the same artifact. The caller must serialise it against
+   all in-flight queries / runs (the Java host holds its lifecycle write-lock). */
+WW_API ww_result ww_artifact_load_teleports(ww_artifact *artifact, const char *dir);
+
 /* ---- Search-context pool ------------------------------------------------ */
 
 /* Create a bounded pool of reusable search contexts over an artifact
@@ -187,7 +199,14 @@ typedef void (*WwWalkToFn)(void *user, WwTile target);
    executor uses this to skip the post-action settle wait when nothing was done,
    so an already-open door flows straight through instead of pausing. */
 typedef int32_t (*WwInteractFn)(void *user, int32_t objectId, WwTile tile, int32_t optionIndex);
-typedef void (*WwRunChainStepFn)(void *user, int32_t chainIndex, int32_t stepIndex);
+/* runChainStep dispatches one Click step of a transition's execution chain
+   (e.g. a lodestone-network or spell teleport). The executor has already polled
+   isInterfaceOpen(interfaceId) before calling, so the host only needs to issue
+   the component interaction. (interfaceId, componentId, optionId) are the
+   ChainStepRecord's a/b/c — the actual click target — so the host needs no
+   access to the artifact's chain data. */
+typedef void (*WwRunChainStepFn)(void *user, int32_t interfaceId, int32_t componentId,
+                                 int32_t optionId);
 typedef void (*WwSleepTicksFn)(void *user, int32_t ticks);
 
 /* Control — polled each loop turn. Returning non-zero aborts the run with

@@ -213,6 +213,31 @@ namespace ww::format
         const uint64_t chainBytes = static_cast<uint64_t>(header.chainStepCount) * sizeof(ChainStepRecord);
         requireRange(cursor, chainBytes, bytes.size(), "chain pool");
         chainStepPool = readPodArray<ChainStepRecord>(bytes, cursor, header.chainStepCount);
+
+        // Remember the baked prefix lengths so runtime-appended teleports
+        // (appendTransitions) can be dropped again on reload (truncateToBaked).
+        bakedTransitionCount = transitionTable.size();
+        bakedRequirementCount = requirementPool.size();
+        bakedChainCount = chainStepPool.size();
+    }
+
+    void ArtifactReader::truncateToBaked()
+    {
+        transitionTable.resize(bakedTransitionCount);
+        requirementPool.resize(bakedRequirementCount);
+        chainStepPool.resize(bakedChainCount);
+    }
+
+    void ArtifactReader::appendTransitions(std::span<const TransitionRecord> transitions,
+                                           std::span<const RequirementRecord> requirements,
+                                           std::span<const ChainStepRecord> chainSteps)
+    {
+        // Callers (RuntimeTeleports) build the appended records with
+        // requirementStart / chainStart already offset by the CURRENT pool
+        // sizes, so a straight concatenation keeps every range valid.
+        transitionTable.insert(transitionTable.end(), transitions.begin(), transitions.end());
+        requirementPool.insert(requirementPool.end(), requirements.begin(), requirements.end());
+        chainStepPool.insert(chainStepPool.end(), chainSteps.begin(), chainSteps.end());
     }
 
     void ArtifactReader::decodeAbstraction(const SectionEntry &entry)
