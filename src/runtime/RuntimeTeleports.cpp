@@ -99,6 +99,7 @@ namespace ww::runtime
                 cr.a = cs.a;
                 cr.b = cs.b;
                 cr.c = cs.c;
+                cr.d = cs.d;
                 chainPool.push_back(cr);
             }
             return r;

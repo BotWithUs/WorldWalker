@@ -101,6 +101,26 @@ namespace ww::data
             return v.get<int>();
         }
 
+        // Read element i of a JSON array as an int, or `dflt` when the array is
+        // shorter; throws when the present element is not an integer.
+        int arrInt(const json &arr, std::size_t i, int dflt, const char *what)
+        {
+            if (i >= arr.size())
+            {
+                return dflt;
+            }
+            if (!arr[i].is_number_integer())
+            {
+                throw std::runtime_error(std::string(what) + " must be an integer");
+            }
+            return arr[i].get<int>();
+        }
+
+        // Host action id for an interface-component interaction. Must match
+        // ActionTypes.COMPONENT on the Java side (the value rides in the baked
+        // chain / runtime teleport JSON, so it is part of the wire contract).
+        constexpr int kComponentActionId = 57;
+
         void parseRequirements(const json &node, std::vector<Requirement> &out)
         {
             if (!node.contains("requirements") || !node.at("requirements").is_object())
@@ -150,29 +170,32 @@ namespace ww::data
             {
                 if (step.contains("click") && step.at("click").is_array())
                 {
+                    // Component-click shorthand [interface, component, option, sub?]
+                    // -> generic COMPONENT action: param1=option, param2=sub (-1
+                    // when absent), param3=(iface<<16)|comp.
                     const json &c = step.at("click");
-                    if (!c.empty() && !c[0].is_number_integer())
-                    {
-                        throw std::runtime_error("chain.click[0] must be an integer");
-                    }
-                    const int a = c.size() > 0 ? c[0].get<int>() : 0;
-                    const int b = c.size() > 1
-                        ? (c[1].is_number_integer()
-                            ? c[1].get<int>()
-                            : throw std::runtime_error("chain.click[1] must be an integer"))
-                        : 0;
-                    const int d = c.size() > 2
-                        ? (c[2].is_number_integer()
-                            ? c[2].get<int>()
-                            : throw std::runtime_error("chain.click[2] must be an integer"))
-                        : 0;
-                    out.push_back({ChainStepKind::Click, a, b, d});
+                    const int iface  = arrInt(c, 0, 0,  "chain.click[0]");
+                    const int comp   = arrInt(c, 1, 0,  "chain.click[1]");
+                    const int option = arrInt(c, 2, 0,  "chain.click[2]");
+                    const int sub    = arrInt(c, 3, -1, "chain.click[3]");
+                    out.push_back({ChainStepKind::Click, kComponentActionId, option, sub,
+                                   (iface << 16) | comp});
+                }
+                else if (step.contains("action") && step.at("action").is_array())
+                {
+                    // Raw queued action [actionId, param1, param2, param3].
+                    const json &a = step.at("action");
+                    out.push_back({ChainStepKind::Click,
+                                   arrInt(a, 0, 0, "chain.action[0]"),
+                                   arrInt(a, 1, 0, "chain.action[1]"),
+                                   arrInt(a, 2, 0, "chain.action[2]"),
+                                   arrInt(a, 3, 0, "chain.action[3]")});
                 }
                 else if (step.contains("wait"))
                 {
                     out.push_back({ChainStepKind::Wait,
                                    readOptionalInt(step, "wait", 0, "chain.wait"),
-                                   0, 0});
+                                   0, 0, 0});
                 }
             }
         }
@@ -281,6 +304,7 @@ namespace ww::data
             int openOption{1};
             int selectInterface{};
             int selectOption{1};
+            int selectSub{-1};
             int openWait{};
             int teleportWait{};
         };
@@ -293,18 +317,24 @@ namespace ww::data
             c.openOption = readOptionalInt(cfg, "open_option", 1, "lodestones.config");
             c.selectInterface = readOptionalInt(cfg, "select_interface", 0, "lodestones.config");
             c.selectOption = readOptionalInt(cfg, "select_option", 1, "lodestones.config");
+            c.selectSub = readOptionalInt(cfg, "select_sub_component", -1, "lodestones.config");
             c.openWait = readOptionalInt(cfg, "open_wait", 0, "lodestones.config");
             c.teleportWait = readOptionalInt(cfg, "teleport_wait", 0, "lodestones.config");
             return c;
         }
 
-        void buildLodestoneChain(const LodestoneConfig &c, int component,
+        void buildLodestoneChain(const LodestoneConfig &c, int component, int selectSub,
                                  std::vector<ChainStep> &out)
         {
-            out.push_back({ChainStepKind::Click, c.openInterface, c.openComponent, c.openOption});
-            out.push_back({ChainStepKind::Wait, c.openWait, 0, 0});
-            out.push_back({ChainStepKind::Click, c.selectInterface, component, c.selectOption});
-            out.push_back({ChainStepKind::Wait, c.teleportWait, 0, 0});
+            // Open the lodestone map: click the ribbon/HUD component (no sub).
+            out.push_back({ChainStepKind::Click, kComponentActionId, c.openOption, -1,
+                           (c.openInterface << 16) | c.openComponent});
+            out.push_back({ChainStepKind::Wait, c.openWait, 0, 0, 0});
+            // Select the destination lodestone in the map. Some chains target a
+            // sub-component of the select component (selectSub); -1 = none.
+            out.push_back({ChainStepKind::Click, kComponentActionId, c.selectOption, selectSub,
+                           (c.selectInterface << 16) | component});
+            out.push_back({ChainStepKind::Wait, c.teleportWait, 0, 0, 0});
         }
 
         void parseLodestones(const json &j, TransitionModel &model)
@@ -330,9 +360,10 @@ namespace ww::data
                 t.destPlane = static_cast<uint8_t>(
                     readRequiredInt(d, "plane", "lodestones.destination"));
                 parseRequirements(d, t.requirements);
-                buildLodestoneChain(cfg,
-                                    readOptionalInt(d, "component", 0, "lodestones.destination"),
-                                    t.chain);
+                const int comp = readOptionalInt(d, "component", 0, "lodestones.destination");
+                const int sub =
+                    readOptionalInt(d, "sub_component", cfg.selectSub, "lodestones.destination");
+                buildLodestoneChain(cfg, comp, sub, t.chain);
                 model.transitions.push_back(std::move(t));
             }
         }

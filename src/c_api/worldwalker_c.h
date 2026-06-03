@@ -48,7 +48,7 @@ extern "C" {
 /* Baked-artifact format version. ww_artifact_open refuses a mapping whose
    header version does not match this — a schema-breaking change bumps it so
    the host fails loud rather than misreading bytes. */
-#define WW_ARTIFACT_FORMAT_VERSION 1u
+#define WW_ARTIFACT_FORMAT_VERSION 2u
 
 typedef struct ww_artifact      ww_artifact;
 typedef struct ww_context_pool  ww_context_pool;
@@ -200,13 +200,15 @@ typedef void (*WwWalkToFn)(void *user, WwTile target);
    so an already-open door flows straight through instead of pausing. */
 typedef int32_t (*WwInteractFn)(void *user, int32_t objectId, WwTile tile, int32_t optionIndex);
 /* runChainStep dispatches one Click step of a transition's execution chain
-   (e.g. a lodestone-network or spell teleport). The executor has already polled
-   isInterfaceOpen(interfaceId) before calling, so the host only needs to issue
-   the component interaction. (interfaceId, componentId, optionId) are the
-   ChainStepRecord's a/b/c — the actual click target — so the host needs no
-   access to the artifact's chain data. */
-typedef void (*WwRunChainStepFn)(void *user, int32_t interfaceId, int32_t componentId,
-                                 int32_t optionId);
+   (e.g. a lodestone-network or spell teleport) as a generic queued game action.
+   (actionId, param1, param2, param3) are the ChainStepRecord's a/b/c/d — a
+   ready-to-queue action — so the host just forwards them to queue_action with
+   no knowledge of components or hashes. For a component click the values are
+   (COMPONENT, option, sub_component, (iface<<16)|comp). The executor derives
+   the interface-open gate from param3>>16 when actionId==COMPONENT, so the host
+   needs no access to the artifact's chain data. */
+typedef void (*WwRunChainStepFn)(void *user, int32_t actionId, int32_t param1,
+                                 int32_t param2, int32_t param3);
 typedef void (*WwSleepTicksFn)(void *user, int32_t ticks);
 
 /* Control — polled each loop turn. Returning non-zero aborts the run with

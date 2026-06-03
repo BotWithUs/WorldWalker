@@ -5,6 +5,9 @@
 #include "format/ArtifactReader.h"
 #include "runtime/ContextPool.h"
 
+#include <cstdint>
+#include <vector>
+
 namespace ww::runtime
 {
     struct Step;
@@ -130,6 +133,16 @@ namespace ww::exec
         const format::ArtifactReader *artifact;
         runtime::ContextPool *pool;
         const Callbacks *callbacks;
+
+        // Distinct varbit ids referenced by any transition requirement (e.g.
+        // lodestone-unlock varbits like 35 for Lumbridge). Collected once at
+        // construction; planFrom() reads each via the readVarbit callback on
+        // every (re-)plan and writes the live values into the capability
+        // snapshot, so a teleport gated on an unlock varbit is admitted only
+        // when the player has actually unlocked it. Without this the snapshot
+        // from readCapability is empty, every varbit reads 0, and every
+        // varbit-gated teleport is rejected — the planner then only ever walks.
+        std::vector<int32_t> requirementVarbitIds;
     };
 }
 

@@ -23,7 +23,9 @@ namespace ww::format
     inline constexpr uint32_t kArtifactMagic = 0x4C415757u;
 
     // Keep in lockstep with WW_ARTIFACT_FORMAT_VERSION in the C ABI header.
-    inline constexpr uint32_t kArtifactFormatVersion = 1u;
+    // v2: ChainStepRecord gained `d` (chain steps are now generic queued
+    // actions: actionId + param1..3 — see ChainStepKind).
+    inline constexpr uint32_t kArtifactFormatVersion = 2u;
 
     // Section identifiers. Each build phase fills in its own section; the file
     // order is not significant because the directory carries explicit offsets.
@@ -158,9 +160,10 @@ namespace ww::format
     {
         uint8_t  kind;     // ww::data::ChainStepKind
         uint8_t  pad[3];
-        int32_t  a;        // Click: interface; Wait: ticks
-        int32_t  b;        // Click: component
-        int32_t  c;        // Click: slot/option
+        int32_t  a;        // Click/action: actionId; Wait: ticks
+        int32_t  b;        // Click/action: param1 (component-click: option)
+        int32_t  c;        // Click/action: param2 (component-click: sub_component)
+        int32_t  d;        // Click/action: param3 (component-click: (iface<<16)|comp)
     };
 
     // ---- Abstraction section -------------------------------------------------
@@ -323,7 +326,7 @@ namespace ww::format
     static_assert(sizeof(TransitionSectionHeader) == 16, "TransitionSectionHeader must be 16 bytes");
     static_assert(sizeof(TransitionRecord) == 56, "TransitionRecord must be 56 bytes");
     static_assert(sizeof(RequirementRecord) == 12, "RequirementRecord must be 12 bytes");
-    static_assert(sizeof(ChainStepRecord) == 16, "ChainStepRecord must be 16 bytes");
+    static_assert(sizeof(ChainStepRecord) == 20, "ChainStepRecord must be 20 bytes");
     static_assert(sizeof(AbstractionSectionHeader) == 16, "AbstractionSectionHeader must be 16 bytes");
     static_assert(sizeof(AreaNodeRecord) == 32, "AreaNodeRecord must be 32 bytes");
     static_assert(sizeof(AreaEdgeRecord) == 16, "AreaEdgeRecord must be 16 bytes");

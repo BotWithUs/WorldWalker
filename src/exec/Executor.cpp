@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
+#include <unordered_set>
 
 namespace ww::exec
 {
@@ -43,6 +44,11 @@ namespace ww::exec
         constexpr int32_t kInterfaceOpenMaxPolls  = 10;  // ~12s budget per Click step
         constexpr int32_t kPostChainSettleTicks   = 2;   // ~1.2s wait for the engine to commit dest
 
+        // Host action id for an interface-component interaction (ActionTypes.
+        // COMPONENT on the Java side). A chain action with this id carries its
+        // target interface as param3>>16, which the chain loop gates on.
+        constexpr int32_t kComponentActionId = 57;
+
         // Re-plan budget (Phase 4d). Each walk-stuck recovery and each
         // teleport-allowed flip consumes one re-plan; the cap stops a
         // pathological loop (e.g., a planner that keeps proposing the same
@@ -73,6 +79,21 @@ namespace ww::exec
           pool(&pool),
           callbacks(&callbacks)
     {
+        // Collect the distinct varbit ids any requirement references so each
+        // (re-)plan can refresh their live values into the capability snapshot
+        // (see planFrom). The span is the full requirement pool — baked local
+        // crossings plus the appended runtime teleports — so lodestone-unlock
+        // varbits land here too. Deduped against a small set; ids are stable
+        // for the life of the run.
+        std::unordered_set<int32_t> seen;
+        for (const format::RequirementRecord &r : reader.requirements())
+        {
+            if (static_cast<data::RequirementKind>(r.kind) == data::RequirementKind::Varbit
+                && seen.insert(r.id).second)
+            {
+                requirementVarbitIds.push_back(r.id);
+            }
+        }
     }
 
     bool Executor::isInsideGoal(const WwTile &tile, const WwGoal &goal)
@@ -203,25 +224,31 @@ namespace ww::exec
             const format::ChainStepRecord &cs = chain[chainStart + i];
             if (cs.kind == static_cast<uint8_t>(data::ChainStepKind::Click))
             {
-                // Wait for the target interface to appear, then fire the click.
-                // cs.a/b/c are (interface, component, option) — passed straight
-                // to the host so it can issue the component interaction without
-                // needing access to the artifact's chain data.
-                int32_t polls = 0;
-                while (callbacks->isInterfaceOpen(callbacks->user, cs.a) == 0)
+                // cs is a generic queued action: a=actionId, b/c/d=param1..3,
+                // forwarded verbatim to the host. For a COMPONENT click the
+                // target interface is packed as param3>>16 ((iface<<16)|comp);
+                // wait for that interface to appear before clicking so we fire
+                // only once the dialog exists. Non-component actions dispatch
+                // immediately (no interface to gate on).
+                if (cs.a == kComponentActionId)
                 {
-                    if (callbacks->shouldCancel(callbacks->user) != 0)
+                    const int32_t iface = cs.d >> 16;
+                    int32_t polls = 0;
+                    while (callbacks->isInterfaceOpen(callbacks->user, iface) == 0)
                     {
-                        return WwStatus::Cancelled;
+                        if (callbacks->shouldCancel(callbacks->user) != 0)
+                        {
+                            return WwStatus::Cancelled;
+                        }
+                        if (polls >= kInterfaceOpenMaxPolls)
+                        {
+                            return WwStatus::Failed;
+                        }
+                        callbacks->sleepTicks(callbacks->user, kInterfaceOpenPollTicks);
+                        ++polls;
                     }
-                    if (polls >= kInterfaceOpenMaxPolls)
-                    {
-                        return WwStatus::Failed;
-                    }
-                    callbacks->sleepTicks(callbacks->user, kInterfaceOpenPollTicks);
-                    ++polls;
                 }
-                callbacks->runChainStep(callbacks->user, cs.a, cs.b, cs.c);
+                callbacks->runChainStep(callbacks->user, cs.a, cs.b, cs.c, cs.d);
             }
             else
             {
@@ -281,6 +308,17 @@ namespace ww::exec
         WwCapabilitySnapshot raw{};
         callbacks->readCapability(callbacks->user, &raw);
         copyCapabilities(raw, snapshot);
+
+        // Refresh the live value of every varbit a requirement references (e.g.
+        // lodestone-unlock varbits). readCapability does not surface these — the
+        // host can't know which ids matter — so we pull them through the
+        // readVarbit callback here. A requirement-gated teleport is then admitted
+        // by the planner only when its unlock varbit actually reads as set; an
+        // empty snapshot would reject all of them and force a pure walk.
+        for (int32_t id : requirementVarbitIds)
+        {
+            snapshot.setVarbit(id, callbacks->readVarbit(callbacks->user, id));
+        }
 
         return context.assembler.assemble(
             start.x, start.y, start.plane,

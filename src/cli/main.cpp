@@ -345,6 +345,37 @@ namespace
                     static_cast<double>(plan.cost), broken);
     }
 
+    // Same as runPlanQuery but routes through the capability-gated assemble
+    // overload (non-null snapshot), so it reproduces exactly what the executor's
+    // planFrom does — requirement filtering against a real snapshot rather than
+    // the "admit everything" null-caps path. Used by the teleports probe to
+    // prove that an empty snapshot rejects every gated teleport while one with
+    // the unlock varbits set admits them.
+    void runPlanQueryCaps(ww::runtime::PathAssembler &assembler,
+                          const ww::runtime::CapabilitySnapshot *caps,
+                          int32_t sx, int32_t sy, int32_t sp,
+                          int32_t gx, int32_t gy, int32_t gp, const char *label)
+    {
+        ww::runtime::Plan plan;
+        if (!assembler.assemble(sx, sy, sp, gx, gy, gp, caps, plan))
+        {
+            std::printf("  plan:   %-10s (%d,%d,p%d)->(%d,%d,p%d) unreachable\n", label, sx, sy, sp,
+                        gx, gy, gp);
+            return;
+        }
+        std::size_t walks = 0;
+        std::size_t hops = 0;
+        for (const ww::runtime::Step &s : plan.steps)
+        {
+            walks += s.kind == ww::runtime::StepKind::Walk ? 1u : 0u;
+            hops += s.kind == ww::runtime::StepKind::Transition ? 1u : 0u;
+        }
+        std::printf("  plan:   %-10s (%d,%d,p%d)->(%d,%d,p%d) ok, %zu steps (%zu walk + %zu hop),"
+                    " cost=%.1f\n",
+                    label, sx, sy, sp, gx, gy, gp, plan.steps.size(), walks, hops,
+                    static_cast<double>(plan.cost));
+    }
+
     // teleports — load the scripter-editable global teleports (spell + lodestone)
     // from a dataset dir onto the artifact, then report the appended set and
     // (optionally) plan start->goal so a route via a teleport is observable
@@ -391,9 +422,40 @@ namespace
                 ww::runtime::AreaSearch areaSearch(reader);
                 ww::runtime::TileSearch tileSearch(view);
                 ww::runtime::PathAssembler assembler(reader, view, areaSearch, tileSearch);
-                runPlanQuery(assembler, view, reader, std::atoi(argv[2]), std::atoi(argv[3]),
-                             std::atoi(argv[4]), std::atoi(argv[5]), std::atoi(argv[6]),
-                             std::atoi(argv[7]), "tele");
+                const int sx = std::atoi(argv[2]), sy = std::atoi(argv[3]), sp = std::atoi(argv[4]);
+                const int gx = std::atoi(argv[5]), gy = std::atoi(argv[6]), gp = std::atoi(argv[7]);
+                // Baseline: null caps (admit everything) — the unfiltered path.
+                runPlanQuery(assembler, view, reader, sx, sy, sp, gx, gy, gp, "tele");
+
+                // Reproduce the executor's planFrom requirement gating. Collect
+                // the distinct varbit ids any requirement references (lodestone
+                // unlocks live here), then plan twice with a non-null snapshot:
+                // once empty (every varbit reads 0 → gated teleports rejected,
+                // the live bug) and once with all those varbits set to 1 (the
+                // post-fix executor reads the player's true unlock state via the
+                // readVarbit callback → gated teleports admitted).
+                std::vector<int32_t> varbitIds;
+                {
+                    std::vector<int32_t> seen;
+                    for (const ww::format::RequirementRecord &r : reader.requirements())
+                    {
+                        if (static_cast<ww::data::RequirementKind>(r.kind)
+                                == ww::data::RequirementKind::Varbit
+                            && std::find(seen.begin(), seen.end(), r.id) == seen.end())
+                        {
+                            seen.push_back(r.id);
+                            varbitIds.push_back(r.id);
+                        }
+                    }
+                }
+                ww::runtime::CapabilitySnapshot empty;
+                runPlanQueryCaps(assembler, &empty, sx, sy, sp, gx, gy, gp, "caps:empty");
+                ww::runtime::CapabilitySnapshot unlocked;
+                for (int32_t id : varbitIds)
+                {
+                    unlocked.setVarbit(id, 1);
+                }
+                runPlanQueryCaps(assembler, &unlocked, sx, sy, sp, gx, gy, gp, "caps:unlock");
             }
             return 0;
         }
@@ -1151,7 +1213,7 @@ namespace
         return 1;
     }
 
-    extern "C" void harnessRunChainStep(void *user, int32_t, int32_t, int32_t)
+    extern "C" void harnessRunChainStep(void *user, int32_t, int32_t, int32_t, int32_t)
     {
         ExecHarness *h = static_cast<ExecHarness *>(user);
         ++h->runChainStepCalls;

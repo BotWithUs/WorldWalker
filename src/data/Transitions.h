@@ -39,7 +39,12 @@ namespace ww::data
 
     enum class ChainStepKind : uint8_t
     {
-        Click = 0,  // a=interface, b=component, c=slot/option
+        // A queued game action dispatched verbatim by the host:
+        //   a=actionId, b=param1, c=param2, d=param3.
+        // For a component click that is (COMPONENT, option, sub_component,
+        // (iface<<16)|comp); the executor derives the interface-open gate from
+        // param3>>16 when actionId==COMPONENT.
+        Click = 0,
         Wait  = 1,  // a=ticks to wait
     };
 
@@ -50,6 +55,7 @@ namespace ww::data
         int32_t a{};
         int32_t b{};
         int32_t c{};
+        int32_t d{};
     };
 
     // A single movement/interaction edge. Origin is meaningful only when
