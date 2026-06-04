@@ -97,6 +97,19 @@ namespace ww::format
             return {chainStepPool.data(), chainStepPool.size()};
         }
 
+        // Pre-indexed list of every Global-origin transition (spell /
+        // lodestone / item-teleport). PathAssembler walks this on every
+        // query to seed the global-teleport frontier — the full transitions
+        // span is 15k+ on a real artifact, and the prior linear scan paid
+        // an O(transitions) cost per query when typically only a handful
+        // are global-origin. The index is rebuilt whenever the transition
+        // table changes (decodeTransitions / appendTransitions /
+        // truncateToBaked) so it always reflects the live table.
+        std::span<const uint32_t> globalOriginTransitions() const
+        {
+            return {globalOriginIndices.data(), globalOriginIndices.size()};
+        }
+
         // ---- Runtime teleports (appended after bake) ------------------------
         // Global teleports (spell + lodestone) are loaded from editable JSON at
         // runtime and appended onto the baked transition / requirement / chain
@@ -168,14 +181,20 @@ namespace ww::format
         // Lower-bound tick cost from landmark `landmarkIndex` to `area`
         // (fromLandmark table) and from `area` to the landmark (toLandmark
         // table). Unreachable pairs are +infinity. Indices are not bounds-checked.
+        //
+        // Storage is area-major: the on-disk format is landmark-major
+        // (table[landmark * areaCount + area]) but decodeAltLandmarks
+        // transposes it in place so a per-area read of every landmark column
+        // — the AltHeuristic::estimate hot loop — touches one contiguous
+        // landmark-wide window instead of striding across the whole table.
         float distFromLandmark(uint32_t landmarkIndex, uint32_t area) const
         {
-            return fromLandmarkData[static_cast<std::size_t>(landmarkIndex) * altAreas + area];
+            return fromLandmarkData[static_cast<std::size_t>(area) * altLandmarkCount + landmarkIndex];
         }
 
         float distToLandmark(uint32_t area, uint32_t landmarkIndex) const
         {
-            return toLandmarkData[static_cast<std::size_t>(landmarkIndex) * altAreas + area];
+            return toLandmarkData[static_cast<std::size_t>(area) * altLandmarkCount + landmarkIndex];
         }
 
         // ---- Teleport-allowed -----------------------------------------------
@@ -208,6 +227,10 @@ namespace ww::format
         void decodeAltLandmarks(const SectionEntry &entry);
         void decodeTeleportAllowed(const SectionEntry &entry);
         std::vector<float> decompressFloatTable(const AltTableDescriptor &desc, uint64_t sectionOffset) const;
+        // Rescan transitionTable and rebuild globalOriginIndices. Called
+        // after any change to the transition pool (decodeTransitions,
+        // appendTransitions, truncateToBaked).
+        void rebuildGlobalOriginIndex();
 
         std::vector<uint8_t> bytes;
         ArtifactInfo metadata{};
@@ -220,6 +243,10 @@ namespace ww::format
         std::vector<TransitionRecord> transitionTable;
         std::vector<RequirementRecord> requirementPool;
         std::vector<ChainStepRecord> chainStepPool;
+        // Indices into transitionTable for every global-origin record. Kept
+        // in lockstep with transitionTable via rebuildGlobalOriginIndex
+        // (called after decode and any append/truncate).
+        std::vector<uint32_t> globalOriginIndices;
         // Baked prefix lengths, captured after decodeTransitions; runtime
         // teleport appends sit past these and truncateToBaked() rewinds to them.
         std::size_t bakedTransitionCount{};

@@ -197,6 +197,10 @@ namespace ww::runtime
         }
         // Walk steps advance by at most kWalkChunkTiles tiles per hop; the final
         // hop always lands on the last tile so the segment terminates exactly.
+        // Reserve up front so a long segment (kMaxExpansions tiles in the worst
+        // case) does not trigger geometric grows on outPlan.steps mid-emit.
+        const std::size_t chunks = (n - 1u + kWalkChunkTiles - 1u) / kWalkChunkTiles;
+        outPlan.steps.reserve(outPlan.steps.size() + chunks);
         std::size_t cursor = 0;
         while (cursor < n - 1)
         {
@@ -286,13 +290,14 @@ namespace ww::runtime
         seedScratch.clear();
         const std::span<const format::TransitionRecord> transitions = artifact->transitions();
         const std::span<const format::RequirementRecord> reqs = artifact->requirements();
-        for (uint32_t i = 0; i < transitions.size(); ++i)
+        // Walk the pre-indexed global-origin list (built once at artifact
+        // load, kept in sync by append/truncate) instead of the full
+        // transition span. Cuts a per-query O(transitions) scan — typically
+        // 15k+ entries — to O(globals), usually a few dozen.
+        const std::span<const uint32_t> globals = artifact->globalOriginTransitions();
+        for (uint32_t i : globals)
         {
             const format::TransitionRecord &tx = transitions[i];
-            if ((tx.flags & format::kTransitionFlagGlobalOrigin) == 0u)
-            {
-                continue;
-            }
             const uint64_t end = static_cast<uint64_t>(tx.requirementStart) + tx.requirementCount;
             if (end > reqs.size())
             {
@@ -480,7 +485,10 @@ namespace ww::runtime
         // hop, sidestepping AreaSearch's area-cost-only ordering when a longer
         // chain has a much shorter intra-area walk. Cleared on every assemble
         // since the radius is goal-dependent. Cheap: one pass over the edge
-        // span, a few comparisons per edge.
+        // span, a few comparisons per edge. Each surviving entry also caches
+        // fromArea (skips the inner loop's edge re-deref) and a closing
+        // lower-bound (E.cost + octile(T.dest, goal)) used to prune the
+        // per-(seed, edge) pair before any A* work.
         nearGoalEdgeScratch.clear();
         {
             const std::span<const format::TransitionRecord> txsScan = artifact->transitions();
@@ -502,7 +510,10 @@ namespace ww::runtime
                 }
                 if (isNearGoalExit(T, goalX, goalY, goalPlane))
                 {
-                    nearGoalEdgeScratch.push_back(static_cast<int32_t>(i));
+                    const float closingBound = E.cost
+                        + octileDistance(T.destX - goalX, T.destY - goalY);
+                    nearGoalEdgeScratch.push_back({static_cast<int32_t>(i),
+                                                   E.fromArea, closingBound});
                 }
             }
         }
@@ -617,13 +628,25 @@ namespace ww::runtime
                 // against goal plane + global flag at scan time, so the inner
                 // body is just an area-match filter and the realised-cost
                 // build.
-                for (int32_t edgeIdx : nearGoalEdgeScratch)
+                for (const NearGoalEdge &nge : nearGoalEdgeScratch)
                 {
-                    const format::AreaEdgeRecord &E = areaEdgesAll[edgeIdx];
-                    if (E.fromArea != seed.destArea)
+                    if (nge.fromArea != seed.destArea)
                     {
                         continue;
                     }
+                    // Lower bound on the realised chained plan: teleport cost
+                    // (seed.cost) + edge cost + admissible closing walk (the
+                    // octile distance from the edge's destination tile to the
+                    // goal, baked into closingBound at scan time). Skip the
+                    // full tryTeleportNearGoalExit — which runs a fresh
+                    // assembleAreaRoute internally — when this bound already
+                    // can't beat the best plan in hand.
+                    const float pairBound = seed.cost + nge.closingBound;
+                    if (haveBest && pairBound >= best.cost)
+                    {
+                        continue;
+                    }
+                    const format::AreaEdgeRecord &E = areaEdgesAll[nge.edgeIdx];
                     Plan alt;
                     if (!tryTeleportNearGoalExit(startX, startY, startPlane, seed, E,
                                                   goalX, goalY, goalArea, capabilities, alt))

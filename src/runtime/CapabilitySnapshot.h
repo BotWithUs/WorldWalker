@@ -4,9 +4,11 @@
 #include "data/Transitions.h"
 #include "format/Artifact.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <span>
-#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace ww::runtime
 {
@@ -15,6 +17,14 @@ namespace ww::runtime
     // skill/item/varbit/varp ids the caller has populated are present; unset ids
     // read as zero, which conservatively fails any non-zero-threshold predicate.
     //
+    // Storage is four sorted vector<(id, value)> tables. Setters append + mark
+    // the table dirty; the first read (lookup or meets) lazily sorts and
+    // dedups so subsequent reads can use std::lower_bound. The build-then-
+    // query pattern of the executor (set every entry from the host callbacks,
+    // then hand the snapshot to AreaSearch) finalises each table at most
+    // once per query — replacing the previous std::unordered_map storage's
+    // per-insert allocator traffic with a handful of geometric vector grows.
+    //
     // Mutable; populate via the setters, then borrow by const reference for one
     // findPath call. Not thread-safe; one snapshot per in-flight query.
     class CapabilitySnapshot
@@ -22,44 +32,65 @@ namespace ww::runtime
     public:
         CapabilitySnapshot() = default;
 
+        // Drop every entry across all four tables so the same snapshot can
+        // be reused for a fresh query without reallocating its backing
+        // storage. Capacity is retained — typical workloads cycle through
+        // similar snapshot sizes, so the next round of setters reuses the
+        // already-grown vectors.
+        void clear()
+        {
+            skills.clear();
+            items.clear();
+            varbits.clear();
+            varps.clear();
+            skillsDirty = false;
+            itemsDirty = false;
+            varbitsDirty = false;
+            varpsDirty = false;
+        }
+
         void setSkillLevel(int32_t id, int32_t level)
         {
-            skills[id] = level;
+            skills.push_back({id, level});
+            skillsDirty = true;
         }
 
         void setItemCount(int32_t id, int32_t count)
         {
-            items[id] = count;
+            items.push_back({id, count});
+            itemsDirty = true;
         }
 
         void setVarbit(int32_t id, int32_t value)
         {
-            varbits[id] = value;
+            varbits.push_back({id, value});
+            varbitsDirty = true;
         }
 
         void setVarp(int32_t id, int32_t value)
         {
-            varps[id] = value;
+            varps.push_back({id, value});
+            varpsDirty = true;
         }
 
         int32_t skillLevel(int32_t id) const
         {
-            return lookup(skills, id);
+            return lookup(skills, skillsDirty, id);
         }
 
         int32_t itemCount(int32_t id) const
         {
-            return lookup(items, id);
+            return lookup(items, itemsDirty, id);
         }
 
         int32_t varbit(int32_t id) const
         {
-            return lookup(varbits, id);
+            return lookup(varbits, varbitsDirty, id);
         }
 
         int32_t varp(int32_t id) const
         {
-            return lookup(varps, id);
+            return lookup(varps, varpsDirty, id);
         }
 
         // True when this snapshot satisfies one structured predicate. Skill and
@@ -84,16 +115,65 @@ namespace ww::runtime
         }
 
     private:
-        static int32_t lookup(const std::unordered_map<int32_t, int32_t> &table, int32_t id)
+        using Entry = std::pair<int32_t, int32_t>;
+
+        // Sort + dedup-keeping-last-write so a later setVarbit(id, v2) wins
+        // over an earlier setVarbit(id, v1). Cheap when called after a
+        // bulk-set phase: one O(N log N) sort, one linear sweep, then every
+        // subsequent lookup() is a single std::lower_bound.
+        static void finalize(std::vector<Entry> &v)
         {
-            const auto it = table.find(id);
-            return it == table.end() ? 0 : it->second;
+            if (v.empty())
+            {
+                return;
+            }
+            std::stable_sort(v.begin(), v.end(),
+                             [](const Entry &a, const Entry &b)
+                             { return a.first < b.first; });
+            auto write = v.begin();
+            auto read = v.begin();
+            while (read != v.end())
+            {
+                auto next = read + 1;
+                while (next != v.end() && next->first == read->first)
+                {
+                    ++next;
+                }
+                *write++ = *(next - 1);  // last write wins
+                read = next;
+            }
+            v.erase(write, v.end());
         }
 
-        std::unordered_map<int32_t, int32_t> skills;
-        std::unordered_map<int32_t, int32_t> items;
-        std::unordered_map<int32_t, int32_t> varbits;
-        std::unordered_map<int32_t, int32_t> varps;
+        static int32_t lookup(std::vector<Entry> &table, bool &dirty, int32_t id)
+        {
+            if (dirty)
+            {
+                finalize(table);
+                dirty = false;
+            }
+            const auto it = std::lower_bound(table.begin(), table.end(), id,
+                                              [](const Entry &e, int32_t key)
+                                              { return e.first < key; });
+            if (it == table.end() || it->first != id)
+            {
+                return 0;
+            }
+            return it->second;
+        }
+
+        // The backing vectors and dirty flags are mutable so the lookup
+        // path can lazily finalize from a const meets() call. The mutation
+        // is observably idempotent — lookup result is identical before
+        // and after — so const-correctness is preserved at the API level.
+        mutable std::vector<Entry> skills;
+        mutable std::vector<Entry> items;
+        mutable std::vector<Entry> varbits;
+        mutable std::vector<Entry> varps;
+        mutable bool skillsDirty{false};
+        mutable bool itemsDirty{false};
+        mutable bool varbitsDirty{false};
+        mutable bool varpsDirty{false};
     };
 
     // Convenience predicate over a Requirement run. Skill / varbit / varp gates

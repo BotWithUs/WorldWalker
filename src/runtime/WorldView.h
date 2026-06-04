@@ -4,6 +4,7 @@
 #include "format/ArtifactReader.h"
 #include "format/ClipFlags.h"
 
+#include <climits>
 #include <cstdint>
 #include <unordered_map>
 #include <vector>
@@ -67,6 +68,21 @@ namespace ww::runtime
         // per axis but the room is free.
         std::unordered_map<uint64_t, std::vector<uint32_t>> clipCache;
         std::unordered_map<uint64_t, std::vector<int32_t>> gridCache;
+
+        // Sticky one-slot caches for the most recently resolved (square, plane).
+        // A* refinement and area expansion both touch tiles in a tight spatial
+        // window, so the next clipAt/areaAt call is almost always in the same
+        // square as the previous one — a single equality compare skips the
+        // unordered_map::find that otherwise dominates the tile-search hot loop.
+        // INT_MIN keys are an out-of-range sentinel meaning "no sticky hit";
+        // clearCache() resets them so a recycled context starts cold.
+        int lastClipSquareX{INT_MIN};
+        int lastClipSquareY{INT_MIN};
+        const std::vector<uint32_t> *lastClipWords{nullptr};
+        int lastGridSquareX{INT_MIN};
+        int lastGridSquareY{INT_MIN};
+        int lastGridPlane{INT_MIN};
+        const std::vector<int32_t> *lastGridIds{nullptr};
     };
 }
 

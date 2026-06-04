@@ -63,6 +63,8 @@ namespace ww::runtime
         }
     }
 
+    // ---- TileSearch ---------------------------------------------------------
+
     TileSearch::TileSearch(WorldView &view)
         : view(&view)
     {
@@ -83,67 +85,108 @@ namespace ww::runtime
             && view->areaAt(goalX, goalY, plane) == areaConstraint;
     }
 
-    // True when a single step in direction `dir` off (fromX,fromY) lands on a
-    // standable, in-constraint tile with no wall blocking that edge. This is the
-    // whole check for a cardinal step and one edge of a diagonal's corner test.
-    bool TileSearch::isStepOpen(int32_t fromX, int32_t fromY, int dir, int32_t plane,
-                                int32_t areaConstraint)
+    bool TileSearch::tryStep(int32_t fx, int32_t fy, uint32_t fromFlags, int dir,
+                             int32_t plane, int32_t areaConstraint,
+                             int32_t &outNx, int32_t &outNy)
     {
-        const int32_t toX = fromX + kDx[dir];
-        const int32_t toY = fromY + kDy[dir];
-        if (!view->isStandable(toX, toY, plane))
+        outNx = fx + kDx[dir];
+        outNy = fy + kDy[dir];
+        // Source wall bit is the cheapest check (no view call); short-circuit
+        // first so a walled-off direction skips the destination clip fetch.
+        if ((fromFlags & kWallCheck[dir][0]) != 0u)
         {
             return false;
         }
-        if (areaConstraint >= 0 && view->areaAt(toX, toY, plane) != areaConstraint)
+        const uint32_t toFlags = view->clipAt(outNx, outNy, plane);
+        if ((toFlags & format::kClipStandBlockedMask) != 0u)
         {
             return false;
         }
-        const uint32_t fromFlags = view->clipAt(fromX, fromY, plane);
-        const uint32_t toFlags = view->clipAt(toX, toY, plane);
-        return (fromFlags & kWallCheck[dir][0]) == 0u && (toFlags & kWallCheck[dir][1]) == 0u;
+        if ((toFlags & kWallCheck[dir][1]) != 0u)
+        {
+            return false;
+        }
+        if (areaConstraint >= 0 && view->areaAt(outNx, outNy, plane) != areaConstraint)
+        {
+            return false;
+        }
+        return true;
     }
 
-    // A diagonal step is legal only when its own edge is open AND both flanking
-    // cardinal steps are open — you cannot squeeze past a blocked corner.
-    bool TileSearch::canMove(int32_t fromX, int32_t fromY, int dir, int32_t plane,
-                             int32_t areaConstraint)
+    void TileSearch::enqueueNeighbor(int32_t curIndex, float curG, int32_t nx, int32_t ny,
+                                     float stepCost, int32_t goalX, int32_t goalY)
     {
-        if (!isStepOpen(fromX, fromY, dir, plane, areaConstraint))
+        const uint64_t key = tileKey(nx, ny);
+        // Expand-time visited check prevents redundant heap entries for tiles
+        // that are already settled. Lazy-pop handles in-flight duplicates.
+        if (visited.count(key) != 0u)
         {
-            return false;
+            return;
         }
-        if ((dir & 1) == 0)
-        {
-            return true;
-        }
-        const int flankA = dir - 1;
-        const int flankB = (dir + 1) & 7;
-        return isStepOpen(fromX, fromY, flankA, plane, areaConstraint)
-            && isStepOpen(fromX, fromY, flankB, plane, areaConstraint);
+        const float ng = curG + stepCost;
+        const int32_t newIndex = static_cast<int32_t>(nodes.size());
+        nodes.push_back({nx, ny, ng, curIndex});
+        openHeap.push_back({ng + heuristic(nx, ny, goalX, goalY), newIndex});
+        std::push_heap(openHeap.begin(), openHeap.end(), ByPriority{});
     }
 
     void TileSearch::expand(int32_t curIndex, int32_t goalX, int32_t goalY, int32_t plane,
                             int32_t areaConstraint)
     {
         const Node cur = nodes[static_cast<std::size_t>(curIndex)];  // by value: push_back may realloc
+        const int32_t fx = cur.x;
+        const int32_t fy = cur.y;
+        // Source clip word is the same for every direction off this tile —
+        // hoist it once instead of having each tryStep call refetch.
+        const uint32_t fromFlags = view->clipAt(fx, fy, plane);
+
+        // Pre-compute the four cardinal verdicts up front WITHOUT emitting
+        // them yet. A diagonal step is legal only when both flanking
+        // cardinals are independently legal; caching here means each
+        // cardinal pays its tryStep cost once instead of being re-resolved
+        // (twice) as a flank check during diagonal handling.
+        bool cardOpen[4] = {false, false, false, false};
+        int32_t cardNx[4] = {0, 0, 0, 0};
+        int32_t cardNy[4] = {0, 0, 0, 0};
+        for (int ci = 0; ci < 4; ++ci)
+        {
+            const int dir = ci * 2;
+            cardOpen[ci] = tryStep(fx, fy, fromFlags, dir, plane, areaConstraint,
+                                   cardNx[ci], cardNy[ci]);
+        }
+
+        // Walk dirs 0..7 in the original order so the open-heap push
+        // sequence (and hence A* tie-breaking) matches the prior nav stack
+        // byte-for-byte. Cardinals consume the cached verdict; diagonals
+        // gate on the two flanking cardinals before running their own
+        // tryStep. Diagonal `2di + 1` flanks are card[di] and card[(di+1)&3].
         for (int dir = 0; dir < 8; ++dir)
         {
-            if (!canMove(cur.x, cur.y, dir, plane, areaConstraint))
+            if ((dir & 1) == 0)
             {
-                continue;
+                const int ci = dir >> 1;
+                if (!cardOpen[ci])
+                {
+                    continue;
+                }
+                enqueueNeighbor(curIndex, cur.g, cardNx[ci], cardNy[ci],
+                                kStepCost[dir], goalX, goalY);
             }
-            const int32_t nx = cur.x + kDx[dir];
-            const int32_t ny = cur.y + kDy[dir];
-            if (visited.count(tileKey(nx, ny)) != 0)
+            else
             {
-                continue;
+                const int di = dir >> 1;  // 0,1,2,3 for dirs 1,3,5,7
+                if (!cardOpen[di] || !cardOpen[(di + 1) & 3])
+                {
+                    continue;  // corner-cut would clip a wall
+                }
+                int32_t nx = 0;
+                int32_t ny = 0;
+                if (!tryStep(fx, fy, fromFlags, dir, plane, areaConstraint, nx, ny))
+                {
+                    continue;
+                }
+                enqueueNeighbor(curIndex, cur.g, nx, ny, kStepCost[dir], goalX, goalY);
             }
-            const float ng = cur.g + kStepCost[dir];
-            const int32_t newIndex = static_cast<int32_t>(nodes.size());
-            nodes.push_back({nx, ny, ng, curIndex});
-            openHeap.push_back({ng + heuristic(nx, ny, goalX, goalY), newIndex});
-            std::push_heap(openHeap.begin(), openHeap.end(), ByPriority{});
         }
     }
 

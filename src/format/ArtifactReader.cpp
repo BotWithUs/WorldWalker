@@ -219,6 +219,7 @@ namespace ww::format
         bakedTransitionCount = transitionTable.size();
         bakedRequirementCount = requirementPool.size();
         bakedChainCount = chainStepPool.size();
+        rebuildGlobalOriginIndex();
     }
 
     void ArtifactReader::truncateToBaked()
@@ -226,6 +227,7 @@ namespace ww::format
         transitionTable.resize(bakedTransitionCount);
         requirementPool.resize(bakedRequirementCount);
         chainStepPool.resize(bakedChainCount);
+        rebuildGlobalOriginIndex();
     }
 
     void ArtifactReader::appendTransitions(std::span<const TransitionRecord> transitions,
@@ -235,9 +237,31 @@ namespace ww::format
         // Callers (RuntimeTeleports) build the appended records with
         // requirementStart / chainStart already offset by the CURRENT pool
         // sizes, so a straight concatenation keeps every range valid.
+        const std::size_t prefix = transitionTable.size();
         transitionTable.insert(transitionTable.end(), transitions.begin(), transitions.end());
         requirementPool.insert(requirementPool.end(), requirements.begin(), requirements.end());
         chainStepPool.insert(chainStepPool.end(), chainSteps.begin(), chainSteps.end());
+        // Delta-append the global-origin index for the new tail instead of
+        // a full rescan — the baked prefix's entries remain valid.
+        for (std::size_t i = 0; i < transitions.size(); ++i)
+        {
+            if ((transitions[i].flags & kTransitionFlagGlobalOrigin) != 0u)
+            {
+                globalOriginIndices.push_back(static_cast<uint32_t>(prefix + i));
+            }
+        }
+    }
+
+    void ArtifactReader::rebuildGlobalOriginIndex()
+    {
+        globalOriginIndices.clear();
+        for (std::size_t i = 0; i < transitionTable.size(); ++i)
+        {
+            if ((transitionTable[i].flags & kTransitionFlagGlobalOrigin) != 0u)
+            {
+                globalOriginIndices.push_back(static_cast<uint32_t>(i));
+            }
+        }
     }
 
     void ArtifactReader::decodeAbstraction(const SectionEntry &entry)
@@ -307,6 +331,27 @@ namespace ww::format
         return table;
     }
 
+    // Transpose a landmark-major ALT distance table (on-disk layout,
+    // [landmark * areaCount + area]) into area-major in-memory storage
+    // ([area * landmarkCount + landmark]). The AltHeuristic::estimate hot
+    // loop reads every landmark column for one area per call; area-major
+    // makes that a contiguous landmark-wide window, which on a small
+    // landmark count (e.g. 16) fits in one cache line.
+    static std::vector<float> transposeAltTable(const std::vector<float> &src,
+                                                uint32_t landmarks, uint32_t areas)
+    {
+        std::vector<float> dst(static_cast<std::size_t>(landmarks) * areas);
+        for (uint32_t l = 0; l < landmarks; ++l)
+        {
+            const std::size_t rowBase = static_cast<std::size_t>(l) * areas;
+            for (uint32_t a = 0; a < areas; ++a)
+            {
+                dst[static_cast<std::size_t>(a) * landmarks + l] = src[rowBase + a];
+            }
+        }
+        return dst;
+    }
+
     void ArtifactReader::decodeAltLandmarks(const SectionEntry &entry)
     {
         requireRange(entry.offset, sizeof(AltLandmarksSectionHeader), bytes.size(), "alt header");
@@ -342,8 +387,14 @@ namespace ww::format
             throw std::runtime_error("ArtifactReader: alt toLandmark raw length mismatch");
         }
 
-        fromLandmarkData = decompressFloatTable(fromDesc, entry.offset);
-        toLandmarkData = decompressFloatTable(toDesc, entry.offset);
+        const std::vector<float> fromRaw = decompressFloatTable(fromDesc, entry.offset);
+        const std::vector<float> toRaw = decompressFloatTable(toDesc, entry.offset);
+        // Transpose to area-major (see distFromLandmark / distToLandmark
+        // accessors). Done once at load; estimate() then pays one contiguous
+        // landmarkCount-wide read per area instead of landmarkCount strided
+        // reads across the whole table.
+        fromLandmarkData = transposeAltTable(fromRaw, header.landmarkCount, header.areaCount);
+        toLandmarkData = transposeAltTable(toRaw, header.landmarkCount, header.areaCount);
     }
 
     void ArtifactReader::decodeTeleportAllowed(const SectionEntry &entry)

@@ -90,12 +90,24 @@ namespace ww::runtime
         {
             return kBlockedWord;
         }
-        const std::vector<uint32_t> &words = squareWords(x >> kSquareShift, y >> kSquareShift);
-        if (words.empty())
+        const int sqX = x >> kSquareShift;
+        const int sqY = y >> kSquareShift;
+        // Sticky one-slot fast path — spatially-coherent A* almost always asks
+        // for the same square the previous call did, so the equality compare
+        // skips the unordered_map::find. Pointer doubles as the valid flag.
+        const std::vector<uint32_t> *words = lastClipWords;
+        if (sqX != lastClipSquareX || sqY != lastClipSquareY || words == nullptr)
+        {
+            words = &squareWords(sqX, sqY);
+            lastClipSquareX = sqX;
+            lastClipSquareY = sqY;
+            lastClipWords = words;
+        }
+        if (words->empty())
         {
             return kBlockedWord;
         }
-        return words[clipIndex(x, y, plane)];
+        return (*words)[clipIndex(x, y, plane)];
     }
 
     int32_t WorldView::areaAt(int x, int y, int plane)
@@ -104,17 +116,40 @@ namespace ww::runtime
         {
             return -1;
         }
-        const std::vector<int32_t> &ids = gridIds(x >> kSquareShift, y >> kSquareShift, plane);
-        if (ids.empty())
+        const int sqX = x >> kSquareShift;
+        const int sqY = y >> kSquareShift;
+        // Sticky one-slot fast path. Plane is part of the grid key because
+        // each (square, plane) is a distinct inflated buffer.
+        const std::vector<int32_t> *ids = lastGridIds;
+        if (sqX != lastGridSquareX || sqY != lastGridSquareY || plane != lastGridPlane
+            || ids == nullptr)
+        {
+            ids = &gridIds(sqX, sqY, plane);
+            lastGridSquareX = sqX;
+            lastGridSquareY = sqY;
+            lastGridPlane = plane;
+            lastGridIds = ids;
+        }
+        if (ids->empty())
         {
             return -1;
         }
-        return ids[gridIndex(x, y)];
+        return (*ids)[gridIndex(x, y)];
     }
 
     void WorldView::clearCache()
     {
         clipCache.clear();
         gridCache.clear();
+        // Sticky pointers reference the dropped vectors; null them so the next
+        // borrower's first query reloads from the (now-empty) maps and refills
+        // the sticky slot rather than dereferencing a stale pointer.
+        lastClipSquareX = INT_MIN;
+        lastClipSquareY = INT_MIN;
+        lastClipWords = nullptr;
+        lastGridSquareX = INT_MIN;
+        lastGridSquareY = INT_MIN;
+        lastGridPlane = INT_MIN;
+        lastGridIds = nullptr;
     }
 }

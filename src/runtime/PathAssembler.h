@@ -169,6 +169,26 @@ namespace ww::runtime
             uint32_t seedIndex;
         };
 
+        // Cached metadata for one baked area edge whose underlying
+        // transition's destination tile is within kNearGoalRadius of the
+        // query's goal tile on the goal plane (an "exit near the goal").
+        // Built once per assemble during the area-edge scan; the inner
+        // teleport-landing loop matches by fromArea and prunes by
+        // closingBound + seed.cost without re-fetching the underlying
+        // TransitionRecord per pair.
+        struct NearGoalEdge
+        {
+            int32_t edgeIdx;        // index into artifact->areaEdges()
+            int32_t fromArea;       // hoisted from the AreaEdgeRecord
+            // E.cost + octile(T.destX-goalX, T.destY-goalY). Adding
+            // seed.cost yields an admissible lower bound on the realised
+            // (teleport -> walk to edge interact tile -> edge -> closing
+            // walk) plan for this pair; skipping when the bound already
+            // beats the running best avoids the full assembleAreaRoute
+            // call hidden inside tryTeleportNearGoalExit.
+            float   closingBound;
+        };
+
         // Try a chained route — emit the global teleport in `seed`, walk inside
         // its destination area to `edge`'s origin, take `edge`, then run the
         // closing area route from `edge.toArea` to (goalX, goalY, goalArea).
@@ -194,7 +214,7 @@ namespace ww::runtime
         TilePath tilePath;                       // reusable scratch for each refined segment
         std::vector<FrontierSeed> seedScratch;   // reusable scratch for global-teleport frontier seeds
         std::vector<TeleCandidate> teleCandidateScratch;  // reusable scratch for goal-area teleport ranking
-        std::vector<int32_t> nearGoalEdgeScratch;        // reusable scratch for near-goal baked-edge indices
+        std::vector<NearGoalEdge> nearGoalEdgeScratch;   // reusable scratch for near-goal baked edges (idx + fromArea + closingBound)
     };
 }
 

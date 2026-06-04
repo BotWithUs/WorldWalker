@@ -30,10 +30,16 @@ namespace ww::runtime
           heuristic(reader)
     {
         buildAdjacency();
-        bestCost.assign(areaCount, 0.0f);
-        cameFromArea.assign(areaCount, -1);
-        cameFromEdge.assign(areaCount, -1);
-        settled.assign(areaCount, 0u);
+        // Contents of the four scratch vectors are gated by epochStamp, so
+        // the initial values are irrelevant — only epochStamp itself must
+        // start at zero so the first query (epoch == 1) sees every entry
+        // as stale. resize (not assign) leaves contents unspecified but the
+        // memory is allocated.
+        bestCost.resize(areaCount);
+        cameFromArea.resize(areaCount);
+        cameFromEdge.resize(areaCount);
+        settled.resize(areaCount);
+        epochStamp.assign(areaCount, 0u);
     }
 
     // Counting sort of the fromArea-sorted edge list into CSR offsets: edges are
@@ -58,10 +64,18 @@ namespace ww::runtime
 
     void AreaSearch::resetScratch()
     {
-        std::fill(bestCost.begin(), bestCost.end(), std::numeric_limits<float>::infinity());
-        std::fill(cameFromArea.begin(), cameFromArea.end(), int32_t{-1});
-        std::fill(cameFromEdge.begin(), cameFromEdge.end(), int32_t{-1});
-        std::fill(settled.begin(), settled.end(), uint8_t{0});
+        // Bump the epoch so every stale entry in bestCost / cameFrom* /
+        // settled reads as unset (via bestCostOf / isSettled). On wraparound
+        // (UINT32_MAX -> 0) the stamps would collide with a fresh epoch == 0,
+        // so zero the stamps and restart at epoch == 1. Wraparound never
+        // happens in practice (4 billion queries on one AreaSearch) but the
+        // branch is one compare and keeps correctness independent of usage.
+        ++epoch;
+        if (epoch == 0u)
+        {
+            std::fill(epochStamp.begin(), epochStamp.end(), 0u);
+            epoch = 1u;
+        }
         openHeap.clear();
     }
 
@@ -69,6 +83,11 @@ namespace ww::runtime
                            const AltHeuristic &h)
     {
         const uint32_t ua = static_cast<uint32_t>(u);
+        // u was just popped from the heap, so its bestCost / epochStamp are
+        // by construction current — read bestCost[ua] directly without the
+        // bestCostOf gate. Stale-vs-current is only ambiguous for unvisited
+        // neighbours below.
+        const float uCost = bestCost[ua];
         for (uint32_t i = edgeOffset[ua]; i < edgeOffset[ua + 1u]; ++i)
         {
             const int32_t v = edges[i].toArea;
@@ -80,15 +99,18 @@ namespace ww::runtime
             {
                 continue;
             }
-            const float nd = bestCost[ua] + edges[i].cost;
-            if (nd >= bestCost[static_cast<uint32_t>(v)])
+            const float nd = uCost + edges[i].cost;
+            const uint32_t vu = static_cast<uint32_t>(v);
+            if (nd >= bestCostOf(vu))
             {
                 continue;
             }
-            bestCost[static_cast<uint32_t>(v)] = nd;
-            cameFromArea[static_cast<uint32_t>(v)] = u;
-            cameFromEdge[static_cast<uint32_t>(v)] = static_cast<int32_t>(i);
-            openHeap.push_back({nd + h.estimate(static_cast<uint32_t>(v)), v});
+            bestCost[vu] = nd;
+            cameFromArea[vu] = u;
+            cameFromEdge[vu] = static_cast<int32_t>(i);
+            settled[vu] = 0u;       // pending re-pop; old "settled" stamp is overwritten alongside
+            epochStamp[vu] = epoch;
+            openHeap.push_back({nd + h.estimate(vu), v});
             std::push_heap(openHeap.begin(), openHeap.end(), ByPriority{});
         }
     }
@@ -161,13 +183,15 @@ namespace ww::runtime
                 continue;
             }
             const uint32_t a = static_cast<uint32_t>(seed.destArea);
-            if (seed.cost >= bestCost[a])
+            if (seed.cost >= bestCostOf(a))
             {
                 continue;
             }
             bestCost[a] = seed.cost;
             cameFromArea[a] = -2;
             cameFromEdge[a] = static_cast<int32_t>(seed.transitionIndex);
+            settled[a] = 0u;
+            epochStamp[a] = epoch;
             openHeap.push_back({seed.cost + h.estimate(a), seed.destArea});
             std::push_heap(openHeap.begin(), openHeap.end(), ByPriority{});
         }
@@ -233,19 +257,26 @@ namespace ww::runtime
         heuristic.prepare(static_cast<uint32_t>(goalArea));
         resetScratch();
 
-        bestCost[static_cast<uint32_t>(startArea)] = 0.0f;
-        openHeap.push_back({heuristic.estimate(static_cast<uint32_t>(startArea)), startArea});
+        const uint32_t startU = static_cast<uint32_t>(startArea);
+        bestCost[startU] = 0.0f;
+        cameFromArea[startU] = -1;
+        cameFromEdge[startU] = -1;
+        settled[startU] = 0u;
+        epochStamp[startU] = epoch;
+        openHeap.push_back({heuristic.estimate(startU), startArea});
         seedFrontier(seeds, heuristic);
         while (!openHeap.empty())
         {
             std::pop_heap(openHeap.begin(), openHeap.end(), ByPriority{});
             const int32_t u = openHeap.back().area;
             openHeap.pop_back();
-            if (settled[static_cast<uint32_t>(u)] != 0)
+            const uint32_t uu = static_cast<uint32_t>(u);
+            if (isSettled(uu))
             {
                 continue;
             }
-            settled[static_cast<uint32_t>(u)] = 1;
+            settled[uu] = 1u;
+            epochStamp[uu] = epoch;
             if (u == goalArea)
             {
                 reconstruct(startArea, goalArea, outPath);

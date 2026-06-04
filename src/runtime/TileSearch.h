@@ -3,6 +3,7 @@
 
 #include "runtime/WorldView.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <unordered_set>
 #include <vector>
@@ -75,10 +76,29 @@ namespace ww::runtime
             int32_t parent;
         };
 
+
         bool acceptsEndpoints(int32_t startX, int32_t startY, int32_t goalX, int32_t goalY,
                               int32_t plane, int32_t areaConstraint);
-        bool isStepOpen(int32_t fromX, int32_t fromY, int dir, int32_t plane, int32_t areaConstraint);
-        bool canMove(int32_t fromX, int32_t fromY, int dir, int32_t plane, int32_t areaConstraint);
+
+        // Legality + neighbor coordinates + neighbor clip word for direction
+        // `dir` off (fx, fy) given the already-fetched fromFlags. Reads the
+        // destination clip word exactly once (the source's wall bit is
+        // tested off the hoisted fromFlags, and the standable + opposite-
+        // side wall bit + stand-blocked all come from the single fetched
+        // toFlags). On success writes outNx/outNy; returns false on any
+        // blocker. The area-constraint check is the only remaining view
+        // call beyond clipAt.
+        bool tryStep(int32_t fx, int32_t fy, uint32_t fromFlags, int dir,
+                     int32_t plane, int32_t areaConstraint,
+                     int32_t &outNx, int32_t &outNy);
+
+        // Try to enqueue (nx, ny) as a new open node parented at curIndex
+        // with g-cost curG + stepCost. No-op when the tile is already
+        // settled. Used by expand() to share the heap-push body between
+        // cardinals and diagonals.
+        void enqueueNeighbor(int32_t curIndex, float curG, int32_t nx, int32_t ny,
+                             float stepCost, int32_t goalX, int32_t goalY);
+
         void expand(int32_t curIndex, int32_t goalX, int32_t goalY, int32_t plane, int32_t areaConstraint);
         void reconstruct(int32_t endIndex, TilePath &outPath) const;
 
