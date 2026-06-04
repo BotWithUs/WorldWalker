@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <span>
+#include <vector>
 
 namespace ww::format
 {
@@ -177,6 +178,13 @@ namespace ww::exec
         // across stuck-recovery re-plans within one ww_executor_run.
         runtime::CapabilitySnapshot snapshot;
         runtime::Plan plan;
+
+        // Scratch output buffers for the batched readVarbits / readItemCounts
+        // callbacks. Sized to the artifact's requirement id lists at construct
+        // time; reused across (re-)plans so the host writes into the same
+        // storage without per-plan allocation.
+        std::vector<int32_t> varbitValues;
+        std::vector<int32_t> itemValues;
 
         // Phase 7: sticky one-slot cache for the per-step
         // isTeleportAllowed check. The post-step flip detection in run()

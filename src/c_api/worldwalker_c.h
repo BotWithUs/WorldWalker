@@ -194,6 +194,15 @@ typedef int32_t (*WwReadVarbitFn)(void *user, int32_t id);
    ids that some requirement references, since readCapability cannot know which
    items matter. Return 0 when absent. */
 typedef int32_t (*WwReadItemCountFn)(void *user, int32_t itemId);
+/* Batched variants used at (re-)plan entry, where the executor pulls every id
+   referenced by any transition requirement. The scalar readVarbit / readItemCount
+   above remain for one-shot callsites (e.g. dispatchClickItem). `ids` is a
+   contiguous run of `count` ids; the host must write exactly `count` int32_t
+   results into `outValues` in the same order (sentinel 0 for "not present").
+   Batching collapses 25-30 sequential pipe round-trips per plan into one or two
+   host-side calls, which is the dominant cost in pre-walk latency. */
+typedef void (*WwReadVarbitsFn)(void *user, const int32_t *ids, size_t count, int32_t *outValues);
+typedef void (*WwReadItemCountsFn)(void *user, const int32_t *ids, size_t count, int32_t *outValues);
 /* Whether item `itemId` is currently worn (equipped), as opposed to carried in
    the backpack. Used to pick the worn-vs-backpack variant of a ClickItem chain
    step. Return non-zero if worn. */
@@ -250,6 +259,8 @@ typedef struct WwCallbacks
     WwReadCapabilityFn  readCapability;
     WwReadVarbitFn      readVarbit;
     WwReadItemCountFn   readItemCount;
+    WwReadVarbitsFn     readVarbits;
+    WwReadItemCountsFn  readItemCounts;
     WwIsItemWornFn      isItemWorn;
     WwIsInterfaceOpenFn isInterfaceOpen;
 
@@ -345,7 +356,7 @@ static_assert(sizeof(WwGoal)              == 16, "WwGoal must be 16 bytes (wire)
 static_assert(sizeof(WwEvent)             == 16, "WwEvent must be 16 bytes (wire)");
 static_assert(sizeof(WwCapabilityEntry)   == 8,  "WwCapabilityEntry must be 8 bytes (wire)");
 static_assert(sizeof(WwCapabilitySnapshot) == 64, "WwCapabilitySnapshot must be 64 bytes (wire)");
-static_assert(sizeof(WwCallbacks)         == 104, "WwCallbacks must be 104 bytes (wire) — 13 ptrs of 8 bytes each on x64");
+static_assert(sizeof(WwCallbacks)         == 120, "WwCallbacks must be 120 bytes (wire) — 15 ptrs of 8 bytes each on x64");
 static_assert(sizeof(WwStep)              == 16, "WwStep must be 16 bytes (wire)");
 static_assert(sizeof(WwPath)              == 24, "WwPath must be 24 bytes (wire) — ptr+size_t+float+pad");
 #endif

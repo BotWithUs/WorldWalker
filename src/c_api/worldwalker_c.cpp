@@ -186,6 +186,8 @@ int32_t ww_executor_run(ww_artifact      *artifact,
     if (callbacks->readPosition    == nullptr
      || callbacks->readCapability  == nullptr
      || callbacks->readVarbit      == nullptr
+     || callbacks->readVarbits     == nullptr
+     || callbacks->readItemCounts  == nullptr
      || callbacks->isInterfaceOpen == nullptr
      || callbacks->walkTo          == nullptr
      || callbacks->interact        == nullptr

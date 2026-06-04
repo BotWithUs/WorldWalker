@@ -1196,6 +1196,35 @@ namespace
         return 0;
     }
 
+    extern "C" void harnessReadVarbits(void *user, const int32_t *, size_t count, int32_t *out)
+    {
+        // The batched variant is invoked at every (re-)plan even when no
+        // requirement references a varbit (count == 0), so a zero-count call
+        // is not an "action callback" tripwire. Only flag actual reads.
+        if (count > 0)
+        {
+            ExecHarness *h = static_cast<ExecHarness *>(user);
+            ++h->abortIfCalled;
+            for (size_t i = 0; i < count; ++i)
+            {
+                out[i] = 0;
+            }
+        }
+    }
+
+    extern "C" void harnessReadItemCounts(void *user, const int32_t *, size_t count, int32_t *out)
+    {
+        if (count > 0)
+        {
+            ExecHarness *h = static_cast<ExecHarness *>(user);
+            ++h->abortIfCalled;
+            for (size_t i = 0; i < count; ++i)
+            {
+                out[i] = 0;
+            }
+        }
+    }
+
     extern "C" int32_t harnessIsItemWorn(void *user, int32_t)
     {
         ExecHarness *h = static_cast<ExecHarness *>(user);
@@ -1328,6 +1357,8 @@ namespace
             harnessReadCapability,
             harnessReadVarbit,
             harnessReadItemCount,
+            harnessReadVarbits,
+            harnessReadItemCounts,
             harnessIsItemWorn,
             harnessIsInterfaceOpen,
             harnessWalkTo,

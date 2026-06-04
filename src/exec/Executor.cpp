@@ -82,6 +82,13 @@ namespace ww::exec
         // borrowed here, so the Executor pays no per-construction scan over
         // the requirement pool. ww_executor_run constructs a fresh Executor on
         // every run, so the savings matter even at one call per game tick.
+        //
+        // Size the batched-callback output buffers once to the (fixed) lengths
+        // of the id lists. resize() fills with zero so a host that bails out
+        // and writes nothing (e.g. callback threw on first id) still leaves
+        // sentinel-zero values for the planner to read.
+        varbitValues.resize(requirementVarbitIds.size());
+        itemValues.resize(requirementItemIds.size());
     }
 
     bool Executor::isInsideGoal(const WwTile &tile, const WwGoal &goal)
@@ -401,21 +408,43 @@ namespace ww::exec
 
         // Refresh the live value of every varbit a requirement references (e.g.
         // lodestone-unlock varbits). readCapability does not surface these — the
-        // host can't know which ids matter — so we pull them through the
-        // readVarbit callback here. A requirement-gated teleport is then admitted
+        // host can't know which ids matter — so we pull them through readVarbits
+        // here in one batched call. A requirement-gated teleport is then admitted
         // by the planner only when its unlock varbit actually reads as set; an
         // empty snapshot would reject all of them and force a pure walk.
-        for (int32_t id : requirementVarbitIds)
+        //
+        // The batched call collapses what was N sequential pipe round-trips
+        // (~25-30 for the lodestone-unlock varbits) into one host-side call,
+        // which the Java bridge in turn services with at most two batched RPCs
+        // (one get_varps, one get_varcs_int) instead of N synchronous get_varp
+        // round-trips. This was the dominant cost in pre-walk latency.
+        if (!requirementVarbitIds.empty())
         {
-            snapshot.setVarbit(id, callbacks->readVarbit(callbacks->user, id));
+            callbacks->readVarbits(callbacks->user,
+                                   requirementVarbitIds.data(),
+                                   requirementVarbitIds.size(),
+                                   varbitValues.data());
+            for (std::size_t i = 0; i < requirementVarbitIds.size(); ++i)
+            {
+                snapshot.setVarbit(requirementVarbitIds[i], varbitValues[i]);
+            }
         }
 
         // Likewise refresh the live count of every item a requirement references
         // (e.g. the dungeoneering cape). Without this an item-gated teleport is
         // rejected against count 0 and the planner falls back to a walk/lodestone.
-        for (int32_t id : requirementItemIds)
+        // Batched for the same reason: the host can build one inventory map and
+        // look every id up instead of repeating two inventory traversals per id.
+        if (!requirementItemIds.empty())
         {
-            snapshot.setItemCount(id, callbacks->readItemCount(callbacks->user, id));
+            callbacks->readItemCounts(callbacks->user,
+                                      requirementItemIds.data(),
+                                      requirementItemIds.size(),
+                                      itemValues.data());
+            for (std::size_t i = 0; i < requirementItemIds.size(); ++i)
+            {
+                snapshot.setItemCount(requirementItemIds[i], itemValues[i]);
+            }
         }
 
         return context.assembler.assemble(

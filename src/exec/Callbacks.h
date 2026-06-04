@@ -52,6 +52,8 @@ namespace ww::exec
     using ::WwReadPositionFn;
     using ::WwReadCapabilityFn;
     using ::WwReadVarbitFn;
+    using ::WwReadVarbitsFn;
+    using ::WwReadItemCountsFn;
     using ::WwIsInterfaceOpenFn;
     using ::WwWalkToFn;
     using ::WwInteractFn;
