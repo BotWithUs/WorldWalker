@@ -48,7 +48,7 @@ extern "C" {
 /* Baked-artifact format version. ww_artifact_open refuses a mapping whose
    header version does not match this — a schema-breaking change bumps it so
    the host fails loud rather than misreading bytes. */
-#define WW_ARTIFACT_FORMAT_VERSION 2u
+#define WW_ARTIFACT_FORMAT_VERSION 3u
 
 typedef struct ww_artifact      ww_artifact;
 typedef struct ww_context_pool  ww_context_pool;
@@ -189,6 +189,15 @@ typedef struct WwCapabilitySnapshot
 typedef void    (*WwReadPositionFn)(void *user, WwTile *outTile);
 typedef void    (*WwReadCapabilityFn)(void *user, WwCapabilitySnapshot *outSnapshot);
 typedef int32_t (*WwReadVarbitFn)(void *user, int32_t id);
+/* Live count of item `itemId` the player holds (worn + carried), used to gate
+   item-requirement teleports. Mirrors readVarbit: the executor pulls only the
+   ids that some requirement references, since readCapability cannot know which
+   items matter. Return 0 when absent. */
+typedef int32_t (*WwReadItemCountFn)(void *user, int32_t itemId);
+/* Whether item `itemId` is currently worn (equipped), as opposed to carried in
+   the backpack. Used to pick the worn-vs-backpack variant of a ClickItem chain
+   step. Return non-zero if worn. */
+typedef int32_t (*WwIsItemWornFn)(void *user, int32_t itemId);
 typedef int32_t (*WwIsInterfaceOpenFn)(void *user, int32_t interfaceId);
 
 /* Actions — fire-and-forget; the executor sequences them with sleepTicks
@@ -199,16 +208,26 @@ typedef void (*WwWalkToFn)(void *user, WwTile target);
    executor uses this to skip the post-action settle wait when nothing was done,
    so an already-open door flows straight through instead of pausing. */
 typedef int32_t (*WwInteractFn)(void *user, int32_t objectId, WwTile tile, int32_t optionIndex);
-/* runChainStep dispatches one Click step of a transition's execution chain
-   (e.g. a lodestone-network or spell teleport) as a generic queued game action.
-   (actionId, param1, param2, param3) are the ChainStepRecord's a/b/c/d — a
-   ready-to-queue action — so the host just forwards them to queue_action with
-   no knowledge of components or hashes. For a component click the values are
-   (COMPONENT, option, sub_component, (iface<<16)|comp). The executor derives
-   the interface-open gate from param3>>16 when actionId==COMPONENT, so the host
-   needs no access to the artifact's chain data. */
-typedef void (*WwRunChainStepFn)(void *user, int32_t actionId, int32_t param1,
-                                 int32_t param2, int32_t param3);
+/* runChainStep dispatches one host-resolved step of a transition's execution
+   chain. `kind` is the ww::data::ChainStepKind discriminant; (a..i) are the
+   ChainStepRecord's nine generic slots. Only the kinds the host must resolve
+   against live game state reach this callback (the executor handles Wait /
+   WaitInterface itself):
+     - Click  (0): generic queued action — a=actionId, b..d=param1..3
+       (component click = (COMPONENT, option, sub, (iface<<16)|comp)).
+     - DialogueSelect (3): a=interface, b=index, c=per_page, d=next_comp,
+       e=wait_ticks — the host resolves the option component against the live
+       (possibly paged) dialogue and clicks it.
+     - ClickItem (4): the executor has already chosen the worn-vs-backpack
+       variant, so the host receives the single resolved click:
+         a=interface, b=component, c=option, d=sub_component (slot fallback),
+         e=special (non-zero -> COMPONENT_SPECIAL action), f=carried item id.
+       When f != 0 (backpack variant) the host resolves that item's LIVE slot
+       and uses it for the sub-component instead of d (the baked d is only a
+       fallback); for the worn variant f is 0 and d is used as-is. */
+typedef void (*WwRunChainStepFn)(void *user, int32_t kind,
+                                 int32_t a, int32_t b, int32_t c, int32_t d,
+                                 int32_t e, int32_t f, int32_t g, int32_t h, int32_t i);
 typedef void (*WwSleepTicksFn)(void *user, int32_t ticks);
 
 /* Control — polled each loop turn. Returning non-zero aborts the run with
@@ -230,6 +249,8 @@ typedef struct WwCallbacks
     WwReadPositionFn    readPosition;
     WwReadCapabilityFn  readCapability;
     WwReadVarbitFn      readVarbit;
+    WwReadItemCountFn   readItemCount;
+    WwIsItemWornFn      isItemWorn;
     WwIsInterfaceOpenFn isInterfaceOpen;
 
     WwWalkToFn       walkTo;
@@ -324,7 +345,7 @@ static_assert(sizeof(WwGoal)              == 16, "WwGoal must be 16 bytes (wire)
 static_assert(sizeof(WwEvent)             == 16, "WwEvent must be 16 bytes (wire)");
 static_assert(sizeof(WwCapabilityEntry)   == 8,  "WwCapabilityEntry must be 8 bytes (wire)");
 static_assert(sizeof(WwCapabilitySnapshot) == 64, "WwCapabilitySnapshot must be 64 bytes (wire)");
-static_assert(sizeof(WwCallbacks)         == 88, "WwCallbacks must be 88 bytes (wire) — 11 ptrs of 8 bytes each on x64");
+static_assert(sizeof(WwCallbacks)         == 104, "WwCallbacks must be 104 bytes (wire) — 13 ptrs of 8 bytes each on x64");
 static_assert(sizeof(WwStep)              == 16, "WwStep must be 16 bytes (wire)");
 static_assert(sizeof(WwPath)              == 24, "WwPath must be 24 bytes (wire) — ptr+size_t+float+pad");
 #endif

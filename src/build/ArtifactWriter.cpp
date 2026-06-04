@@ -118,6 +118,11 @@ namespace ww::build
                 cr.b = cs.b;
                 cr.c = cs.c;
                 cr.d = cs.d;
+                cr.e = cs.e;
+                cr.f = cs.f;
+                cr.g = cs.g;
+                cr.h = cs.h;
+                cr.i = cs.i;
                 chainPool.push_back(cr);
             }
             return r;

@@ -19,6 +19,7 @@ namespace ww::data
     inline constexpr float kTeleportChainTicks = 5.0f;
     inline constexpr float kSpellBaseTicks = 1.0f;
     inline constexpr float kLodestoneBaseTicks = 1.0f;
+    inline constexpr float kItemTeleportBaseTicks = 1.0f;
 
     inline float baseTicks(TransitionKind kind)
     {
@@ -29,6 +30,7 @@ namespace ww::data
             case TransitionKind::TeleportChain: return kTeleportChainTicks;
             case TransitionKind::Spell:         return kSpellBaseTicks;
             case TransitionKind::Lodestone:     return kLodestoneBaseTicks;
+            case TransitionKind::ItemTeleport:  return kItemTeleportBaseTicks;
         }
         return kTransportTicks;
     }

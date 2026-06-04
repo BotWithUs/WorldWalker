@@ -195,7 +195,52 @@ namespace ww::data
                 {
                     out.push_back({ChainStepKind::Wait,
                                    readOptionalInt(step, "wait", 0, "chain.wait"),
-                                   0, 0, 0});
+                                   0, 0, 0, 0, 0, 0, 0, 0});
+                }
+                else if (step.contains("wait_interface"))
+                {
+                    // Block until interface N is open (host poll). a=interfaceId.
+                    out.push_back({ChainStepKind::WaitInterface,
+                                   readOptionalInt(step, "wait_interface", 0, "chain.wait_interface"),
+                                   0, 0, 0, 0, 0, 0, 0, 0});
+                }
+                else if (step.contains("dialogue_select") && step.at("dialogue_select").is_object())
+                {
+                    // Select option `index` in dialogue interface `interface`.
+                    // a=interface, b=index, c=per_page, d=next_comp, e=wait_ticks.
+                    // The host resolves the option component against the live
+                    // dialogue (paging), so only these descriptors are carried.
+                    const json &ds = step.at("dialogue_select");
+                    out.push_back({ChainStepKind::DialogueSelect,
+                                   readOptionalInt(ds, "interface", 720, "chain.dialogue_select.interface"),
+                                   readOptionalInt(ds, "index", 0, "chain.dialogue_select.index"),
+                                   readOptionalInt(ds, "per_page", 9, "chain.dialogue_select.per_page"),
+                                   readOptionalInt(ds, "next_comp", 44, "chain.dialogue_select.next_comp"),
+                                   readOptionalInt(ds, "wait_ticks", 3, "chain.dialogue_select.wait_ticks"),
+                                   0, 0, 0, 0});
+                }
+                else if (step.contains("click_item") && step.at("click_item").is_object())
+                {
+                    // Click a teleport item that may be worn OR carried. The host
+                    // picks the variant by checking the live worn/backpack
+                    // containers for the transition's required item.
+                    //   a..d = worn(iface, comp, option, sub)
+                    //   e..h = backpack(iface, comp, option, sub)
+                    //   i    = backpack_special (COMPONENT_SPECIAL when non-zero)
+                    const json &ci = step.at("click_item");
+                    const json &w = ci.contains("worn") ? ci.at("worn") : json::array();
+                    const json &b = ci.contains("backpack") ? ci.at("backpack") : json::array();
+                    const int special = ci.value("backpack_special", false) ? 1 : 0;
+                    out.push_back({ChainStepKind::ClickItem,
+                                   arrInt(w, 0, 0, "chain.click_item.worn[0]"),
+                                   arrInt(w, 1, 0, "chain.click_item.worn[1]"),
+                                   arrInt(w, 2, 1, "chain.click_item.worn[2]"),
+                                   arrInt(w, 3, -1, "chain.click_item.worn[3]"),
+                                   arrInt(b, 0, 0, "chain.click_item.backpack[0]"),
+                                   arrInt(b, 1, 0, "chain.click_item.backpack[1]"),
+                                   arrInt(b, 2, 1, "chain.click_item.backpack[2]"),
+                                   arrInt(b, 3, -1, "chain.click_item.backpack[3]"),
+                                   special});
                 }
             }
         }
@@ -368,6 +413,41 @@ namespace ww::data
             }
         }
 
+        // item_teleports.json `teleports[]`: generic item-click teleports
+        // (dungeoneering cape, jewellery, etc.). Distinct from the `lodestones`
+        // object in the same file (parseLodestones handles that). Each entry is
+        // a global-origin teleport with an explicit dest + a chain that clicks
+        // the item and works the resulting dialog.
+        void parseItemTeleports(const json &j, TransitionModel &model)
+        {
+            if (!j.contains("teleports") || !j.at("teleports").is_array())
+            {
+                return;
+            }
+            for (const json &e : j.at("teleports"))
+            {
+                Transition t;
+                t.kind = TransitionKind::ItemTeleport;
+                t.isGlobalOrigin = e.value("global", true);
+                t.destX = readRequiredInt(e, "dest_x", "item_teleports.teleport");
+                t.destY = readRequiredInt(e, "dest_y", "item_teleports.teleport");
+                t.destPlane = static_cast<uint8_t>(
+                    readRequiredInt(e, "dest_plane", "item_teleports.teleport"));
+                parseRequirements(e, t.requirements);
+                parseChain(e, t.chain);
+                model.transitions.push_back(std::move(t));
+            }
+        }
+
+        // item_teleports.json carries two independent sections — the lodestone
+        // network (`lodestones`) and the generic item teleports (`teleports`).
+        // Parse both from the one file.
+        void parseItemTeleportsFile(const json &j, TransitionModel &model)
+        {
+            parseLodestones(j, model);
+            parseItemTeleports(j, model);
+        }
+
         void loadOne(const std::string &directory, const char *filename, LoaderFn parser,
                      TransitionModel &model, uint32_t &hash)
         {
@@ -391,7 +471,7 @@ namespace ww::data
         loadOne(directory, "transport_links.json", &parseTransportLinks, result.model, hash);
         loadOne(directory, "teleport_chains.json", &parseTeleportChains, result.model, hash);
         loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash);
-        loadOne(directory, "item_teleports.json", &parseLodestones, result.model, hash);
+        loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash);
         result.datasetHash = hash;
         return result;
     }
@@ -404,7 +484,7 @@ namespace ww::data
         // teleport_chains are local transitions wired into the baked area graph
         // and cannot be supplied at runtime, so they are deliberately skipped.
         loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash);
-        loadOne(directory, "item_teleports.json", &parseLodestones, result.model, hash);
+        loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash);
         result.datasetHash = hash;
 
         // Defensive: keep only global-origin transitions. The two files above

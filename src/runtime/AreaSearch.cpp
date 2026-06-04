@@ -120,7 +120,8 @@ namespace ww::runtime
             return false;
         }
         return meetsRequirements(currentSnapshot,
-                                 reqs.subspan(tx.requirementStart, tx.requirementCount));
+                                 reqs.subspan(tx.requirementStart, tx.requirementCount),
+                                 static_cast<data::TransitionKind>(tx.kind));
     }
 
     // Push every valid FrontierSeed onto the open heap as an alternative entry

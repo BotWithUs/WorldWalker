@@ -25,7 +25,9 @@ namespace ww::format
     // Keep in lockstep with WW_ARTIFACT_FORMAT_VERSION in the C ABI header.
     // v2: ChainStepRecord gained `d` (chain steps are now generic queued
     // actions: actionId + param1..3 — see ChainStepKind).
-    inline constexpr uint32_t kArtifactFormatVersion = 2u;
+    // v3: ChainStepRecord gained `e..i` (nine generic slots) for the richer
+    // chain kinds WaitInterface / DialogueSelect / ClickItem.
+    inline constexpr uint32_t kArtifactFormatVersion = 3u;
 
     // Section identifiers. Each build phase fills in its own section; the file
     // order is not significant because the directory carries explicit offsets.
@@ -160,10 +162,23 @@ namespace ww::format
     {
         uint8_t  kind;     // ww::data::ChainStepKind
         uint8_t  pad[3];
-        int32_t  a;        // Click/action: actionId; Wait: ticks
-        int32_t  b;        // Click/action: param1 (component-click: option)
-        int32_t  c;        // Click/action: param2 (component-click: sub_component)
-        int32_t  d;        // Click/action: param3 (component-click: (iface<<16)|comp)
+        // Nine generic slots; the meaning of each is keyed on `kind`
+        // (see ww::data::ChainStepKind). Unused slots are zero.
+        //   Click:          a=actionId, b..d=param1..3
+        //   Wait:           a=ticks
+        //   WaitInterface:  a=interfaceId
+        //   DialogueSelect: a=interface, b=index, c=per_page, d=next_comp, e=wait_ticks
+        //   ClickItem:      a..d=worn(iface,comp,opt,sub),
+        //                   e..h=backpack(iface,comp,opt,sub), i=backpack_special
+        int32_t  a;
+        int32_t  b;
+        int32_t  c;
+        int32_t  d;
+        int32_t  e;
+        int32_t  f;
+        int32_t  g;
+        int32_t  h;
+        int32_t  i;
     };
 
     // ---- Abstraction section -------------------------------------------------
@@ -326,7 +341,7 @@ namespace ww::format
     static_assert(sizeof(TransitionSectionHeader) == 16, "TransitionSectionHeader must be 16 bytes");
     static_assert(sizeof(TransitionRecord) == 56, "TransitionRecord must be 56 bytes");
     static_assert(sizeof(RequirementRecord) == 12, "RequirementRecord must be 12 bytes");
-    static_assert(sizeof(ChainStepRecord) == 20, "ChainStepRecord must be 20 bytes");
+    static_assert(sizeof(ChainStepRecord) == 40, "ChainStepRecord must be 40 bytes");
     static_assert(sizeof(AbstractionSectionHeader) == 16, "AbstractionSectionHeader must be 16 bytes");
     static_assert(sizeof(AreaNodeRecord) == 32, "AreaNodeRecord must be 32 bytes");
     static_assert(sizeof(AreaEdgeRecord) == 16, "AreaEdgeRecord must be 16 bytes");

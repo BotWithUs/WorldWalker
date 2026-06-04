@@ -129,13 +129,15 @@ namespace ww::runtime
                                  Plan &outPlan);
 
         // Run the seeded area-graph search startArea -> goalArea and stitch the
-        // resulting area route into Walk/Transition steps. seedScratch must
-        // already hold the global-teleport frontier seeds. Returns false when no
-        // area route exists or a segment is unreachable.
+        // resulting area route into Walk/Transition steps, appending to outPlan
+        // from (startX, startY, startPlane). `seeds` are the global-teleport
+        // frontier seeds offered to the area search (empty = baked crossings
+        // only). Returns false when no area route exists or a segment is
+        // unreachable.
         bool assembleAreaRoute(int32_t startX, int32_t startY, int32_t startPlane,
                                int32_t startArea, int32_t goalX, int32_t goalY,
                                int32_t goalArea, const CapabilitySnapshot *capabilities,
-                               Plan &outPlan);
+                               std::span<const FrontierSeed> seeds, Plan &outPlan);
 
         // Emit a global-teleport Transition step at the cursor (cast in place)
         // and snap the cursor to the transition's destination. No-op when the
@@ -167,6 +169,23 @@ namespace ww::runtime
             uint32_t seedIndex;
         };
 
+        // Try a chained route — emit the global teleport in `seed`, walk inside
+        // its destination area to `edge`'s origin, take `edge`, then run the
+        // closing area route from `edge.toArea` to (goalX, goalY, goalArea).
+        // Writes the resulting Plan into outAlt (cleared first) and returns
+        // true on success. Failure leaves outAlt in an indeterminate state —
+        // callers must treat outAlt as junk when the return is false. Used by
+        // the teleport-landing optimisation to consider exits that AreaSearch
+        // would not pick on area-cost alone but that drop the player next door
+        // to the goal (the "dungeon-cape resource-dungeon" pattern called out
+        // in assemble's comment).
+        bool tryTeleportNearGoalExit(int32_t startX, int32_t startY, int32_t startPlane,
+                                     const FrontierSeed &seed,
+                                     const format::AreaEdgeRecord &edge,
+                                     int32_t goalX, int32_t goalY, int32_t goalArea,
+                                     const CapabilitySnapshot *capabilities,
+                                     Plan &outAlt);
+
         const format::ArtifactReader *artifact;
         WorldView *view;
         AreaSearch *areaSearch;
@@ -175,6 +194,7 @@ namespace ww::runtime
         TilePath tilePath;                       // reusable scratch for each refined segment
         std::vector<FrontierSeed> seedScratch;   // reusable scratch for global-teleport frontier seeds
         std::vector<TeleCandidate> teleCandidateScratch;  // reusable scratch for goal-area teleport ranking
+        std::vector<int32_t> nearGoalEdgeScratch;        // reusable scratch for near-goal baked-edge indices
     };
 }
 

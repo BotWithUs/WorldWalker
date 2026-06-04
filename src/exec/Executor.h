@@ -8,6 +8,12 @@
 #include <cstdint>
 #include <vector>
 
+namespace ww::format
+{
+    struct ChainStepRecord;
+    struct TransitionRecord;
+}
+
 namespace ww::runtime
 {
     struct Step;
@@ -124,6 +130,23 @@ namespace ww::exec
         WwStatus executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
                                        WwTile &outPosition);
 
+        // Poll isInterfaceOpen(interfaceId) with sleepTicks between polls until
+        // it opens. Returns Arrived when open, Cancelled if shouldCancel trips,
+        // Failed if the poll budget elapses first.
+        WwStatus waitForInterface(int32_t interfaceId) const;
+
+        // Forward one chain step to the host's runChainStep, passing the kind
+        // discriminant and all nine generic slots so the host can resolve
+        // host-side kinds (DialogueSelect paging).
+        void dispatchChainStep(const format::ChainStepRecord &cs) const;
+
+        // Resolve a ClickItem step's worn-vs-backpack variant using `tx`'s item
+        // requirements (the candidate item ids) + the isItemWorn callback, then
+        // forward the chosen variant (iface, comp, option, sub, special) to the
+        // host. The host maps `special` to the COMPONENT_SPECIAL action type.
+        void dispatchClickItem(const format::TransitionRecord &tx,
+                               const format::ChainStepRecord &cs) const;
+
         // Emit one progress event when the host wired onEvent; no-op otherwise.
         // stepIndex / transitionIndex default to -1 to signal "not applicable".
         void emit(WwEventKind kind,
@@ -143,6 +166,15 @@ namespace ww::exec
         // from readCapability is empty, every varbit reads 0, and every
         // varbit-gated teleport is rejected — the planner then only ever walks.
         std::vector<int32_t> requirementVarbitIds;
+
+        // Distinct item ids referenced by any transition requirement (e.g. the
+        // dungeoneering cape 34295 an item-teleport demands). Same rationale as
+        // requirementVarbitIds: planFrom() reads each via readItemCount on every
+        // (re-)plan so an item-gated teleport is admitted only when the player
+        // actually holds the item. readCapability cannot surface these — it does
+        // not know which item ids matter — so an unpopulated snapshot would
+        // reject every item-teleport and force a walk / lodestone.
+        std::vector<int32_t> requirementItemIds;
     };
 }
 

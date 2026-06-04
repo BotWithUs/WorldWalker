@@ -19,6 +19,7 @@ namespace ww::data
         TeleportChain = 2,  // teleport_chains, any other type
         Spell         = 3,  // spell_teleports: global, cast chain + requirements
         Lodestone     = 4,  // item_teleports lodestones: global, config-built chain
+        ItemTeleport  = 5,  // item_teleports `teleports[]`: global, item-click chain
     };
 
     enum class RequirementKind : uint8_t
@@ -46,9 +47,25 @@ namespace ww::data
         // param3>>16 when actionId==COMPONENT.
         Click = 0,
         Wait  = 1,  // a=ticks to wait
+        // Block until interface `a` is open (engine poll, host-side); used between
+        // the click that opens a teleport dialog and the selection inside it.
+        WaitInterface = 2,
+        // Select option `b` in dialogue interface `a`. c=per_page, d=next_comp,
+        // e=wait_ticks — the host resolves the option component against the live
+        // dialogue (paging) since it depends on engine state, not the artifact.
+        DialogueSelect = 3,
+        // Click a teleport item that may be worn OR carried. The host checks the
+        // live worn/backpack containers for the transition's required item and
+        // dispatches the matching variant:
+        //   a..d = worn   (iface, comp, option, sub_component)
+        //   e..h = backpack(iface, comp, option, sub_component)
+        //   i    = backpack uses the COMPONENT_SPECIAL action when non-zero.
+        ClickItem = 4,
     };
 
     // One step of an execution chain, passed through to the executor verbatim.
+    // The nine generic slots cover every kind above (see ChainStepKind for the
+    // per-kind field mapping); unused slots are zero.
     struct ChainStep
     {
         ChainStepKind kind{};
@@ -56,6 +73,11 @@ namespace ww::data
         int32_t b{};
         int32_t c{};
         int32_t d{};
+        int32_t e{};
+        int32_t f{};
+        int32_t g{};
+        int32_t h{};
+        int32_t i{};
     };
 
     // A single movement/interaction edge. Origin is meaningful only when

@@ -352,6 +352,7 @@ namespace
     // prove that an empty snapshot rejects every gated teleport while one with
     // the unlock varbits set admits them.
     void runPlanQueryCaps(ww::runtime::PathAssembler &assembler,
+                          const ww::format::ArtifactReader &reader,
                           const ww::runtime::CapabilitySnapshot *caps,
                           int32_t sx, int32_t sy, int32_t sp,
                           int32_t gx, int32_t gy, int32_t gp, const char *label)
@@ -374,6 +375,22 @@ namespace
                     " cost=%.1f\n",
                     label, sx, sy, sp, gx, gy, gp, plan.steps.size(), walks, hops,
                     static_cast<double>(plan.cost));
+        const auto txs = reader.transitions();
+        for (const ww::runtime::Step &s : plan.steps)
+        {
+            if (s.kind != ww::runtime::StepKind::Transition)
+            {
+                continue;
+            }
+            if (s.transitionIndex < txs.size())
+            {
+                const ww::format::TransitionRecord &tx = txs[s.transitionIndex];
+                std::printf("            hop tx%u kind=%u from=(%d,%d,p%d) dest=(%d,%d,p%u) cost=%.1f\n",
+                            s.transitionIndex, tx.kind, s.targetX, s.targetY,
+                            static_cast<int>(s.plane), tx.destX, tx.destY, tx.destPlane,
+                            static_cast<double>(tx.cost));
+            }
+        }
     }
 
     // teleports — load the scripter-editable global teleports (spell + lodestone)
@@ -435,27 +452,37 @@ namespace
                 // post-fix executor reads the player's true unlock state via the
                 // readVarbit callback → gated teleports admitted).
                 std::vector<int32_t> varbitIds;
+                std::vector<int32_t> itemIds;
+                for (const ww::format::RequirementRecord &r : reader.requirements())
                 {
-                    std::vector<int32_t> seen;
-                    for (const ww::format::RequirementRecord &r : reader.requirements())
+                    const auto kind = static_cast<ww::data::RequirementKind>(r.kind);
+                    if (kind == ww::data::RequirementKind::Varbit
+                        && std::find(varbitIds.begin(), varbitIds.end(), r.id) == varbitIds.end())
                     {
-                        if (static_cast<ww::data::RequirementKind>(r.kind)
-                                == ww::data::RequirementKind::Varbit
-                            && std::find(seen.begin(), seen.end(), r.id) == seen.end())
-                        {
-                            seen.push_back(r.id);
-                            varbitIds.push_back(r.id);
-                        }
+                        varbitIds.push_back(r.id);
+                    }
+                    else if (kind == ww::data::RequirementKind::Item
+                             && std::find(itemIds.begin(), itemIds.end(), r.id) == itemIds.end())
+                    {
+                        itemIds.push_back(r.id);
                     }
                 }
                 ww::runtime::CapabilitySnapshot empty;
-                runPlanQueryCaps(assembler, &empty, sx, sy, sp, gx, gy, gp, "caps:empty");
+                runPlanQueryCaps(assembler, reader, &empty, sx, sy, sp, gx, gy, gp, "caps:empty");
+                // Full-unlock snapshot: every gate satisfied (unlock varbits set,
+                // every required item held) — mirrors what the executor's
+                // planFrom builds for a fully-equipped player, so item-gated
+                // teleports (dungeoneering cape, jewellery) are admitted.
                 ww::runtime::CapabilitySnapshot unlocked;
                 for (int32_t id : varbitIds)
                 {
                     unlocked.setVarbit(id, 1);
                 }
-                runPlanQueryCaps(assembler, &unlocked, sx, sy, sp, gx, gy, gp, "caps:unlock");
+                for (int32_t id : itemIds)
+                {
+                    unlocked.setItemCount(id, 1000);
+                }
+                runPlanQueryCaps(assembler, reader, &unlocked, sx, sy, sp, gx, gy, gp, "caps:unlock");
             }
             return 0;
         }
@@ -1162,6 +1189,20 @@ namespace
         return 0;
     }
 
+    extern "C" int32_t harnessReadItemCount(void *user, int32_t)
+    {
+        ExecHarness *h = static_cast<ExecHarness *>(user);
+        ++h->abortIfCalled;
+        return 0;
+    }
+
+    extern "C" int32_t harnessIsItemWorn(void *user, int32_t)
+    {
+        ExecHarness *h = static_cast<ExecHarness *>(user);
+        ++h->abortIfCalled;
+        return 0;
+    }
+
     extern "C" int32_t harnessIsInterfaceOpen(void *user, int32_t)
     {
         ExecHarness *h = static_cast<ExecHarness *>(user);
@@ -1213,7 +1254,8 @@ namespace
         return 1;
     }
 
-    extern "C" void harnessRunChainStep(void *user, int32_t, int32_t, int32_t, int32_t)
+    extern "C" void harnessRunChainStep(void *user, int32_t, int32_t, int32_t, int32_t,
+                                        int32_t, int32_t, int32_t, int32_t, int32_t, int32_t)
     {
         ExecHarness *h = static_cast<ExecHarness *>(user);
         ++h->runChainStepCalls;
@@ -1285,6 +1327,8 @@ namespace
             harnessReadPosition,
             harnessReadCapability,
             harnessReadVarbit,
+            harnessReadItemCount,
+            harnessIsItemWorn,
             harnessIsInterfaceOpen,
             harnessWalkTo,
             harnessInteract,

@@ -85,13 +85,18 @@ namespace ww::exec
         // crossings plus the appended runtime teleports — so lodestone-unlock
         // varbits land here too. Deduped against a small set; ids are stable
         // for the life of the run.
-        std::unordered_set<int32_t> seen;
+        std::unordered_set<int32_t> seenVarbits;
+        std::unordered_set<int32_t> seenItems;
         for (const format::RequirementRecord &r : reader.requirements())
         {
-            if (static_cast<data::RequirementKind>(r.kind) == data::RequirementKind::Varbit
-                && seen.insert(r.id).second)
+            const auto kind = static_cast<data::RequirementKind>(r.kind);
+            if (kind == data::RequirementKind::Varbit && seenVarbits.insert(r.id).second)
             {
                 requirementVarbitIds.push_back(r.id);
+            }
+            else if (kind == data::RequirementKind::Item && seenItems.insert(r.id).second)
+            {
+                requirementItemIds.push_back(r.id);
             }
         }
     }
@@ -169,6 +174,81 @@ namespace ww::exec
         }
     }
 
+    WwStatus Executor::waitForInterface(int32_t interfaceId) const
+    {
+        int32_t polls = 0;
+        while (callbacks->isInterfaceOpen(callbacks->user, interfaceId) == 0)
+        {
+            if (callbacks->shouldCancel(callbacks->user) != 0)
+            {
+                return WwStatus::Cancelled;
+            }
+            if (polls >= kInterfaceOpenMaxPolls)
+            {
+                return WwStatus::Failed;
+            }
+            callbacks->sleepTicks(callbacks->user, kInterfaceOpenPollTicks);
+            ++polls;
+        }
+        return WwStatus::Arrived;
+    }
+
+    void Executor::dispatchChainStep(const format::ChainStepRecord &cs) const
+    {
+        callbacks->runChainStep(callbacks->user, static_cast<int32_t>(cs.kind),
+                                cs.a, cs.b, cs.c, cs.d, cs.e, cs.f, cs.g, cs.h, cs.i);
+    }
+
+    void Executor::dispatchClickItem(const format::TransitionRecord &tx,
+                                     const format::ChainStepRecord &cs) const
+    {
+        // Decide worn-vs-backpack and identify the carried item, both from this
+        // transition's required items (the candidate teleport-item variants —
+        // e.g. the dungeoneering / max / completionist cape ids). Worn when any
+        // is equipped; otherwise carriedItem is the first one in the backpack.
+        bool worn = false;
+        int32_t carriedItem = 0;
+        const auto reqs = artifact->requirements();
+        const uint64_t rstart = tx.requirementStart;
+        const uint64_t rend = rstart + tx.requirementCount;
+        if (rend <= reqs.size())
+        {
+            for (uint64_t r = rstart; r < rend; ++r)
+            {
+                if (static_cast<data::RequirementKind>(reqs[r].kind) != data::RequirementKind::Item)
+                {
+                    continue;
+                }
+                const int32_t id = reqs[r].id;
+                if (callbacks->isItemWorn(callbacks->user, id) != 0)
+                {
+                    worn = true;
+                    break;  // worn variant chosen — no backpack slot needed
+                }
+                if (carriedItem == 0 && callbacks->readItemCount(callbacks->user, id) > 0)
+                {
+                    carriedItem = id;
+                }
+            }
+        }
+        // a..d = worn variant, e..h = backpack variant, i = backpack_special.
+        // The worn variant is a plain component click (never "special").
+        const int32_t iface   = worn ? cs.a : cs.e;
+        const int32_t comp    = worn ? cs.b : cs.f;
+        const int32_t option  = worn ? cs.c : cs.g;
+        const int32_t sub     = worn ? cs.d : cs.h;
+        const int32_t special = worn ? 0 : cs.i;
+        // For the backpack variant the baked sub-component (slot) is unreliable —
+        // the item can sit in any slot — so pass the carried item id and let the
+        // host resolve the live slot (the baked `sub` remains a fallback). The
+        // worn variant addresses a fixed equipment slot, so it needs no lookup;
+        // pass 0 to skip resolution there.
+        const int32_t slotItem = worn ? 0 : carriedItem;
+        callbacks->runChainStep(callbacks->user,
+                                static_cast<int32_t>(data::ChainStepKind::ClickItem),
+                                iface, comp, option, sub, special, slotItem, 0, 0, 0);
+    }
+
     WwStatus Executor::executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
                                              WwTile &outPosition)
     {
@@ -222,38 +302,64 @@ namespace ww::exec
                 return WwStatus::Cancelled;
             }
             const format::ChainStepRecord &cs = chain[chainStart + i];
-            if (cs.kind == static_cast<uint8_t>(data::ChainStepKind::Click))
+            const auto kind = static_cast<data::ChainStepKind>(cs.kind);
+            switch (kind)
             {
-                // cs is a generic queued action: a=actionId, b/c/d=param1..3,
-                // forwarded verbatim to the host. For a COMPONENT click the
-                // target interface is packed as param3>>16 ((iface<<16)|comp);
-                // wait for that interface to appear before clicking so we fire
-                // only once the dialog exists. Non-component actions dispatch
-                // immediately (no interface to gate on).
-                if (cs.a == kComponentActionId)
+                case data::ChainStepKind::Wait:
+                    // a=ticks to sleep.
+                    callbacks->sleepTicks(callbacks->user, cs.a);
+                    break;
+
+                case data::ChainStepKind::WaitInterface:
                 {
-                    const int32_t iface = cs.d >> 16;
-                    int32_t polls = 0;
-                    while (callbacks->isInterfaceOpen(callbacks->user, iface) == 0)
+                    // Block until interface `a` is open (e.g. a teleport dialog
+                    // the prior click opened). Times out to Failed so a chain
+                    // that never opens its dialog re-plans rather than hangs.
+                    const WwStatus st = waitForInterface(cs.a);
+                    if (st != WwStatus::Arrived)
                     {
-                        if (callbacks->shouldCancel(callbacks->user) != 0)
-                        {
-                            return WwStatus::Cancelled;
-                        }
-                        if (polls >= kInterfaceOpenMaxPolls)
-                        {
-                            return WwStatus::Failed;
-                        }
-                        callbacks->sleepTicks(callbacks->user, kInterfaceOpenPollTicks);
-                        ++polls;
+                        return st;
                     }
+                    break;
                 }
-                callbacks->runChainStep(callbacks->user, cs.a, cs.b, cs.c, cs.d);
-            }
-            else
-            {
-                // Wait: a=ticks to sleep.
-                callbacks->sleepTicks(callbacks->user, cs.a);
+
+                case data::ChainStepKind::Click:
+                {
+                    // Generic queued action: a=actionId, b/c/d=param1..3. For a
+                    // COMPONENT click the target interface is packed as
+                    // param3>>16 ((iface<<16)|comp); wait for it to appear before
+                    // clicking. Non-component actions dispatch immediately.
+                    if (cs.a == kComponentActionId)
+                    {
+                        const WwStatus st = waitForInterface(cs.d >> 16);
+                        if (st != WwStatus::Arrived)
+                        {
+                            return st;
+                        }
+                    }
+                    dispatchChainStep(cs);
+                    break;
+                }
+
+                case data::ChainStepKind::ClickItem:
+                {
+                    // Pick the worn or carried variant of the item click. The
+                    // worn-vs-backpack decision needs the transition's item
+                    // requirements (the candidate item ids) — which the host
+                    // does not have — so resolve it here via the isItemWorn
+                    // callback and forward only the chosen variant. The host
+                    // maps the special flag to the right action type.
+                    dispatchClickItem(tx, cs);
+                    break;
+                }
+
+                default:
+                    // DialogueSelect: the host resolves the option component
+                    // against the live (possibly paged) dialogue. Any interface
+                    // gating is expressed as explicit WaitInterface steps, so
+                    // just forward the descriptors.
+                    dispatchChainStep(cs);
+                    break;
             }
         }
 
@@ -318,6 +424,14 @@ namespace ww::exec
         for (int32_t id : requirementVarbitIds)
         {
             snapshot.setVarbit(id, callbacks->readVarbit(callbacks->user, id));
+        }
+
+        // Likewise refresh the live count of every item a requirement references
+        // (e.g. the dungeoneering cape). Without this an item-gated teleport is
+        // rejected against count 0 and the planner falls back to a walk/lodestone.
+        for (int32_t id : requirementItemIds)
+        {
+            snapshot.setItemCount(id, callbacks->readItemCount(callbacks->user, id));
         }
 
         return context.assembler.assemble(

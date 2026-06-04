@@ -96,24 +96,49 @@ namespace ww::runtime
         std::unordered_map<int32_t, int32_t> varps;
     };
 
-    // Convenience predicate over a Requirement run: every record in `reqs` must
-    // be satisfied. A null snapshot accepts everything (the no-gate default used
-    // by the unfiltered overloads). Used by both AreaSearch (edge gating) and
-    // PathAssembler (global-teleport seed gating) so the two sites share one
-    // rule for what "this transition's requirements are met" means.
+    // Convenience predicate over a Requirement run. Skill / varbit / varp gates
+    // are always all-required (AND). Item gates depend on `kind`:
+    //
+    //   - ItemTeleport: the item requirements are ALTERNATIVES (OR). The dataset
+    //     lists every accepted variant of the teleport item (e.g. the
+    //     dungeoneering / max / completionist cape ids), any one of which works,
+    //     so the run passes as long as the player holds at least one — and fails
+    //     only when there are item gates and none is met. (Matches the legacy
+    //     nav stack's evaluateTeleport: hasItemReq && !hasAnyItem.)
+    //   - everything else (spell teleports list the runes a cast consumes,
+    //     transport links, …): item gates are all-required (AND).
+    //
+    // A null snapshot accepts everything (the no-gate default used by the
+    // unfiltered overloads). Used by both AreaSearch (edge gating) and
+    // PathAssembler (global-teleport seed gating) so the two share one rule.
     inline bool meetsRequirements(const CapabilitySnapshot *snapshot,
-                                  std::span<const format::RequirementRecord> reqs)
+                                  std::span<const format::RequirementRecord> reqs,
+                                  data::TransitionKind kind = data::TransitionKind::Transport)
     {
         if (snapshot == nullptr)
         {
             return true;
         }
+        const bool itemsAreAlternatives = (kind == data::TransitionKind::ItemTeleport);
+        bool hasItemGate = false;
+        bool anyItemMet = false;
         for (const format::RequirementRecord &r : reqs)
         {
-            if (!snapshot->meets(r))
+            const bool isItem =
+                static_cast<data::RequirementKind>(r.kind) == data::RequirementKind::Item;
+            if (isItem && itemsAreAlternatives)
+            {
+                hasItemGate = true;
+                anyItemMet = anyItemMet || snapshot->meets(r);
+            }
+            else if (!snapshot->meets(r))
             {
                 return false;
             }
+        }
+        if (hasItemGate && !anyItemMet)
+        {
+            return false;
         }
         return true;
     }
