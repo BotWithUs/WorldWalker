@@ -30,16 +30,12 @@ namespace ww::runtime
           heuristic(reader)
     {
         buildAdjacency();
-        // Contents of the four scratch vectors are gated by epochStamp, so
-        // the initial values are irrelevant — only epochStamp itself must
-        // start at zero so the first query (epoch == 1) sees every entry
-        // as stale. resize (not assign) leaves contents unspecified but the
-        // memory is allocated.
-        bestCost.resize(areaCount);
-        cameFromArea.resize(areaCount);
-        cameFromEdge.resize(areaCount);
-        settled.resize(areaCount);
-        epochStamp.assign(areaCount, 0u);
+        // Contents of the AoS scratch are gated by per-entry epochStamp, so
+        // the initial values of the other fields are irrelevant — only the
+        // epoch stamp itself must start at zero so the first query
+        // (epoch == 1) sees every entry as stale. Zero-init the whole row
+        // for cleanliness.
+        scratch.assign(areaCount, AreaScratch{});
     }
 
     // Counting sort of the fromArea-sorted edge list into CSR offsets: edges are
@@ -64,30 +60,61 @@ namespace ww::runtime
 
     void AreaSearch::resetScratch()
     {
-        // Bump the epoch so every stale entry in bestCost / cameFrom* /
-        // settled reads as unset (via bestCostOf / isSettled). On wraparound
-        // (UINT32_MAX -> 0) the stamps would collide with a fresh epoch == 0,
-        // so zero the stamps and restart at epoch == 1. Wraparound never
-        // happens in practice (4 billion queries on one AreaSearch) but the
-        // branch is one compare and keeps correctness independent of usage.
+        // Bump the epoch so every stale entry in scratch reads as unset
+        // (via bestCostOf / isSettled). On wraparound (UINT32_MAX -> 0) the
+        // stamps would collide with a fresh epoch == 0, so zero the stamps
+        // and restart at epoch == 1. Wraparound never happens in practice
+        // (4 billion queries on one AreaSearch) but the branch is one
+        // compare and keeps correctness independent of usage.
         ++epoch;
         if (epoch == 0u)
         {
-            std::fill(epochStamp.begin(), epochStamp.end(), 0u);
+            for (AreaScratch &s : scratch)
+            {
+                s.epochStamp = 0u;
+            }
             epoch = 1u;
         }
         openHeap.clear();
     }
 
-    void AreaSearch::relax(int32_t u, std::span<const format::AreaEdgeRecord> edges,
-                           const AltHeuristic &h)
+    void AreaSearch::relaxOpen(int32_t u, std::span<const format::AreaEdgeRecord> edges,
+                                const AltHeuristic &h)
     {
         const uint32_t ua = static_cast<uint32_t>(u);
-        // u was just popped from the heap, so its bestCost / epochStamp are
-        // by construction current — read bestCost[ua] directly without the
-        // bestCostOf gate. Stale-vs-current is only ambiguous for unvisited
-        // neighbours below.
-        const float uCost = bestCost[ua];
+        // u was just popped from the heap, so its bestCost is by construction
+        // current — read scratch[ua].bestCost directly without the bestCostOf
+        // gate. Stale-vs-current is only ambiguous for unvisited neighbours.
+        const float uCost = scratch[ua].bestCost;
+        for (uint32_t i = edgeOffset[ua]; i < edgeOffset[ua + 1u]; ++i)
+        {
+            const int32_t v = edges[i].toArea;
+            if (!isValidArea(v))
+            {
+                continue;
+            }
+            const float nd = uCost + edges[i].cost;
+            const uint32_t vu = static_cast<uint32_t>(v);
+            if (nd >= bestCostOf(vu))
+            {
+                continue;
+            }
+            AreaScratch &dst = scratch[vu];
+            dst.bestCost = nd;
+            dst.cameFromArea = u;
+            dst.cameFromEdge = static_cast<int32_t>(i);
+            dst.settled = 0u;
+            dst.epochStamp = epoch;
+            openHeap.push_back({nd + h.estimate(vu), v});
+            std::push_heap(openHeap.begin(), openHeap.end(), ByPriority{});
+        }
+    }
+
+    void AreaSearch::relaxFiltered(int32_t u, std::span<const format::AreaEdgeRecord> edges,
+                                    const AltHeuristic &h)
+    {
+        const uint32_t ua = static_cast<uint32_t>(u);
+        const float uCost = scratch[ua].bestCost;
         for (uint32_t i = edgeOffset[ua]; i < edgeOffset[ua + 1u]; ++i)
         {
             const int32_t v = edges[i].toArea;
@@ -105,11 +132,12 @@ namespace ww::runtime
             {
                 continue;
             }
-            bestCost[vu] = nd;
-            cameFromArea[vu] = u;
-            cameFromEdge[vu] = static_cast<int32_t>(i);
-            settled[vu] = 0u;       // pending re-pop; old "settled" stamp is overwritten alongside
-            epochStamp[vu] = epoch;
+            AreaScratch &dst = scratch[vu];
+            dst.bestCost = nd;
+            dst.cameFromArea = u;
+            dst.cameFromEdge = static_cast<int32_t>(i);
+            dst.settled = 0u;
+            dst.epochStamp = epoch;
             openHeap.push_back({nd + h.estimate(vu), v});
             std::push_heap(openHeap.begin(), openHeap.end(), ByPriority{});
         }
@@ -187,11 +215,12 @@ namespace ww::runtime
             {
                 continue;
             }
-            bestCost[a] = seed.cost;
-            cameFromArea[a] = -2;
-            cameFromEdge[a] = static_cast<int32_t>(seed.transitionIndex);
-            settled[a] = 0u;
-            epochStamp[a] = epoch;
+            AreaScratch &dst = scratch[a];
+            dst.bestCost = seed.cost;
+            dst.cameFromArea = -2;
+            dst.cameFromEdge = static_cast<int32_t>(seed.transitionIndex);
+            dst.settled = 0u;
+            dst.epochStamp = epoch;
             openHeap.push_back({seed.cost + h.estimate(a), seed.destArea});
             std::push_heap(openHeap.begin(), openHeap.end(), ByPriority{});
         }
@@ -205,19 +234,20 @@ namespace ww::runtime
     // cursor from a single uniform front-to-back iteration.
     void AreaSearch::reconstruct(int32_t startArea, int32_t goalArea, AreaPath &outPath) const
     {
-        outPath.cost = bestCost[static_cast<uint32_t>(goalArea)];
+        outPath.cost = scratch[static_cast<uint32_t>(goalArea)].bestCost;
         int32_t area = goalArea;
         while (area != startArea)
         {
-            const int32_t prev = cameFromArea[static_cast<uint32_t>(area)];
+            const AreaScratch &s = scratch[static_cast<uint32_t>(area)];
+            const int32_t prev = s.cameFromArea;
             if (prev == -2)
             {
-                outPath.leadingTransition = cameFromEdge[static_cast<uint32_t>(area)];
+                outPath.leadingTransition = s.cameFromEdge;
                 outPath.steps.push_back({area, -1});
                 std::reverse(outPath.steps.begin(), outPath.steps.end());
                 return;
             }
-            outPath.steps.push_back({area, cameFromEdge[static_cast<uint32_t>(area)]});
+            outPath.steps.push_back({area, s.cameFromEdge});
             area = prev;
         }
         outPath.steps.push_back({startArea, -1});
@@ -258,13 +288,19 @@ namespace ww::runtime
         resetScratch();
 
         const uint32_t startU = static_cast<uint32_t>(startArea);
-        bestCost[startU] = 0.0f;
-        cameFromArea[startU] = -1;
-        cameFromEdge[startU] = -1;
-        settled[startU] = 0u;
-        epochStamp[startU] = epoch;
+        AreaScratch &startSlot = scratch[startU];
+        startSlot.bestCost = 0.0f;
+        startSlot.cameFromArea = -1;
+        startSlot.cameFromEdge = -1;
+        startSlot.settled = 0u;
+        startSlot.epochStamp = epoch;
         openHeap.push_back({heuristic.estimate(startU), startArea});
         seedFrontier(seeds, heuristic);
+        // Specialise the inner loop on the null-snapshot case so an
+        // unfiltered query (bench, same-area baseline) skips the per-edge
+        // requirement check entirely. relax{Open,Filtered} are otherwise
+        // byte-for-byte identical, so tie-breaking is preserved.
+        const bool unfiltered = (currentSnapshot == nullptr);
         while (!openHeap.empty())
         {
             std::pop_heap(openHeap.begin(), openHeap.end(), ByPriority{});
@@ -275,14 +311,22 @@ namespace ww::runtime
             {
                 continue;
             }
-            settled[uu] = 1u;
-            epochStamp[uu] = epoch;
+            AreaScratch &uSlot = scratch[uu];
+            uSlot.settled = 1u;
+            uSlot.epochStamp = epoch;
             if (u == goalArea)
             {
                 reconstruct(startArea, goalArea, outPath);
                 return true;
             }
-            relax(u, edges, heuristic);
+            if (unfiltered)
+            {
+                relaxOpen(u, edges, heuristic);
+            }
+            else
+            {
+                relaxFiltered(u, edges, heuristic);
+            }
         }
         return false;
     }

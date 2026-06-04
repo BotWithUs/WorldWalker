@@ -11,9 +11,6 @@ namespace ww::runtime
 {
     namespace
     {
-        constexpr int kSquareShift = 6;                  // 64 tiles per square edge
-        constexpr int kLocalMask = format::kClipSize - 1;
-
         // Non-overlapping 16/16 packing — squareX up to 65535, squareY up to
         // 65535, no aliasing.
         uint64_t squareKey(int squareX, int squareY)
@@ -29,27 +26,6 @@ namespace ww::runtime
             return (static_cast<uint64_t>(static_cast<uint32_t>(squareY)) << 40)
                  | (static_cast<uint64_t>(static_cast<uint32_t>(squareX)) << 8)
                  | (static_cast<uint64_t>(plane) & 0xFFu);
-        }
-
-        // Clip words are plane-major, then x (west-east), then y (south-north).
-        std::size_t clipIndex(int x, int y, int plane)
-        {
-            const std::size_t lx = static_cast<std::size_t>(x & kLocalMask);
-            const std::size_t ly = static_cast<std::size_t>(y & kLocalMask);
-            return (static_cast<std::size_t>(plane) * format::kClipSize + lx) * format::kClipSize + ly;
-        }
-
-        // Area-id grids are x-major, then y, over a single (square, plane).
-        std::size_t gridIndex(int x, int y)
-        {
-            const std::size_t lx = static_cast<std::size_t>(x & kLocalMask);
-            const std::size_t ly = static_cast<std::size_t>(y & kLocalMask);
-            return lx * static_cast<std::size_t>(format::kClipSize) + ly;
-        }
-
-        bool offWorld(int x, int y, int plane)
-        {
-            return x < 0 || y < 0 || plane < 0 || plane >= format::kClipPlanes;
         }
     }
 
@@ -84,63 +60,37 @@ namespace ww::runtime
         return gridCache.emplace(key, std::move(ids)).first->second;
     }
 
-    uint32_t WorldView::clipAt(int x, int y, int plane)
+    std::vector<uint32_t> *WorldView::stampsLookup(int squareX, int squareY, int plane)
     {
-        if (offWorld(x, y, plane))
+        const auto it = visitedStamps.find(gridKey(squareX, squareY, plane));
+        if (it == visitedStamps.end())
         {
-            return kBlockedWord;
+            return nullptr;
         }
-        const int sqX = x >> kSquareShift;
-        const int sqY = y >> kSquareShift;
-        // Sticky one-slot fast path — spatially-coherent A* almost always asks
-        // for the same square the previous call did, so the equality compare
-        // skips the unordered_map::find. Pointer doubles as the valid flag.
-        const std::vector<uint32_t> *words = lastClipWords;
-        if (sqX != lastClipSquareX || sqY != lastClipSquareY || words == nullptr)
-        {
-            words = &squareWords(sqX, sqY);
-            lastClipSquareX = sqX;
-            lastClipSquareY = sqY;
-            lastClipWords = words;
-        }
-        if (words->empty())
-        {
-            return kBlockedWord;
-        }
-        return (*words)[clipIndex(x, y, plane)];
+        return &it->second;
     }
 
-    int32_t WorldView::areaAt(int x, int y, int plane)
+    std::vector<uint32_t> &WorldView::stampsEnsure(int squareX, int squareY, int plane)
     {
-        if (offWorld(x, y, plane))
+        const uint64_t key = gridKey(squareX, squareY, plane);
+        const auto it = visitedStamps.find(key);
+        if (it != visitedStamps.end())
         {
-            return -1;
+            return it->second;
         }
-        const int sqX = x >> kSquareShift;
-        const int sqY = y >> kSquareShift;
-        // Sticky one-slot fast path. Plane is part of the grid key because
-        // each (square, plane) is a distinct inflated buffer.
-        const std::vector<int32_t> *ids = lastGridIds;
-        if (sqX != lastGridSquareX || sqY != lastGridSquareY || plane != lastGridPlane
-            || ids == nullptr)
-        {
-            ids = &gridIds(sqX, sqY, plane);
-            lastGridSquareX = sqX;
-            lastGridSquareY = sqY;
-            lastGridPlane = plane;
-            lastGridIds = ids;
-        }
-        if (ids->empty())
-        {
-            return -1;
-        }
-        return (*ids)[gridIndex(x, y)];
+        // One uint32 per tile on a 64x64 (square, plane). Lazy allocation
+        // means an artifact with thousands of squares only pays for the few
+        // its searches actually touch.
+        std::vector<uint32_t> grid(static_cast<std::size_t>(format::kClipSize) * format::kClipSize, 0u);
+        return visitedStamps.emplace(key, std::move(grid)).first->second;
     }
 
     void WorldView::clearCache()
     {
         clipCache.clear();
         gridCache.clear();
+        visitedStamps.clear();
+        tileEpoch = 0u;
         // Sticky pointers reference the dropped vectors; null them so the next
         // borrower's first query reloads from the (now-empty) maps and refills
         // the sticky slot rather than dereferencing a stale pointer.
@@ -151,5 +101,9 @@ namespace ww::runtime
         lastGridSquareY = INT_MIN;
         lastGridPlane = INT_MIN;
         lastGridIds = nullptr;
+        lastStampSquareX = INT_MIN;
+        lastStampSquareY = INT_MIN;
+        lastStampPlane = INT_MIN;
+        lastStampGrid = nullptr;
     }
 }

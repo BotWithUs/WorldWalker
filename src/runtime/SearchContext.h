@@ -33,13 +33,16 @@ namespace ww::runtime
         SearchContext(SearchContext &&) = delete;
         SearchContext &operator=(SearchContext &&) = delete;
 
-        // Drop the WorldView's lazily-inflated clip / area squares so the next
-        // borrower starts cold rather than inheriting the prior query's working
-        // set. The other components' scratch is overwritten on every findPath /
-        // assemble call so they have no per-query state to clear.
+        // No-op today: the WorldView's clip and area caches are immutable
+        // functions of the borrowed artifact, so re-using them across queries
+        // on the same context is sound and lets the next borrower land on a
+        // warm working set instead of re-inflating every touched square. The
+        // other components' scratch is overwritten on every findPath /
+        // assemble call so they have no per-query state to clear either. The
+        // method stays as the explicit "borrow returned to pool" hook in case
+        // a future change does need to flush something here.
         void recycle()
         {
-            view.clearCache();
         }
 
         WorldView view;

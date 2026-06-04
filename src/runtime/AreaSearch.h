@@ -100,8 +100,15 @@ namespace ww::runtime
         // Each helper takes its heuristic by ref so the implementation in
         // .cpp can name the parameter `h` and not collide with the member.
         // (No name-hiding warning under /W4 /WX.)
-        void relax(int32_t u, std::span<const format::AreaEdgeRecord> edges,
-                   const AltHeuristic &h);
+        //
+        // Two specialisations of relax — the unfiltered variant skips the
+        // per-edge meetsTransitionRequirements check entirely, removing a
+        // predictable branch from the inner loop on the bench path
+        // (ww_query without a CapabilitySnapshot, the same-area baseline).
+        void relaxOpen(int32_t u, std::span<const format::AreaEdgeRecord> edges,
+                       const AltHeuristic &h);
+        void relaxFiltered(int32_t u, std::span<const format::AreaEdgeRecord> edges,
+                           const AltHeuristic &h);
         void seedFrontier(std::span<const FrontierSeed> seeds, const AltHeuristic &h);
         void reconstruct(int32_t startArea, int32_t goalArea, AreaPath &outPath) const;
         bool meetsTransitionRequirements(uint32_t transitionIndex) const;
@@ -111,31 +118,41 @@ namespace ww::runtime
             return area >= 0 && static_cast<uint32_t>(area) < areaCount;
         }
 
-        // Per-area scratch is "live" only when epochStamp[a] == epoch — a
-        // generation-counter trick so resetScratch is O(1) (bump epoch +
-        // clear openHeap) instead of four std::fills over the full areaCount
-        // every query. bestCostOf/isSettled read INF / false on a stale
-        // stamp; writes set the stamp to the current epoch so subsequent
+        // Per-area scratch packed into a single 20-byte record so a relaxation
+        // touches one cache line instead of five. Live iff `epochStamp` ==
+        // current epoch — a generation-counter trick so resetScratch is O(1)
+        // (bump epoch + clear openHeap) instead of std::fills over the full
+        // areaCount every query. bestCostOf/isSettled read INF / false on a
+        // stale stamp; writes set the stamp to the current epoch so subsequent
         // reads see the new value. Wraparound (epoch hits UINT32_MAX) is
-        // handled by zeroing epochStamp and restarting at epoch = 1.
+        // handled by zeroing all epochStamp fields and restarting at epoch = 1.
+        struct AreaScratch
+        {
+            float    bestCost;      // g-score (live iff epochStamp == epoch)
+            int32_t  cameFromArea;  // predecessor area (-1 unset, -2 frontier-seeded)
+            int32_t  cameFromEdge;  // AreaEdge index entered through; or, when cameFromArea==-2, the seed's transitionIndex
+            uint32_t epochStamp;    // generation tag — fields above are stale unless == epoch
+            uint8_t  settled;       // closed-set flag (live iff epochStamp == epoch)
+            uint8_t  pad[3];        // zero-filled
+        };
+        static_assert(sizeof(AreaScratch) == 20,
+                      "AreaScratch must be 20 bytes (one cache line per relaxation)");
+
         float bestCostOf(uint32_t a) const
         {
-            return epochStamp[a] == epoch ? bestCost[a]
-                                           : std::numeric_limits<float>::infinity();
+            return scratch[a].epochStamp == epoch
+                       ? scratch[a].bestCost
+                       : std::numeric_limits<float>::infinity();
         }
         bool isSettled(uint32_t a) const
         {
-            return epochStamp[a] == epoch && settled[a] != 0u;
+            return scratch[a].epochStamp == epoch && scratch[a].settled != 0u;
         }
 
         const format::ArtifactReader *artifact;
         uint32_t areaCount;
         std::vector<uint32_t> edgeOffset;   // CSR: area a's edges are [edgeOffset[a], edgeOffset[a+1])
-        std::vector<float> bestCost;        // g-score per area (live iff epochStamp[a] == epoch) (scratch)
-        std::vector<int32_t> cameFromArea;  // predecessor area (-1 unset, -2 frontier-seeded) (live iff epochStamp[a] == epoch)
-        std::vector<int32_t> cameFromEdge;  // AreaEdge index entered through; or, when cameFromArea==-2, the seed's transitionIndex (live iff epochStamp[a] == epoch)
-        std::vector<uint8_t> settled;       // closed-set flag (live iff epochStamp[a] == epoch)
-        std::vector<uint32_t> epochStamp;   // generation tag — entries above are stale unless == epoch
+        std::vector<AreaScratch> scratch;   // per-area packed scratch (live iff epochStamp == epoch)
         uint32_t epoch{0};                  // bumped each findPath; entries with epochStamp != epoch read as "unset"
         std::vector<OpenEntry> openHeap;    // binary min-heap of the open set (scratch)
         AltHeuristic heuristic;             // landmark bound; owns its per-query goal-distance scratch

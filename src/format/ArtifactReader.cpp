@@ -1,5 +1,6 @@
 #include "format/ArtifactReader.h"
 
+#include "data/Transitions.h"
 #include "format/Zlib.h"
 
 #include <cstddef>
@@ -7,6 +8,7 @@
 #include <cstring>
 #include <fstream>
 #include <ios>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -79,6 +81,26 @@ namespace ww::format
         {
             return (squareY << 16) | ((squareX & 0xFFFu) << 4) | (plane & 0xFu);
         }
+
+        // The northern RS3 landmass reaches squareY ~200, so an 8-bit axis
+        // (0..255) covers every populated square without overshoot. Bucket
+        // key: (destPlane << 16) | (destSquareY << 8) | destSquareX; bucket
+        // table is 256*256*4 = 262144 entries (1 MB of uint32 offsets).
+        constexpr int kSquaresPerAxis = 256;
+        constexpr int kNearGoalBucketCount =
+            kSquaresPerAxis * kSquaresPerAxis * kClipPlanes;
+
+        bool inSquareRange(int v)
+        {
+            return v >= 0 && v < kSquaresPerAxis;
+        }
+
+        uint32_t nearGoalBucketKey(int destPlane, int destSquareX, int destSquareY)
+        {
+            return (static_cast<uint32_t>(destPlane) << 16)
+                 | (static_cast<uint32_t>(destSquareY) << 8)
+                 | (static_cast<uint32_t>(destSquareX));
+        }
     }
 
     ArtifactReader::ArtifactReader(const std::string &path)
@@ -89,6 +111,9 @@ namespace ww::format
         {
             throw std::runtime_error("ArtifactReader: ALT areaCount disagrees with abstraction");
         }
+        // After both abstraction + transitions are decoded, build the
+        // near-goal edge bucket index. No-op when either section is absent.
+        buildNearGoalEdgeBuckets();
     }
 
     void ArtifactReader::parseDirectory()
@@ -187,10 +212,11 @@ namespace ww::format
         }
         const uint64_t blobOffset = collisionSectionOffset + e.blobOffset;
         requireRange(blobOffset, e.blobLength, bytes.size(), "collision blob");
-        const std::vector<uint8_t> raw =
-            zlibDecompress(bytes.data() + static_cast<std::size_t>(blobOffset), e.blobLength, e.rawLength);
         outWords.resize(kClipWordsPerSquare);
-        std::memcpy(outWords.data(), raw.data(), e.rawLength);
+        zlibDecompressInto(bytes.data() + static_cast<std::size_t>(blobOffset),
+                            e.blobLength,
+                            reinterpret_cast<uint8_t *>(outWords.data()),
+                            e.rawLength);
         return true;
     }
 
@@ -220,6 +246,7 @@ namespace ww::format
         bakedRequirementCount = requirementPool.size();
         bakedChainCount = chainStepPool.size();
         rebuildGlobalOriginIndex();
+        rebuildRequirementIdLists();
     }
 
     void ArtifactReader::truncateToBaked()
@@ -228,6 +255,7 @@ namespace ww::format
         requirementPool.resize(bakedRequirementCount);
         chainStepPool.resize(bakedChainCount);
         rebuildGlobalOriginIndex();
+        rebuildRequirementIdLists();
     }
 
     void ArtifactReader::appendTransitions(std::span<const TransitionRecord> transitions,
@@ -250,6 +278,11 @@ namespace ww::format
                 globalOriginIndices.push_back(static_cast<uint32_t>(prefix + i));
             }
         }
+        // Requirement-id lists are deduped sets, so the cheap thing here is
+        // to rescan the (now-extended) pool once instead of merging — the
+        // pool is small (a few hundred records on a real artifact) and an
+        // append happens at most a handful of times per process.
+        rebuildRequirementIdLists();
     }
 
     void ArtifactReader::rebuildGlobalOriginIndex()
@@ -260,6 +293,126 @@ namespace ww::format
             if ((transitionTable[i].flags & kTransitionFlagGlobalOrigin) != 0u)
             {
                 globalOriginIndices.push_back(static_cast<uint32_t>(i));
+            }
+        }
+    }
+
+    void ArtifactReader::buildNearGoalEdgeBuckets()
+    {
+        nearGoalBucketFirst.assign(static_cast<std::size_t>(kNearGoalBucketCount) + 1u, 0u);
+        nearGoalBucketEdges.clear();
+        if (areaEdgeTable.empty() || transitionTable.empty())
+        {
+            return;  // either section absent — bucket stays empty, scan returns empty span
+        }
+        // Two-pass CSR build: count per bucket, prefix-sum, fill.
+        const auto classify = [&](const AreaEdgeRecord &E,
+                                  int &outBucket) -> bool
+        {
+            if (E.transitionIndex >= transitionTable.size())
+            {
+                return false;
+            }
+            const TransitionRecord &T = transitionTable[E.transitionIndex];
+            if ((T.flags & kTransitionFlagGlobalOrigin) != 0u)
+            {
+                return false;  // globals are seeded separately
+            }
+            const int destPlane = static_cast<int>(T.destPlane);
+            if (destPlane < 0 || destPlane >= kClipPlanes)
+            {
+                return false;
+            }
+            const int destSquareX = T.destX >> 6;
+            const int destSquareY = T.destY >> 6;
+            if (!inSquareRange(destSquareX) || !inSquareRange(destSquareY))
+            {
+                return false;
+            }
+            outBucket = static_cast<int>(
+                nearGoalBucketKey(destPlane, destSquareX, destSquareY));
+            return true;
+        };
+
+        for (const AreaEdgeRecord &E : areaEdgeTable)
+        {
+            int bucket = 0;
+            if (classify(E, bucket))
+            {
+                ++nearGoalBucketFirst[static_cast<std::size_t>(bucket) + 1u];
+            }
+        }
+        for (std::size_t i = 1; i < nearGoalBucketFirst.size(); ++i)
+        {
+            nearGoalBucketFirst[i] += nearGoalBucketFirst[i - 1];
+        }
+        nearGoalBucketEdges.assign(nearGoalBucketFirst.back(), 0u);
+        // Cursor copy of the per-bucket head, advanced as we fill.
+        std::vector<uint32_t> cursor = nearGoalBucketFirst;
+        for (std::size_t i = 0; i < areaEdgeTable.size(); ++i)
+        {
+            int bucket = 0;
+            if (classify(areaEdgeTable[i], bucket))
+            {
+                nearGoalBucketEdges[cursor[static_cast<std::size_t>(bucket)]++] =
+                    static_cast<uint32_t>(i);
+            }
+        }
+    }
+
+    std::span<const uint32_t> ArtifactReader::nearGoalEdgeBucket(int destPlane,
+                                                                  int destSquareX,
+                                                                  int destSquareY) const
+    {
+        if (nearGoalBucketFirst.empty())
+        {
+            return {};
+        }
+        if (destPlane < 0 || destPlane >= kClipPlanes)
+        {
+            return {};
+        }
+        if (!inSquareRange(destSquareX) || !inSquareRange(destSquareY))
+        {
+            return {};
+        }
+        const std::size_t key = static_cast<std::size_t>(
+            nearGoalBucketKey(destPlane, destSquareX, destSquareY));
+        const std::size_t begin = nearGoalBucketFirst[key];
+        const std::size_t end = nearGoalBucketFirst[key + 1u];
+        return std::span<const uint32_t>(nearGoalBucketEdges.data() + begin, end - begin);
+    }
+
+    void ArtifactReader::rebuildRequirementIdLists()
+    {
+        // Two small dedup buffers — the requirement pool tops out at a few
+        // hundred entries on a real artifact, so the unsorted "scan + linear
+        // contains check" is cheaper than dragging in an std::unordered_set
+        // (one-shot allocation, no hashing). Order matches first-seen scan
+        // order — the Executor borrows the spans verbatim.
+        requirementVarbitIdList.clear();
+        requirementItemIdList.clear();
+        const auto addUnique = [](std::vector<int32_t> &list, int32_t id)
+        {
+            for (const int32_t existing : list)
+            {
+                if (existing == id)
+                {
+                    return;
+                }
+            }
+            list.push_back(id);
+        };
+        for (const RequirementRecord &r : requirementPool)
+        {
+            const auto kind = static_cast<ww::data::RequirementKind>(r.kind);
+            if (kind == ww::data::RequirementKind::Varbit)
+            {
+                addUnique(requirementVarbitIdList, r.id);
+            }
+            else if (kind == ww::data::RequirementKind::Item)
+            {
+                addUnique(requirementItemIdList, r.id);
             }
         }
     }
@@ -312,10 +465,11 @@ namespace ww::format
         }
         const uint64_t blobOffset = abstractionSectionOffset + g.blobOffset;
         requireRange(blobOffset, g.blobLength, bytes.size(), "area grid blob");
-        const std::vector<uint8_t> raw =
-            zlibDecompress(bytes.data() + static_cast<std::size_t>(blobOffset), g.blobLength, g.rawLength);
         outIds.resize(static_cast<std::size_t>(kClipSize) * kClipSize);
-        std::memcpy(outIds.data(), raw.data(), g.rawLength);
+        zlibDecompressInto(bytes.data() + static_cast<std::size_t>(blobOffset),
+                            g.blobLength,
+                            reinterpret_cast<uint8_t *>(outIds.data()),
+                            g.rawLength);
         return true;
     }
 
@@ -324,10 +478,11 @@ namespace ww::format
     {
         const uint64_t blobOffset = sectionOffset + desc.blobOffset;
         requireRange(blobOffset, desc.blobLength, bytes.size(), "alt table blob");
-        const std::vector<uint8_t> raw =
-            zlibDecompress(bytes.data() + static_cast<std::size_t>(blobOffset), desc.blobLength, desc.rawLength);
         std::vector<float> table(desc.rawLength / sizeof(float));
-        std::memcpy(table.data(), raw.data(), desc.rawLength);
+        zlibDecompressInto(bytes.data() + static_cast<std::size_t>(blobOffset),
+                            desc.blobLength,
+                            reinterpret_cast<uint8_t *>(table.data()),
+                            desc.rawLength);
         return table;
     }
 
@@ -395,6 +550,35 @@ namespace ww::format
         // reads across the whole table.
         fromLandmarkData = transposeAltTable(fromRaw, header.landmarkCount, header.areaCount);
         toLandmarkData = transposeAltTable(toRaw, header.landmarkCount, header.areaCount);
+
+        // Phase 5: substitute +inf sentinels so AltHeuristic::estimate can be
+        // branchless. The two bounds are:
+        //   bound1 = toL - goalToL    (estimate >= bound1 when both finite)
+        //   bound2 = goalFromL - fromL (estimate >= bound2 when both finite)
+        // The substitution must produce a value <= 0 whenever EITHER side was
+        // originally +inf, so max(0, bound) clamps the unreachable cases to 0
+        // (identical contribution to today's branched estimate). For the
+        // area-side tables, the substitutions are:
+        //   toL    (minuend in bound1)    : +inf -> -1e30f
+        //   fromL  (subtrahend in bound2) : +inf -> +1e30f
+        // The matching goal-side substitution happens in AltHeuristic::prepare.
+        constexpr float kInf = std::numeric_limits<float>::infinity();
+        constexpr float kBigPos = 1e30f;
+        constexpr float kBigNeg = -1e30f;
+        for (float &v : toLandmarkData)
+        {
+            if (!(v < kInf))
+            {
+                v = kBigNeg;
+            }
+        }
+        for (float &v : fromLandmarkData)
+        {
+            if (!(v < kInf))
+            {
+                v = kBigPos;
+            }
+        }
     }
 
     void ArtifactReader::decodeTeleportAllowed(const SectionEntry &entry)

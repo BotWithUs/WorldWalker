@@ -2,8 +2,6 @@
 
 #include "data/Transitions.h"
 #include "format/Artifact.h"
-#include "runtime/CapabilitySnapshot.h"
-#include "runtime/PathAssembler.h"
 #include "runtime/SearchContext.h"
 #include "runtime/TeleportPolicy.h"
 
@@ -12,7 +10,6 @@
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
-#include <unordered_set>
 
 namespace ww::exec
 {
@@ -77,28 +74,14 @@ namespace ww::exec
                        const Callbacks &callbacks)
         : artifact(&reader),
           pool(&pool),
-          callbacks(&callbacks)
+          callbacks(&callbacks),
+          requirementVarbitIds(reader.requirementVarbitIds()),
+          requirementItemIds(reader.requirementItemIds())
     {
-        // Collect the distinct varbit ids any requirement references so each
-        // (re-)plan can refresh their live values into the capability snapshot
-        // (see planFrom). The span is the full requirement pool — baked local
-        // crossings plus the appended runtime teleports — so lodestone-unlock
-        // varbits land here too. Deduped against a small set; ids are stable
-        // for the life of the run.
-        std::unordered_set<int32_t> seenVarbits;
-        std::unordered_set<int32_t> seenItems;
-        for (const format::RequirementRecord &r : reader.requirements())
-        {
-            const auto kind = static_cast<data::RequirementKind>(r.kind);
-            if (kind == data::RequirementKind::Varbit && seenVarbits.insert(r.id).second)
-            {
-                requirementVarbitIds.push_back(r.id);
-            }
-            else if (kind == data::RequirementKind::Item && seenItems.insert(r.id).second)
-            {
-                requirementItemIds.push_back(r.id);
-            }
-        }
+        // Distinct varbit / item id lists are built once on the artifact and
+        // borrowed here, so the Executor pays no per-construction scan over
+        // the requirement pool. ww_executor_run constructs a fresh Executor on
+        // every run, so the savings matter even at one call per game tick.
     }
 
     bool Executor::isInsideGoal(const WwTile &tile, const WwGoal &goal)
@@ -403,14 +386,15 @@ namespace ww::exec
     }
 
     bool Executor::planFrom(const WwTile &start, const WwGoal &goal,
-                            runtime::SearchContext &context, runtime::Plan &outPlan) const
+                            runtime::SearchContext &context, runtime::Plan &outPlan)
     {
-        // Snapshot host state into a runtime::CapabilitySnapshot. Re-plans
-        // therefore reflect mid-walk state changes (an item picked up, a
-        // teleport tab newly available) at the cost of one readCapability
-        // call per (re-)plan. The snapshot is stack-allocated and consumed
-        // entirely by assemble() — the assembler stores nothing from it.
-        runtime::CapabilitySnapshot snapshot;
+        // Snapshot host state into the reused runtime::CapabilitySnapshot
+        // member. Re-plans therefore reflect mid-walk state changes (an item
+        // picked up, a teleport tab newly available) at the cost of one
+        // readCapability call per (re-)plan. The snapshot's backing storage
+        // survives across calls (clear() drops contents but keeps capacity),
+        // so a stuck-recovery re-plan does not re-grow the four sorted tables.
+        snapshot.clear();
         WwCapabilitySnapshot raw{};
         callbacks->readCapability(callbacks->user, &raw);
         copyCapabilities(raw, snapshot);
@@ -440,8 +424,36 @@ namespace ww::exec
             &snapshot, outPlan);
     }
 
+    bool Executor::isTeleportAllowedCached(int32_t x, int32_t y, int32_t plane)
+    {
+        // Tile-level wilderness / no-tele lookups don't change at fractional
+        // movement, so a one-slot sticky cache keyed on (squareX, squareY,
+        // plane) skips the linear scan on every step inside a single
+        // walk-segment chunk. Cache miss falls through to the artifact-side
+        // scan.
+        constexpr int32_t kSquareShift = 6;
+        const int32_t sqX = x >> kSquareShift;
+        const int32_t sqY = y >> kSquareShift;
+        if (sqX == lastTeleSquareX && sqY == lastTeleSquareY && plane == lastTelePlane)
+        {
+            return lastTeleResult;
+        }
+        const bool result = runtime::isTeleportAllowed(*artifact, x, y, plane);
+        lastTeleSquareX = sqX;
+        lastTeleSquareY = sqY;
+        lastTelePlane = plane;
+        lastTeleResult = result;
+        return result;
+    }
+
     WwStatus Executor::run(WwGoal goal)
     {
+        // Sticky teleport-allowed cache starts cold for each run.
+        lastTeleSquareX = INT32_MIN;
+        lastTeleSquareY = INT32_MIN;
+        lastTelePlane = INT32_MIN;
+        lastTeleResult = false;
+
         WwTile position{ 0, 0, 0 };
         callbacks->readPosition(callbacks->user, &position);
         if (isInsideGoal(position, goal))
@@ -459,7 +471,8 @@ namespace ww::exec
         runtime::ContextLease lease = pool->acquire();
         runtime::SearchContext &context = *lease;
 
-        runtime::Plan plan;
+        // The plan member's vector grows once and is reused across re-plans
+        // — outPlan.steps.clear() inside the assembler keeps the capacity.
         if (!planFrom(position, goal, context, plan))
         {
             emit(WwEventKind::Failed);
@@ -478,8 +491,8 @@ namespace ww::exec
         // Snapshot the teleport-allowed predicate at the planner's anchor
         // position so the post-step check can detect a false→true flip and
         // re-plan with global teleports newly considerable (ADR 0009).
-        bool teleAllowedAtLastPlan = runtime::isTeleportAllowed(
-            *artifact, position.x, position.y, position.plane);
+        bool teleAllowedAtLastPlan = isTeleportAllowedCached(
+            position.x, position.y, position.plane);
 
         int32_t replansUsed         = 0;
         int32_t failedStepIndex     = -1;
@@ -554,8 +567,8 @@ namespace ww::exec
                     arrivedEmitted = true;
                     break;
                 }
-                teleAllowedAtLastPlan = runtime::isTeleportAllowed(
-                    *artifact, position.x, position.y, position.plane);
+                teleAllowedAtLastPlan = isTeleportAllowedCached(
+                    position.x, position.y, position.plane);
                 i = 0;
                 continue;
             }
@@ -570,8 +583,8 @@ namespace ww::exec
                 arrivedEmitted = true;
                 break;
             }
-            const bool teleAllowedNow = runtime::isTeleportAllowed(
-                *artifact, position.x, position.y, position.plane);
+            const bool teleAllowedNow = isTeleportAllowedCached(
+                position.x, position.y, position.plane);
             if (teleAllowedNow && !teleAllowedAtLastPlan && replansUsed < kMaxReplans)
             {
                 ++replansUsed;

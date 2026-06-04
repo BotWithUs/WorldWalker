@@ -110,6 +110,24 @@ namespace ww::format
             return {globalOriginIndices.data(), globalOriginIndices.size()};
         }
 
+        // Distinct ids referenced by any RequirementRecord of any transition.
+        // The executor reads the live varbit value and item count for each id
+        // on every (re-)plan so requirement-gated teleports can be admitted on
+        // mid-walk state changes (an item picked up, a lodestone newly
+        // unlocked). The lists are rebuilt in lockstep with the requirement
+        // pool whenever the transition table changes (decodeTransitions /
+        // appendTransitions / truncateToBaked), so the Executor can borrow
+        // these spans without rescanning the pool on every ww_executor_run.
+        std::span<const int32_t> requirementVarbitIds() const
+        {
+            return {requirementVarbitIdList.data(), requirementVarbitIdList.size()};
+        }
+
+        std::span<const int32_t> requirementItemIds() const
+        {
+            return {requirementItemIdList.data(), requirementItemIdList.size()};
+        }
+
         // ---- Runtime teleports (appended after bake) ------------------------
         // Global teleports (spell + lodestone) are loaded from editable JSON at
         // runtime and appended onto the baked transition / requirement / chain
@@ -156,6 +174,20 @@ namespace ww::format
         // Decompress one (square, plane) area-id grid into outIds (resized to
         // kClipSize*kClipSize). Returns false if absent; throws on a corrupt blob.
         bool decompressGrid(int squareX, int squareY, int plane, std::vector<int32_t> &outIds) const;
+
+        // Indices into areaEdges() of every baked area edge whose underlying
+        // TransitionRecord's destination tile falls inside the (squareX,
+        // squareY) map square on `destPlane`, and whose transition is NOT
+        // global-origin. PathAssembler's near-goal-exit scan enumerates the
+        // 3x3 squares around the goal and concatenates these buckets, turning
+        // a per-query O(areaEdges) sweep (~14k entries) into O(matching ~tens).
+        //
+        // Stable for the artifact's life: only baked edges reference baked
+        // transitions, and runtime-appended teleports (appendTransitions) are
+        // global-origin and therefore excluded by construction.
+        std::span<const uint32_t> nearGoalEdgeBucket(int destPlane,
+                                                     int destSquareX,
+                                                     int destSquareY) const;
 
         // ---- ALT landmarks --------------------------------------------------
         bool hasAltLandmarks() const
@@ -232,6 +264,18 @@ namespace ww::format
         // appendTransitions, truncateToBaked).
         void rebuildGlobalOriginIndex();
 
+        // Rescan requirementPool and rebuild the distinct varbit / item id
+        // lists. Called after any change to the requirement pool — same
+        // entry points as rebuildGlobalOriginIndex.
+        void rebuildRequirementIdLists();
+
+        // Build the near-goal edge bucket index from the baked area edges +
+        // baked transition table. Called once at end of construction, after
+        // both abstraction and transitions sections have been decoded; the
+        // bucket is then immutable for the artifact's life (runtime appends
+        // never affect it — see nearGoalEdgeBucket()).
+        void buildNearGoalEdgeBuckets();
+
         std::vector<uint8_t> bytes;
         ArtifactInfo metadata{};
         std::array<bool, 8> sectionPresent{};
@@ -247,6 +291,13 @@ namespace ww::format
         // in lockstep with transitionTable via rebuildGlobalOriginIndex
         // (called after decode and any append/truncate).
         std::vector<uint32_t> globalOriginIndices;
+        // Distinct varbit / item ids referenced by any requirement record in
+        // the pool. Kept in lockstep with requirementPool via
+        // rebuildRequirementIdLists. The Executor reads each per re-plan, so
+        // a per-run rescan would otherwise cost an O(requirements) sweep on
+        // every ww_executor_run call.
+        std::vector<int32_t> requirementVarbitIdList;
+        std::vector<int32_t> requirementItemIdList;
         // Baked prefix lengths, captured after decodeTransitions; runtime
         // teleport appends sit past these and truncateToBaked() rewinds to them.
         std::size_t bakedTransitionCount{};
@@ -258,6 +309,15 @@ namespace ww::format
         std::vector<AreaGridEntry> areaGridTable;
         std::unordered_map<uint32_t, std::size_t> areaGridIndex;
         uint64_t abstractionSectionOffset{};
+
+        // CSR-style index of area edges grouped by their underlying
+        // transition's destination (destPlane, destSquareX, destSquareY).
+        // nearGoalBucketFirst has size (kClipPlanes * kSquaresPerAxis^2) + 1
+        // (the +1 is a sentinel; bucket k's edges live in [first[k], first[k+1])).
+        // nearGoalBucketEdges holds those edge indices in bucket order.
+        // Built once by buildNearGoalEdgeBuckets() at end of construction.
+        std::vector<uint32_t> nearGoalBucketFirst;
+        std::vector<uint32_t> nearGoalBucketEdges;
 
         std::vector<int32_t> landmarkAreaList;
         std::vector<float> fromLandmarkData;

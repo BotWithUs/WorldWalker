@@ -45,12 +45,6 @@ namespace ww::runtime
             }
         };
 
-        uint64_t tileKey(int32_t x, int32_t y)
-        {
-            return (static_cast<uint64_t>(static_cast<uint32_t>(x)) << 32)
-                 | static_cast<uint64_t>(static_cast<uint32_t>(y));
-        }
-
         // Octile distance: admissible and consistent for the cardinal-1 /
         // diagonal-sqrt(2) cost metric the search uses.
         float heuristic(int32_t x1, int32_t y1, int32_t x2, int32_t y2)
@@ -114,12 +108,14 @@ namespace ww::runtime
     }
 
     void TileSearch::enqueueNeighbor(int32_t curIndex, float curG, int32_t nx, int32_t ny,
-                                     float stepCost, int32_t goalX, int32_t goalY)
+                                     float stepCost, int32_t goalX, int32_t goalY, int32_t plane)
     {
-        const uint64_t key = tileKey(nx, ny);
         // Expand-time visited check prevents redundant heap entries for tiles
         // that are already settled. Lazy-pop handles in-flight duplicates.
-        if (visited.count(key) != 0u)
+        // Phase 2: epoch-stamped grid on WorldView replaces the std::unordered_set
+        // — same two-check structure (expand-time skip + pop-time skip) so heap
+        // push order and A* tie-breaking are unchanged.
+        if (view->isTileClosed(nx, ny, plane, visitedEpoch))
         {
             return;
         }
@@ -170,7 +166,7 @@ namespace ww::runtime
                     continue;
                 }
                 enqueueNeighbor(curIndex, cur.g, cardNx[ci], cardNy[ci],
-                                kStepCost[dir], goalX, goalY);
+                                kStepCost[dir], goalX, goalY, plane);
             }
             else
             {
@@ -185,7 +181,7 @@ namespace ww::runtime
                 {
                     continue;
                 }
-                enqueueNeighbor(curIndex, cur.g, nx, ny, kStepCost[dir], goalX, goalY);
+                enqueueNeighbor(curIndex, cur.g, nx, ny, kStepCost[dir], goalX, goalY, plane);
             }
         }
     }
@@ -220,7 +216,10 @@ namespace ww::runtime
 
         nodes.clear();
         openHeap.clear();
-        visited.clear();
+        // Phase 2: bump the WorldView's tile-search epoch instead of wiping a
+        // hash set. The new epoch is what isTileClosed / markTileClosed test
+        // against; the actual stamp memory survives across findPath calls.
+        visitedEpoch = view->beginTileSearch();
         nodes.push_back({startX, startY, 0.0f, -1});
         openHeap.push_back({heuristic(startX, startY, goalX, goalY), 0});
 
@@ -236,10 +235,14 @@ namespace ww::runtime
                 reconstruct(curIndex, outPath);
                 return true;
             }
-            if (!visited.insert(tileKey(cur.x, cur.y)).second)
+            // Pop-time closed check: catches in-flight heap duplicates that
+            // were enqueued before the tile was settled. Mirrors the prior
+            // visited.insert(...).second pattern with an epoch-stamp grid.
+            if (view->isTileClosed(cur.x, cur.y, plane, visitedEpoch))
             {
                 continue;
             }
+            view->markTileClosed(cur.x, cur.y, plane, visitedEpoch);
             --budget;
             expand(curIndex, goalX, goalY, plane, areaConstraint);
         }

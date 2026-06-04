@@ -484,36 +484,45 @@ namespace ww::runtime
         // plane. The teleport-landing loop tries each as an alternative second
         // hop, sidestepping AreaSearch's area-cost-only ordering when a longer
         // chain has a much shorter intra-area walk. Cleared on every assemble
-        // since the radius is goal-dependent. Cheap: one pass over the edge
-        // span, a few comparisons per edge. Each surviving entry also caches
+        // since the radius is goal-dependent. Each surviving entry caches
         // fromArea (skips the inner loop's edge re-deref) and a closing
         // lower-bound (E.cost + octile(T.dest, goal)) used to prune the
         // per-(seed, edge) pair before any A* work.
+        //
+        // Bucketed lookup: ArtifactReader::nearGoalEdgeBucket pre-groups
+        // baked edges by (destPlane, destSquareX, destSquareY), so the scan
+        // visits only the 3x3 squares within kNearGoalRadius (24 tiles, less
+        // than one square width) of the goal instead of every baked edge.
         nearGoalEdgeScratch.clear();
         {
             const std::span<const format::TransitionRecord> txsScan = artifact->transitions();
             const std::span<const format::AreaEdgeRecord> edgesScan = artifact->areaEdges();
-            for (std::size_t i = 0; i < edgesScan.size(); ++i)
+            const int goalSquareX = goalX >> 6;
+            const int goalSquareY = goalY >> 6;
+            // Square half-width covering kNearGoalRadius=24: with a 64-tile
+            // mapsquare, the dest can sit at most one square away (worst case
+            // when the goal hugs its own square's edge). 3x3 grid scan.
+            constexpr int kSquareRadius = 1;
+            for (int dsy = -kSquareRadius; dsy <= kSquareRadius; ++dsy)
             {
-                const format::AreaEdgeRecord &E = edgesScan[i];
-                if (E.transitionIndex >= txsScan.size())
+                for (int dsx = -kSquareRadius; dsx <= kSquareRadius; ++dsx)
                 {
-                    continue;
-                }
-                const format::TransitionRecord &T = txsScan[E.transitionIndex];
-                // Global-origin transitions are seeded separately and produce
-                // no fromArea-keyed AreaEdge in practice; skip defensively so a
-                // stray flagged record cannot be replayed here as a baked hop.
-                if ((T.flags & format::kTransitionFlagGlobalOrigin) != 0u)
-                {
-                    continue;
-                }
-                if (isNearGoalExit(T, goalX, goalY, goalPlane))
-                {
-                    const float closingBound = E.cost
-                        + octileDistance(T.destX - goalX, T.destY - goalY);
-                    nearGoalEdgeScratch.push_back({static_cast<int32_t>(i),
-                                                   E.fromArea, closingBound});
+                    const std::span<const uint32_t> bucket =
+                        artifact->nearGoalEdgeBucket(goalPlane,
+                                                     goalSquareX + dsx,
+                                                     goalSquareY + dsy);
+                    for (uint32_t edgeIdx : bucket)
+                    {
+                        const format::AreaEdgeRecord &E = edgesScan[edgeIdx];
+                        const format::TransitionRecord &T = txsScan[E.transitionIndex];
+                        if (isNearGoalExit(T, goalX, goalY, goalPlane))
+                        {
+                            const float closingBound = E.cost
+                                + octileDistance(T.destX - goalX, T.destY - goalY);
+                            nearGoalEdgeScratch.push_back({static_cast<int32_t>(edgeIdx),
+                                                           E.fromArea, closingBound});
+                        }
+                    }
                 }
             }
         }

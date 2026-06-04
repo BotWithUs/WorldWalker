@@ -5,7 +5,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <unordered_set>
 #include <vector>
 
 namespace ww::runtime
@@ -97,7 +96,7 @@ namespace ww::runtime
         // settled. Used by expand() to share the heap-push body between
         // cardinals and diagonals.
         void enqueueNeighbor(int32_t curIndex, float curG, int32_t nx, int32_t ny,
-                             float stepCost, int32_t goalX, int32_t goalY);
+                             float stepCost, int32_t goalX, int32_t goalY, int32_t plane);
 
         void expand(int32_t curIndex, int32_t goalX, int32_t goalY, int32_t plane, int32_t areaConstraint);
         void reconstruct(int32_t endIndex, TilePath &outPath) const;
@@ -105,7 +104,13 @@ namespace ww::runtime
         WorldView *view;
         std::vector<Node> nodes;                 // node arena (scratch)
         std::vector<OpenTile> openHeap;          // binary min-heap of open node indices (scratch)
-        std::unordered_set<uint64_t> visited;    // settled tiles, packed (x,y) (closed set, scratch)
+        // Phase 2: the closed set is now an epoch-stamped grid backed by
+        // WorldView (per-(square, plane) uint32 stamps). The epoch is bumped
+        // at the top of each findPath via view.beginTileSearch() so prior
+        // marks read as stale without wiping anything. visitedEpoch holds
+        // the current value for this findPath; isTileClosed / markTileClosed
+        // on WorldView use it as the comparison key.
+        uint32_t visitedEpoch{0};
     };
 }
 

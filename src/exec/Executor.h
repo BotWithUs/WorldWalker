@@ -3,10 +3,12 @@
 
 #include "exec/Callbacks.h"
 #include "format/ArtifactReader.h"
+#include "runtime/CapabilitySnapshot.h"
 #include "runtime/ContextPool.h"
+#include "runtime/PathAssembler.h"
 
 #include <cstdint>
-#include <vector>
+#include <span>
 
 namespace ww::format
 {
@@ -17,8 +19,6 @@ namespace ww::format
 namespace ww::runtime
 {
     struct Step;
-    struct Plan;
-    class CapabilitySnapshot;
     struct SearchContext;
 }
 
@@ -90,10 +90,12 @@ namespace ww::exec
         // for a Plan from `start` to `goal` on the borrowed context. Returns
         // false when the planner cannot reach the goal (outPlan left empty by
         // the assembler); an empty-on-true plan means "already at goal at the
-        // area level". The snapshot is built on every call so mid-walk
-        // skill / item / varbit changes take effect at the next re-plan.
+        // area level". The snapshot is cleared then rebuilt on every call so
+        // mid-walk skill / item / varbit changes take effect at the next
+        // re-plan, but its (and outPlan's) backing storage is reused across
+        // calls via the Executor's members.
         bool planFrom(const WwTile &start, const WwGoal &goal,
-                      runtime::SearchContext &context, runtime::Plan &outPlan) const;
+                      runtime::SearchContext &context, runtime::Plan &outPlan);
 
         // Copy the wire-shape entries from `src` into `dst`. Each id/value
         // pair becomes a setSkillLevel / setItemCount / setVarbit / setVarp
@@ -157,24 +159,38 @@ namespace ww::exec
         runtime::ContextPool *pool;
         const Callbacks *callbacks;
 
-        // Distinct varbit ids referenced by any transition requirement (e.g.
-        // lodestone-unlock varbits like 35 for Lumbridge). Collected once at
-        // construction; planFrom() reads each via the readVarbit callback on
-        // every (re-)plan and writes the live values into the capability
-        // snapshot, so a teleport gated on an unlock varbit is admitted only
-        // when the player has actually unlocked it. Without this the snapshot
-        // from readCapability is empty, every varbit reads 0, and every
-        // varbit-gated teleport is rejected — the planner then only ever walks.
-        std::vector<int32_t> requirementVarbitIds;
+        // Distinct varbit / item ids referenced by any transition requirement.
+        // Built once on the artifact (ArtifactReader::rebuildRequirementIdLists)
+        // and borrowed here; planFrom() reads each via the readVarbit /
+        // readItemCount callbacks on every (re-)plan and writes the live values
+        // into the capability snapshot. Without this a varbit-gated teleport
+        // (e.g. a lodestone-unlock varbit) would always read 0 from the
+        // capability snapshot and be rejected — the planner then only ever
+        // walks. Borrowed, not owned: the spans alias storage on the artifact
+        // that outlives the Executor.
+        std::span<const int32_t> requirementVarbitIds;
+        std::span<const int32_t> requirementItemIds;
 
-        // Distinct item ids referenced by any transition requirement (e.g. the
-        // dungeoneering cape 34295 an item-teleport demands). Same rationale as
-        // requirementVarbitIds: planFrom() reads each via readItemCount on every
-        // (re-)plan so an item-gated teleport is admitted only when the player
-        // actually holds the item. readCapability cannot surface these — it does
-        // not know which item ids matter — so an unpopulated snapshot would
-        // reject every item-teleport and force a walk / lodestone.
-        std::vector<int32_t> requirementItemIds;
+        // Reused per (re-)plan so consecutive plans share their backing
+        // storage. CapabilitySnapshot has its own clear() that preserves
+        // vector capacity; Plan's steps vector grows once and is then reused
+        // across stuck-recovery re-plans within one ww_executor_run.
+        runtime::CapabilitySnapshot snapshot;
+        runtime::Plan plan;
+
+        // Phase 7: sticky one-slot cache for the per-step
+        // isTeleportAllowed check. The post-step flip detection in run()
+        // would otherwise re-scan the wilderness + no-tele zone lists on
+        // every walk step. Hit rate is ~99% inside a walk segment (the
+        // player rarely crosses a zone boundary between adjacent
+        // waypoints); on a miss, the slow path runs and refills the slot.
+        // Cleared at the top of run() so each ww_executor_run starts cold.
+        int32_t lastTeleSquareX{INT32_MIN};
+        int32_t lastTeleSquareY{INT32_MIN};
+        int32_t lastTelePlane{INT32_MIN};
+        bool    lastTeleResult{false};
+
+        bool isTeleportAllowedCached(int32_t x, int32_t y, int32_t plane);
     };
 }
 

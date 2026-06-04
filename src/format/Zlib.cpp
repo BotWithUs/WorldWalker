@@ -35,22 +35,28 @@ namespace ww::format
 
     std::vector<uint8_t> zlibDecompress(const uint8_t *input, std::size_t size, std::size_t rawSize)
     {
+        std::vector<uint8_t> out(rawSize);
+        zlibDecompressInto(input, size, out.data(), rawSize);
+        return out;
+    }
+
+    void zlibDecompressInto(const uint8_t *input, std::size_t size,
+                            uint8_t *output, std::size_t rawSize)
+    {
         if (size > std::numeric_limits<uLong>::max() || rawSize > std::numeric_limits<uLong>::max())
         {
-            throw std::runtime_error("zlibDecompress: size too large for zlib");
+            throw std::runtime_error("zlibDecompressInto: size too large for zlib");
         }
-        std::vector<uint8_t> out(rawSize);
         uLongf produced = static_cast<uLongf>(rawSize);
-        int rc = ::uncompress(out.data(), &produced, input, static_cast<uLong>(size));
+        int rc = ::uncompress(output, &produced, input, static_cast<uLong>(size));
         if (rc != Z_OK)
         {
-            fail("zlibDecompress", rc);
+            fail("zlibDecompressInto", rc);
         }
         if (produced != rawSize)
         {
-            throw std::runtime_error("zlibDecompress: produced " + std::to_string(produced)
+            throw std::runtime_error("zlibDecompressInto: produced " + std::to_string(produced)
                                      + " bytes, expected " + std::to_string(rawSize));
         }
-        return out;
     }
 }

@@ -19,6 +19,15 @@ namespace ww::format
     // Decompress a zlib stream into exactly `rawSize` bytes. Throws
     // std::runtime_error on a zlib error or a size mismatch.
     std::vector<uint8_t> zlibDecompress(const uint8_t *input, std::size_t size, std::size_t rawSize);
+
+    // Decompress a zlib stream directly into the caller's output buffer
+    // (already sized to at least `rawSize`). Saves the throwaway
+    // vector<uint8_t> + memcpy of the vector-returning overload, which
+    // matters when the destination is a typed POD array (clip words, area
+    // ids, ALT tables) — the on-demand decompressors call this on every
+    // WorldView square / area-grid miss. Throws on zlib error or size mismatch.
+    void zlibDecompressInto(const uint8_t *input, std::size_t size,
+                            uint8_t *output, std::size_t rawSize);
 }
 
 #endif  // WORLDWALKER_FORMAT_ZLIB_H
