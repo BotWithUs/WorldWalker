@@ -134,6 +134,13 @@ namespace ww::data
             {
                 ++report.snappedDest;
             }
+            // Re-check after the snap: a dest snapped onto a walkable origin
+            // tile is the same degenerate edge the pre-snap check drops.
+            if (!t.isGlobalOrigin
+                && t.originX == t.destX && t.originY == t.destY && t.originPlane == t.destPlane)
+            {
+                return Outcome::SelfLoop;
+            }
             return Outcome::Kept;
         }
 

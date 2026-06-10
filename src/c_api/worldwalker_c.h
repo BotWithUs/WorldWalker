@@ -168,9 +168,12 @@ typedef struct WwCapabilityEntry
 } WwCapabilityEntry;
 
 /* Per-re-plan capability snapshot, pulled live through readCapability. Each
-   run is a pointer + count borrowed from the host; the executor copies the
-   entries it needs into a runtime::CapabilitySnapshot, then returns from
-   the callback (after which the runs may be reused / freed by the host). */
+   run is a pointer + count borrowed from the host. NOTE the ordering: the
+   readCapability callback returns FIRST, and only then does the executor copy
+   the entries it needs into a runtime::CapabilitySnapshot — so the arrays must
+   stay valid past the callback's return, until the executor invokes the next
+   callback on this run (the copy provably precedes any further call). A
+   host arena freed when the upcall returns is NOT safe backing storage. */
 typedef struct WwCapabilitySnapshot
 {
     const WwCapabilityEntry *skills;
@@ -188,25 +191,34 @@ typedef struct WwCapabilitySnapshot
 /* Reads — pulled live by the executor; must be cheap and side-effect-free. */
 typedef void    (*WwReadPositionFn)(void *user, WwTile *outTile);
 typedef void    (*WwReadCapabilityFn)(void *user, WwCapabilitySnapshot *outSnapshot);
+/* RESERVED — the executor currently has no call site for the scalar varbit
+   read (the batched readVarbits below replaced it at plan entry). The slot
+   stays for ABI stability and may be NULL. */
 typedef int32_t (*WwReadVarbitFn)(void *user, int32_t id);
 /* Live count of item `itemId` the player holds (worn + carried), used to gate
-   item-requirement teleports. Mirrors readVarbit: the executor pulls only the
-   ids that some requirement references, since readCapability cannot know which
-   items matter. Return 0 when absent. */
+   item-requirement teleports. The executor pulls only the ids that some
+   requirement references, since readCapability cannot know which items matter.
+   Return 0 when absent. */
 typedef int32_t (*WwReadItemCountFn)(void *user, int32_t itemId);
 /* Batched variants used at (re-)plan entry, where the executor pulls every id
-   referenced by any transition requirement. The scalar readVarbit / readItemCount
-   above remain for one-shot callsites (e.g. dispatchClickItem). `ids` is a
-   contiguous run of `count` ids; the host must write exactly `count` int32_t
-   results into `outValues` in the same order (sentinel 0 for "not present").
-   Batching collapses 25-30 sequential pipe round-trips per plan into one or two
-   host-side calls, which is the dominant cost in pre-walk latency. */
+   referenced by any transition requirement. The scalar readItemCount above
+   remains for one-shot callsites (dispatchClickItem resolves the carried
+   teleport item with it). `ids` is a contiguous run of `count` ids; the host
+   must write exactly `count` int32_t results into `outValues` in the same
+   order (sentinel 0 for "not present"). Batching collapses 25-30 sequential
+   pipe round-trips per plan into one or two host-side calls, which is the
+   dominant cost in pre-walk latency. */
 typedef void (*WwReadVarbitsFn)(void *user, const int32_t *ids, size_t count, int32_t *outValues);
 typedef void (*WwReadItemCountsFn)(void *user, const int32_t *ids, size_t count, int32_t *outValues);
 /* Whether item `itemId` is currently worn (equipped), as opposed to carried in
    the backpack. Used to pick the worn-vs-backpack variant of a ClickItem chain
    step. Return non-zero if worn. */
 typedef int32_t (*WwIsItemWornFn)(void *user, int32_t itemId);
+/* Whether interface `interfaceId` is currently mounted in the engine's
+   open-subs hashmap — the canonical "this interface is open right now" signal.
+   The chain executor polls this between a click-that-opens-a-dialog and the
+   click-inside-that-dialog so the second click only fires once the dialog has
+   actually appeared. Return non-zero when open. */
 typedef int32_t (*WwIsInterfaceOpenFn)(void *user, int32_t interfaceId);
 
 /* Actions — fire-and-forget; the executor sequences them with sleepTicks
@@ -247,10 +259,11 @@ typedef int32_t (*WwShouldCancelFn)(void *user);
    thread; must not retain the WwEvent pointer past the callback return. */
 typedef void (*WwOnEventFn)(void *user, const WwEvent *event);
 
-/* Consumer-supplied callback vtable. Every non-NULL function pointer is
-   required; onEvent may be NULL. `user` is an opaque cookie threaded into
-   every call. The executor never copies these fields — the vtable must
-   outlive the ww_executor_run call. */
+/* Consumer-supplied callback vtable. Every function pointer is required
+   except onEvent (optional) and readVarbit (reserved, currently uncalled);
+   ww_executor_run validates the required set and fails clean on a NULL.
+   `user` is an opaque cookie threaded into every call. The executor never
+   copies these fields — the vtable must outlive the ww_executor_run call. */
 typedef struct WwCallbacks
 {
     void *user;

@@ -16,6 +16,7 @@ namespace ww::data
         std::size_t pairsFound{};             // columns flagged as plane-change on both p and p+1
         std::size_t emitted{};                // candidate transitions before conflict filtering (2 per pair)
         std::size_t droppedDatasetConflict{}; // candidates suppressed because a dataset transition shares the origin
+        std::size_t droppedClimbMismatch{};   // candidates whose loc climbs the other way (e.g. up-only on a down edge)
         std::size_t kept{};                   // transitions returned
     };
 

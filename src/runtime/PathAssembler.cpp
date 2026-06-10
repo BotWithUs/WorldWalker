@@ -377,6 +377,21 @@ namespace ww::runtime
         }
         const format::TransitionRecord &T = txs[edge.transitionIndex];
 
+        // The seed's transition was requirement-gated upstream, but this exit
+        // edge's was not: the near-goal scan filters on geometry only. Gate it
+        // here like every other crossing — a skill-gated shortcut the snapshot
+        // rejects must not ride into the plan via the chained alternative (the
+        // executor would fail it, and every re-plan would rebuild it).
+        const std::span<const format::RequirementRecord> reqs = artifact->requirements();
+        const uint64_t reqEnd = static_cast<uint64_t>(T.requirementStart) + T.requirementCount;
+        if (reqEnd > reqs.size()
+            || !meetsRequirements(capabilities,
+                                  reqs.subspan(T.requirementStart, T.requirementCount),
+                                  static_cast<data::TransitionKind>(T.kind)))
+        {
+            return false;
+        }
+
         outAlt.steps.clear();
         outAlt.cost = 0.0f;
 

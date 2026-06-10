@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -57,6 +58,21 @@ namespace ww::data
             }
         }
 
+        // Narrow a validated-integer JSON value to int, failing loud when it
+        // does not fit (nlohmann's get<int> silently truncates wider values,
+        // which is at odds with the loader's fail-loud philosophy).
+        int narrowJsonInt(const json &v, const char *context)
+        {
+            const int64_t wide = v.get<int64_t>();
+            if (wide < std::numeric_limits<int>::min()
+                || wide > std::numeric_limits<int>::max())
+            {
+                throw std::runtime_error(std::string(context)
+                                         + ": integer value out of int range");
+            }
+            return static_cast<int>(wide);
+        }
+
         // Required-field reader. Loudly fails the build on missing or
         // non-integer fields rather than letting `value(key, 0)` quietly
         // invent a transition rooted at tile (0, 0, 0). Missed fields are
@@ -77,7 +93,7 @@ namespace ww::data
                                          + ": field '" + key
                                          + "' must be an integer");
             }
-            return v.get<int>();
+            return narrowJsonInt(v, context);
         }
 
         // Optional-field reader that still enforces integer typing when
@@ -98,7 +114,7 @@ namespace ww::data
                                          + ": field '" + key
                                          + "' must be an integer if present");
             }
-            return v.get<int>();
+            return narrowJsonInt(v, context);
         }
 
         // Read element i of a JSON array as an int, or `dflt` when the array is
@@ -113,7 +129,41 @@ namespace ww::data
             {
                 throw std::runtime_error(std::string(what) + " must be an integer");
             }
-            return arr[i].get<int>();
+            return narrowJsonInt(arr[i], what);
+        }
+
+        // Upper bound for any data-driven wait, in game ticks (~30s of game
+        // time). Waits come from scripter-editable JSON; a fat-fingered value
+        // should fail the load, not stall the executor mid-run.
+        constexpr int kMaxWaitTicks = 50;
+
+        int readWaitTicks(const json &node, const char *key, int defaultValue,
+                          const char *context)
+        {
+            const int ticks = readOptionalInt(node, key, defaultValue, context);
+            if (ticks < 0 || ticks > kMaxWaitTicks)
+            {
+                throw std::runtime_error(std::string(context)
+                                         + ": wait ticks out of range [0, "
+                                         + std::to_string(kMaxWaitTicks) + "]");
+            }
+            return ticks;
+        }
+
+        // Pack (interface, component) into the COMPONENT action's param3.
+        // Validated so a negative component cannot sign-extend over the
+        // interface id and an oversized interface cannot overflow the packed
+        // int (the executor unpacks the interface as param3 >> 16, so the
+        // packed value must stay non-negative).
+        int packIfaceComp(int iface, int comp, const char *context)
+        {
+            if (iface < 0 || iface > 0x7FFF || comp < 0 || comp > 0xFFFF)
+            {
+                throw std::runtime_error(std::string(context)
+                                         + ": interface/component out of packing range");
+            }
+            return static_cast<int>((static_cast<uint32_t>(iface) << 16)
+                                    | static_cast<uint32_t>(comp));
         }
 
         // Host action id for an interface-component interaction. Must match
@@ -127,26 +177,29 @@ namespace ww::data
             {
                 return;
             }
+            // `id` is required on every gate: a requirement without one is
+            // meaningless, and the silent -1 default used to flow through to
+            // the executor as a varbit / item probe of id -1.
             const json &req = node.at("requirements");
             if (req.contains("skill") && req.at("skill").is_object())
             {
                 const json &s = req.at("skill");
                 out.push_back({RequirementKind::Skill,
-                               readOptionalInt(s, "id", -1, "requirements.skill"),
+                               readRequiredInt(s, "id", "requirements.skill"),
                                readOptionalInt(s, "level", 0, "requirements.skill")});
             }
             if (req.contains("varbit") && req.at("varbit").is_object())
             {
                 const json &v = req.at("varbit");
                 out.push_back({RequirementKind::Varbit,
-                               readOptionalInt(v, "id", -1, "requirements.varbit"),
+                               readRequiredInt(v, "id", "requirements.varbit"),
                                readOptionalInt(v, "value", 0, "requirements.varbit")});
             }
             if (req.contains("varp") && req.at("varp").is_object())
             {
                 const json &v = req.at("varp");
                 out.push_back({RequirementKind::Varp,
-                               readOptionalInt(v, "id", -1, "requirements.varp"),
+                               readRequiredInt(v, "id", "requirements.varp"),
                                readOptionalInt(v, "value", 0, "requirements.varp")});
             }
             if (req.contains("items") && req.at("items").is_array())
@@ -154,7 +207,7 @@ namespace ww::data
                 for (const json &it : req.at("items"))
                 {
                     out.push_back({RequirementKind::Item,
-                                   readOptionalInt(it, "id", -1, "requirements.item"),
+                                   readRequiredInt(it, "id", "requirements.item"),
                                    readOptionalInt(it, "count", 1, "requirements.item")});
                 }
             }
@@ -172,19 +225,30 @@ namespace ww::data
                 {
                     // Component-click shorthand [interface, component, option, sub?]
                     // -> generic COMPONENT action: param1=option, param2=sub (-1
-                    // when absent), param3=(iface<<16)|comp.
+                    // when absent), param3=(iface<<16)|comp. The first two
+                    // elements are required — a short array used to default
+                    // them to 0 and bake a chain that clicks interface 0.
                     const json &c = step.at("click");
+                    if (c.size() < 2)
+                    {
+                        throw std::runtime_error(
+                            "chain.click needs at least [interface, component]");
+                    }
                     const int iface  = arrInt(c, 0, 0,  "chain.click[0]");
                     const int comp   = arrInt(c, 1, 0,  "chain.click[1]");
                     const int option = arrInt(c, 2, 0,  "chain.click[2]");
                     const int sub    = arrInt(c, 3, -1, "chain.click[3]");
                     out.push_back({ChainStepKind::Click, kComponentActionId, option, sub,
-                                   (iface << 16) | comp});
+                                   packIfaceComp(iface, comp, "chain.click")});
                 }
                 else if (step.contains("action") && step.at("action").is_array())
                 {
                     // Raw queued action [actionId, param1, param2, param3].
                     const json &a = step.at("action");
+                    if (a.empty())
+                    {
+                        throw std::runtime_error("chain.action needs at least [actionId]");
+                    }
                     out.push_back({ChainStepKind::Click,
                                    arrInt(a, 0, 0, "chain.action[0]"),
                                    arrInt(a, 1, 0, "chain.action[1]"),
@@ -194,7 +258,7 @@ namespace ww::data
                 else if (step.contains("wait"))
                 {
                     out.push_back({ChainStepKind::Wait,
-                                   readOptionalInt(step, "wait", 0, "chain.wait"),
+                                   readWaitTicks(step, "wait", 0, "chain.wait"),
                                    0, 0, 0, 0, 0, 0, 0, 0});
                 }
                 else if (step.contains("wait_interface"))
@@ -216,7 +280,7 @@ namespace ww::data
                                    readOptionalInt(ds, "index", 0, "chain.dialogue_select.index"),
                                    readOptionalInt(ds, "per_page", 9, "chain.dialogue_select.per_page"),
                                    readOptionalInt(ds, "next_comp", 44, "chain.dialogue_select.next_comp"),
-                                   readOptionalInt(ds, "wait_ticks", 3, "chain.dialogue_select.wait_ticks"),
+                                   readWaitTicks(ds, "wait_ticks", 3, "chain.dialogue_select.wait_ticks"),
                                    0, 0, 0, 0});
                 }
                 else if (step.contains("click_item") && step.at("click_item").is_object())
@@ -230,6 +294,13 @@ namespace ww::data
                     const json &ci = step.at("click_item");
                     const json &w = ci.contains("worn") ? ci.at("worn") : json::array();
                     const json &b = ci.contains("backpack") ? ci.at("backpack") : json::array();
+                    // Absent = "variant not available"; a present-but-short
+                    // array is a typo that would bake a click on interface 0.
+                    if ((!w.empty() && w.size() < 2) || (!b.empty() && b.size() < 2))
+                    {
+                        throw std::runtime_error(
+                            "chain.click_item worn/backpack need at least [interface, component]");
+                    }
                     const int special = ci.value("backpack_special", false) ? 1 : 0;
                     out.push_back({ChainStepKind::ClickItem,
                                    arrInt(w, 0, 0, "chain.click_item.worn[0]"),
@@ -356,15 +427,17 @@ namespace ww::data
 
         LodestoneConfig readLodestoneConfig(const json &cfg)
         {
+            // The interfaces/components are required: defaulting them to 0
+            // used to bake a network of chains that all click interface 0.
             LodestoneConfig c;
-            c.openInterface = readOptionalInt(cfg, "open_interface", 0, "lodestones.config");
-            c.openComponent = readOptionalInt(cfg, "open_component", 0, "lodestones.config");
+            c.openInterface = readRequiredInt(cfg, "open_interface", "lodestones.config");
+            c.openComponent = readRequiredInt(cfg, "open_component", "lodestones.config");
             c.openOption = readOptionalInt(cfg, "open_option", 1, "lodestones.config");
-            c.selectInterface = readOptionalInt(cfg, "select_interface", 0, "lodestones.config");
+            c.selectInterface = readRequiredInt(cfg, "select_interface", "lodestones.config");
             c.selectOption = readOptionalInt(cfg, "select_option", 1, "lodestones.config");
             c.selectSub = readOptionalInt(cfg, "select_sub_component", -1, "lodestones.config");
-            c.openWait = readOptionalInt(cfg, "open_wait", 0, "lodestones.config");
-            c.teleportWait = readOptionalInt(cfg, "teleport_wait", 0, "lodestones.config");
+            c.openWait = readWaitTicks(cfg, "open_wait", 0, "lodestones.config");
+            c.teleportWait = readWaitTicks(cfg, "teleport_wait", 0, "lodestones.config");
             return c;
         }
 
@@ -373,12 +446,12 @@ namespace ww::data
         {
             // Open the lodestone map: click the ribbon/HUD component (no sub).
             out.push_back({ChainStepKind::Click, kComponentActionId, c.openOption, -1,
-                           (c.openInterface << 16) | c.openComponent});
+                           packIfaceComp(c.openInterface, c.openComponent, "lodestones.config")});
             out.push_back({ChainStepKind::Wait, c.openWait, 0, 0, 0});
             // Select the destination lodestone in the map. Some chains target a
             // sub-component of the select component (selectSub); -1 = none.
             out.push_back({ChainStepKind::Click, kComponentActionId, c.selectOption, selectSub,
-                           (c.selectInterface << 16) | component});
+                           packIfaceComp(c.selectInterface, component, "lodestones.destination")});
             out.push_back({ChainStepKind::Wait, c.teleportWait, 0, 0, 0});
         }
 
@@ -405,7 +478,10 @@ namespace ww::data
                 t.destPlane = static_cast<uint8_t>(
                     readRequiredInt(d, "plane", "lodestones.destination"));
                 parseRequirements(d, t.requirements);
-                const int comp = readOptionalInt(d, "component", 0, "lodestones.destination");
+                // Required: a destination without its map component used to
+                // default to component 0 and bake a teleport that clicks the
+                // wrong widget while the planner sees a perfectly valid edge.
+                const int comp = readRequiredInt(d, "component", "lodestones.destination");
                 const int sub =
                     readOptionalInt(d, "sub_component", cfg.selectSub, "lodestones.destination");
                 buildLodestoneChain(cfg, comp, sub, t.chain);

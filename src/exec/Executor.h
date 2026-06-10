@@ -115,8 +115,10 @@ namespace ww::exec
         // arrivalRadius is the Chebyshev distance at which the step counts as
         // done: run() passes the wider kHandoffChebyshev when another Walk
         // follows (so the next click fires while the avatar is still moving,
-        // instead of stopping on each waypoint) and the tight kArrivalChebyshev
-        // when the next action needs the avatar on an exact tile.
+        // instead of stopping on each waypoint), the tight kArrivalChebyshev
+        // when the next action needs the avatar on an exact tile, and 0 for
+        // the final walk of a radius-0 goal (the ARRIVED contract demands the
+        // exact tile, not its neighbour).
         WwStatus walkOneStep(const runtime::Step &step, int32_t stepIndex,
                              int32_t arrivalRadius, WwTile &outPosition);
 
@@ -185,20 +187,6 @@ namespace ww::exec
         // storage without per-plan allocation.
         std::vector<int32_t> varbitValues;
         std::vector<int32_t> itemValues;
-
-        // Phase 7: sticky one-slot cache for the per-step
-        // isTeleportAllowed check. The post-step flip detection in run()
-        // would otherwise re-scan the wilderness + no-tele zone lists on
-        // every walk step. Hit rate is ~99% inside a walk segment (the
-        // player rarely crosses a zone boundary between adjacent
-        // waypoints); on a miss, the slow path runs and refills the slot.
-        // Cleared at the top of run() so each ww_executor_run starts cold.
-        int32_t lastTeleSquareX{INT32_MIN};
-        int32_t lastTeleSquareY{INT32_MIN};
-        int32_t lastTelePlane{INT32_MIN};
-        bool    lastTeleResult{false};
-
-        bool isTeleportAllowedCached(int32_t x, int32_t y, int32_t plane);
     };
 }
 

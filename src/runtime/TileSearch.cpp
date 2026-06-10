@@ -11,7 +11,13 @@ namespace ww::runtime
     namespace
     {
         constexpr float kDiagCost = 1.41421356f;
-        constexpr int kMaxExpansions = 1 << 16;  // ample for refinement within one area
+        // Expansion budget. PathAssembler runs whole same-plane baseline walks
+        // through here (the overworld is a handful of mega-areas), not just
+        // within-area refinement — a detour-heavy several-hundred-tile route
+        // can close a six-figure expansion count before reaching the goal, and
+        // 1 << 16 falsely reported such routes unreachable. Termination still
+        // holds; only pathological searches pay the full budget.
+        constexpr int kMaxExpansions = 1 << 18;
 
         // Compass step deltas, indexed N, NE, E, SE, S, SW, W, NW. Diagonals are
         // the odd indices. (North is +Y, East is +X.)

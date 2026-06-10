@@ -296,9 +296,22 @@ namespace ww::exec
             switch (kind)
             {
                 case data::ChainStepKind::Wait:
-                    // a=ticks to sleep.
-                    callbacks->sleepTicks(callbacks->user, cs.a);
+                {
+                    // a=ticks to sleep. The count comes straight from the
+                    // scripter-editable teleport JSON, so sleep one tick at a
+                    // time with a cancel poll between: a typo'd wait must not
+                    // pin the run past cancellation, and a negative one must
+                    // never reach the host's sleep.
+                    for (int32_t t = 0; t < cs.a; ++t)
+                    {
+                        if (callbacks->shouldCancel(callbacks->user) != 0)
+                        {
+                            return WwStatus::Cancelled;
+                        }
+                        callbacks->sleepTicks(callbacks->user, 1);
+                    }
                     break;
+                }
 
                 case data::ChainStepKind::WaitInterface:
                 {
@@ -374,19 +387,26 @@ namespace ww::exec
     void Executor::copyCapabilities(const WwCapabilitySnapshot &src,
                                     runtime::CapabilitySnapshot &dst)
     {
-        for (std::size_t i = 0; i < src.skillCount; ++i)
+        // Mirrors applyCapabilityRun in worldwalker_c.cpp: a null array with a
+        // non-zero count is the host's bug, treated as an empty run here so a
+        // malformed snapshot can't dereference past null.
+        const std::size_t skillCount  = src.skills  != nullptr ? src.skillCount  : 0;
+        const std::size_t itemCount   = src.items   != nullptr ? src.itemCount   : 0;
+        const std::size_t varbitCount = src.varbits != nullptr ? src.varbitCount : 0;
+        const std::size_t varpCount   = src.varps   != nullptr ? src.varpCount   : 0;
+        for (std::size_t i = 0; i < skillCount; ++i)
         {
             dst.setSkillLevel(src.skills[i].id, src.skills[i].value);
         }
-        for (std::size_t i = 0; i < src.itemCount; ++i)
+        for (std::size_t i = 0; i < itemCount; ++i)
         {
             dst.setItemCount(src.items[i].id, src.items[i].value);
         }
-        for (std::size_t i = 0; i < src.varbitCount; ++i)
+        for (std::size_t i = 0; i < varbitCount; ++i)
         {
             dst.setVarbit(src.varbits[i].id, src.varbits[i].value);
         }
-        for (std::size_t i = 0; i < src.varpCount; ++i)
+        for (std::size_t i = 0; i < varpCount; ++i)
         {
             dst.setVarp(src.varps[i].id, src.varps[i].value);
         }
@@ -453,36 +473,8 @@ namespace ww::exec
             &snapshot, outPlan);
     }
 
-    bool Executor::isTeleportAllowedCached(int32_t x, int32_t y, int32_t plane)
-    {
-        // Tile-level wilderness / no-tele lookups don't change at fractional
-        // movement, so a one-slot sticky cache keyed on (squareX, squareY,
-        // plane) skips the linear scan on every step inside a single
-        // walk-segment chunk. Cache miss falls through to the artifact-side
-        // scan.
-        constexpr int32_t kSquareShift = 6;
-        const int32_t sqX = x >> kSquareShift;
-        const int32_t sqY = y >> kSquareShift;
-        if (sqX == lastTeleSquareX && sqY == lastTeleSquareY && plane == lastTelePlane)
-        {
-            return lastTeleResult;
-        }
-        const bool result = runtime::isTeleportAllowed(*artifact, x, y, plane);
-        lastTeleSquareX = sqX;
-        lastTeleSquareY = sqY;
-        lastTelePlane = plane;
-        lastTeleResult = result;
-        return result;
-    }
-
     WwStatus Executor::run(WwGoal goal)
     {
-        // Sticky teleport-allowed cache starts cold for each run.
-        lastTeleSquareX = INT32_MIN;
-        lastTeleSquareY = INT32_MIN;
-        lastTelePlane = INT32_MIN;
-        lastTeleResult = false;
-
         WwTile position{ 0, 0, 0 };
         callbacks->readPosition(callbacks->user, &position);
         if (isInsideGoal(position, goal))
@@ -519,9 +511,14 @@ namespace ww::exec
 
         // Snapshot the teleport-allowed predicate at the planner's anchor
         // position so the post-step check can detect a false→true flip and
-        // re-plan with global teleports newly considerable (ADR 0009).
-        bool teleAllowedAtLastPlan = isTeleportAllowedCached(
-            position.x, position.y, position.plane);
+        // re-plan with global teleports newly considerable (ADR 0009). The
+        // predicate is evaluated fresh per step — it changes at wilderness-
+        // level (8-tile) and no-tele-box granularity, so any coarser caching
+        // detects the flip late, which delays the load-bearing "walk out of
+        // wilderness, then teleport" re-plan. The zone lists are tiny and the
+        // check runs once per step, so fresh evaluation costs nothing.
+        bool teleAllowedAtLastPlan = runtime::isTeleportAllowed(
+            *artifact, position.x, position.y, position.plane);
 
         int32_t replansUsed         = 0;
         int32_t failedStepIndex     = -1;
@@ -541,11 +538,16 @@ namespace ww::exec
                 // Hand off to the next chunk while still moving when another
                 // Walk follows; arrive tight when the next step is an interact
                 // (Transition) or this is the final approach to the goal, where
-                // the exact tile matters.
+                // the exact tile matters. The very last walk before a radius-0
+                // goal demands Chebyshev 0: kArrivalChebyshev (1) would hand
+                // back from the neighbouring tile and the run would then report
+                // ARRIVED one tile off the contract's exact tile.
                 const bool nextIsWalk = (i + 1 < plan.steps.size())
                     && plan.steps[i + 1].kind == runtime::StepKind::Walk;
+                const bool isFinalStep = (i + 1 == plan.steps.size());
                 const int32_t arrivalRadius =
-                    nextIsWalk ? kHandoffChebyshev : kArrivalChebyshev;
+                    nextIsWalk ? kHandoffChebyshev
+                               : ((isFinalStep && goal.radius <= 0) ? 0 : kArrivalChebyshev);
                 stepResult = walkOneStep(step, stepIndex, arrivalRadius, position);
             }
             else
@@ -596,8 +598,8 @@ namespace ww::exec
                     arrivedEmitted = true;
                     break;
                 }
-                teleAllowedAtLastPlan = isTeleportAllowedCached(
-                    position.x, position.y, position.plane);
+                teleAllowedAtLastPlan = runtime::isTeleportAllowed(
+                    *artifact, position.x, position.y, position.plane);
                 i = 0;
                 continue;
             }
@@ -612,8 +614,8 @@ namespace ww::exec
                 arrivedEmitted = true;
                 break;
             }
-            const bool teleAllowedNow = isTeleportAllowedCached(
-                position.x, position.y, position.plane);
+            const bool teleAllowedNow = runtime::isTeleportAllowed(
+                *artifact, position.x, position.y, position.plane);
             if (teleAllowedNow && !teleAllowedAtLastPlan && replansUsed < kMaxReplans)
             {
                 ++replansUsed;
@@ -639,13 +641,31 @@ namespace ww::exec
             ++i;
         }
 
-        // Drained every step without an isInsideGoal short-circuit: the
-        // assembler's final step lands at (or within radius of) the goal,
-        // so a clean drain is success.
+        // Drained every step without an isInsideGoal short-circuit. The
+        // assembler's final step targets the acceptance set, but the walk
+        // hands back at its arrival radius — which can be a tile short of
+        // the goal test. Judge the live position instead of assuming the
+        // drain implies arrival: reporting ARRIVED from the neighbouring
+        // tile breaks the radius-0 contract for callers that interact next.
         if (i >= plan.steps.size() && terminal == WwStatus::Arrived && !arrivedEmitted)
         {
-            emit(WwEventKind::Arrived);
-            arrivedEmitted = true;
+            if (!isInsideGoal(position, goal))
+            {
+                // The walk poll often samples mid-stride; give the engine one
+                // tick to commit the final tile before judging.
+                callbacks->sleepTicks(callbacks->user, 1);
+                callbacks->readPosition(callbacks->user, &position);
+            }
+            if (isInsideGoal(position, goal))
+            {
+                emit(WwEventKind::Arrived);
+                arrivedEmitted = true;
+            }
+            else
+            {
+                failedStepIndex = static_cast<int32_t>(plan.steps.size()) - 1;
+                terminal = WwStatus::Failed;
+            }
         }
 
         if (terminal == WwStatus::Failed)

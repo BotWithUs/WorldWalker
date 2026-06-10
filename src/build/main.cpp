@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <filesystem>
@@ -234,12 +235,14 @@ namespace
             std::printf("  dropped: dangling=%zu selfloop=%zu dup=%zu | snapped dest=%zu\n",
                         tr.finalize.droppedDangling, tr.finalize.droppedSelfLoop,
                         tr.finalize.droppedDuplicate, tr.finalize.snappedDest);
-            std::printf("  freshness: %zu vertical pairs -> +%zu derived (%zu suppressed by datasets)\n",
+            std::printf("  freshness: %zu vertical pairs -> +%zu derived (%zu suppressed by datasets, %zu climb-dir mismatch)\n",
                         tr.freshness.pairsFound, tr.freshness.kept,
-                        tr.freshness.droppedDatasetConflict);
-            std::printf("  doors: %zu crossings -> +%zu directed hops (%zu blocked-origin, %zu no-edge)\n",
+                        tr.freshness.droppedDatasetConflict,
+                        tr.freshness.droppedClimbMismatch);
+            std::printf("  doors: %zu crossings -> +%zu directed hops (%zu blocked-origin, %zu no-edge, %zu foreign-edge)\n",
                         tr.doors.doorCrossings, tr.doors.emitted,
-                        tr.doors.blockedOrigin, tr.doors.noEdge);
+                        tr.doors.blockedOrigin, tr.doors.noEdge,
+                        tr.doors.foreignEdgeSkipped);
             std::printf("  areas: %zu nodes, %zu edges, %zu grids (largest %zu tiles)\n",
                         ag.areaCount, ag.edgeCount, ag.gridCount, ag.largestArea);
             std::printf("  adjacency: %zu transitions linked | unresolved origin=%zu dest=%zu | intra=%zu global=%zu\n",

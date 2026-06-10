@@ -22,6 +22,14 @@ namespace ww::build
             // Map archive id encodes its square: x = low 7 bits, y = the rest.
             const int squareX = id & 0x7F;
             const int squareY = id >> 7;
+            // The area-graph grid keys and the artifact reader both address a
+            // 256x256 square grid; a junk archive id past that must count as
+            // skipped, not alias another square's key downstream.
+            if (squareY > 255)
+            {
+                ++skipped;
+                continue;
+            }
             SquareClip clip;
             if (!cache.mapSquareClip(squareX, squareY, clip))
             {

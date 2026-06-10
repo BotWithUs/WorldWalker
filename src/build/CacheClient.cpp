@@ -7,6 +7,21 @@
 
 namespace ww::build
 {
+    namespace
+    {
+        // Frees an NXTCache C-ABI buffer on scope exit, so a bad_alloc thrown
+        // while copying into a vector cannot leak the producer-owned block.
+        struct NxtBufferGuard
+        {
+            void *ptr;
+
+            ~NxtBufferGuard()
+            {
+                nxt_free(ptr);
+            }
+        };
+    }
+
     CacheClient::CacheClient(const std::string &cachePath, bool enableLiveFallback)
         : handle(nullptr)
     {
@@ -40,9 +55,8 @@ namespace ww::build
         {
             throw std::runtime_error(std::string("nxt_list_archive_ids failed: ") + nxt_last_error());
         }
-        std::vector<int> result(ids, ids + count);
-        nxt_free(ids);
-        return result;
+        const NxtBufferGuard guard{ids};
+        return std::vector<int>(ids, ids + count);
     }
 
     bool CacheClient::mapSquareClip(int squareX, int squareY, SquareClip &outClip) const
@@ -59,11 +73,11 @@ namespace ww::build
         {
             throw std::runtime_error(std::string("nxt_get_mapsquare_clip failed: ") + nxt_last_error());
         }
+        const NxtBufferGuard guard{words};
         outClip.squareX = squareX;
         outClip.squareY = squareY;
         outClip.planeMask = planeMask;
         outClip.words.assign(words, words + count);
-        nxt_free(words);
         // The WW collision format requires every square to ship all 4 planes
         // worth of clip words (kClipWordsPerSquare = kClipPlanes * 64 * 64).
         // A producer that ever returns a popcount(planeMask)-sized buffer (the
@@ -97,6 +111,7 @@ namespace ww::build
             throw std::runtime_error(std::string("nxt_get_mapsquare_crossings failed: ")
                                      + nxt_last_error());
         }
+        const NxtBufferGuard guard{records};
         outCrossings.reserve(count);
         for (size_t i = 0; i < count; ++i)
         {
@@ -115,7 +130,6 @@ namespace ww::build
             c.climbDir    = r.climb_dir;
             outCrossings.push_back(c);
         }
-        nxt_free(records);
         return true;
     }
 }

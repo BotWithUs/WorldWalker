@@ -180,14 +180,18 @@ int32_t ww_executor_run(ww_artifact      *artifact,
         setLastError("ww_executor_run: callbacks is null");
         return WW_STATUS_FAILED;
     }
-    // Every non-null function pointer documented as required must be provided;
-    // onEvent is the lone optional. Detecting a missing entry here means the
-    // crash inside the executor's tight loop is replaced with a clean status.
+    // Every function pointer the executor actually calls must be provided;
+    // onEvent is the lone optional, and readVarbit is reserved (no current
+    // call site — the batched readVarbits replaced it at plan entry). Keep
+    // this list in lock-step with what the Executor dereferences: a pointer
+    // it calls but this guard skips is a null-call crash mid-walk instead of
+    // a clean status (isItemWorn / readItemCount fire on ClickItem chains).
     if (callbacks->readPosition    == nullptr
      || callbacks->readCapability  == nullptr
-     || callbacks->readVarbit      == nullptr
      || callbacks->readVarbits     == nullptr
      || callbacks->readItemCounts  == nullptr
+     || callbacks->readItemCount   == nullptr
+     || callbacks->isItemWorn      == nullptr
      || callbacks->isInterfaceOpen == nullptr
      || callbacks->walkTo          == nullptr
      || callbacks->interact        == nullptr

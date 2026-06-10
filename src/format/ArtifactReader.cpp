@@ -240,6 +240,21 @@ namespace ww::format
         requireRange(cursor, chainBytes, bytes.size(), "chain pool");
         chainStepPool = readPodArray<ChainStepRecord>(bytes, cursor, header.chainStepCount);
 
+        // Validate every record's pool cross-references once at load, so a
+        // corrupt artifact fails loud here instead of reading out of bounds
+        // in a consumer that indexes the pools without a per-use range check
+        // (the wwcli exec diagnostic does exactly that).
+        for (const TransitionRecord &t : transitionTable)
+        {
+            const uint64_t reqEnd = static_cast<uint64_t>(t.requirementStart) + t.requirementCount;
+            const uint64_t chainEnd = static_cast<uint64_t>(t.chainStart) + t.chainCount;
+            if (reqEnd > requirementPool.size() || chainEnd > chainStepPool.size())
+            {
+                throw std::runtime_error(
+                    "ArtifactReader: transition requirement/chain range out of bounds");
+            }
+        }
+
         // Remember the baked prefix lengths so runtime-appended teleports
         // (appendTransitions) can be dropped again on reload (truncateToBaked).
         bakedTransitionCount = transitionTable.size();

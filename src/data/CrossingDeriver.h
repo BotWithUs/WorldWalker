@@ -13,10 +13,11 @@ namespace ww::data
     // Counts from deriveDoorTransitions, for build-log visibility.
     struct CrossingReport
     {
-        std::size_t doorCrossings{};   // CrossingKind::Door records seen
-        std::size_t blockedOrigin{};   // skipped: the door's loc tile is not standable
-        std::size_t noEdge{};          // skipped: no blocked wall edge to a standable neighbour
-        std::size_t emitted{};         // directed Transport transitions returned (2 per crossable edge)
+        std::size_t doorCrossings{};      // CrossingKind::Door records seen
+        std::size_t blockedOrigin{};      // skipped: the door's loc tile is not standable
+        std::size_t noEdge{};             // skipped: no blocked wall edge to a standable neighbour
+        std::size_t foreignEdgeSkipped{}; // blocked edges on the door tile that are NOT the door's own
+        std::size_t emitted{};            // directed Transport transitions returned (2 per crossable edge)
     };
 
     // Derive same-plane door Transitions from the cache crossings (ADR 0003/0009).

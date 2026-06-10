@@ -97,6 +97,18 @@ namespace ww::data
             if (it != planeChange.end())
             {
                 const ww::build::Crossing &c = *it->second;
+                // A loc that names its climb direction must agree with this
+                // edge's: a mid-landing's up-only loc stamped on the down edge
+                // sends the executor further up instead. climbDir == 0
+                // (unknown) keeps the candidate — the bake has no evidence
+                // against it.
+                const uint8_t needed = (toPlane > fromPlane) ? ww::build::kClimbUp
+                                                             : ww::build::kClimbDown;
+                if (c.climbDir != 0 && (c.climbDir & needed) == 0)
+                {
+                    ++report.droppedClimbMismatch;
+                    return;
+                }
                 t.objectId = c.objectId;
                 t.shape = c.shape;
                 t.rotation = c.rotation;

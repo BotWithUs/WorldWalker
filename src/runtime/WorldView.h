@@ -210,7 +210,15 @@ namespace ww::runtime
 
         static bool offWorld(int x, int y, int plane)
         {
-            return x < 0 || y < 0 || plane < 0 || plane >= format::kClipPlanes;
+            // The upper bound enforces the kSquaresPerAxis promise ("off-axis
+            // tiles act as blocked"): without it, an absurd-but-valid int32
+            // coordinate wraps the reader's 32-bit square keys into a real
+            // baked square (returning walkable data for a garbage tile) and
+            // overflows this class's 64-bit grid keys (poisoning a cached
+            // slot for the context's lifetime).
+            constexpr int kAxisTiles = static_cast<int>(kSquaresPerAxis) << kSquareShift;
+            return x < 0 || y < 0 || x >= kAxisTiles || y >= kAxisTiles
+                || plane < 0 || plane >= format::kClipPlanes;
         }
 
         // Clip words are plane-major, then x (west-east), then y (south-north).

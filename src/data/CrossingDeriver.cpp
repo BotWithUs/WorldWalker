@@ -31,6 +31,45 @@ namespace ww::data
             {format::CLIP_WALL_NW,-1,  1},
         };
 
+        // Wall bits the door loc itself contributes to its tile, from the
+        // producer's shape/rotation tables (NXTCacheLibrary MapSquare.cpp):
+        // straight walls (shape 0) own one edge, diagonal blockers (shapes
+        // 1/3) one corner, corner walls (shape 2) two edges. Other shapes own
+        // no wall bit here. Gating the hop emission on this mask keeps a
+        // foreign bit on the door tile — a perpendicular wall loc, or a
+        // neighbour's wall reflected onto it — from minting a phantom
+        // crossing "through" a wall the door does not open.
+        uint32_t doorEdgeMask(uint8_t shape, uint8_t rotation)
+        {
+            static constexpr uint32_t kStraight[4] = {
+                format::CLIP_WALL_W, format::CLIP_WALL_N,
+                format::CLIP_WALL_E, format::CLIP_WALL_S,
+            };
+            static constexpr uint32_t kDiagonal[4] = {
+                format::CLIP_WALL_NW, format::CLIP_WALL_NE,
+                format::CLIP_WALL_SE, format::CLIP_WALL_SW,
+            };
+            static constexpr uint32_t kCorner[4] = {
+                format::CLIP_WALL_W | format::CLIP_WALL_N,
+                format::CLIP_WALL_N | format::CLIP_WALL_E,
+                format::CLIP_WALL_E | format::CLIP_WALL_S,
+                format::CLIP_WALL_S | format::CLIP_WALL_W,
+            };
+            const uint32_t r = rotation & 3u;
+            switch (shape)
+            {
+                case 0:
+                    return kStraight[r];
+                case 1:
+                case 3:
+                    return kDiagonal[r];
+                case 2:
+                    return kCorner[r];
+                default:
+                    return 0u;
+            }
+        }
+
         // Build one raw Transport transition origin->dest carrying the door loc.
         Transition makeDoorHop(const ww::build::Crossing &c, int fromX, int fromY,
                                int toX, int toY, int plane)
@@ -81,11 +120,19 @@ namespace ww::data
             }
 
             const uint32_t clip = lookup.clipAt(lx, ly, plane);
+            const uint32_t ownEdges = doorEdgeMask(c.shape, c.rotation);
             bool any = false;
             for (const WallEdge &e : kWallEdges)
             {
                 if ((clip & e.bit) == 0u)
                 {
+                    continue;
+                }
+                // Only the door's own edge(s) are crossable by clicking it; a
+                // foreign blocked edge on the same tile stays a wall.
+                if ((ownEdges & e.bit) == 0u)
+                {
+                    ++report.foreignEdgeSkipped;
                     continue;
                 }
                 const int nx = lx + e.dx;
