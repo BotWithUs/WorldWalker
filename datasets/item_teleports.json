@@ -1,0 +1,4507 @@
+{
+  "lodestones": {
+    "config": {
+      "open_interface": 1465,
+      "open_component": 33,
+      "open_option": 1,
+      "select_interface": 1092,
+      "select_option": 1,
+      "open_wait": 6,
+      "teleport_wait": 18,
+      "default_cost": 80.0,
+      "default_cost_quick": 25.0
+    },
+    "destinations": [
+      {
+        "name": "Bandit Camp",
+        "x": 3214,
+        "y": 2955,
+        "plane": 0,
+        "component": 8,
+        "requirements": {
+          "varbit": {
+            "id": 9482,
+            "value": 15
+          }
+        },
+        "hotkey": {
+          "key_code": 68,
+          "modifier": 2
+        }
+      },
+      {
+        "name": "Lunar Isle",
+        "x": 2088,
+        "y": 3912,
+        "plane": 0,
+        "component": 9,
+        "requirements": {
+          "varbit": {
+            "id": 10236,
+            "value": 190
+          }
+        },
+        "hotkey": {
+          "key_code": 56,
+          "modifier": 2
+        }
+      },
+      {
+        "name": "Al Kharid",
+        "x": 3297,
+        "y": 3185,
+        "plane": 0,
+        "component": 10,
+        "requirements": {
+          "varbit": {
+            "id": 28,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 48,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Ardougne",
+        "x": 2634,
+        "y": 3349,
+        "plane": 0,
+        "component": 11,
+        "requirements": {
+          "varbit": {
+            "id": 29,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 48,
+          "modifier": 2
+        }
+      },
+      {
+        "name": "Burthorpe",
+        "x": 2899,
+        "y": 3545,
+        "plane": 0,
+        "component": 12,
+        "requirements": {
+          "varbit": {
+            "id": 30,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 68,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Catherby",
+        "x": 2811,
+        "y": 3450,
+        "plane": 0,
+        "component": 13,
+        "requirements": {
+          "varbit": {
+            "id": 31,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 66,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Draynor Village",
+        "x": 3105,
+        "y": 3299,
+        "plane": 0,
+        "component": 14,
+        "requirements": {
+          "varbit": {
+            "id": 32,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 50,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Edgeville",
+        "x": 3067,
+        "y": 3506,
+        "plane": 0,
+        "component": 15,
+        "requirements": {
+          "varbit": {
+            "id": 33,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 34,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Falador",
+        "x": 2967,
+        "y": 3404,
+        "plane": 0,
+        "component": 16,
+        "requirements": {
+          "varbit": {
+            "id": 34,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 51,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Lumbridge",
+        "x": 3233,
+        "y": 3222,
+        "plane": 0,
+        "component": 17,
+        "requirements": {
+          "varbit": {
+            "id": 35,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 56,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Port Sarim",
+        "x": 3011,
+        "y": 3216,
+        "plane": 0,
+        "component": 18,
+        "requirements": {
+          "varbit": {
+            "id": 36,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 41,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Seers' Village",
+        "x": 2689,
+        "y": 3483,
+        "plane": 0,
+        "component": 19,
+        "requirements": {
+          "varbit": {
+            "id": 37,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 49,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Taverley",
+        "x": 2878,
+        "y": 3443,
+        "plane": 0,
+        "component": 20,
+        "requirements": {
+          "varbit": {
+            "id": 38,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 36,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Varrock",
+        "x": 3214,
+        "y": 3377,
+        "plane": 0,
+        "component": 21,
+        "requirements": {
+          "varbit": {
+            "id": 39,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 67,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Fort Forinthry",
+        "x": 3298,
+        "y": 3526,
+        "plane": 0,
+        "component": 22,
+        "requirements": {
+          "varbit": {
+            "id": 52518,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 51,
+          "modifier": 4
+        }
+      },
+      {
+        "name": "Menaphos",
+        "x": 3216,
+        "y": 2717,
+        "plane": 0,
+        "component": 23,
+        "requirements": {
+          "varbit": {
+            "id": 36173,
+            "value": 1
+          },
+          "extra": {
+            "varbit_id": 36140,
+            "min_value": 100
+          }
+        },
+        "hotkey": {
+          "key_code": 70,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Anachronia",
+        "x": 5431,
+        "y": 2339,
+        "plane": 0,
+        "component": 24,
+        "requirements": {
+          "varbit": {
+            "id": 44270,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 50,
+          "modifier": 2
+        }
+      },
+      {
+        "name": "Yanille",
+        "x": 2529,
+        "y": 3095,
+        "plane": 0,
+        "component": 25,
+        "requirements": {
+          "varbit": {
+            "id": 40,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 37,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Canifis",
+        "x": 3517,
+        "y": 3516,
+        "plane": 0,
+        "component": 26,
+        "requirements": {
+          "varbit": {
+            "id": 18523,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 66,
+          "modifier": 2
+        }
+      },
+      {
+        "name": "Eagles' Peak",
+        "x": 2366,
+        "y": 3480,
+        "plane": 0,
+        "component": 27,
+        "requirements": {
+          "varbit": {
+            "id": 18524,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 34,
+          "modifier": 2
+        }
+      },
+      {
+        "name": "Fremennik Province",
+        "x": 2712,
+        "y": 3678,
+        "plane": 0,
+        "component": 28,
+        "requirements": {
+          "varbit": {
+            "id": 18525,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 51,
+          "modifier": 2
+        }
+      },
+      {
+        "name": "Karamja",
+        "x": 2761,
+        "y": 3148,
+        "plane": 0,
+        "component": 29,
+        "requirements": {
+          "varbit": {
+            "id": 18526,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 55,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Oo'glog",
+        "x": 2532,
+        "y": 2872,
+        "plane": 0,
+        "component": 30,
+        "requirements": {
+          "varbit": {
+            "id": 18527,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 40,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Tirannwn",
+        "x": 2254,
+        "y": 3150,
+        "plane": 0,
+        "component": 31,
+        "requirements": {
+          "varbit": {
+            "id": 18528,
+            "value": 1
+          },
+          "extra": {
+            "varplayer_id": 2102,
+            "min_value": 15
+          }
+        },
+        "hotkey": {
+          "key_code": 36,
+          "modifier": 2
+        }
+      },
+      {
+        "name": "Wilderness Crater",
+        "x": 3143,
+        "y": 3636,
+        "plane": 0,
+        "component": 32,
+        "requirements": {
+          "varbit": {
+            "id": 18529,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 33,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Ashdale",
+        "x": 2474,
+        "y": 2709,
+        "plane": 2,
+        "component": 33,
+        "requirements": {
+          "varbit": {
+            "id": 22430,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 48,
+          "modifier": 4
+        }
+      },
+      {
+        "name": "Prifddinas",
+        "x": 2208,
+        "y": 3361,
+        "plane": 1,
+        "component": 34,
+        "requirements": {
+          "varbit": {
+            "id": 24967,
+            "value": 1
+          },
+          "extra": {
+            "varbit_id": 23198,
+            "min_value": 400
+          }
+        },
+        "hotkey": {
+          "key_code": 41,
+          "modifier": 2
+        }
+      },
+      {
+        "name": "City of Um",
+        "x": 1083,
+        "y": 1768,
+        "plane": 1,
+        "component": 35,
+        "requirements": {
+          "varbit": {
+            "id": 53270,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 38,
+          "modifier": 8
+        }
+      },
+      {
+        "name": "Wendlewick",
+        "x": 3461,
+        "y": 1520,
+        "plane": 0,
+        "component": 40,
+        "requirements": {
+          "varbit": {
+            "id": 60739,
+            "value": 1
+          }
+        },
+        "hotkey": {
+          "key_code": 33,
+          "modifier": 2
+        }
+      }
+    ]
+  },
+  "teleports": [
+    {
+      "name": "Item 39784 - Activate",
+      "global": true,
+      "dest_x": 2330,
+      "dest_y": 3172,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            1,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 39784,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 39784 - Activate",
+      "global": true,
+      "dest_x": 1938,
+      "dest_y": 4643,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            20,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 39784,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 39784 - Activate",
+      "global": true,
+      "dest_x": 2157,
+      "dest_y": 3381,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            23,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 39784,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 39784 - Activate",
+      "global": true,
+      "dest_x": 2260,
+      "dest_y": 3338,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            26,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 39784,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 39784 - Activate",
+      "global": true,
+      "dest_x": 2260,
+      "dest_y": 3383,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            29,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 39784,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 39784 - Activate",
+      "global": true,
+      "dest_x": 2188,
+      "dest_y": 3409,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            32,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 39784,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 39784 - Activate",
+      "global": true,
+      "dest_x": 2186,
+      "dest_y": 3313,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            35,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 39784,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 39784 - Activate",
+      "global": true,
+      "dest_x": 2155,
+      "dest_y": 3341,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            38,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 39784,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 39784 - Activate",
+      "global": true,
+      "dest_x": 2230,
+      "dest_y": 3411,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            41,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 39784,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 39784 - Activate",
+      "global": true,
+      "dest_x": 2230,
+      "dest_y": 3311,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            44,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 39784,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 9013 - Teleport",
+      "global": true,
+      "dest_x": 3081,
+      "dest_y": 3421,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            1,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9013,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 21576 - Teleport",
+      "global": true,
+      "dest_x": 3565,
+      "dest_y": 3318,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            1,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 21576,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 21576 - Teleport",
+      "global": true,
+      "dest_x": 3499,
+      "dest_y": 3199,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            20,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 21576,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 21576 - Teleport",
+      "global": true,
+      "dest_x": 3627,
+      "dest_y": 9618,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            23,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 21576,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 21576 - Teleport",
+      "global": true,
+      "dest_x": 3623,
+      "dest_y": 3364,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            26,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 21576,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 21576 - Teleport",
+      "global": true,
+      "dest_x": 3634,
+      "dest_y": 9693,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            29,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 21576,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 27096 - Teleport",
+      "global": true,
+      "dest_x": 3435,
+      "dest_y": 2918,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            1,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 27096,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 27096 - Teleport",
+      "global": true,
+      "dest_x": 3478,
+      "dest_y": 3101,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            20,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 27096,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Games necklace (",
+      "global": true,
+      "dest_x": 2875,
+      "dest_y": 3564,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            1,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 3853,
+            "count": 1
+          },
+          {
+            "id": 3855,
+            "count": 1
+          },
+          {
+            "id": 3857,
+            "count": 1
+          },
+          {
+            "id": 3859,
+            "count": 1
+          },
+          {
+            "id": 3861,
+            "count": 1
+          },
+          {
+            "id": 3863,
+            "count": 1
+          },
+          {
+            "id": 3865,
+            "count": 1
+          },
+          {
+            "id": 3867,
+            "count": 1
+          },
+          {
+            "id": 41070,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Games necklace (",
+      "global": true,
+      "dest_x": 3020,
+      "dest_y": 3571,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            20,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 3853,
+            "count": 1
+          },
+          {
+            "id": 3855,
+            "count": 1
+          },
+          {
+            "id": 3857,
+            "count": 1
+          },
+          {
+            "id": 3859,
+            "count": 1
+          },
+          {
+            "id": 3861,
+            "count": 1
+          },
+          {
+            "id": 3863,
+            "count": 1
+          },
+          {
+            "id": 3865,
+            "count": 1
+          },
+          {
+            "id": 3867,
+            "count": 1
+          },
+          {
+            "id": 41070,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Games necklace (",
+      "global": true,
+      "dest_x": 2969,
+      "dest_y": 9679,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            23,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 3853,
+            "count": 1
+          },
+          {
+            "id": 3855,
+            "count": 1
+          },
+          {
+            "id": 3857,
+            "count": 1
+          },
+          {
+            "id": 3859,
+            "count": 1
+          },
+          {
+            "id": 3861,
+            "count": 1
+          },
+          {
+            "id": 3863,
+            "count": 1
+          },
+          {
+            "id": 3865,
+            "count": 1
+          },
+          {
+            "id": 3867,
+            "count": 1
+          },
+          {
+            "id": 41070,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Combat Bracelet (",
+      "global": true,
+      "dest_x": 2879,
+      "dest_y": 3542,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            1,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 11118,
+            "count": 1
+          },
+          {
+            "id": 11120,
+            "count": 1
+          },
+          {
+            "id": 11122,
+            "count": 1
+          },
+          {
+            "id": 11124,
+            "count": 1
+          },
+          {
+            "id": 11126,
+            "count": 1
+          },
+          {
+            "id": 41072,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Combat Bracelet (",
+      "global": true,
+      "dest_x": 3191,
+      "dest_y": 3364,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            20,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 11118,
+            "count": 1
+          },
+          {
+            "id": 11120,
+            "count": 1
+          },
+          {
+            "id": 11122,
+            "count": 1
+          },
+          {
+            "id": 11124,
+            "count": 1
+          },
+          {
+            "id": 11126,
+            "count": 1
+          },
+          {
+            "id": 41072,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Combat Bracelet (",
+      "global": true,
+      "dest_x": 3051,
+      "dest_y": 3487,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            23,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 11118,
+            "count": 1
+          },
+          {
+            "id": 11120,
+            "count": 1
+          },
+          {
+            "id": 11122,
+            "count": 1
+          },
+          {
+            "id": 11124,
+            "count": 1
+          },
+          {
+            "id": 11126,
+            "count": 1
+          },
+          {
+            "id": 41072,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Combat Bracelet (",
+      "global": true,
+      "dest_x": 2655,
+      "dest_y": 3440,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            26,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 11118,
+            "count": 1
+          },
+          {
+            "id": 11120,
+            "count": 1
+          },
+          {
+            "id": 11122,
+            "count": 1
+          },
+          {
+            "id": 11124,
+            "count": 1
+          },
+          {
+            "id": 11126,
+            "count": 1
+          },
+          {
+            "id": 41072,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Ring of duelling (",
+      "global": true,
+      "dest_x": 3315,
+      "dest_y": 3237,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            1,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 2552,
+            "count": 1
+          },
+          {
+            "id": 2554,
+            "count": 1
+          },
+          {
+            "id": 2556,
+            "count": 1
+          },
+          {
+            "id": 2558,
+            "count": 1
+          },
+          {
+            "id": 2560,
+            "count": 1
+          },
+          {
+            "id": 2562,
+            "count": 1
+          },
+          {
+            "id": 2564,
+            "count": 1
+          },
+          {
+            "id": 2566,
+            "count": 1
+          },
+          {
+            "id": 41068,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Ring of duelling (",
+      "global": true,
+      "dest_x": 2443,
+      "dest_y": 3089,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            20,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 2552,
+            "count": 1
+          },
+          {
+            "id": 2554,
+            "count": 1
+          },
+          {
+            "id": 2556,
+            "count": 1
+          },
+          {
+            "id": 2558,
+            "count": 1
+          },
+          {
+            "id": 2560,
+            "count": 1
+          },
+          {
+            "id": 2562,
+            "count": 1
+          },
+          {
+            "id": 2564,
+            "count": 1
+          },
+          {
+            "id": 2566,
+            "count": 1
+          },
+          {
+            "id": 41068,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Ring of duelling (",
+      "global": true,
+      "dest_x": 2413,
+      "dest_y": 2847,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            23,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 2552,
+            "count": 1
+          },
+          {
+            "id": 2554,
+            "count": 1
+          },
+          {
+            "id": 2556,
+            "count": 1
+          },
+          {
+            "id": 2558,
+            "count": 1
+          },
+          {
+            "id": 2560,
+            "count": 1
+          },
+          {
+            "id": 2562,
+            "count": 1
+          },
+          {
+            "id": 2564,
+            "count": 1
+          },
+          {
+            "id": 2566,
+            "count": 1
+          },
+          {
+            "id": 41068,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Ring of duelling (",
+      "global": true,
+      "dest_x": 1691,
+      "dest_y": 5600,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            26,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 2552,
+            "count": 1
+          },
+          {
+            "id": 2554,
+            "count": 1
+          },
+          {
+            "id": 2556,
+            "count": 1
+          },
+          {
+            "id": 2558,
+            "count": 1
+          },
+          {
+            "id": 2560,
+            "count": 1
+          },
+          {
+            "id": 2562,
+            "count": 1
+          },
+          {
+            "id": 2564,
+            "count": 1
+          },
+          {
+            "id": 2566,
+            "count": 1
+          },
+          {
+            "id": 41068,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Skills Necklace (",
+      "global": true,
+      "dest_x": 2613,
+      "dest_y": 3385,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            1,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 11105,
+            "count": 1
+          },
+          {
+            "id": 11107,
+            "count": 1
+          },
+          {
+            "id": 11109,
+            "count": 1
+          },
+          {
+            "id": 11111,
+            "count": 1
+          },
+          {
+            "id": 11113,
+            "count": 1
+          },
+          {
+            "id": 41071,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Skills Necklace (",
+      "global": true,
+      "dest_x": 3016,
+      "dest_y": 3338,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            20,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 11105,
+            "count": 1
+          },
+          {
+            "id": 11107,
+            "count": 1
+          },
+          {
+            "id": 11109,
+            "count": 1
+          },
+          {
+            "id": 11111,
+            "count": 1
+          },
+          {
+            "id": 11113,
+            "count": 1
+          },
+          {
+            "id": 41071,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Skills Necklace (",
+      "global": true,
+      "dest_x": 2935,
+      "dest_y": 3295,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            23,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 11105,
+            "count": 1
+          },
+          {
+            "id": 11107,
+            "count": 1
+          },
+          {
+            "id": 11109,
+            "count": 1
+          },
+          {
+            "id": 11111,
+            "count": 1
+          },
+          {
+            "id": 11113,
+            "count": 1
+          },
+          {
+            "id": 41071,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Skills Necklace (",
+      "global": true,
+      "dest_x": 3143,
+      "dest_y": 3442,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            26,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 11105,
+            "count": 1
+          },
+          {
+            "id": 11107,
+            "count": 1
+          },
+          {
+            "id": 11109,
+            "count": 1
+          },
+          {
+            "id": 11111,
+            "count": 1
+          },
+          {
+            "id": 11113,
+            "count": 1
+          },
+          {
+            "id": 41071,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Skills Necklace (",
+      "global": true,
+      "dest_x": 2997,
+      "dest_y": 3437,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            29,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 11105,
+            "count": 1
+          },
+          {
+            "id": 11107,
+            "count": 1
+          },
+          {
+            "id": 11109,
+            "count": 1
+          },
+          {
+            "id": 11111,
+            "count": 1
+          },
+          {
+            "id": 11113,
+            "count": 1
+          },
+          {
+            "id": 41071,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Skills Necklace (",
+      "global": true,
+      "dest_x": 2646,
+      "dest_y": 3355,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            32,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 11105,
+            "count": 1
+          },
+          {
+            "id": 11107,
+            "count": 1
+          },
+          {
+            "id": 11109,
+            "count": 1
+          },
+          {
+            "id": 11111,
+            "count": 1
+          },
+          {
+            "id": 11113,
+            "count": 1
+          },
+          {
+            "id": 41071,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Skills Necklace (",
+      "global": true,
+      "dest_x": 3102,
+      "dest_y": 3152,
+      "dest_plane": 3,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            35,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 11105,
+            "count": 1
+          },
+          {
+            "id": 11107,
+            "count": 1
+          },
+          {
+            "id": 11109,
+            "count": 1
+          },
+          {
+            "id": 11111,
+            "count": 1
+          },
+          {
+            "id": 11113,
+            "count": 1
+          },
+          {
+            "id": 41071,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Chaos Druids",
+      "global": true,
+      "dest_x": 3131,
+      "dest_y": 9915,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 0
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Dwarven Mine",
+      "global": true,
+      "dest_x": 3037,
+      "dest_y": 9772,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 1
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Hill Giants",
+      "global": true,
+      "dest_x": 3100,
+      "dest_y": 9825,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 2
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Lesser Demons",
+      "global": true,
+      "dest_x": 2843,
+      "dest_y": 9556,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 3
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Daemonheim",
+      "global": true,
+      "dest_x": 3511,
+      "dest_y": 3666,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 4
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Fire Giants",
+      "global": true,
+      "dest_x": 2578,
+      "dest_y": 9895,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 5
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Mining Guild",
+      "global": true,
+      "dest_x": 3022,
+      "dest_y": 9739,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 6
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Braindeath Isle",
+      "global": true,
+      "dest_x": 2125,
+      "dest_y": 5146,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 7
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Hellhounds",
+      "global": true,
+      "dest_x": 2855,
+      "dest_y": 9840,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 8
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "slayer",
+      "global": true,
+      "dest_x": 3050,
+      "dest_y": 3949,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            1,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          },
+          {
+            "id": 53810,
+            "count": 1
+          },
+          {
+            "id": 53839,
+            "count": 1
+          },
+          {
+            "id": 34274,
+            "count": 1
+          },
+          {
+            "id": 34275,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "slayer",
+      "global": true,
+      "dest_x": 5667,
+      "dest_y": 2136,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            20,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          },
+          {
+            "id": 53810,
+            "count": 1
+          },
+          {
+            "id": 53839,
+            "count": 1
+          },
+          {
+            "id": 34274,
+            "count": 1
+          },
+          {
+            "id": 34275,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "slayer",
+      "global": true,
+      "dest_x": 2195,
+      "dest_y": 3327,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            23,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          },
+          {
+            "id": 53810,
+            "count": 1
+          },
+          {
+            "id": 53839,
+            "count": 1
+          },
+          {
+            "id": 34274,
+            "count": 1
+          },
+          {
+            "id": 34275,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "slayer",
+      "global": true,
+      "dest_x": 1738,
+      "dest_y": 5310,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            26,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          },
+          {
+            "id": 53810,
+            "count": 1
+          },
+          {
+            "id": 53839,
+            "count": 1
+          },
+          {
+            "id": 34274,
+            "count": 1
+          },
+          {
+            "id": 34275,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "slayer",
+      "global": true,
+      "dest_x": 2868,
+      "dest_y": 2979,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            29,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          },
+          {
+            "id": 53810,
+            "count": 1
+          },
+          {
+            "id": 53839,
+            "count": 1
+          },
+          {
+            "id": 34274,
+            "count": 1
+          },
+          {
+            "id": 34275,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "slayer",
+      "global": true,
+      "dest_x": 3357,
+      "dest_y": 2991,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            32,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          },
+          {
+            "id": 53810,
+            "count": 1
+          },
+          {
+            "id": 53839,
+            "count": 1
+          },
+          {
+            "id": 34274,
+            "count": 1
+          },
+          {
+            "id": 34275,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "slayer",
+      "global": true,
+      "dest_x": 2443,
+      "dest_y": 4429,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            35,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          },
+          {
+            "id": 53810,
+            "count": 1
+          },
+          {
+            "id": 53839,
+            "count": 1
+          },
+          {
+            "id": 34274,
+            "count": 1
+          },
+          {
+            "id": 34275,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "slayer",
+      "global": true,
+      "dest_x": 3506,
+      "dest_y": 3504,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            38,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          },
+          {
+            "id": 53810,
+            "count": 1
+          },
+          {
+            "id": 53839,
+            "count": 1
+          },
+          {
+            "id": 34274,
+            "count": 1
+          },
+          {
+            "id": 34275,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "slayer",
+      "global": true,
+      "dest_x": 3290,
+      "dest_y": 3542,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            41,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          },
+          {
+            "id": 53810,
+            "count": 1
+          },
+          {
+            "id": 53839,
+            "count": 1
+          },
+          {
+            "id": 34274,
+            "count": 1
+          },
+          {
+            "id": 34275,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "slayer",
+      "global": true,
+      "dest_x": 3091,
+      "dest_y": 3476,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            44,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 6
+        },
+        {
+          "click": [
+            720,
+            1,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          },
+          {
+            "id": 53810,
+            "count": 1
+          },
+          {
+            "id": 53839,
+            "count": 1
+          },
+          {
+            "id": 34274,
+            "count": 1
+          },
+          {
+            "id": 34275,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "slayer",
+      "global": true,
+      "dest_x": 3219,
+      "dest_y": 3222,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            44,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 6
+        },
+        {
+          "click": [
+            720,
+            20,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          },
+          {
+            "id": 53810,
+            "count": 1
+          },
+          {
+            "id": 53839,
+            "count": 1
+          },
+          {
+            "id": 34274,
+            "count": 1
+          },
+          {
+            "id": 34275,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "slayer",
+      "global": true,
+      "dest_x": 2888,
+      "dest_y": 3545,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            720,
+            44,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 6
+        },
+        {
+          "click": [
+            720,
+            23,
+            0,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          },
+          {
+            "id": 53810,
+            "count": 1
+          },
+          {
+            "id": 53839,
+            "count": 1
+          },
+          {
+            "id": 34274,
+            "count": 1
+          },
+          {
+            "id": 34275,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Blue Dragons",
+      "global": true,
+      "dest_x": 2909,
+      "dest_y": 9805,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 9
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Moss Giants",
+      "global": true,
+      "dest_x": 3166,
+      "dest_y": 9881,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 10
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Celestial Drags",
+      "global": true,
+      "dest_x": 3810,
+      "dest_y": 3529,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 11
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Black Demons",
+      "global": true,
+      "dest_x": 3161,
+      "dest_y": 5522,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 12
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Al Kharid Mine",
+      "global": true,
+      "dest_x": 3298,
+      "dest_y": 3306,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 13
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Metal Dragons",
+      "global": true,
+      "dest_x": 2699,
+      "dest_y": 9442,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 14
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Polypore",
+      "global": true,
+      "dest_x": 4658,
+      "dest_y": 5489,
+      "dest_plane": 3,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 15
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Frost Dragons",
+      "global": true,
+      "dest_x": 3032,
+      "dest_y": 9597,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 16
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Kal'gerion",
+      "global": true,
+      "dest_x": 3398,
+      "dest_y": 3664,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 17
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Gorajo",
+      "global": true,
+      "dest_x": 2230,
+      "dest_y": 3421,
+      "dest_plane": 1,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 18
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Slayer Tower",
+      "global": true,
+      "dest_x": 3431,
+      "dest_y": 3528,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 19
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Edimmu",
+      "global": true,
+      "dest_x": 2234,
+      "dest_y": 3396,
+      "dest_plane": 1,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 20
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          },
+          {
+            "id": 53820,
+            "count": 1
+          },
+          {
+            "id": 53849,
+            "count": 1
+          },
+          {
+            "id": 34294,
+            "count": 1
+          },
+          {
+            "id": 34295,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 33722 - Teleport",
+      "global": true,
+      "dest_x": 2344,
+      "dest_y": 3171,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            1572,
+            12,
+            1,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 33722,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 33722 - Teleport",
+      "global": true,
+      "dest_x": 2227,
+      "dest_y": 3134,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            1572,
+            14,
+            1,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 33722,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 33722 - Teleport",
+      "global": true,
+      "dest_x": 2184,
+      "dest_y": 3146,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            1572,
+            15,
+            1,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 33722,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 33722 - Teleport",
+      "global": true,
+      "dest_x": 1990,
+      "dest_y": 4173,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            1572,
+            16,
+            1,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 33722,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 33722 - Teleport",
+      "global": true,
+      "dest_x": 1858,
+      "dest_y": 4638,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            1572,
+            17,
+            1,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 33722,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 33722 - Teleport",
+      "global": true,
+      "dest_x": 2202,
+      "dest_y": 3254,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            1572,
+            18,
+            1,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 33722,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Item 33722 - Teleport",
+      "global": true,
+      "dest_x": 2218,
+      "dest_y": 3397,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click": [
+            1572,
+            19,
+            1,
+            -1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 33722,
+            "count": 1
+          }
+        ]
+      }
+    }
+  ]
+}

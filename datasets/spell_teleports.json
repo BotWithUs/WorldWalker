@@ -1,0 +1,1784 @@
+{
+  "teleports": [
+    {
+      "name": "South Feldip Hills Teleport",
+      "global": true,
+      "dest_x": 2413,
+      "dest_y": 2847,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            70,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 10
+        },
+        "items": [
+          {
+            "id": 556,
+            "count": 1
+          },
+          {
+            "id": 555,
+            "count": 1
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Taverley Teleport",
+      "global": true,
+      "dest_x": 2912,
+      "dest_y": 3423,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            750,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 19
+        },
+        "items": [
+          {
+            "id": 556,
+            "count": 3
+          },
+          {
+            "id": 554,
+            "count": 1
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Varrock Teleport",
+      "global": true,
+      "dest_x": 3212,
+      "dest_y": 3434,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            160,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 25
+        },
+        "items": [
+          {
+            "id": 556,
+            "count": 3
+          },
+          {
+            "id": 554,
+            "count": 1
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Wendlewick Teleport",
+      "global": true,
+      "dest_x": 3481,
+      "dest_y": 1554,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            1050,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 28
+        },
+        "items": [
+          {
+            "id": 556,
+            "count": 3
+          },
+          {
+            "id": 555,
+            "count": 1
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Lumbridge Teleport",
+      "global": true,
+      "dest_x": 3219,
+      "dest_y": 3248,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            190,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 31
+        },
+        "items": [
+          {
+            "id": 556,
+            "count": 3
+          },
+          {
+            "id": 557,
+            "count": 1
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Falador Teleport",
+      "global": true,
+      "dest_x": 2965,
+      "dest_y": 3378,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            220,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 37
+        },
+        "items": [
+          {
+            "id": 556,
+            "count": 3
+          },
+          {
+            "id": 555,
+            "count": 1
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "House Teleport",
+      "global": true,
+      "dest_x": 2953,
+      "dest_y": 3224,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            240,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 40
+        },
+        "items": [
+          {
+            "id": 556,
+            "count": 1
+          },
+          {
+            "id": 557,
+            "count": 1
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Camelot Teleport",
+      "global": true,
+      "dest_x": 2757,
+      "dest_y": 3478,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            270,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 45
+        },
+        "items": [
+          {
+            "id": 556,
+            "count": 5
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Ardougne Teleport",
+      "global": true,
+      "dest_x": 2661,
+      "dest_y": 3302,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            330,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 51
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Watchtower Teleport",
+      "global": true,
+      "dest_x": 2933,
+      "dest_y": 4712,
+      "dest_plane": 2,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            380,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 58
+        },
+        "items": [
+          {
+            "id": 557,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "God Wars Dungeon Teleport",
+      "global": true,
+      "dest_x": 2910,
+      "dest_y": 3713,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            450,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 61
+        },
+        "items": [
+          {
+            "id": 554,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Trollheim Teleport",
+      "global": true,
+      "dest_x": 2882,
+      "dest_y": 3668,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            450,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 61
+        },
+        "items": [
+          {
+            "id": 554,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Ape Atoll Teleport",
+      "global": true,
+      "dest_x": 2797,
+      "dest_y": 2798,
+      "dest_plane": 1,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            480,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 64
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 2
+          },
+          {
+            "id": 554,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 2
+          },
+          {
+            "id": 1963,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Anachronia Teleport",
+      "global": true,
+      "dest_x": 3219,
+      "dest_y": 3248,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            700,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 72
+        },
+        "items": [
+          {
+            "id": 557,
+            "count": 1
+          },
+          {
+            "id": 561,
+            "count": 3
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "North-western Anachronia Teleport",
+      "global": true,
+      "dest_x": 5316,
+      "dest_y": 2494,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            1000,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 75
+        },
+        "items": [
+          {
+            "id": 561,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Eastern Anachronia Teleport",
+      "global": true,
+      "dest_x": 5600,
+      "dest_y": 2331,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            1010,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 78
+        },
+        "items": [
+          {
+            "id": 561,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Northern Lost Grove Teleport",
+      "global": true,
+      "dest_x": 1404,
+      "dest_y": 5725,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            1020,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 85
+        },
+        "items": [
+          {
+            "id": 561,
+            "count": 4
+          },
+          {
+            "id": 563,
+            "count": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "Paddewwa Teleport",
+      "global": true,
+      "dest_x": 3098,
+      "dest_y": 9882,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            30,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 54
+        },
+        "items": [
+          {
+            "id": 556,
+            "count": 1
+          },
+          {
+            "id": 554,
+            "count": 1
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Senntisten Teleport",
+      "global": true,
+      "dest_x": 3377,
+      "dest_y": 3402,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            60,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 60
+        },
+        "items": [
+          {
+            "id": 566,
+            "count": 1
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Kharyrll Teleport",
+      "global": true,
+      "dest_x": 3501,
+      "dest_y": 3484,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            100,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 66
+        },
+        "items": [
+          {
+            "id": 565,
+            "count": 1
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Lassar Teleport",
+      "global": true,
+      "dest_x": 3004,
+      "dest_y": 3470,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            130,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 72
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 4
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dareeyak Teleport",
+      "global": true,
+      "dest_x": 2968,
+      "dest_y": 3696,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            170,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 78
+        },
+        "items": [
+          {
+            "id": 556,
+            "count": 2
+          },
+          {
+            "id": 554,
+            "count": 3
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Carrallangar Teleport",
+      "global": true,
+      "dest_x": 3222,
+      "dest_y": 3666,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            200,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 84
+        },
+        "items": [
+          {
+            "id": 566,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Annakarl Teleport",
+      "global": true,
+      "dest_x": 3288,
+      "dest_y": 3886,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            240,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 90
+        },
+        "items": [
+          {
+            "id": 565,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Ghorrock Teleport",
+      "global": true,
+      "dest_x": 2976,
+      "dest_y": 3872,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            270,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 96
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 8
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Moonclan Teleport",
+      "global": true,
+      "dest_x": 2114,
+      "dest_y": 3915,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            70,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 69
+        },
+        "items": [
+          {
+            "id": 557,
+            "count": 2
+          },
+          {
+            "id": 9075,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Tele-group Moonclan",
+      "global": true,
+      "dest_x": 2114,
+      "dest_y": 3915,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            80,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 70
+        },
+        "items": [
+          {
+            "id": 557,
+            "count": 4
+          },
+          {
+            "id": 9075,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Ourania Teleport",
+      "global": true,
+      "dest_x": 2467,
+      "dest_y": 3245,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            90,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 71
+        },
+        "items": [
+          {
+            "id": 557,
+            "count": 6
+          },
+          {
+            "id": 9075,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "South Falador Teleport",
+      "global": true,
+      "dest_x": 3055,
+      "dest_y": 3310,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            120,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 72
+        },
+        "items": [
+          {
+            "id": 556,
+            "count": 2
+          },
+          {
+            "id": 9075,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Waterbirth Teleport",
+      "global": true,
+      "dest_x": 2546,
+      "dest_y": 3756,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            130,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 72
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 1
+          },
+          {
+            "id": 9075,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Tele-group Waterbirth",
+      "global": true,
+      "dest_x": 2546,
+      "dest_y": 3756,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            140,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 73
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 5
+          },
+          {
+            "id": 9075,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Barbarian Teleport",
+      "global": true,
+      "dest_x": 2543,
+      "dest_y": 3569,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            170,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 75
+        },
+        "items": [
+          {
+            "id": 554,
+            "count": 3
+          },
+          {
+            "id": 9075,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "North Ardougne Teleport",
+      "global": true,
+      "dest_x": 2665,
+      "dest_y": 3375,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            190,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 76
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 5
+          },
+          {
+            "id": 9075,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Tele-group Barbarian",
+      "global": true,
+      "dest_x": 2543,
+      "dest_y": 3569,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            200,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 76
+        },
+        "items": [
+          {
+            "id": 554,
+            "count": 6
+          },
+          {
+            "id": 9075,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Khazard Teleport",
+      "global": true,
+      "dest_x": 2636,
+      "dest_y": 3167,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            230,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 78
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 4
+          },
+          {
+            "id": 9075,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Tele-group Khazard",
+      "global": true,
+      "dest_x": 2636,
+      "dest_y": 3167,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            240,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 79
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 8
+          },
+          {
+            "id": 9075,
+            "count": 2
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Western Kharazi Jungle Teleport",
+      "global": true,
+      "dest_x": 2803,
+      "dest_y": 2917,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            980,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 81
+        },
+        "items": [
+          {
+            "id": 9075,
+            "count": 3
+          },
+          {
+            "id": 563,
+            "count": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "Mountain Camp Teleport",
+      "global": true,
+      "dest_x": 2785,
+      "dest_y": 3664,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            990,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 83
+        },
+        "items": [
+          {
+            "id": 9075,
+            "count": 3
+          },
+          {
+            "id": 563,
+            "count": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "Fishing Guild Teleport",
+      "global": true,
+      "dest_x": 2613,
+      "dest_y": 3383,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            330,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 85
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 8
+          },
+          {
+            "id": 9075,
+            "count": 3
+          },
+          {
+            "id": 563,
+            "count": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "Tele-group Fishing Guild",
+      "global": true,
+      "dest_x": 2613,
+      "dest_y": 3383,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            340,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 86
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 10
+          },
+          {
+            "id": 9075,
+            "count": 3
+          },
+          {
+            "id": 563,
+            "count": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "Catherby Teleport",
+      "global": true,
+      "dest_x": 2790,
+      "dest_y": 3452,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            360,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 87
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 10
+          },
+          {
+            "id": 9075,
+            "count": 3
+          },
+          {
+            "id": 563,
+            "count": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "Tele-group Catherby",
+      "global": true,
+      "dest_x": 2790,
+      "dest_y": 3452,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            380,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 88
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 12
+          },
+          {
+            "id": 9075,
+            "count": 3
+          },
+          {
+            "id": 563,
+            "count": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "Ice Plateau Teleport",
+      "global": true,
+      "dest_x": 2975,
+      "dest_y": 3938,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            390,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 89
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 8
+          },
+          {
+            "id": 9075,
+            "count": 3
+          },
+          {
+            "id": 563,
+            "count": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "Tele-group Ice Plateau",
+      "global": true,
+      "dest_x": 2975,
+      "dest_y": 3938,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            400,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 90
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 16
+          },
+          {
+            "id": 9075,
+            "count": 3
+          },
+          {
+            "id": 563,
+            "count": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "Tele-group Trollheim Farm",
+      "global": true,
+      "dest_x": 2817,
+      "dest_y": 3676,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            450,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 92
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 20
+          },
+          {
+            "id": 9075,
+            "count": 3
+          },
+          {
+            "id": 563,
+            "count": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "Trollheim Farm Teleport",
+      "global": true,
+      "dest_x": 2817,
+      "dest_y": 3676,
+      "dest_plane": 0,
+      "cost": 300.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            440,
+            1
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "skill": {
+          "id": 6,
+          "level": 92
+        },
+        "items": [
+          {
+            "id": 555,
+            "count": 10
+          },
+          {
+            "id": 9075,
+            "count": 3
+          },
+          {
+            "id": 563,
+            "count": 3
+          }
+        ]
+      }
+    }
+  ]
+}
