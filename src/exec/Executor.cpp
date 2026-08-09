@@ -467,6 +467,16 @@ namespace ww::exec
             }
         }
 
+        // Re-derive the scene's dynamic-region grid on every (re-)plan, for the
+        // same reason the capability snapshot is re-pulled: a single run can
+        // cross an instance boundary — walking out of a house portal, or into
+        // one — and a grid captured once at entry would then resolve every tile
+        // through the wrong scene. A static scene answers with a zeroed struct,
+        // which clears the map.
+        WwInstanceChunks chunks{};
+        callbacks->readInstance(callbacks->user, &chunks);
+        installInstance(context.instance, &chunks);
+
         return context.assembler.assemble(
             start.x, start.y, start.plane,
             goal.x, goal.y, goal.plane,

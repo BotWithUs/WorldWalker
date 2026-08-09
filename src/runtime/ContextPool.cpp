@@ -58,12 +58,14 @@ namespace ww::runtime
     // defenses ride on the outstanding set:
     //   1. A context not in `outstanding` was never acquired through us (or has
     //      already been released): drop silently rather than double-listing.
-    //   2. recycle() runs OUTSIDE the lock so the (potentially expensive)
-    //      cache clear does not serialize concurrent acquires. If it throws
-    //      (e.g., allocator failure during the unordered_map clear), swallow
-    //      the exception and re-list anyway — the next borrower will reset
-    //      whatever scratch remains. Leaking the context would deadlock the
-    //      pool once enough leaks accumulate.
+    //   2. recycle() runs OUTSIDE the lock so it cannot serialize concurrent
+    //      acquires. It is cheap now — dropping the dynamic-region grid, not
+    //      the clip caches, which deliberately survive the borrow — but the
+    //      ordering is kept because it costs nothing and the method is the
+    //      designated hook for anything a future change needs to flush. If it
+    //      throws, swallow and re-list anyway: the next borrower resets
+    //      whatever scratch remains, whereas leaking the context would deadlock
+    //      the pool once enough leaks accumulate.
     void ContextPool::release(SearchContext *context) noexcept
     {
         if (context == nullptr)

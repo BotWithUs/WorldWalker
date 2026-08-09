@@ -1,6 +1,7 @@
 #include "runtime/PathAssembler.h"
 
 #include "format/Artifact.h"
+#include "runtime/InstanceMap.h"
 #include "runtime/TeleportPolicy.h"
 
 #include <algorithm>
@@ -150,6 +151,7 @@ namespace ww::runtime
     // room the wall/object sits against. Returns false when nothing standable
     // lies within kGoalSnapRadius (goal is deep in blocked terrain).
     bool PathAssembler::resolveGoalTile(int32_t goalX, int32_t goalY, int32_t plane,
+                                        bool requireArea,
                                         int32_t &outX, int32_t &outY, int32_t &outArea) const
     {
         for (int32_t r = 1; r <= kGoalSnapRadius; ++r)
@@ -164,8 +166,18 @@ namespace ww::runtime
                     }
                     const int32_t x = goalX + dx;
                     const int32_t y = goalY + dy;
+                    if (!view->isStandable(x, y, plane))
+                    {
+                        continue;
+                    }
+                    if (!requireArea)
+                    {
+                        outX = x;
+                        outY = y;
+                        return true;
+                    }
                     const int32_t area = view->areaAt(x, y, plane);
-                    if (area >= 0 && view->isStandable(x, y, plane))
+                    if (area >= 0)
                     {
                         outX = x;
                         outY = y;
@@ -176,6 +188,60 @@ namespace ww::runtime
             }
         }
         return false;
+    }
+
+    // Plan a route wholly inside a dynamic region (instance).
+    //
+    // None of the baked graph applies here. An instance is stitched from 8x8
+    // chunks copied out of scattered source regions whose areas are unrelated to
+    // each other, and the footprint the instance occupies is not baked at all —
+    // so areaAt answers -1 for every tile in it and the area-level backbone has
+    // nothing to route over. What survives is per-tile collision, which
+    // WorldView resolves through the chunk descriptors. This is therefore a plain
+    // tile-level A* with the area constraint off, chunked into Walk steps by the
+    // same appendWalkSegment the static path uses.
+    //
+    // Three limits, deliberate rather than accidental:
+    //   * No transitions. Doors, ladders and stairs inside the instance are baked
+    //     as area edges, and there are no areas here, so they are not used. A
+    //     player-owned house does not need them; a Dungeoneering floor will.
+    //   * No plane changes, for the same reason — a plane change IS a transition.
+    //   * Both endpoints must lie inside the descriptor grid. Routing between an
+    //     instance and the overworld needs an exit transition nothing bakes yet.
+    //     Failing here is the honest answer: the static tiles that happen to share
+    //     the instance's coordinates describe unrelated terrain, so planning
+    //     through them would walk the avatar into scenery.
+    bool PathAssembler::assembleInstanceRoute(int32_t startX, int32_t startY, int32_t startPlane,
+                                              int32_t goalX, int32_t goalY, int32_t goalPlane,
+                                              Plan &outPlan)
+    {
+        const InstanceMap *map = view->instanceMap();
+        if (map == nullptr
+            || !map->coversTile(startX, startY, startPlane)
+            || !map->coversTile(goalX, goalY, goalPlane)
+            || startPlane != goalPlane)
+        {
+            return false;
+        }
+        if (!view->isStandable(startX, startY, startPlane))
+        {
+            return false;
+        }
+        int32_t targetX = goalX;
+        int32_t targetY = goalY;
+        if (!view->isStandable(goalX, goalY, goalPlane))
+        {
+            // Same courtesy the static path extends: a goal on a wall or an
+            // object footprint snaps to the nearest standable neighbour so the
+            // route still lands the player against the intended spot.
+            int32_t unusedArea = -1;
+            if (!resolveGoalTile(goalX, goalY, goalPlane, false, targetX, targetY, unusedArea))
+            {
+                return false;
+            }
+        }
+        return appendWalkSegment(startX, startY, targetX, targetY, startPlane,
+                                 TileSearch::kAnyArea, outPlan);
     }
 
     bool PathAssembler::appendWalkSegment(int32_t fromX, int32_t fromY, int32_t toX, int32_t toY,
@@ -468,6 +534,15 @@ namespace ww::runtime
         {
             return false;
         }
+        // Inside a dynamic region the baked area graph describes none of the
+        // terrain under the player, so the whole area-level machinery below —
+        // areaAt endpoints, teleport seeding, the near-goal edge scan — is
+        // skipped rather than fed coordinates it cannot describe.
+        if (view->isInstanced())
+        {
+            return assembleInstanceRoute(startX, startY, startPlane,
+                                         goalX, goalY, goalPlane, outPlan);
+        }
         const int32_t startArea = view->areaAt(startX, startY, startPlane);
         if (startArea < 0)
         {
@@ -479,7 +554,7 @@ namespace ww::runtime
             // The requested goal tile is blocked (wall / closed door / object
             // footprint). Snap to the nearest standable tile so the route still
             // lands the player against the intended spot instead of failing.
-            if (!resolveGoalTile(goalX, goalY, goalPlane, goalX, goalY, goalArea))
+            if (!resolveGoalTile(goalX, goalY, goalPlane, true, goalX, goalY, goalArea))
             {
                 return false;
             }

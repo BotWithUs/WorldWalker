@@ -2,6 +2,7 @@
 #include "cli/Bench.h"
 #include "cli/CrossCheck.h"
 #include "cli/DoorPaths.h"
+#include "cli/InstanceTests.h"
 #include "cli/PathExport.h"
 #include "cli/ScriptedPaths.h"
 #include "cli/WallShapeTests.h"
@@ -450,7 +451,7 @@ namespace
                 // once empty (every varbit reads 0 → gated teleports rejected,
                 // the live bug) and once with all those varbits set to 1 (the
                 // post-fix executor reads the player's true unlock state via the
-                // readVarbit callback → gated teleports admitted).
+                // readVarbits callback → gated teleports admitted).
                 std::vector<int32_t> varbitIds;
                 std::vector<int32_t> itemIds;
                 for (const ww::format::RequirementRecord &r : reader.requirements())
@@ -1182,11 +1183,15 @@ namespace
         *outSnapshot = ww::exec::WwCapabilitySnapshot{};
     }
 
-    extern "C" int32_t harnessReadVarbit(void *user, int32_t)
+    extern "C" void harnessReadInstance(void *user, ww::exec::WwInstanceChunks *outChunks)
     {
-        ExecHarness *h = static_cast<ExecHarness *>(user);
-        ++h->abortIfCalled;
-        return 0;
+        // planFrom() pulls this on every plan / re-plan, so unlike the reserved
+        // readVarbit slot it replaced, being called is NOT an abort condition.
+        // The harness walks the static overworld and answers with a zeroed
+        // struct — "not an instance" — exactly as a host does for an ordinary
+        // scene.
+        static_cast<void>(user);
+        *outChunks = ww::exec::WwInstanceChunks{};
     }
 
     extern "C" int32_t harnessReadItemCount(void *user, int32_t)
@@ -1355,7 +1360,7 @@ namespace
             nullptr,
             harnessReadPosition,
             harnessReadCapability,
-            harnessReadVarbit,
+            harnessReadInstance,
             harnessReadItemCount,
             harnessReadVarbits,
             harnessReadItemCounts,
@@ -1663,6 +1668,7 @@ int main(int argc, char **argv)
         std::printf("usage: wwcli <artifact.wwa>\n");
         std::printf("       wwcli crosscheck <artifact.wwa> <collision_map.bin>\n");
         std::printf("       wwcli walltest\n");
+        std::printf("       wwcli instance\n");
         std::printf("       wwcli scripted <artifact.wwa>\n");
         std::printf("       wwcli doors <artifact.wwa>\n");
         std::printf("       wwcli bench <artifact.wwa>\n");
@@ -1684,6 +1690,11 @@ int main(int argc, char **argv)
     if (std::strcmp(argv[1], "walltest") == 0)
     {
         return runWallShapeTests();
+    }
+
+    if (std::strcmp(argv[1], "instance") == 0)
+    {
+        return runInstanceTests();
     }
 
     if (std::strcmp(argv[1], "scripted") == 0)

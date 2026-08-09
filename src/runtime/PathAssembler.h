@@ -89,6 +89,12 @@ namespace ww::runtime
         // excluded from the area route; nullptr is equivalent to the no-snapshot
         // overload. The snapshot is consulted only for inter-area transition
         // gating — same-area routing (pure walking) is unfiltered by design.
+        //
+        // When the borrowed WorldView has a dynamic region installed, everything
+        // above is bypassed for assembleInstanceRoute: the baked area graph does
+        // not describe an instance's terrain, so the plan is pure tile-level
+        // walking within the descriptor grid and the capability snapshot is
+        // unused (there are no transitions to gate).
         bool assemble(int32_t startX, int32_t startY, int32_t startPlane,
                       int32_t goalX, int32_t goalY, int32_t goalPlane,
                       Plan &outPlan);
@@ -108,8 +114,21 @@ namespace ww::runtime
         // standable tile within kGoalSnapRadius and report it (and its area) as
         // the effective goal. Returns false when the goal is buried too deep in
         // blocked terrain for any walkable stand-in to be found.
-        bool resolveGoalTile(int32_t goalX, int32_t goalY, int32_t plane,
+        //
+        // `requireArea` demands the stand-in also belong to a baked area, and
+        // reports it through outArea — the static-world case, where a tile with
+        // no area is unreachable by definition. Inside a dynamic region nothing
+        // has a baked area, so the instance path passes false and outArea is
+        // left untouched.
+        bool resolveGoalTile(int32_t goalX, int32_t goalY, int32_t plane, bool requireArea,
                              int32_t &outX, int32_t &outY, int32_t &outArea) const;
+
+        // Plan a route wholly inside a dynamic region (instance), appending Walk
+        // steps to outPlan. Returns false when either endpoint is outside the
+        // descriptor grid, the planes differ, or no walkable route exists.
+        bool assembleInstanceRoute(int32_t startX, int32_t startY, int32_t startPlane,
+                                   int32_t goalX, int32_t goalY, int32_t goalPlane,
+                                   Plan &outPlan);
 
         // Refine (fromX, fromY) -> (toX, toY) inside `area` and append chunked
         // WALK steps to outPlan. Each step's target advances at most kWalkChunkTiles

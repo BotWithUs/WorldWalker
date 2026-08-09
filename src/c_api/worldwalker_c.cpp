@@ -181,13 +181,15 @@ int32_t ww_executor_run(ww_artifact      *artifact,
         return WW_STATUS_FAILED;
     }
     // Every function pointer the executor actually calls must be provided;
-    // onEvent is the lone optional, and readVarbit is reserved (no current
-    // call site — the batched readVarbits replaced it at plan entry). Keep
-    // this list in lock-step with what the Executor dereferences: a pointer
-    // it calls but this guard skips is a null-call crash mid-walk instead of
-    // a clean status (isItemWorn / readItemCount fire on ClickItem chains).
+    // onEvent is the lone optional. Keep this list in lock-step with what the
+    // Executor dereferences: a pointer it calls but this guard skips is a
+    // null-call crash mid-walk instead of a clean status (isItemWorn /
+    // readItemCount fire on ClickItem chains). readInstance joined the required
+    // set when it claimed the formerly-reserved readVarbit slot — unlike its
+    // predecessor it has a call site, at every (re-)plan.
     if (callbacks->readPosition    == nullptr
      || callbacks->readCapability  == nullptr
+     || callbacks->readInstance    == nullptr
      || callbacks->readVarbits     == nullptr
      || callbacks->readItemCounts  == nullptr
      || callbacks->readItemCount   == nullptr
@@ -220,6 +222,17 @@ ww_result ww_query(ww_artifact                *artifact,
                     WwGoal                      goal,
                     const WwCapabilitySnapshot *capabilities,
                     WwPath                     *outPath)
+{
+    return ww_query_ex(artifact, pool, start, goal, capabilities, nullptr, outPath);
+}
+
+ww_result ww_query_ex(ww_artifact                *artifact,
+                       ww_context_pool            *pool,
+                       WwTile                      start,
+                       WwGoal                      goal,
+                       const WwCapabilitySnapshot *capabilities,
+                       const WwInstanceChunks     *instance,
+                       WwPath                     *outPath)
 {
     if (outPath == nullptr)
     {
@@ -257,8 +270,12 @@ ww_result ww_query(ww_artifact                *artifact,
         const ww::runtime::CapabilitySnapshot *snapshotPtr =
             (capabilities != nullptr) ? &snapshot : nullptr;
 
-        // RAII lease — released on scope exit even when assemble() throws.
+        // RAII lease — released on scope exit even when assemble() throws. The
+        // release path calls SearchContext::recycle(), which drops the instance
+        // map, so the grid installed just below cannot leak into whatever query
+        // borrows this context next.
         ww::runtime::ContextLease lease = pool->pool.acquire();
+        ww::exec::installInstance(lease->instance, instance);
         ww::runtime::Plan plan;
         const bool ok = lease->assembler.assemble(start.x, start.y, start.plane,
                                                   goal.x, goal.y, goal.plane,

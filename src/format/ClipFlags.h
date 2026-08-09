@@ -43,6 +43,46 @@ namespace ww::format
     // do not block standing — only crossing the edge — so they are excluded here.
     inline constexpr uint32_t kClipStandBlockedMask =
         static_cast<uint32_t>(CLIP_BLOCKED) | static_cast<uint32_t>(CLIP_OBJECT);
+
+    // The eight directional wall bits occupy the low byte, in clockwise order
+    // starting at NW: NW, N, NE, E, SE, S, SW, W. Every other clip bit describes
+    // the whole tile and has no orientation.
+    inline constexpr uint32_t kClipWallMask = 0xFFu;
+
+    // Re-express a SOURCE tile's clip word as it appears inside a dynamic region
+    // (instance) whose chunk was copied with `rotation` 90-degree steps. Only the
+    // directional wall bits move; whole-tile bits (blocked, object, water, door,
+    // …) pass through untouched.
+    //
+    // One 90-degree step is two bit positions, because the bit order above is
+    // clockwise in 45-degree increments.
+    //
+    // DIRECTION — the part worth deriving rather than guessing. The client's
+    // chunk rotation maps instance-local (x, y) back to source-local (y, 7 - x)
+    // at rotation 1 (see InstanceMap::rotateLocalX / rotateLocalY), so the
+    // source's EAST edge surfaces as the instance's NORTH edge: a 90-degree
+    // counter-clockwise turn, which is a RIGHT rotate of a clockwise-ordered
+    // field. East is bit 3 and north is bit 1, so the shift is >> 2 per step.
+    //
+    // Getting this backwards yields collision that is wrong only on rotated
+    // chunks — invisible in a player-owned house, where every chunk is copied
+    // unrotated. So it is pinned rather than trusted: `wwcli instance`
+    // (cli/InstanceTests.cpp, checkRotationGeometry) derives the expected result
+    // from InstanceMap::rotateLocalX/Y instead of restating the shift, so this
+    // function and the tile rotation cannot silently disagree. Note that is a
+    // different suite from `wwcli walltest`, which covers loc wall SHAPES and
+    // has nothing to say about chunk rotation.
+    inline constexpr uint32_t rotateClipWord(uint32_t word, int32_t rotation)
+    {
+        const int32_t steps = (rotation & 0x3) * 2;
+        if (steps == 0)
+        {
+            return word;
+        }
+        const uint32_t walls = word & kClipWallMask;
+        const uint32_t rotated = ((walls >> steps) | (walls << (8 - steps))) & kClipWallMask;
+        return (word & ~kClipWallMask) | rotated;
+    }
 }
 
 #endif  // WORLDWALKER_FORMAT_CLIPFLAGS_H

@@ -4,6 +4,7 @@
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
 #include "format/ClipFlags.h"
+#include "runtime/InstanceMap.h"
 
 #include <algorithm>
 #include <climits>
@@ -27,6 +28,15 @@ namespace ww::runtime
     // Tiles outside any baked map square read as fully blocked (clip CLIP_BLOCKED,
     // area id -1) — unmapped world is treated as solid.
     //
+    // Dynamic regions (instances): when an InstanceMap is installed, clipAt
+    // resolves each tile to the static tile its 8x8 chunk was copied from and
+    // returns that tile's baked word, rotated. Coordinates in and out of this
+    // class stay INSTANCE coordinates — only the internal lookup moves into
+    // source space — because an instance is assembled from scattered chunks and
+    // planning in source space would route the avatar across the real world
+    // between chunks that are neighbours in the instance. areaAt stays static-only
+    // (see its comment).
+    //
     // Cache lifetime: a WorldView's clip + grid caches survive across queries on
     // the same context. The cached squares are an immutable function of the
     // borrowed ArtifactReader, so re-using them across walks/queries is sound
@@ -49,21 +59,84 @@ namespace ww::runtime
         // tiles act as blocked.
         static constexpr std::size_t kSquaresPerAxis = 256;
 
+        // The instance resolver refuses tiles outside the same band, so a
+        // dynamic region can never answer "walkable" for a tile this class's
+        // visited stamps treat as permanently closed. Drift between the two
+        // would surface as a search that expands nothing and reports no route.
+        static_assert(static_cast<std::size_t>(InstanceMap::kMapsquaresPerAxis) == kSquaresPerAxis,
+                      "InstanceMap and WorldView must agree on the addressable world extent");
+
         explicit WorldView(const format::ArtifactReader &reader);
 
         WorldView(const WorldView &) = delete;
         WorldView &operator=(const WorldView &) = delete;
+        // Moving carries the borrowed `instance` pointer to the new object,
+        // which is only sound while the pointee outlives both. That holds today
+        // because SearchContext owns the InstanceMap, is itself non-movable, and
+        // is heap-pinned by the pool's unique_ptr — so no move ever happens.
+        // Re-check this if a WorldView is ever moved between contexts.
         WorldView(WorldView &&) = default;
         WorldView &operator=(WorldView &&) = default;
 
+        // Install (or clear, with nullptr) the dynamic-region descriptor grid
+        // this view resolves collision through. Borrowed, not owned: the map
+        // must outlive the view's use of it. SearchContext owns one per context
+        // and clears it on recycle, so a later static query cannot inherit a
+        // stale instance.
+        void setInstance(const InstanceMap *map)
+        {
+            instance = map;
+        }
+
+        // The installed dynamic-region map, or nullptr in a static scene.
+        const InstanceMap *instanceMap() const
+        {
+            return instance;
+        }
+
+        // Whether this view is currently resolving through an instance.
+        bool isInstanced() const
+        {
+            return instance != nullptr && instance->isActive();
+        }
+
         // Directional clip word for a world tile, or kBlockedWord when the tile is
         // off-plane, negative, or in a square the artifact does not bake.
+        //
+        // Inside a dynamic region the tile is first resolved to the static tile
+        // its chunk was copied from, and the answer is the SOURCE tile's baked
+        // word with its directional bits rotated by the chunk rotation. Resolving
+        // before the square lookup is deliberate: it leaves clipCache and the
+        // sticky slot keyed on SOURCE squares in both modes, so entering or
+        // leaving an instance needs no cache invalidation. Keying them on
+        // instance coordinates would quietly serve one instance's collision to
+        // the next.
+        uint32_t clipAt(int x, int y, int plane)
+        {
+            if (instance != nullptr && instance->isActive())
+            {
+                return instancedClipAt(x, y, plane);
+            }
+            return bakedClipAt(x, y, plane);
+        }
+
+    private:
+        // The two halves of clipAt. Private — every caller outside this class
+        // wants clipAt, which picks between them; instancedClipAt in particular
+        // dereferences `instance` unconditionally and is only safe once clipAt
+        // has established the map is installed and active. They sit here rather
+        // than with the other private members so they stay adjacent to the
+        // dispatcher that is the whole reason they are split.
+
+        // Baked clip word addressed by STATIC world tile, ignoring any installed
+        // instance. In instance mode the caller has already resolved the tile to
+        // its source, so this always sees static-world coordinates.
         //
         // Header-inlined: the sticky one-slot fast path is the dominant inner-
         // loop step of tile A* (TileSearch::tryStep + expand). Inlining lets the
         // sticky compare + array index fold into the caller; the slow path
         // (squareWords) stays out-of-line so the inlined body is small.
-        uint32_t clipAt(int x, int y, int plane)
+        uint32_t bakedClipAt(int x, int y, int plane)
         {
             if (offWorld(x, y, plane))
             {
@@ -86,6 +159,27 @@ namespace ww::runtime
             return (*words)[clipIndex(x, y, plane)];
         }
 
+        // Clip word for a tile inside a dynamic region: resolve the source tile,
+        // read its baked word, rotate the directional bits.
+        //
+        // A tile the descriptor grid does not source — outside the grid, or a
+        // hole inside it — reads as fully blocked. A hole in an instance is
+        // genuinely solid, and the static map underneath an instance describes
+        // unrelated terrain, so falling back to it would be worse than failing.
+        uint32_t instancedClipAt(int x, int y, int plane)
+        {
+            const int64_t source = instance->sourceOfPacked(x, y, plane);
+            if (source == InstanceMap::kNoSource)
+            {
+                return kBlockedWord;
+            }
+            const uint32_t word = bakedClipAt(InstanceMap::srcTileX(source),
+                                              InstanceMap::srcTileY(source),
+                                              InstanceMap::srcPlane(source));
+            return format::rotateClipWord(word, InstanceMap::srcRotation(source));
+        }
+
+    public:
         // True when a unit may occupy the tile (no whole-tile blocker). Wall-edge
         // bits block crossing, not standing, so they are ignored here.
         bool isStandable(int x, int y, int plane)
@@ -95,6 +189,13 @@ namespace ww::runtime
 
         // Area id of a world tile, or -1 when the tile is blocked / unreachable /
         // off-plane / in an unmapped square.
+        //
+        // Deliberately NOT instance-aware, and it must stay that way. The baked
+        // area graph is a connectivity model of the static world; the source
+        // chunks an instance is assembled from belong to unrelated areas, so
+        // remapping through the instance would stitch a graph whose edges do not
+        // exist. Inside a dynamic region this answers -1, which is the honest
+        // answer, and PathAssembler takes a tile-level branch that never asks.
         //
         // Header-inlined for the same reason as clipAt.
         int32_t areaAt(int x, int y, int plane)
@@ -140,7 +241,11 @@ namespace ww::runtime
         //
         // Storage lives on WorldView so it shares spatial locality with the
         // clip cache the tile search already touches per neighbor, and
-        // survives across queries on the same context.
+        // survives across queries on the same context. The stamps are keyed on
+        // INSTANCE coordinates — they track the search, not the map — so inside
+        // a dynamic region they and the clip cache sit in different coordinate
+        // spaces and that locality no longer holds. Correctness is unaffected;
+        // only the cache-friendliness argument is.
         uint32_t beginTileSearch()
         {
             ++tileEpoch;
@@ -263,6 +368,9 @@ namespace ww::runtime
         std::vector<uint32_t> &stampsEnsure(int squareX, int squareY, int plane);
 
         const format::ArtifactReader *artifact;
+        // Borrowed dynamic-region descriptor grid, or nullptr in a static scene.
+        // Owned by the SearchContext; see setInstance.
+        const InstanceMap *instance{nullptr};
         // 64-bit non-overlapping keys (squareY << 32 | squareX, and
         // squareY << 40 | squareX << 8 | plane). The unordered_map sized
         // itself to the working set (a few tens of squares), which on this

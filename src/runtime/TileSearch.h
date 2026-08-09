@@ -50,6 +50,11 @@ namespace ww::runtime
     class TileSearch
     {
     public:
+        // areaConstraint value meaning "no constraint — expand over any standable
+        // tile". Used when the baked area graph does not describe the terrain
+        // being searched, which is the case inside a dynamic region (instance).
+        static constexpr int32_t kAnyArea = -1;
+
         explicit TileSearch(WorldView &view);
 
         TileSearch(const TileSearch &) = delete;

@@ -3,6 +3,7 @@
 
 #include "format/ArtifactReader.h"
 #include "runtime/AreaSearch.h"
+#include "runtime/InstanceMap.h"
 #include "runtime/PathAssembler.h"
 #include "runtime/TileSearch.h"
 #include "runtime/WorldView.h"
@@ -26,6 +27,10 @@ namespace ww::runtime
               tileSearch(view),
               assembler(reader, view, areaSearch, tileSearch)
         {
+            // The view resolves collision through this context's own instance
+            // map for its whole life; the map itself is empty (inactive) until a
+            // query installs a descriptor grid, which is the static-scene case.
+            view.setInstance(&instance);
         }
 
         SearchContext(const SearchContext &) = delete;
@@ -33,18 +38,34 @@ namespace ww::runtime
         SearchContext(SearchContext &&) = delete;
         SearchContext &operator=(SearchContext &&) = delete;
 
-        // No-op today: the WorldView's clip and area caches are immutable
-        // functions of the borrowed artifact, so re-using them across queries
-        // on the same context is sound and lets the next borrower land on a
-        // warm working set instead of re-inflating every touched square. The
-        // other components' scratch is overwritten on every findPath /
-        // assemble call so they have no per-query state to clear either. The
-        // method stays as the explicit "borrow returned to pool" hook in case
-        // a future change does need to flush something here.
+        // Drops the dynamic-region descriptor grid, and nothing else.
+        //
+        // The WorldView's clip and area caches are immutable functions of the
+        // borrowed artifact, so re-using them across queries on the same context
+        // is sound and lets the next borrower land on a warm working set instead
+        // of re-inflating every touched square — and because the instance
+        // redirect resolves to source coordinates *before* the square lookup,
+        // those caches are keyed in source space and stay valid across a scene
+        // change too. The other components' scratch is overwritten on every
+        // findPath / assemble call, so they have no per-query state either.
+        //
+        // The instance map is the one thing that must not survive the borrow.
+        // The next query may be an ordinary overworld walk, and resolving it
+        // through the previous borrower's descriptor grid would answer with
+        // another scene's collision — plausible wrong tiles rather than a
+        // failure, which is the worst shape a pathfinding bug can take.
         void recycle()
         {
+            instance.clear();
         }
 
+        // The scene's dynamic-region grid, empty in a static scene. Installed on
+        // `view` at construction and refreshed per query / per (re-)plan.
+        //
+        // Declared FIRST on purpose: `view` holds a pointer to it, and members
+        // are destroyed in reverse declaration order, so this ordering means the
+        // pointee outlives the pointer rather than the other way round.
+        InstanceMap instance;
         WorldView view;
         AreaSearch areaSearch;
         TileSearch tileSearch;

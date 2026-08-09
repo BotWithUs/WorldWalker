@@ -2,6 +2,7 @@
 #define WORLDWALKER_EXEC_CALLBACKS_H
 
 #include "c_api/worldwalker_c.h"
+#include "runtime/InstanceMap.h"
 
 #include <cstdint>
 
@@ -20,6 +21,7 @@ namespace ww::exec
     using ::WwEvent;
     using ::WwCapabilityEntry;
     using ::WwCapabilitySnapshot;
+    using ::WwInstanceChunks;
 
     static_assert(sizeof(WwTile)               == 12, "WwTile must be 12 bytes (wire layout)");
     static_assert(sizeof(WwGoal)               == 16, "WwGoal must be 16 bytes (wire layout)");
@@ -51,7 +53,7 @@ namespace ww::exec
 
     using ::WwReadPositionFn;
     using ::WwReadCapabilityFn;
-    using ::WwReadVarbitFn;
+    using ::WwReadInstanceFn;
     using ::WwReadVarbitsFn;
     using ::WwReadItemCountsFn;
     using ::WwIsInterfaceOpenFn;
@@ -65,6 +67,27 @@ namespace ww::exec
     // Alias for the C vtable so existing C++ code reads ww::exec::Callbacks
     // while sharing the byte layout with WwCallbacks at the FFI boundary.
     using Callbacks = ::WwCallbacks;
+
+    // Copy a host-supplied dynamic-region descriptor grid into `map`, or clear
+    // the map when the scene is static. A null struct or a null descriptors
+    // pointer is the ordinary case — an overworld scene — not an error.
+    //
+    // The copy is what makes the host's borrowing contract cheap to honour: the
+    // grid only has to outlive this call, not the whole run.
+    //
+    // Shared by both entry points so the planner (ww_query_ex) and the executor
+    // (per re-plan) install a grid the same way.
+    inline void installInstance(runtime::InstanceMap &outMap, const WwInstanceChunks *chunks)
+    {
+        if (chunks == nullptr || chunks->descriptors == nullptr)
+        {
+            outMap.clear();
+            return;
+        }
+        outMap.assign(chunks->originMapX, chunks->originMapY,
+                      chunks->gridW, chunks->gridH,
+                      chunks->descriptors, chunks->descriptorCount);
+    }
 }
 
 #endif  // WORLDWALKER_EXEC_CALLBACKS_H

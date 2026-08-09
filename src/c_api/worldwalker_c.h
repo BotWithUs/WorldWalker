@@ -186,15 +186,65 @@ typedef struct WwCapabilitySnapshot
     size_t                   varpCount;
 } WwCapabilitySnapshot;
 
+/* The client's dynamic-region ("instance") chunk-descriptor grid — the table
+   that says which static 8x8 chunk each chunk of the current scene was copied
+   from, and how it was rotated. A player-owned house, a Dungeoneering floor and
+   a boss instance are all assembled this way.
+
+   WorldWalker's baked artifact describes the static map only, so inside an
+   instance it reads collision through this table. Pass a zeroed struct (or a
+   NULL descriptors pointer) for an ordinary static scene.
+
+   UNITS TRAP, and it has caught every implementation of this so far:
+   originMapX/originMapY are MAPSQUARES (64 tiles); gridW/gridH are CHUNKS
+   (8 tiles). The origin must be promoted to chunks before it is subtracted.
+
+   `descriptors` is plane-major — cell (gx, gy) on plane p lives at
+   ((p * gridW) + gx) * gridH + gy — and must hold at least
+   4 * gridW * gridH entries; a shorter run is refused outright rather than
+   partially installed, because the agent leaves the tail of its published array
+   stale rather than clearing it every tick, so reading past the count resolves
+   to the PREVIOUS instance's tiles.
+
+   BORROWING: `descriptors` only has to outlive THIS call. Note that is a weaker
+   requirement than WwCapabilitySnapshot's above, and deliberately so: the
+   library deep-copies the grid into its own storage synchronously — the
+   executor copies on the statement after readInstance returns, and ww_query_ex
+   copies before it plans — so nothing retains the host pointer. A host buffer
+   reused or freed as soon as the call returns is safe backing storage, and a
+   host that allocates a fresh grid per call to satisfy the stricter capability
+   contract is paying for nothing. */
+typedef struct WwInstanceChunks
+{
+    int32_t        originMapX;      /* min loaded MAPSQUARE X — the grid origin */
+    int32_t        originMapY;
+    int32_t        gridW;           /* descriptor grid width in CHUNKS */
+    int32_t        gridH;           /* descriptor grid height in CHUNKS */
+    const int32_t *descriptors;     /* plane-major; NULL for a static scene */
+    size_t         descriptorCount;
+} WwInstanceChunks;
+
 /* ---- Executor callback vtable ------------------------------------------ */
 
 /* Reads — pulled live by the executor; must be cheap and side-effect-free. */
 typedef void    (*WwReadPositionFn)(void *user, WwTile *outTile);
 typedef void    (*WwReadCapabilityFn)(void *user, WwCapabilitySnapshot *outSnapshot);
-/* RESERVED — the executor currently has no call site for the scalar varbit
-   read (the batched readVarbits below replaced it at plan entry). The slot
-   stays for ABI stability and may be NULL. */
-typedef int32_t (*WwReadVarbitFn)(void *user, int32_t id);
+/* The current scene's dynamic-region descriptor grid, pulled at every (re-)plan
+   alongside readCapability. Write a zeroed struct (or leave descriptors NULL)
+   when the scene is not an instance — that is the common case and the executor
+   treats it as "plan against the static map".
+
+   This is a callback rather than a ww_executor_run parameter because a single
+   run can cross into or out of an instance (walking through a house portal), so
+   the executor must re-derive it per plan instead of trusting a value captured
+   at entry.
+
+   ABI NOTE: this slot was WwReadVarbitFn, a reserved never-called scalar varbit
+   read left in place "for ABI stability" after the batched readVarbits replaced
+   it. Claiming it is what a reserved slot is for, and it keeps sizeof(WwCallbacks)
+   at 120 bytes so the Java/Panama layout does not have to move. It IS called
+   now, so unlike its predecessor it may not be NULL. */
+typedef void (*WwReadInstanceFn)(void *user, WwInstanceChunks *outChunks);
 /* Live count of item `itemId` the player holds (worn + carried), used to gate
    item-requirement teleports. The executor pulls only the ids that some
    requirement references, since readCapability cannot know which items matter.
@@ -260,17 +310,17 @@ typedef int32_t (*WwShouldCancelFn)(void *user);
 typedef void (*WwOnEventFn)(void *user, const WwEvent *event);
 
 /* Consumer-supplied callback vtable. Every function pointer is required
-   except onEvent (optional) and readVarbit (reserved, currently uncalled);
-   ww_executor_run validates the required set and fails clean on a NULL.
-   `user` is an opaque cookie threaded into every call. The executor never
-   copies these fields — the vtable must outlive the ww_executor_run call. */
+   except onEvent (optional); ww_executor_run validates the required set and
+   fails clean on a NULL. `user` is an opaque cookie threaded into every call.
+   The executor never copies these fields — the vtable must outlive the
+   ww_executor_run call. */
 typedef struct WwCallbacks
 {
     void *user;
 
     WwReadPositionFn    readPosition;
     WwReadCapabilityFn  readCapability;
-    WwReadVarbitFn      readVarbit;
+    WwReadInstanceFn    readInstance;
     WwReadItemCountFn   readItemCount;
     WwReadVarbitsFn     readVarbits;
     WwReadItemCountsFn  readItemCounts;
@@ -349,6 +399,25 @@ WW_API ww_result ww_query(ww_artifact                *artifact,
                            const WwCapabilitySnapshot *capabilities,
                            WwPath                     *outPath);
 
+/* ww_query against a scene that may be a dynamic region ("instance"). Identical
+   to ww_query in every respect except that `instance` supplies the chunk
+   descriptor grid through which collision is resolved; ww_query is exactly this
+   call with instance == NULL, which is the static-scene case.
+
+   Inside an instance the planner routes by walking only: the baked area graph,
+   its transitions and the global teleports all describe the static world, and
+   none of them apply to terrain assembled at runtime. A query whose start and
+   goal are not BOTH inside the descriptor grid returns WW_ERR_NOT_FOUND —
+   crossing an instance boundary needs an exit transition that nothing bakes
+   yet. `instance` is borrowed for the duration of the call only. */
+WW_API ww_result ww_query_ex(ww_artifact                *artifact,
+                              ww_context_pool            *pool,
+                              WwTile                      start,
+                              WwGoal                      goal,
+                              const WwCapabilitySnapshot *capabilities,
+                              const WwInstanceChunks     *instance,
+                              WwPath                     *outPath);
+
 /* Release a path produced by ww_query and zero its fields. Safe to call on
    a zero-initialised WwPath or with path == NULL. */
 WW_API void ww_path_free(WwPath *path);
@@ -369,6 +438,7 @@ static_assert(sizeof(WwGoal)              == 16, "WwGoal must be 16 bytes (wire)
 static_assert(sizeof(WwEvent)             == 16, "WwEvent must be 16 bytes (wire)");
 static_assert(sizeof(WwCapabilityEntry)   == 8,  "WwCapabilityEntry must be 8 bytes (wire)");
 static_assert(sizeof(WwCapabilitySnapshot) == 64, "WwCapabilitySnapshot must be 64 bytes (wire)");
+static_assert(sizeof(WwInstanceChunks)    == 32, "WwInstanceChunks must be 32 bytes (wire) — 4 i32 + ptr + size_t");
 static_assert(sizeof(WwCallbacks)         == 120, "WwCallbacks must be 120 bytes (wire) — 15 ptrs of 8 bytes each on x64");
 static_assert(sizeof(WwStep)              == 16, "WwStep must be 16 bytes (wire)");
 static_assert(sizeof(WwPath)              == 24, "WwPath must be 24 bytes (wire) — ptr+size_t+float+pad");

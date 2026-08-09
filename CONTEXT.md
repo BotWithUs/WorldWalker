@@ -26,6 +26,25 @@ _Avoid_: object (overloaded), entity, scenery (use only informally).
 The per-Tile, per-Plane clip word capturing engine-faithful blocking: whole-tile blocked, the four wall-edge blockers (N/E/S/W), and corner/diagonal blockers. Derived from Mapsquare terrain flags plus blocking Loc instances. Movement respects wall edges and forbids corner-cutting. The core input to pathfinding.
 _Avoid_: clipping (verb), blockmap, navmesh (a navmesh is a different representation we are not committed to).
 
+**Chunk**:
+An `8 × 8`-Tile block — the unit a Dynamic region is assembled from, and the only sense in which this context uses the word. Note the Mapsquare entry above tells you to avoid "chunk" *as a synonym for Mapsquare*; a Chunk is an eighth of a Mapsquare on each axis, not another name for one.
+
+**Dynamic region** (a.k.a. instance):
+A scene the client builds at runtime by copying Chunks out of the static map into a scratch area of the world, optionally rotated: a player-owned house, a Dungeoneering floor, a boss or minigame instance. The one place this context says "region" rather than Mapsquare — it is the wire's term, published by the agent, and renaming it here would break the shared vocabulary for a purely local preference.
+_Avoid_: instanced map, procedural region (nothing is procedurally generated — every Tile is copied from somewhere).
+
+**Descriptor grid**:
+The plane-major table the client publishes for a Dynamic region: one packed descriptor per (plane, Chunk) naming the **Source chunk** it was copied from and its rotation, or a **Hole**. The UNITS TRAP lives here — the grid's origin is in Mapsquares while its dimensions are in Chunks.
+_Avoid_: chunk table, layout, mapping.
+
+**Source chunk / Source tile**:
+The static-map Chunk a Dynamic region's Chunk was copied from, and the corresponding Tile within it. Collision inside a Dynamic region is the Source tile's baked clip word with its directional bits rotated. Coordinates crossing WorldWalker's API are always instance coordinates — Source tiles exist only inside the lookup.
+_Avoid_: original tile, template tile, real tile.
+
+**Hole**:
+A cell of the Descriptor grid with no Source chunk. Reads as fully blocked: a Hole in a Dynamic region is genuinely solid, not merely unknown.
+_Avoid_: gap, empty chunk, unmapped (unmapped means "outside any baked Mapsquare", a different condition with the same clip answer).
+
 ## Pathfinding
 
 **Tick**:
