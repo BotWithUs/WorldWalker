@@ -557,19 +557,35 @@ namespace ww::data
     {
         LoadedDatasets result;
         uint32_t hash = 2166136261u;
-        if (!loadOne(directory, "transport_links.json", &parseTransportLinks, result.model, hash))
+        if (loadOne(directory, "transport_links.json", &parseTransportLinks, result.model, hash))
+        {
+            ++result.filesFound;
+        }
+        else
         {
             ++result.filesMissing;
         }
-        if (!loadOne(directory, "teleport_chains.json", &parseTeleportChains, result.model, hash))
+        if (loadOne(directory, "teleport_chains.json", &parseTeleportChains, result.model, hash))
+        {
+            ++result.filesFound;
+        }
+        else
         {
             ++result.filesMissing;
         }
-        if (!loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash))
+        if (loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash))
+        {
+            ++result.filesFound;
+        }
+        else
         {
             ++result.filesMissing;
         }
-        if (!loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash))
+        if (loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash))
+        {
+            ++result.filesFound;
+        }
+        else
         {
             ++result.filesMissing;
         }
@@ -584,11 +600,19 @@ namespace ww::data
         // Only the global-origin teleport datasets. transport_links /
         // teleport_chains are local transitions wired into the baked area graph
         // and cannot be supplied at runtime, so they are deliberately skipped.
-        if (!loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash))
+        if (loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash))
+        {
+            ++result.filesFound;
+        }
+        else
         {
             ++result.filesMissing;
         }
-        if (!loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash))
+        if (loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash))
+        {
+            ++result.filesFound;
+        }
+        else
         {
             ++result.filesMissing;
         }

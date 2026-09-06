@@ -249,17 +249,18 @@ namespace
         }
         try
         {
-            // Datasets first: a typo'd directory fails here in milliseconds
-            // instead of after the minutes-long cache decode, and a partial
-            // dataset is refused unless the caller opted in - an artifact with
-            // collision but no transitions is a valid file that walks nowhere.
+            // Datasets first: a wrong directory fails here in milliseconds instead
+            // of after the minutes-long cache decode. Files may be absent one at a
+            // time (the in-tree set has no teleport_chains.json), but a directory with
+            // none of them is a typo, and baking on regardless yields a valid artifact
+            // that walks nowhere, so that is refused unless the caller opted in.
             const ww::data::LoadedDatasets datasets = ww::data::loadDatasets(datasetDir);
-            if (datasets.filesMissing > 0 && !flags.allowMissingDatasets)
+            if (datasets.filesFound == 0 && !flags.allowMissingDatasets)
             {
                 std::fprintf(stderr,
-                             "wwbuild build: %zu dataset file(s) missing under %s "
+                             "wwbuild build: no dataset files found under %s "
                              "(pass --allow-missing-datasets to bake without them)\n",
-                             datasets.filesMissing, datasetDir.c_str());
+                             datasetDir.c_str());
                 return 1;
             }
             ww::build::CacheClient cache(cacheDir, flags.isLive);
