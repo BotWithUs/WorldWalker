@@ -233,6 +233,15 @@ namespace ww::build
             }
         }
 
+        // The planeMask gate below only chooses where fills are SEEDED. A fill
+        // crosses mapsquare seams freely, and an all-zero plane is uniformly
+        // standable with no walls, so every open plane adjacent to a seeded
+        // one is swallowed whole and gets a grid anyway (in a real bake ~22k
+        // of ~32k grids sit on planes whose mask bit is clear). That is the
+        // intended outcome: the mask cannot tell open ground from void, since
+        // both are all-zero words, so it must not be used as a walkability
+        // rule here or in CollisionLookup. Do not "fix" this by blocking
+        // mask-clear planes; it would blockade genuinely open terrain.
         void labelAreas(const CollisionModel &collision, const CollisionLookup &lookup,
                         AreaMap &map, std::vector<AreaNode> &outNodes)
         {
