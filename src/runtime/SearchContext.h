@@ -38,7 +38,8 @@ namespace ww::runtime
         SearchContext(SearchContext &&) = delete;
         SearchContext &operator=(SearchContext &&) = delete;
 
-        // Drops the dynamic-region descriptor grid, and nothing else.
+        // Drops the dynamic-region descriptor grid, and trims the view's caches
+        // back under budget when a long borrow blew past it.
         //
         // The WorldView's clip and area caches are immutable functions of the
         // borrowed artifact, so re-using them across queries on the same context
@@ -57,6 +58,7 @@ namespace ww::runtime
         void recycle()
         {
             instance.clear();
+            view.trimCache();
         }
 
         // The scene's dynamic-region grid, empty in a static scene. Installed on

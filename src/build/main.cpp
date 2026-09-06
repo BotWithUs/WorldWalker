@@ -41,6 +41,36 @@ namespace
         return 2;
     }
 
+    // Trailing option flags shared by the bake commands. Unknown flags are
+    // rejected rather than ignored: `--live` in the wrong slot used to be
+    // silently dropped, which bakes a stale artifact without saying so.
+    struct BuildFlags
+    {
+        bool isLive{false};
+        bool allowMissingDatasets{false};
+    };
+
+    bool parseFlags(int argc, char **argv, int first, BuildFlags &outFlags)
+    {
+        for (int i = first; i < argc; ++i)
+        {
+            if (std::strcmp(argv[i], "--live") == 0)
+            {
+                outFlags.isLive = true;
+            }
+            else if (std::strcmp(argv[i], "--allow-missing-datasets") == 0)
+            {
+                outFlags.allowMissingDatasets = true;
+            }
+            else
+            {
+                std::fprintf(stderr, "wwbuild: unknown option %s\n", argv[i]);
+                return false;
+            }
+        }
+        return true;
+    }
+
     // Poor-man's cache revision: hash the mtimes of the primary NXTCache data
     // files (main_file_cache.dat2 + .js5, with directory mtime as fallback)
     // into a stable uint32. NXTCacheLibrary's C ABI does not yet expose the
@@ -88,12 +118,22 @@ namespace
         }
         const std::string cacheDir = argv[2];
         const std::string outPath = argv[3];
-        const bool live = (argc > 4 && std::strcmp(argv[4], "--live") == 0);
+        BuildFlags flags;
+        if (!parseFlags(argc, argv, 4, flags))
+        {
+            return usage();
+        }
         try
         {
-            ww::build::CacheClient cache(cacheDir, live);
+            ww::build::CacheClient cache(cacheDir, flags.isLive);
             int skipped = 0;
             ww::build::CollisionModel model = ww::build::buildCollisionModel(cache, &skipped);
+            if (model.squares.empty())
+            {
+                std::fprintf(stderr, "wwbuild collision: no map squares decoded from %s "
+                                     "(is this a RuneScape cache directory?)\n", cacheDir.c_str());
+                return 1;
+            }
             ww::build::writeArtifact(outPath, model, ww::data::TransitionModel{},
                                      ww::build::AreaGraphModel{}, ww::build::AltLandmarksModel{},
                                      ww::data::TeleportZonesModel{},
@@ -140,15 +180,15 @@ namespace
         return all;
     }
 
-    // Load the datasets, derive cache-only vertical ladders/stairs and doors
-    // (dataset priority), then finalize the union into the bakeable transition set.
+    // Given the loaded datasets, derive cache-only vertical ladders/stairs and
+    // doors (dataset priority), then finalize the union into the bakeable
+    // transition set.
     TransitionBuildResult assembleTransitions(const ww::build::CollisionModel &collision,
                                               const ww::build::CollisionLookup &lookup,
                                               const std::vector<ww::build::Crossing> &crossings,
-                                              const std::string &datasetDir)
+                                              const ww::data::LoadedDatasets &datasets)
     {
         TransitionBuildResult out;
-        const ww::data::LoadedDatasets datasets = ww::data::loadDatasets(datasetDir);
         out.datasetHash = datasets.datasetHash;
 
         const ww::data::TransitionModel derived = ww::data::deriveVerticalTransitions(
@@ -202,18 +242,43 @@ namespace
         const std::string cacheDir = argv[2];
         const std::string datasetDir = argv[3];
         const std::string outPath = argv[4];
-        const bool live = (argc > 5 && std::strcmp(argv[5], "--live") == 0);
+        BuildFlags flags;
+        if (!parseFlags(argc, argv, 5, flags))
+        {
+            return usage();
+        }
         try
         {
-            ww::build::CacheClient cache(cacheDir, live);
+            // Datasets first: a typo'd directory fails here in milliseconds
+            // instead of after the minutes-long cache decode, and a partial
+            // dataset is refused unless the caller opted in - an artifact with
+            // collision but no transitions is a valid file that walks nowhere.
+            const ww::data::LoadedDatasets datasets = ww::data::loadDatasets(datasetDir);
+            if (datasets.filesMissing > 0 && !flags.allowMissingDatasets)
+            {
+                std::fprintf(stderr,
+                             "wwbuild build: %zu dataset file(s) missing under %s "
+                             "(pass --allow-missing-datasets to bake without them)\n",
+                             datasets.filesMissing, datasetDir.c_str());
+                return 1;
+            }
+            ww::build::CacheClient cache(cacheDir, flags.isLive);
             int skipped = 0;
             ww::build::CollisionModel collision = ww::build::buildCollisionModel(cache, &skipped);
+            // An empty decode is a wrong cache directory, not a world with no
+            // squares: refuse rather than publish an artifact that walks nowhere.
+            if (collision.squares.empty())
+            {
+                std::fprintf(stderr, "wwbuild build: no map squares decoded from %s "
+                                     "(is this a RuneScape cache directory?)\n", cacheDir.c_str());
+                return 1;
+            }
             ww::build::CollisionLookup lookup(collision);
 
             const std::vector<ww::build::Crossing> crossings = gatherCrossings(cache);
 
             const TransitionBuildResult tr =
-                assembleTransitions(collision, lookup, crossings, datasetDir);
+                assembleTransitions(collision, lookup, crossings, datasets);
 
             ww::build::AreaGraphReport ag;
             const ww::build::AreaGraphModel abstraction =
@@ -235,13 +300,14 @@ namespace
             std::printf("  dropped: dangling=%zu selfloop=%zu dup=%zu | snapped dest=%zu\n",
                         tr.finalize.droppedDangling, tr.finalize.droppedSelfLoop,
                         tr.finalize.droppedDuplicate, tr.finalize.snappedDest);
-            std::printf("  freshness: %zu vertical pairs -> +%zu derived (%zu suppressed by datasets, %zu climb-dir mismatch)\n",
+            std::printf("  freshness: %zu vertical pairs -> +%zu derived (%zu suppressed by datasets, %zu climb-dir mismatch, %zu no-option)\n",
                         tr.freshness.pairsFound, tr.freshness.kept,
                         tr.freshness.droppedDatasetConflict,
-                        tr.freshness.droppedClimbMismatch);
-            std::printf("  doors: %zu crossings -> +%zu directed hops (%zu blocked-origin, %zu no-edge, %zu foreign-edge)\n",
+                        tr.freshness.droppedClimbMismatch,
+                        tr.freshness.droppedNoOption);
+            std::printf("  doors: %zu crossings -> +%zu directed hops (%zu blocked-origin, %zu no-option, %zu no-edge, %zu foreign-edge)\n",
                         tr.doors.doorCrossings, tr.doors.emitted,
-                        tr.doors.blockedOrigin, tr.doors.noEdge,
+                        tr.doors.blockedOrigin, tr.doors.noOption, tr.doors.noEdge,
                         tr.doors.foreignEdgeSkipped);
             std::printf("  areas: %zu nodes, %zu edges, %zu grids (largest %zu tiles)\n",
                         ag.areaCount, ag.edgeCount, ag.gridCount, ag.largestArea);

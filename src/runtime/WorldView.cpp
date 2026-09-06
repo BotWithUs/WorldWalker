@@ -85,6 +85,23 @@ namespace ww::runtime
         return visitedStamps.emplace(key, std::move(grid)).first->second;
     }
 
+    std::size_t WorldView::cacheBytes() const
+    {
+        constexpr std::size_t kTilesPerGrid = static_cast<std::size_t>(format::kClipSize) * format::kClipSize;
+        const std::size_t clipBytes = clipCache.size() * format::kClipWordsPerSquare * sizeof(uint32_t);
+        const std::size_t gridBytes = gridCache.size() * kTilesPerGrid * sizeof(int32_t);
+        const std::size_t stampBytes = visitedStamps.size() * kTilesPerGrid * sizeof(uint32_t);
+        return clipBytes + gridBytes + stampBytes;
+    }
+
+    void WorldView::trimCache()
+    {
+        if (cacheBytes() > kCacheBudgetBytes)
+        {
+            clearCache();
+        }
+    }
+
     void WorldView::clearCache()
     {
         clipCache.clear();

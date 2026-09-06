@@ -191,6 +191,42 @@ namespace ww::runtime
     // A null snapshot accepts everything (the no-gate default used by the
     // unfiltered overloads). Used by both AreaSearch (edge gating) and
     // PathAssembler (global-teleport seed gating) so the two share one rule.
+    // Raise `outSnapshot` until it satisfies every record in `reqs`: skill and
+    // item ids go to the highest amount any record names, varbit and varp ids
+    // to the last value asked for. Two records demanding different exact
+    // values of the same varbit cannot both pass (the last wins), so a caller
+    // that needs one particular transition admitted should pass just that
+    // transition's run rather than the whole pool. Dev-harness helper: the
+    // "fully equipped player" every wwcli subcommand plans as.
+    inline void applyPermissiveRequirements(std::span<const format::RequirementRecord> reqs,
+                                            CapabilitySnapshot &outSnapshot)
+    {
+        for (const format::RequirementRecord &r : reqs)
+        {
+            switch (static_cast<data::RequirementKind>(r.kind))
+            {
+                case data::RequirementKind::Skill:
+                    if (outSnapshot.skillLevel(r.id) < r.amount)
+                    {
+                        outSnapshot.setSkillLevel(r.id, r.amount);
+                    }
+                    break;
+                case data::RequirementKind::Item:
+                    if (outSnapshot.itemCount(r.id) < r.amount)
+                    {
+                        outSnapshot.setItemCount(r.id, r.amount);
+                    }
+                    break;
+                case data::RequirementKind::Varbit:
+                    outSnapshot.setVarbit(r.id, r.amount);
+                    break;
+                case data::RequirementKind::Varp:
+                    outSnapshot.setVarp(r.id, r.amount);
+                    break;
+            }
+        }
+    }
+
     inline bool meetsRequirements(const CapabilitySnapshot *snapshot,
                                   std::span<const format::RequirementRecord> reqs,
                                   data::TransitionKind kind = data::TransitionKind::Transport)

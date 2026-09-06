@@ -4,10 +4,9 @@
 #include "data/TransitionCost.h"
 #include "data/Transitions.h"
 #include "format/Artifact.h"
+#include "runtime/TileScan.h"
 #include "runtime/WorldView.h"
 
-#include <algorithm>
-#include <cstdlib>
 #include <cstring>
 #include <vector>
 
@@ -15,41 +14,24 @@ namespace ww::runtime
 {
     namespace
     {
-        // Snap a teleport dest to the nearest standable tile within `radius`
-        // (Chebyshev, ring by ring). A lodestone's teleport tile usually sits on
-        // the (blocked) lodestone object footprint, so its raw dest is off-area;
-        // the bake snapped dests the same way (TransitionBuilder kSnapRadius=5).
-        // Without this the teleport's dest area is -1 and frontier seeding skips
-        // it. Leaves the tile unchanged (returns false) if nothing standable is
-        // in range — it then simply never seeds, which is the safe failure.
-        constexpr int kDestSnapRadius = 5;
+        // Snap a teleport dest to the nearest standable tile within `radius`. A
+        // lodestone's teleport tile usually sits on the (blocked) lodestone
+        // object footprint, so its raw dest is off-area; the bake snaps dests
+        // through the same findNearestTile with the same radius
+        // (TransitionBuilder kSnapRadius=5), so a runtime-loaded teleport lands
+        // on the tile the baked one would have. Without this the dest area is
+        // -1 and frontier seeding skips it. Leaves the tile unchanged (returns
+        // false) if nothing standable is in range — it then simply never seeds,
+        // which is the safe failure.
+        constexpr int32_t kDestSnapRadius = 5;
 
         bool snapDestToStandable(WorldView &view, int32_t &x, int32_t &y, int32_t plane)
         {
-            if (view.isStandable(x, y, plane))
+            const auto standable = [&](int32_t tx, int32_t ty)
             {
-                return true;
-            }
-            for (int32_t r = 1; r <= kDestSnapRadius; ++r)
-            {
-                for (int32_t dy = -r; dy <= r; ++dy)
-                {
-                    for (int32_t dx = -r; dx <= r; ++dx)
-                    {
-                        if (std::max(std::abs(dx), std::abs(dy)) != r)
-                        {
-                            continue;
-                        }
-                        if (view.isStandable(x + dx, y + dy, plane))
-                        {
-                            x += dx;
-                            y += dy;
-                            return true;
-                        }
-                    }
-                }
-            }
-            return false;
+                return view.isStandable(tx, ty, plane);
+            };
+            return findNearestTile(x, y, kDestSnapRadius, true, standable, x, y);
         }
 
         // Flatten one build-time Transition into the serialized POD shape, with

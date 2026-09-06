@@ -278,29 +278,6 @@ namespace
                         doorIndex, tx.objectId, tx.originX, tx.originY, plane, tx.destX, tx.destY);
         }
     }
-
-    void buildPermissiveSnapshot(const ww::format::ArtifactReader &reader,
-                                 ww::runtime::CapabilitySnapshot &out)
-    {
-        for (const ww::format::RequirementRecord &r : reader.requirements())
-        {
-            switch (static_cast<ww::data::RequirementKind>(r.kind))
-            {
-                case ww::data::RequirementKind::Skill:
-                    if (out.skillLevel(r.id) < r.amount) { out.setSkillLevel(r.id, r.amount); }
-                    break;
-                case ww::data::RequirementKind::Item:
-                    if (out.itemCount(r.id) < r.amount) { out.setItemCount(r.id, r.amount); }
-                    break;
-                case ww::data::RequirementKind::Varbit:
-                    out.setVarbit(r.id, r.amount);
-                    break;
-                case ww::data::RequirementKind::Varp:
-                    out.setVarp(r.id, r.amount);
-                    break;
-            }
-        }
-    }
 }
 
 namespace
@@ -450,7 +427,7 @@ int runDoorPaths(const char *wwaPath)
         ww::runtime::PathAssembler assembler(reader, view, areaSearch, tileSearch);
 
         ww::runtime::CapabilitySnapshot snapshot;
-        buildPermissiveSnapshot(reader, snapshot);
+        ww::runtime::applyPermissiveRequirements(reader.requirements(), snapshot);
 
         const auto txs = reader.transitions();
         std::printf("doors:  %s\n", wwaPath);

@@ -3,6 +3,7 @@
 #include "build/CollisionLookup.h"
 #include "data/TransitionCost.h"
 #include "data/Transitions.h"
+#include "runtime/TileScan.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -24,78 +25,43 @@ namespace ww::data
         // paths cost identically).
         constexpr int kSnapRadius = 5;
 
-        // Move (x, y) to the *closest* standable tile within `radius` (Chebyshev),
-        // ring by ring. Inside each ring the candidate with the smallest squared-
-        // Euclidean distance wins, with deterministic (dy, dx) tiebreak — so a
-        // ring-1 cardinal neighbour is preferred over the dx-major-first corner,
-        // and the bake is reproducible across runs. Returns false if no walkable
-        // tile sits within the radius.
+        // Move (x, y) to the closest standable tile within `radius` (Chebyshev).
+        // The ring order and the deterministic (distance, dy, dx) tiebreak live
+        // in runtime::findNearestTile, which the runtime teleport loader and the
+        // planner's interact-tile / goal snapping share - so every consumer of
+        // "nearest standable tile" agrees on the answer and the bake stays
+        // reproducible across runs. Returns false if no walkable tile sits
+        // within the radius.
         bool snapToWalkable(const CollisionLookup &collision, int &x, int &y, int plane,
                             int radius, bool &outMoved)
         {
-            if (collision.isWalkable(x, y, plane))
+            const auto walkable = [&](int32_t tx, int32_t ty)
             {
-                return true;
-            }
-            for (int r = 1; r <= radius; ++r)
+                return collision.isWalkable(tx, ty, plane);
+            };
+            int32_t snappedX = x;
+            int32_t snappedY = y;
+            if (!runtime::findNearestTile(x, y, radius, true, walkable, snappedX, snappedY))
             {
-                int bestDx = 0;
-                int bestDy = 0;
-                int64_t bestSq = std::numeric_limits<int64_t>::max();
-                bool found = false;
-                for (int dy = -r; dy <= r; ++dy)
-                {
-                    for (int dx = -r; dx <= r; ++dx)
-                    {
-                        if (std::max(std::abs(dx), std::abs(dy)) != r)
-                        {
-                            continue;
-                        }
-                        if (!collision.isWalkable(x + dx, y + dy, plane))
-                        {
-                            continue;
-                        }
-                        const int64_t sq =
-                            static_cast<int64_t>(dx) * dx + static_cast<int64_t>(dy) * dy;
-                        // Lexicographic tiebreak on (sq, dy, dx) makes the choice
-                        // deterministic without depending on iteration order.
-                        if (!found || sq < bestSq
-                            || (sq == bestSq && (dy < bestDy
-                                                 || (dy == bestDy && dx < bestDx))))
-                        {
-                            bestSq = sq;
-                            bestDx = dx;
-                            bestDy = dy;
-                            found = true;
-                        }
-                    }
-                }
-                if (found)
-                {
-                    x += bestDx;
-                    y += bestDy;
-                    outMoved = true;
-                    return true;
-                }
+                return false;
             }
-            return false;
+            outMoved = outMoved || snappedX != x || snappedY != y;
+            x = snappedX;
+            y = snappedY;
+            return true;
         }
 
         // True if any tile within `radius` (Chebyshev, centre included) is standable.
         bool hasWalkableNeighbor(const CollisionLookup &collision, int x, int y, int plane,
                                  int radius)
         {
-            for (int dx = -radius; dx <= radius; ++dx)
+            const auto walkable = [&](int32_t tx, int32_t ty)
             {
-                for (int dy = -radius; dy <= radius; ++dy)
-                {
-                    if (collision.isWalkable(x + dx, y + dy, plane))
-                    {
-                        return true;
-                    }
-                }
-            }
-            return false;
+                return collision.isWalkable(tx, ty, plane);
+            };
+            int32_t unusedX = 0;
+            int32_t unusedY = 0;
+            return runtime::findNearestTile(x, y, radius, true, walkable, unusedX, unusedY);
         }
 
         enum class Outcome

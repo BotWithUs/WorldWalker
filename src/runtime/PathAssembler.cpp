@@ -3,6 +3,7 @@
 #include "format/Artifact.h"
 #include "runtime/InstanceMap.h"
 #include "runtime/TeleportPolicy.h"
+#include "runtime/TileScan.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -46,6 +47,11 @@ namespace ww::runtime
         // dungeon exits called out below, tight enough that only a handful of
         // edges qualify per query.
         constexpr int32_t kNearGoalRadius = 24;
+
+        // Square half-width covering kNearGoalRadius: with a 64-tile mapsquare
+        // the dest can sit at most one square away (worst case when the goal
+        // hugs its own square's edge), so the exit scan visits a 3x3 grid.
+        constexpr int kNearGoalSquareRadius = 1;
 
         constexpr uint32_t kNoTransitionIndex = std::numeric_limits<uint32_t>::max();
 
@@ -103,6 +109,17 @@ namespace ww::runtime
             const int32_t dy = std::abs(t.destY - goalY);
             return std::max(dx, dy) <= kNearGoalRadius;
         }
+
+        // Adopt `candidate` as the best plan so far when it is the first one or
+        // strictly cheaper than the incumbent. Moves out of candidate on adopt.
+        void keepIfCheaper(Plan &candidate, Plan &ioBest, bool &ioHaveBest)
+        {
+            if (!ioHaveBest || candidate.cost < ioBest.cost)
+            {
+                ioBest = std::move(candidate);
+                ioHaveBest = true;
+            }
+        }
     }
 
     PathAssembler::PathAssembler(const format::ArtifactReader &reader, WorldView &view,
@@ -114,80 +131,46 @@ namespace ww::runtime
     {
     }
 
-    // Outward Chebyshev-ring scan: the origin tile (r=0) wins when it is itself
-    // standable and in-area; otherwise the first ring-r tile that qualifies does,
-    // so the result is always a closest valid neighbor of the object.
+    // The origin tile (r=0) wins when it is itself standable and in-area;
+    // otherwise the innermost ring with a qualifying tile does, ranked by
+    // distance to the cursor, so the result is always a closest valid
+    // neighbour of the object that costs the least walking to reach.
     bool PathAssembler::resolveInteractTile(int32_t originX, int32_t originY, int32_t plane,
-                                            int32_t area, int32_t &outX, int32_t &outY) const
+                                            int32_t area, int32_t nearX, int32_t nearY,
+                                            int32_t &outX, int32_t &outY) const
     {
-        for (int32_t r = 0; r <= kInteractSearchRadius; ++r)
+        const auto standableInArea = [&](int32_t x, int32_t y)
         {
-            for (int32_t dy = -r; dy <= r; ++dy)
-            {
-                for (int32_t dx = -r; dx <= r; ++dx)
-                {
-                    if (std::max(std::abs(dx), std::abs(dy)) != r)
-                    {
-                        continue;  // inner rings handled in earlier iterations
-                    }
-                    const int32_t x = originX + dx;
-                    const int32_t y = originY + dy;
-                    if (view->isStandable(x, y, plane) && view->areaAt(x, y, plane) == area)
-                    {
-                        outX = x;
-                        outY = y;
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
+            return view->isStandable(x, y, plane) && view->areaAt(x, y, plane) == area;
+        };
+        return findNearestTile(originX, originY, kInteractSearchRadius, true,
+                               standableInArea, nearX, nearY, outX, outY);
     }
 
-    // Outward Chebyshev-ring scan for the nearest standable, in-area tile to a
-    // blocked goal. Unlike resolveInteractTile this is not pinned to a known
-    // area — a blocked tile has no area of its own — so it accepts the first
-    // standable neighbour that belongs to any area, which is by construction the
-    // room the wall/object sits against. Returns false when nothing standable
-    // lies within kGoalSnapRadius (goal is deep in blocked terrain).
+    // Unlike resolveInteractTile this is not pinned to a known area — a blocked
+    // tile has no area of its own — so it accepts the closest standable
+    // neighbour that belongs to any area, which is by construction the room the
+    // wall/object sits against. The centre is skipped: the caller already knows
+    // the goal tile itself is blocked. Returns false when nothing standable lies
+    // within kGoalSnapRadius (goal is deep in blocked terrain).
     bool PathAssembler::resolveGoalTile(int32_t goalX, int32_t goalY, int32_t plane,
                                         bool requireArea,
                                         int32_t &outX, int32_t &outY, int32_t &outArea) const
     {
-        for (int32_t r = 1; r <= kGoalSnapRadius; ++r)
+        const auto standIn = [&](int32_t x, int32_t y)
         {
-            for (int32_t dy = -r; dy <= r; ++dy)
-            {
-                for (int32_t dx = -r; dx <= r; ++dx)
-                {
-                    if (std::max(std::abs(dx), std::abs(dy)) != r)
-                    {
-                        continue;  // inner rings handled in earlier iterations
-                    }
-                    const int32_t x = goalX + dx;
-                    const int32_t y = goalY + dy;
-                    if (!view->isStandable(x, y, plane))
-                    {
-                        continue;
-                    }
-                    if (!requireArea)
-                    {
-                        outX = x;
-                        outY = y;
-                        return true;
-                    }
-                    const int32_t area = view->areaAt(x, y, plane);
-                    if (area >= 0)
-                    {
-                        outX = x;
-                        outY = y;
-                        outArea = area;
-                        return true;
-                    }
-                }
-            }
+            return view->isStandable(x, y, plane)
+                && (!requireArea || view->areaAt(x, y, plane) >= 0);
+        };
+        if (!findNearestTile(goalX, goalY, kGoalSnapRadius, false, standIn, outX, outY))
+        {
+            return false;
         }
-        return false;
+        if (requireArea)
+        {
+            outArea = view->areaAt(outX, outY, plane);
+        }
+        return true;
     }
 
     // Plan a route wholly inside a dynamic region (instance).
@@ -281,18 +264,11 @@ namespace ww::runtime
         return true;
     }
 
-    bool PathAssembler::appendTransitionHop(std::size_t pathIndex,
-                                            std::span<const format::AreaEdgeRecord> edges,
-                                            std::span<const format::TransitionRecord> transitions,
-                                            int32_t &cursorX, int32_t &cursorY, int32_t &cursorPlane,
-                                            Plan &outPlan)
+    bool PathAssembler::takeEdge(const format::AreaEdgeRecord &edge,
+                                 int32_t &cursorX, int32_t &cursorY, int32_t &cursorPlane,
+                                 Plan &outPlan)
     {
-        const int32_t edgeIdx = areaPath.steps[pathIndex].viaEdge;
-        if (edgeIdx < 0 || static_cast<std::size_t>(edgeIdx) >= edges.size())
-        {
-            return false;
-        }
-        const format::AreaEdgeRecord &edge = edges[static_cast<std::size_t>(edgeIdx)];
+        const std::span<const format::TransitionRecord> transitions = artifact->transitions();
         if (edge.transitionIndex >= transitions.size())
         {
             return false;
@@ -304,23 +280,22 @@ namespace ww::runtime
         {
             return false;
         }
-        // Walks cannot cross planes (Step.plane invariant). The closing walk
-        // toward the interact tile must therefore run on the *transition's*
-        // origin plane — which had better match the cursor's plane, because
-        // each area is single-plane and the area route landed us in
-        // edge.fromArea. A mismatch means either (a) the artifact has an
-        // AreaEdge whose origin plane disagrees with its fromArea's plane —
-        // a build bug — or (b) the cursor drifted across a plane without a
-        // Transition step. Both are bugs in something upstream of us; failing
-        // loud beats walking on the wrong plane.
+        // Walks cannot cross planes (Step.plane invariant). The walk toward the
+        // interact tile must therefore run on the transition's origin plane —
+        // which had better match the cursor's plane, because each area is
+        // single-plane and the cursor sits in edge.fromArea. A mismatch means
+        // either (a) the artifact has an AreaEdge whose origin plane disagrees
+        // with its fromArea's plane — a build bug — or (b) the cursor drifted
+        // across a plane without a Transition step. Both are bugs in something
+        // upstream of us; failing loud beats walking on the wrong plane.
         if (cursorPlane != originPlane)
         {
             return false;
         }
         int32_t interactX = 0;
         int32_t interactY = 0;
-        if (!resolveInteractTile(tx.originX, tx.originY, originPlane,
-                                 edge.fromArea, interactX, interactY))
+        if (!resolveInteractTile(tx.originX, tx.originY, originPlane, edge.fromArea,
+                                 cursorX, cursorY, interactX, interactY))
         {
             return false;
         }
@@ -337,6 +312,20 @@ namespace ww::runtime
         cursorY = tx.destY;
         cursorPlane = destPlane;
         return true;
+    }
+
+    bool PathAssembler::appendTransitionHop(std::size_t pathIndex,
+                                            int32_t &cursorX, int32_t &cursorY, int32_t &cursorPlane,
+                                            Plan &outPlan)
+    {
+        const std::span<const format::AreaEdgeRecord> edges = artifact->areaEdges();
+        const int32_t edgeIdx = areaPath.steps[pathIndex].viaEdge;
+        if (edgeIdx < 0 || static_cast<std::size_t>(edgeIdx) >= edges.size())
+        {
+            return false;
+        }
+        return takeEdge(edges[static_cast<std::size_t>(edgeIdx)],
+                        cursorX, cursorY, cursorPlane, outPlan);
     }
 
     bool PathAssembler::assemble(int32_t startX, int32_t startY, int32_t startPlane,
@@ -421,11 +410,10 @@ namespace ww::runtime
                            cursorX, cursorY, cursorPlane, outPlan);
     }
 
-    // The chained-route alternative the near-goal exit scan builds. Mirrors
-    // emitGlobalTeleport + the prefix of assembleAreaRoute that would walk to
-    // the first transition's interact tile and emit it, then defers the rest
-    // of the route to assembleAreaRoute from the edge's other side. Skipping
-    // ahead to a near-goal edge (instead of letting AreaSearch pick the
+    // The chained-route alternative the near-goal exit scan builds. Casts the
+    // teleport, takes the near-goal edge from its landing area, then defers the
+    // rest of the route to assembleAreaRoute from the edge's other side.
+    // Skipping ahead to a near-goal edge (instead of letting AreaSearch pick the
     // area-cheapest first hop) is the whole point: a single-edge exit at the
     // far end of a huge landing area can win on area cost yet lose by a
     // factor of ten once the intra-area walk is materialised.
@@ -462,61 +450,62 @@ namespace ww::runtime
         outAlt.cost = 0.0f;
 
         // Cast the teleport in place: cursor snaps from the player's tile to
-        // the seed's destination tile, on the seed's destination plane.
+        // the seed's destination tile, on the seed's destination plane. takeEdge
+        // then insists the landing plane is the edge's origin plane — a teleport
+        // landing on plane P followed by an edge whose origin is plane Q has no
+        // walk between them, and the area-edge bookkeeping never bridges that.
         int32_t cx = startX;
         int32_t cy = startY;
         int32_t cp = startPlane;
         emitGlobalTeleport(seed.transitionIndex, cx, cy, cp, outAlt);
-
-        // The walk inside seed.destArea must run on the edge's origin plane —
-        // appendWalkSegment is single-plane. A teleport landing on plane P
-        // followed by an edge whose origin is plane Q means there is no walk
-        // between them (a baked Transition would have to bridge the planes,
-        // and the area-edge bookkeeping never produces one); just bail.
-        const int32_t originPlane = static_cast<int32_t>(T.originPlane);
-        if (cp != originPlane)
+        if (!takeEdge(edge, cx, cy, cp, outAlt))
         {
             return false;
         }
-
-        // Same Chebyshev-ring scan appendTransitionHop uses for the regular
-        // area-route path: the origin tile is usually blocked (the loc itself),
-        // so the player walks to an in-area standable neighbour and interacts
-        // from there. fromArea must match seed.destArea here by construction —
-        // the caller filters edges so — but resolveInteractTile re-checks it.
-        int32_t interactX = 0;
-        int32_t interactY = 0;
-        if (!resolveInteractTile(T.originX, T.originY, originPlane,
-                                  edge.fromArea, interactX, interactY))
-        {
-            return false;
-        }
-
-        if (!appendWalkSegment(cx, cy, interactX, interactY, cp,
-                                edge.fromArea, outAlt))
-        {
-            return false;
-        }
-
-        const int32_t destPlane = static_cast<int32_t>(T.destPlane);
-        if (!isLegalPlane(destPlane))
-        {
-            return false;
-        }
-        outAlt.steps.push_back({StepKind::Transition,
-                                 static_cast<uint8_t>(originPlane), 0u,
-                                 interactX, interactY, edge.transitionIndex});
-        outAlt.cost += edge.cost;
-        cx = T.destX;
-        cy = T.destY;
-        cp = destPlane;
 
         // Closing route runs over baked crossings only — the one global
         // teleport was already emitted, so the sub-route must not teleport
-        // again (mirrors the noSeeds reasoning in the main teleport loop).
+        // again (mirrors the noSeeds reasoning in improveWithTeleports).
         const std::span<const FrontierSeed> noSeeds{};
         return assembleAreaRoute(cx, cy, cp, edge.toArea, goalX, goalY, goalArea,
                                   capabilities, noSeeds, outAlt);
+    }
+
+    // Bucketed lookup: ArtifactReader::nearGoalEdgeBucket pre-groups baked
+    // edges by (destPlane, destSquareX, destSquareY), so the scan visits only
+    // the 3x3 squares within kNearGoalRadius (24 tiles, less than one square
+    // width) of the goal instead of every baked edge. Each surviving entry
+    // caches fromArea (skips the inner loop's edge re-deref) and a closing
+    // lower bound (E.cost + octile(T.dest, goal)) used to prune the per-(seed,
+    // edge) pair before any A* work.
+    void PathAssembler::scanNearGoalExits(int32_t goalX, int32_t goalY, int32_t goalPlane)
+    {
+        nearGoalEdgeScratch.clear();
+        const std::span<const format::TransitionRecord> txs = artifact->transitions();
+        const std::span<const format::AreaEdgeRecord> edges = artifact->areaEdges();
+        const int goalSquareX = goalX >> 6;
+        const int goalSquareY = goalY >> 6;
+        for (int dsy = -kNearGoalSquareRadius; dsy <= kNearGoalSquareRadius; ++dsy)
+        {
+            for (int dsx = -kNearGoalSquareRadius; dsx <= kNearGoalSquareRadius; ++dsx)
+            {
+                const std::span<const uint32_t> bucket =
+                    artifact->nearGoalEdgeBucket(goalPlane, goalSquareX + dsx, goalSquareY + dsy);
+                for (uint32_t edgeIdx : bucket)
+                {
+                    const format::AreaEdgeRecord &E = edges[edgeIdx];
+                    const format::TransitionRecord &T = txs[E.transitionIndex];
+                    if (!isNearGoalExit(T, goalX, goalY, goalPlane))
+                    {
+                        continue;
+                    }
+                    const float closingBound =
+                        E.cost + octileDistance(T.destX - goalX, T.destY - goalY);
+                    nearGoalEdgeScratch.push_back({static_cast<int32_t>(edgeIdx),
+                                                   E.fromArea, closingBound});
+                }
+            }
+        }
     }
 
     // Builds the plan into a local scratch and moves it into outPlan only on
@@ -561,212 +550,189 @@ namespace ww::runtime
         }
 
         // Teleport seeds feed both the inter-area backbone search and the
-        // goal-area landing optimisation below, so build them once up front.
+        // goal-area landing optimisation, so build them once up front.
         seedScratch.clear();
         const bool teleportAllowed = isTeleportAllowed(*artifact, startX, startY, startPlane);
         if (teleportAllowed)
         {
             buildGlobalTeleportSeeds(capabilities);
         }
+        scanNearGoalExits(goalX, goalY, goalPlane);
 
-        // Pre-scan baked area edges for "near-goal exits" — transitions whose
-        // destination tile lands within kNearGoalRadius of the goal on the goal
-        // plane. The teleport-landing loop tries each as an alternative second
-        // hop, sidestepping AreaSearch's area-cost-only ordering when a longer
-        // chain has a much shorter intra-area walk. Cleared on every assemble
-        // since the radius is goal-dependent. Each surviving entry caches
-        // fromArea (skips the inner loop's edge re-deref) and a closing
-        // lower-bound (E.cost + octile(T.dest, goal)) used to prune the
-        // per-(seed, edge) pair before any A* work.
-        //
-        // Bucketed lookup: ArtifactReader::nearGoalEdgeBucket pre-groups
-        // baked edges by (destPlane, destSquareX, destSquareY), so the scan
-        // visits only the 3x3 squares within kNearGoalRadius (24 tiles, less
-        // than one square width) of the goal instead of every baked edge.
-        nearGoalEdgeScratch.clear();
-        {
-            const std::span<const format::TransitionRecord> txsScan = artifact->transitions();
-            const std::span<const format::AreaEdgeRecord> edgesScan = artifact->areaEdges();
-            const int goalSquareX = goalX >> 6;
-            const int goalSquareY = goalY >> 6;
-            // Square half-width covering kNearGoalRadius=24: with a 64-tile
-            // mapsquare, the dest can sit at most one square away (worst case
-            // when the goal hugs its own square's edge). 3x3 grid scan.
-            constexpr int kSquareRadius = 1;
-            for (int dsy = -kSquareRadius; dsy <= kSquareRadius; ++dsy)
-            {
-                for (int dsx = -kSquareRadius; dsx <= kSquareRadius; ++dsx)
-                {
-                    const std::span<const uint32_t> bucket =
-                        artifact->nearGoalEdgeBucket(goalPlane,
-                                                     goalSquareX + dsx,
-                                                     goalSquareY + dsy);
-                    for (uint32_t edgeIdx : bucket)
-                    {
-                        const format::AreaEdgeRecord &E = edgesScan[edgeIdx];
-                        const format::TransitionRecord &T = txsScan[E.transitionIndex];
-                        if (isNearGoalExit(T, goalX, goalY, goalPlane))
-                        {
-                            const float closingBound = E.cost
-                                + octileDistance(T.destX - goalX, T.destY - goalY);
-                            nearGoalEdgeScratch.push_back({static_cast<int32_t>(edgeIdx),
-                                                           E.fromArea, closingBound});
-                        }
-                    }
-                }
-            }
-        }
-
-        // Baseline route: a same-area query is a pure tile-level walk; otherwise
-        // the seeded area-graph search (which already teleports across area
-        // boundaries when that is cheaper).
         Plan best;
-        bool haveBest = false;
-        if (startArea == goalArea)
-        {
-            Plan walk;
-            if (appendWalkSegment(startX, startY, goalX, goalY, startPlane, startArea, walk))
-            {
-                best = std::move(walk);
-                haveBest = true;
-            }
-        }
-        else
-        {
-            Plan route;
-            if (assembleAreaRoute(startX, startY, startPlane, startArea,
-                                  goalX, goalY, goalArea, capabilities,
-                                  std::span<const FrontierSeed>(seedScratch), route))
-            {
-                best = std::move(route);
-                haveBest = true;
-            }
-        }
-
-        // Teleport landing optimisation. The area graph only knows that a
-        // teleport "reaches some area", not which one lands CLOSEST to the goal
-        // in tile terms — and it never seeds for a same-area query at all. Both
-        // matter when the goal sits deep inside a huge area (the overworld
-        // landmass is only a handful of areas): the nearest lodestone can save a
-        // several-hundred-tile walk, and a teleport that lands in a *different*
-        // area one stairs/ladder away (e.g. a dungeon-cape resource-dungeon
-        // landing that climbs straight out next to the goal) can beat both the
-        // walk and any lodestone. So consider, at tile level, every seedable
-        // teleport, realising teleport -> baked area route -> closing walk and
-        // keeping the cheapest that beats the baseline.
-        //
-        // Ordering uses an admissible lower-bound estimate so the scan stops as
-        // soon as no remaining candidate can beat the best realised plan:
-        //   - lands in the goal area: cost + octile(dest, goal). octile is a
-        //     valid tile lower bound *within one area* (a single coordinate
-        //     band), so this is tight.
-        //   - lands elsewhere: cost alone. A stairs/ladder warps between
-        //     coordinate bands, so octile(dest, goal) across it is meaningless
-        //     (it would wildly over-estimate and prune real routes); the
-        //     teleport cost is the only band-safe lower bound. This stays loose
-        //     but correct — and because the closing area route adds real cost,
-        //     such candidates are only realised when the baseline already costs
-        //     more than the bare teleport (i.e. exactly when a teleport can win).
+        bool haveBest = assembleBaseline(startX, startY, startPlane, startArea,
+                                         goalX, goalY, goalArea, capabilities, best);
         if (teleportAllowed)
         {
-            const std::span<const format::TransitionRecord> txs = artifact->transitions();
-            teleCandidateScratch.clear();
-            for (std::size_t s = 0; s < seedScratch.size(); ++s)
-            {
-                const FrontierSeed &seed = seedScratch[s];
-                const format::TransitionRecord &tx = txs[seed.transitionIndex];
-                const float estimate = seed.destArea == goalArea
-                    ? seed.cost + octileDistance(tx.destX - goalX, tx.destY - goalY)
-                    : seed.cost;
-                teleCandidateScratch.push_back({estimate, static_cast<uint32_t>(s)});
-            }
-            std::sort(teleCandidateScratch.begin(), teleCandidateScratch.end(),
-                      [](const TeleCandidate &a, const TeleCandidate &b)
-                      { return a.estimate < b.estimate; });
-            // The closing area route uses baked crossings only — the one global
-            // teleport is already emitted, so the sub-route must not teleport
-            // again (which would double-count and tangle the cost accounting).
-            const std::span<const FrontierSeed> noSeeds{};
-            const std::span<const format::AreaEdgeRecord> areaEdgesAll = artifact->areaEdges();
-            for (const TeleCandidate &cand : teleCandidateScratch)
-            {
-                if (haveBest && cand.estimate >= best.cost)
-                {
-                    break;  // estimate is a lower bound; nothing cheaper remains
-                }
-                const FrontierSeed &seed = seedScratch[cand.seedIndex];
-                Plan tele;
-                int32_t cx = startX;
-                int32_t cy = startY;
-                int32_t cp = startPlane;
-                emitGlobalTeleport(seed.transitionIndex, cx, cy, cp, tele);
-                // From the teleport's dest, route to the goal: a closing walk
-                // when it landed in the goal area, otherwise teleport-dest area
-                // -> goal area over baked crossings plus the closing walk. Both
-                // are exactly what assembleAreaRoute produces (a same-area area
-                // search yields a single trivial step and just the closing walk).
-                if (assembleAreaRoute(cx, cy, cp, seed.destArea, goalX, goalY, goalArea,
-                                      capabilities, noSeeds, tele))
-                {
-                    if (!haveBest || tele.cost < best.cost)
-                    {
-                        best = std::move(tele);
-                        haveBest = true;
-                    }
-                }
-
-                // Near-goal-exit alternatives. AreaSearch picks the first hop
-                // out of seed.destArea on area-cost alone, so a single direct
-                // edge to goalArea wins over a two-edge chain even when the
-                // chain's intra-area walk is an order of magnitude shorter —
-                // the dungeon-cape resource-dungeon landing the comment above
-                // calls out is exactly that pattern. For each baked transition
-                // whose dest tile is near the goal and whose fromArea is the
-                // seed's landing area, build and price the chained route and
-                // keep it if it beats `best`. nearGoalEdgeScratch was filtered
-                // against goal plane + global flag at scan time, so the inner
-                // body is just an area-match filter and the realised-cost
-                // build.
-                for (const NearGoalEdge &nge : nearGoalEdgeScratch)
-                {
-                    if (nge.fromArea != seed.destArea)
-                    {
-                        continue;
-                    }
-                    // Lower bound on the realised chained plan: teleport cost
-                    // (seed.cost) + edge cost + admissible closing walk (the
-                    // octile distance from the edge's destination tile to the
-                    // goal, baked into closingBound at scan time). Skip the
-                    // full tryTeleportNearGoalExit — which runs a fresh
-                    // assembleAreaRoute internally — when this bound already
-                    // can't beat the best plan in hand.
-                    const float pairBound = seed.cost + nge.closingBound;
-                    if (haveBest && pairBound >= best.cost)
-                    {
-                        continue;
-                    }
-                    const format::AreaEdgeRecord &E = areaEdgesAll[nge.edgeIdx];
-                    Plan alt;
-                    if (!tryTeleportNearGoalExit(startX, startY, startPlane, seed, E,
-                                                  goalX, goalY, goalArea, capabilities, alt))
-                    {
-                        continue;
-                    }
-                    if (!haveBest || alt.cost < best.cost)
-                    {
-                        best = std::move(alt);
-                        haveBest = true;
-                    }
-                }
-            }
+            improveWithTeleports(startX, startY, startPlane, goalX, goalY, goalArea,
+                                 capabilities, best, haveBest);
         }
-
         if (!haveBest)
         {
             return false;
         }
         outPlan = std::move(best);
         return true;
+    }
+
+    // Baseline route: a same-area query is a pure tile-level walk; otherwise
+    // the seeded area-graph search (which already teleports across area
+    // boundaries when that is cheaper).
+    bool PathAssembler::assembleBaseline(int32_t startX, int32_t startY, int32_t startPlane,
+                                         int32_t startArea, int32_t goalX, int32_t goalY,
+                                         int32_t goalArea, const CapabilitySnapshot *capabilities,
+                                         Plan &outPlan)
+    {
+        outPlan.steps.clear();
+        outPlan.cost = 0.0f;
+        bool ok = false;
+        if (startArea == goalArea)
+        {
+            ok = appendWalkSegment(startX, startY, goalX, goalY, startPlane, startArea, outPlan);
+        }
+        else
+        {
+            ok = assembleAreaRoute(startX, startY, startPlane, startArea,
+                                   goalX, goalY, goalArea, capabilities,
+                                   std::span<const FrontierSeed>(seedScratch), outPlan);
+        }
+        if (!ok)
+        {
+            outPlan.steps.clear();
+            outPlan.cost = 0.0f;
+        }
+        return ok;
+    }
+
+    // Ordering uses an admissible lower-bound estimate so the landing scan
+    // stops as soon as no remaining candidate can beat the best realised plan:
+    //   - lands in the goal area: cost + octile(dest, goal). octile is a
+    //     valid tile lower bound *within one area* (a single coordinate
+    //     band), so this is tight.
+    //   - lands elsewhere: cost alone. A stairs/ladder warps between
+    //     coordinate bands, so octile(dest, goal) across it is meaningless
+    //     (it would wildly over-estimate and prune real routes); the
+    //     teleport cost is the only band-safe lower bound. This stays loose
+    //     but correct — and because the closing area route adds real cost,
+    //     such candidates are only realised when the baseline already costs
+    //     more than the bare teleport (i.e. exactly when a teleport can win).
+    void PathAssembler::rankTeleportCandidates(int32_t goalX, int32_t goalY, int32_t goalArea)
+    {
+        const std::span<const format::TransitionRecord> txs = artifact->transitions();
+        teleCandidateScratch.clear();
+        for (std::size_t s = 0; s < seedScratch.size(); ++s)
+        {
+            const FrontierSeed &seed = seedScratch[s];
+            const format::TransitionRecord &tx = txs[seed.transitionIndex];
+            const float estimate = seed.destArea == goalArea
+                ? seed.cost + octileDistance(tx.destX - goalX, tx.destY - goalY)
+                : seed.cost;
+            teleCandidateScratch.push_back({estimate, static_cast<uint32_t>(s)});
+        }
+        std::sort(teleCandidateScratch.begin(), teleCandidateScratch.end(),
+                  [](const TeleCandidate &a, const TeleCandidate &b)
+                  { return a.estimate < b.estimate; });
+    }
+
+    // The area graph only knows that a teleport "reaches some area", not which
+    // one lands CLOSEST to the goal in tile terms — and it never seeds for a
+    // same-area query at all. Both matter when the goal sits deep inside a
+    // huge area (the overworld landmass is only a handful of areas): the
+    // nearest lodestone can save a several-hundred-tile walk, and a teleport
+    // that lands in a *different* area one stairs/ladder away (e.g. a
+    // dungeon-cape resource-dungeon landing that climbs straight out next to
+    // the goal) can beat both the walk and any lodestone. So consider, at tile
+    // level, every seedable teleport, realising teleport -> baked area route ->
+    // closing walk and keeping the cheapest that beats the baseline.
+    void PathAssembler::improveWithTeleports(int32_t startX, int32_t startY, int32_t startPlane,
+                                             int32_t goalX, int32_t goalY, int32_t goalArea,
+                                             const CapabilitySnapshot *capabilities,
+                                             Plan &ioBest, bool &ioHaveBest)
+    {
+        rankTeleportCandidates(goalX, goalY, goalArea);
+        for (const TeleCandidate &cand : teleCandidateScratch)
+        {
+            if (ioHaveBest && cand.estimate >= ioBest.cost)
+            {
+                break;  // estimate is a lower bound; nothing cheaper remains
+            }
+            const FrontierSeed &seed = seedScratch[cand.seedIndex];
+            Plan tele;
+            if (tryTeleportLanding(startX, startY, startPlane, seed,
+                                   goalX, goalY, goalArea, capabilities, tele))
+            {
+                keepIfCheaper(tele, ioBest, ioHaveBest);
+            }
+            tryNearGoalExits(startX, startY, startPlane, seed,
+                             goalX, goalY, goalArea, capabilities, ioBest, ioHaveBest);
+        }
+    }
+
+    // From the teleport's dest, route to the goal: a closing walk when it
+    // landed in the goal area, otherwise teleport-dest area -> goal area over
+    // baked crossings plus the closing walk. Both are exactly what
+    // assembleAreaRoute produces (a same-area area search yields a single
+    // trivial step and just the closing walk). The closing route uses baked
+    // crossings only — the one global teleport is already emitted, so the
+    // sub-route must not teleport again (which would double-count and tangle
+    // the cost accounting).
+    bool PathAssembler::tryTeleportLanding(int32_t startX, int32_t startY, int32_t startPlane,
+                                           const FrontierSeed &seed,
+                                           int32_t goalX, int32_t goalY, int32_t goalArea,
+                                           const CapabilitySnapshot *capabilities, Plan &outAlt)
+    {
+        outAlt.steps.clear();
+        outAlt.cost = 0.0f;
+        int32_t cx = startX;
+        int32_t cy = startY;
+        int32_t cp = startPlane;
+        emitGlobalTeleport(seed.transitionIndex, cx, cy, cp, outAlt);
+        const std::span<const FrontierSeed> noSeeds{};
+        return assembleAreaRoute(cx, cy, cp, seed.destArea, goalX, goalY, goalArea,
+                                 capabilities, noSeeds, outAlt);
+    }
+
+    // AreaSearch picks the first hop out of seed.destArea on area-cost alone,
+    // so a single direct edge to goalArea wins over a two-edge chain even when
+    // the chain's intra-area walk is an order of magnitude shorter — the
+    // dungeon-cape resource-dungeon landing is exactly that pattern. For each
+    // baked transition whose dest tile is near the goal and whose fromArea is
+    // the seed's landing area, build and price the chained route and keep it
+    // if it beats the incumbent. nearGoalEdgeScratch was filtered against goal
+    // plane + global flag at scan time, so the body is just an area-match
+    // filter, a bound check, and the realised-cost build.
+    void PathAssembler::tryNearGoalExits(int32_t startX, int32_t startY, int32_t startPlane,
+                                         const FrontierSeed &seed,
+                                         int32_t goalX, int32_t goalY, int32_t goalArea,
+                                         const CapabilitySnapshot *capabilities,
+                                         Plan &ioBest, bool &ioHaveBest)
+    {
+        const std::span<const format::AreaEdgeRecord> edges = artifact->areaEdges();
+        for (const NearGoalEdge &nge : nearGoalEdgeScratch)
+        {
+            if (nge.fromArea != seed.destArea)
+            {
+                continue;
+            }
+            // Lower bound on the realised chained plan: teleport cost
+            // (seed.cost) + edge cost + admissible closing walk (the octile
+            // distance from the edge's destination tile to the goal, baked
+            // into closingBound at scan time). Skip the full
+            // tryTeleportNearGoalExit — which runs a fresh assembleAreaRoute
+            // internally — when this bound already can't beat the best plan.
+            const float pairBound = seed.cost + nge.closingBound;
+            if (ioHaveBest && pairBound >= ioBest.cost)
+            {
+                continue;
+            }
+            Plan alt;
+            if (!tryTeleportNearGoalExit(startX, startY, startPlane, seed, edges[nge.edgeIdx],
+                                         goalX, goalY, goalArea, capabilities, alt))
+            {
+                continue;
+            }
+            keepIfCheaper(alt, ioBest, ioHaveBest);
+        }
     }
 
     // Cursor tracks the player's notional tile as the route plays out: walks
@@ -784,23 +750,17 @@ namespace ww::runtime
         {
             return false;
         }
-        const std::span<const format::AreaEdgeRecord> edges = artifact->areaEdges();
-        const std::span<const format::TransitionRecord> transitions = artifact->transitions();
         int32_t cursorX = startX;
         int32_t cursorY = startY;
         int32_t cursorPlane = startPlane;
         emitLeadingTransition(cursorX, cursorY, cursorPlane, outPlan);
         for (std::size_t i = 1; i < areaPath.steps.size(); ++i)
         {
-            if (!appendTransitionHop(i, edges, transitions, cursorX, cursorY, cursorPlane, outPlan))
+            if (!appendTransitionHop(i, cursorX, cursorY, cursorPlane, outPlan))
             {
                 return false;
             }
         }
-        if (!appendWalkSegment(cursorX, cursorY, goalX, goalY, cursorPlane, goalArea, outPlan))
-        {
-            return false;
-        }
-        return true;
+        return appendWalkSegment(cursorX, cursorY, goalX, goalY, cursorPlane, goalArea, outPlan);
     }
 }

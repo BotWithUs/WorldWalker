@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
@@ -30,13 +31,12 @@ namespace ww::exec
         constexpr int32_t kStalledPollsTrip     = 3;     // N polls with no progress => stuck
         constexpr int32_t kStuckTimeoutMs       = 20000; // 20s wall-clock per Walk step
 
-        // Transition-step tunables (Phase 4c). Interface-open polling lets the
-        // executor wait for an interact-opened dialog before clicking inside
-        // it; the budget is wall-clock-cheap because each poll is one
-        // isInterfaceOpen call plus a short sleep. The settle wait absorbs the
-        // engine tick between the chain's final action and the position
-        // committing at the destination, so the next walkOneStep reads a
-        // stable position.
+        // Transition-step tunables. Interface-open polling lets the executor
+        // wait for an interact-opened dialog before clicking inside it; the
+        // budget is wall-clock-cheap because each poll is one isInterfaceOpen
+        // call plus a short sleep. The settle wait absorbs the engine tick
+        // between the chain's final action and the position committing at the
+        // destination, so the next walkOneStep reads a stable position.
         constexpr int32_t kInterfaceOpenPollTicks = 2;   // ~1.2s between isInterfaceOpen polls
         constexpr int32_t kInterfaceOpenMaxPolls  = 10;  // ~12s budget per Click step
         constexpr int32_t kPostChainSettleTicks   = 2;   // ~1.2s wait for the engine to commit dest
@@ -46,12 +46,12 @@ namespace ww::exec
         // target interface as param3>>16, which the chain loop gates on.
         constexpr int32_t kComponentActionId = 57;
 
-        // Re-plan budget (Phase 4d). Each walk-stuck recovery and each
-        // teleport-allowed flip consumes one re-plan; the cap stops a
-        // pathological loop (e.g., a planner that keeps proposing the same
-        // unreachable step) from running forever. Three is enough for the
-        // realistic worst cases (one stuck recovery + one wilderness-exit
-        // teleport re-plan + a margin) without inviting tail-latency surprises.
+        // Re-plan budget. Each walk-stuck recovery and each teleport-allowed
+        // flip consumes one re-plan; the cap stops a pathological loop (e.g.,
+        // a planner that keeps proposing the same unreachable step) from
+        // running forever. Three is enough for the realistic worst cases (one
+        // stuck recovery + one wilderness-exit teleport re-plan + a margin)
+        // without inviting tail-latency surprises.
         constexpr int32_t kMaxReplans = 3;
 
         // Chebyshev distance on the same plane; INT32_MAX on plane mismatch so
@@ -111,6 +111,12 @@ namespace ww::exec
         }
         const WwEvent event{ static_cast<int32_t>(kind), 0, stepIndex, transitionIndex };
         callbacks->onEvent(callbacks->user, &event);
+    }
+
+    WwStatus Executor::failRun(int32_t stepIndex, int32_t transitionIndex) const
+    {
+        emit(WwEventKind::Failed, stepIndex, transitionIndex);
+        return WwStatus::Failed;
     }
 
     WwStatus Executor::walkOneStep(const runtime::Step &step, int32_t stepIndex,
@@ -183,6 +189,19 @@ namespace ww::exec
         return WwStatus::Arrived;
     }
 
+    WwStatus Executor::sleepCancellable(int32_t ticks) const
+    {
+        for (int32_t t = 0; t < ticks; ++t)
+        {
+            if (callbacks->shouldCancel(callbacks->user) != 0)
+            {
+                return WwStatus::Cancelled;
+            }
+            callbacks->sleepTicks(callbacks->user, 1);
+        }
+        return WwStatus::Arrived;
+    }
+
     void Executor::dispatchChainStep(const format::ChainStepRecord &cs) const
     {
         callbacks->runChainStep(callbacks->user, static_cast<int32_t>(cs.kind),
@@ -196,7 +215,7 @@ namespace ww::exec
         // transition's required items (the candidate teleport-item variants —
         // e.g. the dungeoneering / max / completionist cape ids). Worn when any
         // is equipped; otherwise carriedItem is the first one in the backpack.
-        bool worn = false;
+        bool isWorn = false;
         int32_t carriedItem = 0;
         const auto reqs = artifact->requirements();
         const uint64_t rstart = tx.requirementStart;
@@ -212,7 +231,7 @@ namespace ww::exec
                 const int32_t id = reqs[r].id;
                 if (callbacks->isItemWorn(callbacks->user, id) != 0)
                 {
-                    worn = true;
+                    isWorn = true;
                     break;  // worn variant chosen — no backpack slot needed
                 }
                 if (carriedItem == 0 && callbacks->readItemCount(callbacks->user, id) > 0)
@@ -223,20 +242,95 @@ namespace ww::exec
         }
         // a..d = worn variant, e..h = backpack variant, i = backpack_special.
         // The worn variant is a plain component click (never "special").
-        const int32_t iface   = worn ? cs.a : cs.e;
-        const int32_t comp    = worn ? cs.b : cs.f;
-        const int32_t option  = worn ? cs.c : cs.g;
-        const int32_t sub     = worn ? cs.d : cs.h;
-        const int32_t special = worn ? 0 : cs.i;
+        const int32_t iface   = isWorn ? cs.a : cs.e;
+        const int32_t comp    = isWorn ? cs.b : cs.f;
+        const int32_t option  = isWorn ? cs.c : cs.g;
+        const int32_t sub     = isWorn ? cs.d : cs.h;
+        const int32_t special = isWorn ? 0 : cs.i;
         // For the backpack variant the baked sub-component (slot) is unreliable —
         // the item can sit in any slot — so pass the carried item id and let the
         // host resolve the live slot (the baked `sub` remains a fallback). The
         // worn variant addresses a fixed equipment slot, so it needs no lookup;
         // pass 0 to skip resolution there.
-        const int32_t slotItem = worn ? 0 : carriedItem;
+        const int32_t slotItem = isWorn ? 0 : carriedItem;
         callbacks->runChainStep(callbacks->user,
                                 static_cast<int32_t>(data::ChainStepKind::ClickItem),
                                 iface, comp, option, sub, special, slotItem, 0, 0, 0);
+    }
+
+    WwStatus Executor::runChainStep(const format::TransitionRecord &tx,
+                                    const format::ChainStepRecord &cs) const
+    {
+        switch (static_cast<data::ChainStepKind>(cs.kind))
+        {
+            case data::ChainStepKind::Wait:
+            {
+                // a=ticks to sleep.
+                return sleepCancellable(cs.a);
+            }
+            case data::ChainStepKind::WaitInterface:
+            {
+                // Block until interface `a` is open (e.g. a teleport dialog the
+                // prior click opened). Times out to Failed so a chain that never
+                // opens its dialog re-plans rather than hangs.
+                return waitForInterface(cs.a);
+            }
+            case data::ChainStepKind::Click:
+            {
+                // Generic queued action: a=actionId, b/c/d=param1..3. For a
+                // COMPONENT click the target interface is packed as param3>>16
+                // ((iface<<16)|comp); wait for it to appear before clicking.
+                // Non-component actions dispatch immediately.
+                if (cs.a == kComponentActionId)
+                {
+                    const WwStatus st = waitForInterface(cs.d >> 16);
+                    if (st != WwStatus::Arrived)
+                    {
+                        return st;
+                    }
+                }
+                dispatchChainStep(cs);
+                return WwStatus::Arrived;
+            }
+            case data::ChainStepKind::ClickItem:
+            {
+                // Pick the worn or carried variant of the item click. The
+                // worn-vs-backpack decision needs the transition's item
+                // requirements (the candidate item ids) — which the host does
+                // not have — so resolve it here via the isItemWorn callback and
+                // forward only the chosen variant.
+                dispatchClickItem(tx, cs);
+                return WwStatus::Arrived;
+            }
+            default:
+            {
+                // DialogueSelect: the host resolves the option component against
+                // the live (possibly paged) dialogue. Any interface gating is
+                // expressed as explicit WaitInterface steps, so just forward the
+                // descriptors.
+                dispatchChainStep(cs);
+                return WwStatus::Arrived;
+            }
+        }
+    }
+
+    WwStatus Executor::runChain(const format::TransitionRecord &tx) const
+    {
+        const auto chain = artifact->chainSteps();
+        const std::size_t chainStart = tx.chainStart;
+        for (std::size_t i = 0; i < tx.chainCount; ++i)
+        {
+            if (callbacks->shouldCancel(callbacks->user) != 0)
+            {
+                return WwStatus::Cancelled;
+            }
+            const WwStatus st = runChainStep(tx, chain[chainStart + i]);
+            if (st != WwStatus::Arrived)
+            {
+                return st;
+            }
+        }
+        return WwStatus::Arrived;
     }
 
     WwStatus Executor::executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
@@ -251,11 +345,8 @@ namespace ww::exec
             return WwStatus::Failed;
         }
         const format::TransitionRecord &tx = txs[step.transitionIndex];
-
-        const auto chain = artifact->chainSteps();
-        const std::size_t chainStart = tx.chainStart;
-        const std::size_t chainEnd   = chainStart + tx.chainCount;
-        if (chainEnd > chain.size())
+        const std::size_t chainEnd = static_cast<std::size_t>(tx.chainStart) + tx.chainCount;
+        if (chainEnd > artifact->chainSteps().size())
         {
             return WwStatus::Failed;
         }
@@ -264,7 +355,7 @@ namespace ww::exec
         const bool isGlobal = (tx.flags & format::kTransitionFlagGlobalOrigin) != 0;
         emit(WwEventKind::StepAdvanced, stepIndex, transitionIndex);
 
-        bool issuedAction = true;
+        bool hasIssuedAction = true;
         if (!isGlobal)
         {
             // Click the world object from the interact-tile (the prior Walk
@@ -276,7 +367,7 @@ namespace ww::exec
             // there is no action to settle for; we skip the post-chain wait
             // below and the next Walk step flows straight through the doorway.
             const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
-            issuedAction =
+            hasIssuedAction =
                 callbacks->interact(callbacks->user, tx.objectId, origin,
                                     static_cast<int32_t>(tx.optionIndex)) != 0;
         }
@@ -285,97 +376,22 @@ namespace ww::exec
             emit(WwEventKind::TeleportInitiated, stepIndex, transitionIndex);
         }
 
-        for (std::size_t i = 0; i < tx.chainCount; ++i)
+        const WwStatus chainResult = runChain(tx);
+        if (chainResult != WwStatus::Arrived)
         {
-            if (callbacks->shouldCancel(callbacks->user) != 0)
-            {
-                return WwStatus::Cancelled;
-            }
-            const format::ChainStepRecord &cs = chain[chainStart + i];
-            const auto kind = static_cast<data::ChainStepKind>(cs.kind);
-            switch (kind)
-            {
-                case data::ChainStepKind::Wait:
-                {
-                    // a=ticks to sleep. The count comes straight from the
-                    // scripter-editable teleport JSON, so sleep one tick at a
-                    // time with a cancel poll between: a typo'd wait must not
-                    // pin the run past cancellation, and a negative one must
-                    // never reach the host's sleep.
-                    for (int32_t t = 0; t < cs.a; ++t)
-                    {
-                        if (callbacks->shouldCancel(callbacks->user) != 0)
-                        {
-                            return WwStatus::Cancelled;
-                        }
-                        callbacks->sleepTicks(callbacks->user, 1);
-                    }
-                    break;
-                }
-
-                case data::ChainStepKind::WaitInterface:
-                {
-                    // Block until interface `a` is open (e.g. a teleport dialog
-                    // the prior click opened). Times out to Failed so a chain
-                    // that never opens its dialog re-plans rather than hangs.
-                    const WwStatus st = waitForInterface(cs.a);
-                    if (st != WwStatus::Arrived)
-                    {
-                        return st;
-                    }
-                    break;
-                }
-
-                case data::ChainStepKind::Click:
-                {
-                    // Generic queued action: a=actionId, b/c/d=param1..3. For a
-                    // COMPONENT click the target interface is packed as
-                    // param3>>16 ((iface<<16)|comp); wait for it to appear before
-                    // clicking. Non-component actions dispatch immediately.
-                    if (cs.a == kComponentActionId)
-                    {
-                        const WwStatus st = waitForInterface(cs.d >> 16);
-                        if (st != WwStatus::Arrived)
-                        {
-                            return st;
-                        }
-                    }
-                    dispatchChainStep(cs);
-                    break;
-                }
-
-                case data::ChainStepKind::ClickItem:
-                {
-                    // Pick the worn or carried variant of the item click. The
-                    // worn-vs-backpack decision needs the transition's item
-                    // requirements (the candidate item ids) — which the host
-                    // does not have — so resolve it here via the isItemWorn
-                    // callback and forward only the chosen variant. The host
-                    // maps the special flag to the right action type.
-                    dispatchClickItem(tx, cs);
-                    break;
-                }
-
-                default:
-                    // DialogueSelect: the host resolves the option component
-                    // against the live (possibly paged) dialogue. Any interface
-                    // gating is expressed as explicit WaitInterface steps, so
-                    // just forward the descriptors.
-                    dispatchChainStep(cs);
-                    break;
-            }
+            return chainResult;
         }
 
         // Let the engine commit the destination position before sampling it.
         // run() uses this position to decide whether the goal is satisfied
         // and whether to re-plan on a teleport-allowed flip. Skip the wait when
         // nothing was actually done: a no-op interact on an already-open door
-        // (issuedAction == false, no chain) leaves the avatar exactly where the
-        // prior Walk left it, so there is no late-committing destination to
-        // absorb — pausing here is the dead "walk up, stop, wait" the door
+        // (hasIssuedAction == false, no chain) leaves the avatar exactly where
+        // the prior Walk left it, so there is no late-committing destination
+        // to absorb — pausing here is the dead "walk up, stop, wait" the door
         // never needed. Teleports/stairs (global or chain-bearing) and any
         // issued click still settle as before.
-        const bool didAct = isGlobal || issuedAction || tx.chainCount > 0;
+        const bool didAct = isGlobal || hasIssuedAction || tx.chainCount > 0;
         if (didAct)
         {
             callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
@@ -384,31 +400,37 @@ namespace ww::exec
         return WwStatus::Arrived;
     }
 
-    void Executor::copyCapabilities(const WwCapabilitySnapshot &src,
-                                    runtime::CapabilitySnapshot &dst)
+    void Executor::refreshRequirementValues()
     {
-        // Mirrors applyCapabilityRun in worldwalker_c.cpp: a null array with a
-        // non-zero count is the host's bug, treated as an empty run here so a
-        // malformed snapshot can't dereference past null.
-        const std::size_t skillCount  = src.skills  != nullptr ? src.skillCount  : 0;
-        const std::size_t itemCount   = src.items   != nullptr ? src.itemCount   : 0;
-        const std::size_t varbitCount = src.varbits != nullptr ? src.varbitCount : 0;
-        const std::size_t varpCount   = src.varps   != nullptr ? src.varpCount   : 0;
-        for (std::size_t i = 0; i < skillCount; ++i)
+        // One batched call per list collapses what was N sequential pipe
+        // round-trips (~25-30 for the lodestone-unlock varbits) into one
+        // host-side call, which the Java bridge in turn services with at most
+        // two batched RPCs instead of N synchronous ones. This was the
+        // dominant cost in pre-walk latency.
+        if (!requirementVarbitIds.empty())
         {
-            dst.setSkillLevel(src.skills[i].id, src.skills[i].value);
+            callbacks->readVarbits(callbacks->user,
+                                   requirementVarbitIds.data(),
+                                   requirementVarbitIds.size(),
+                                   varbitValues.data());
+            for (std::size_t i = 0; i < requirementVarbitIds.size(); ++i)
+            {
+                snapshot.setVarbit(requirementVarbitIds[i], varbitValues[i]);
+            }
         }
-        for (std::size_t i = 0; i < itemCount; ++i)
+        // Likewise the live count of every item a requirement references (e.g.
+        // the dungeoneering cape). Without this an item-gated teleport is
+        // rejected against count 0 and the planner falls back to a walk.
+        if (!requirementItemIds.empty())
         {
-            dst.setItemCount(src.items[i].id, src.items[i].value);
-        }
-        for (std::size_t i = 0; i < varbitCount; ++i)
-        {
-            dst.setVarbit(src.varbits[i].id, src.varbits[i].value);
-        }
-        for (std::size_t i = 0; i < varpCount; ++i)
-        {
-            dst.setVarp(src.varps[i].id, src.varps[i].value);
+            callbacks->readItemCounts(callbacks->user,
+                                      requirementItemIds.data(),
+                                      requirementItemIds.size(),
+                                      itemValues.data());
+            for (std::size_t i = 0; i < requirementItemIds.size(); ++i)
+            {
+                snapshot.setItemCount(requirementItemIds[i], itemValues[i]);
+            }
         }
     }
 
@@ -425,47 +447,7 @@ namespace ww::exec
         WwCapabilitySnapshot raw{};
         callbacks->readCapability(callbacks->user, &raw);
         copyCapabilities(raw, snapshot);
-
-        // Refresh the live value of every varbit a requirement references (e.g.
-        // lodestone-unlock varbits). readCapability does not surface these — the
-        // host can't know which ids matter — so we pull them through readVarbits
-        // here in one batched call. A requirement-gated teleport is then admitted
-        // by the planner only when its unlock varbit actually reads as set; an
-        // empty snapshot would reject all of them and force a pure walk.
-        //
-        // The batched call collapses what was N sequential pipe round-trips
-        // (~25-30 for the lodestone-unlock varbits) into one host-side call,
-        // which the Java bridge in turn services with at most two batched RPCs
-        // (one get_varps, one get_varcs_int) instead of N synchronous get_varp
-        // round-trips. This was the dominant cost in pre-walk latency.
-        if (!requirementVarbitIds.empty())
-        {
-            callbacks->readVarbits(callbacks->user,
-                                   requirementVarbitIds.data(),
-                                   requirementVarbitIds.size(),
-                                   varbitValues.data());
-            for (std::size_t i = 0; i < requirementVarbitIds.size(); ++i)
-            {
-                snapshot.setVarbit(requirementVarbitIds[i], varbitValues[i]);
-            }
-        }
-
-        // Likewise refresh the live count of every item a requirement references
-        // (e.g. the dungeoneering cape). Without this an item-gated teleport is
-        // rejected against count 0 and the planner falls back to a walk/lodestone.
-        // Batched for the same reason: the host can build one inventory map and
-        // look every id up instead of repeating two inventory traversals per id.
-        if (!requirementItemIds.empty())
-        {
-            callbacks->readItemCounts(callbacks->user,
-                                      requirementItemIds.data(),
-                                      requirementItemIds.size(),
-                                      itemValues.data());
-            for (std::size_t i = 0; i < requirementItemIds.size(); ++i)
-            {
-                snapshot.setItemCount(requirementItemIds[i], itemValues[i]);
-            }
-        }
+        refreshRequirementValues();
 
         // Re-derive the scene's dynamic-region grid on every (re-)plan, for the
         // same reason the capability snapshot is re-pulled: a single run can
@@ -483,18 +465,95 @@ namespace ww::exec
             &snapshot, outPlan);
     }
 
+    Executor::ReplanOutcome Executor::replan(const WwGoal &goal, runtime::SearchContext &context,
+                                             int32_t stepIndex, RunState &io)
+    {
+        ++io.replansUsed;
+        emit(WwEventKind::ReplanStarted, stepIndex);
+        if (!planFrom(io.position, goal, context, plan))
+        {
+            return ReplanOutcome::Failed;
+        }
+        if (plan.steps.empty())
+        {
+            // Planner agrees we're at the goal even though the live position
+            // fell outside the explicit radius (e.g., the goal tile is
+            // unwalkable but the start tile lies on its acceptance set at
+            // the area level).
+            emit(WwEventKind::Arrived);
+            return ReplanOutcome::Arrived;
+        }
+        io.isTeleAllowedAtLastPlan = runtime::isTeleportAllowed(
+            *artifact, io.position.x, io.position.y, io.position.plane);
+        return ReplanOutcome::Restarted;
+    }
+
+    bool Executor::isRestart(ReplanOutcome outcome, int32_t stepIndex, WwStatus &outStatus) const
+    {
+        if (outcome == ReplanOutcome::Restarted)
+        {
+            return true;
+        }
+        outStatus = outcome == ReplanOutcome::Arrived ? WwStatus::Arrived : failRun(stepIndex, -1);
+        return false;
+    }
+
+    int32_t Executor::arrivalRadiusFor(std::size_t i, const WwGoal &goal) const
+    {
+        const bool isNextWalk = (i + 1 < plan.steps.size())
+            && plan.steps[i + 1].kind == runtime::StepKind::Walk;
+        if (isNextWalk)
+        {
+            return kHandoffChebyshev;
+        }
+        const bool isFinalStep = (i + 1 == plan.steps.size());
+        if (isFinalStep && goal.radius <= 0)
+        {
+            return 0;
+        }
+        return kArrivalChebyshev;
+    }
+
+    WwStatus Executor::executeStep(std::size_t i, const WwGoal &goal, WwTile &outPosition)
+    {
+        const runtime::Step &step = plan.steps[i];
+        const int32_t stepIndex = static_cast<int32_t>(i);
+        if (step.kind == runtime::StepKind::Walk)
+        {
+            return walkOneStep(step, stepIndex, arrivalRadiusFor(i, goal), outPosition);
+        }
+        return executeTransitionStep(step, stepIndex, outPosition);
+    }
+
+    WwStatus Executor::judgeDrainedRun(const WwGoal &goal, WwTile &ioPosition)
+    {
+        if (!isInsideGoal(ioPosition, goal))
+        {
+            // The walk poll often samples mid-stride; give the engine one
+            // tick to commit the final tile before judging.
+            callbacks->sleepTicks(callbacks->user, 1);
+            callbacks->readPosition(callbacks->user, &ioPosition);
+        }
+        if (isInsideGoal(ioPosition, goal))
+        {
+            emit(WwEventKind::Arrived);
+            return WwStatus::Arrived;
+        }
+        return failRun(static_cast<int32_t>(plan.steps.size()) - 1, -1);
+    }
+
     WwStatus Executor::run(WwGoal goal)
     {
-        WwTile position{ 0, 0, 0 };
-        callbacks->readPosition(callbacks->user, &position);
-        if (isInsideGoal(position, goal))
+        RunState st;
+        callbacks->readPosition(callbacks->user, &st.position);
+        if (isInsideGoal(st.position, goal))
         {
             emit(WwEventKind::Arrived);
             return WwStatus::Arrived;
         }
 
-        // Borrow a SearchContext for the entire run so re-plans (4d) reuse
-        // the same context without re-acquiring through the pool (ADR 0007:
+        // Borrow a SearchContext for the entire run so re-plans reuse the
+        // same context without re-acquiring through the pool (ADR 0007:
         // contexts are heap-allocated and never relocated). The lease's
         // destructor returns it to the pool on every exit path — including
         // the implicit throw paths inside planFrom() / walkOneStep() — so
@@ -504,185 +563,79 @@ namespace ww::exec
 
         // The plan member's vector grows once and is reused across re-plans
         // — outPlan.steps.clear() inside the assembler keeps the capacity.
-        if (!planFrom(position, goal, context, plan))
+        if (!planFrom(st.position, goal, context, plan))
         {
-            emit(WwEventKind::Failed);
-            return WwStatus::Failed;
+            return failRun(-1, -1);
         }
         if (plan.steps.empty())
         {
-            // Planner agrees we're at the goal even though the live position
-            // fell outside the explicit radius (e.g., the goal tile is
-            // unwalkable but the start tile lies on its acceptance set at
-            // the area level).
             emit(WwEventKind::Arrived);
             return WwStatus::Arrived;
         }
-
-        // Snapshot the teleport-allowed predicate at the planner's anchor
-        // position so the post-step check can detect a false→true flip and
-        // re-plan with global teleports newly considerable (ADR 0009). The
-        // predicate is evaluated fresh per step — it changes at wilderness-
-        // level (8-tile) and no-tele-box granularity, so any coarser caching
-        // detects the flip late, which delays the load-bearing "walk out of
-        // wilderness, then teleport" re-plan. The zone lists are tiny and the
-        // check runs once per step, so fresh evaluation costs nothing.
-        bool teleAllowedAtLastPlan = runtime::isTeleportAllowed(
-            *artifact, position.x, position.y, position.plane);
-
-        int32_t replansUsed         = 0;
-        int32_t failedStepIndex     = -1;
-        int32_t failedTransitionIndex = -1;
-        WwStatus terminal           = WwStatus::Arrived;
-        bool arrivedEmitted         = false;
+        // Anchor the teleport-allowed predicate at the planner's start so the
+        // post-step check can detect a false→true flip and re-plan with global
+        // teleports newly considerable (ADR 0009). It is evaluated fresh per
+        // step — it changes at wilderness-level (8-tile) and no-tele-box
+        // granularity, so any coarser caching detects the flip late.
+        st.isTeleAllowedAtLastPlan = runtime::isTeleportAllowed(
+            *artifact, st.position.x, st.position.y, st.position.plane);
 
         std::size_t i = 0;
         while (i < plan.steps.size())
         {
-            const runtime::Step &step = plan.steps[i];
-            const int32_t stepIndex   = static_cast<int32_t>(i);
-
-            WwStatus stepResult;
-            if (step.kind == runtime::StepKind::Walk)
-            {
-                // Hand off to the next chunk while still moving when another
-                // Walk follows; arrive tight when the next step is an interact
-                // (Transition) or this is the final approach to the goal, where
-                // the exact tile matters. The very last walk before a radius-0
-                // goal demands Chebyshev 0: kArrivalChebyshev (1) would hand
-                // back from the neighbouring tile and the run would then report
-                // ARRIVED one tile off the contract's exact tile.
-                const bool nextIsWalk = (i + 1 < plan.steps.size())
-                    && plan.steps[i + 1].kind == runtime::StepKind::Walk;
-                const bool isFinalStep = (i + 1 == plan.steps.size());
-                const int32_t arrivalRadius =
-                    nextIsWalk ? kHandoffChebyshev
-                               : ((isFinalStep && goal.radius <= 0) ? 0 : kArrivalChebyshev);
-                stepResult = walkOneStep(step, stepIndex, arrivalRadius, position);
-            }
-            else
-            {
-                stepResult = executeTransitionStep(step, stepIndex, position);
-            }
-
+            const int32_t stepIndex = static_cast<int32_t>(i);
+            const WwStatus stepResult = executeStep(i, goal, st.position);
             if (stepResult == WwStatus::Cancelled)
             {
-                terminal = WwStatus::Cancelled;
-                break;
+                return WwStatus::Cancelled;
             }
-
             if (stepResult == WwStatus::Failed)
             {
                 // Transition failures and exhausted re-plan budgets are
-                // terminal. Walk failures (the Stuck event was emitted
-                // inside walkOneStep) consume one re-plan.
+                // terminal. Walk failures (the Stuck event was emitted inside
+                // walkOneStep) consume one re-plan from the live position —
+                // re-read, because a host that teleports us between samples
+                // may have moved further than walkOneStep's last sample.
+                const runtime::Step &step = plan.steps[i];
                 const bool isTransition = step.kind == runtime::StepKind::Transition;
-                if (isTransition || replansUsed >= kMaxReplans)
+                if (isTransition || st.replansUsed >= kMaxReplans)
                 {
-                    failedStepIndex = stepIndex;
-                    if (isTransition)
-                    {
-                        failedTransitionIndex = static_cast<int32_t>(step.transitionIndex);
-                    }
-                    terminal = WwStatus::Failed;
-                    break;
+                    return failRun(stepIndex,
+                                   isTransition ? static_cast<int32_t>(step.transitionIndex) : -1);
                 }
-
-                // Walk-stuck recovery: re-read the position (walkOneStep
-                // wrote the last sample to it already, but a host that
-                // teleports us between samples might have moved further),
-                // and re-plan.
-                callbacks->readPosition(callbacks->user, &position);
-                ++replansUsed;
-                emit(WwEventKind::ReplanStarted, stepIndex);
-                if (!planFrom(position, goal, context, plan))
+                callbacks->readPosition(callbacks->user, &st.position);
+                WwStatus terminal = WwStatus::Failed;
+                if (!isRestart(replan(goal, context, stepIndex, st), stepIndex, terminal))
                 {
-                    failedStepIndex = stepIndex;
-                    terminal = WwStatus::Failed;
-                    break;
+                    return terminal;
                 }
-                if (plan.steps.empty())
-                {
-                    terminal = WwStatus::Arrived;
-                    emit(WwEventKind::Arrived);
-                    arrivedEmitted = true;
-                    break;
-                }
-                teleAllowedAtLastPlan = runtime::isTeleportAllowed(
-                    *artifact, position.x, position.y, position.plane);
                 i = 0;
                 continue;
             }
 
-            // Step Arrived. walkOneStep / executeTransitionStep wrote the
-            // live position into `position`; use it for the goal check and
-            // the teleport-allowed flip without a redundant readPosition.
-            if (isInsideGoal(position, goal))
+            // Step Arrived; `st.position` holds the live position, so the goal
+            // check and the teleport-allowed flip need no redundant read.
+            if (isInsideGoal(st.position, goal))
             {
-                terminal = WwStatus::Arrived;
                 emit(WwEventKind::Arrived);
-                arrivedEmitted = true;
-                break;
+                return WwStatus::Arrived;
             }
-            const bool teleAllowedNow = runtime::isTeleportAllowed(
-                *artifact, position.x, position.y, position.plane);
-            if (teleAllowedNow && !teleAllowedAtLastPlan && replansUsed < kMaxReplans)
+            const bool isTeleAllowedNow = runtime::isTeleportAllowed(
+                *artifact, st.position.x, st.position.y, st.position.plane);
+            if (isTeleAllowedNow && !st.isTeleAllowedAtLastPlan && st.replansUsed < kMaxReplans)
             {
-                ++replansUsed;
-                emit(WwEventKind::ReplanStarted, stepIndex);
-                if (!planFrom(position, goal, context, plan))
+                WwStatus terminal = WwStatus::Failed;
+                if (!isRestart(replan(goal, context, stepIndex, st), stepIndex, terminal))
                 {
-                    failedStepIndex = stepIndex;
-                    terminal = WwStatus::Failed;
-                    break;
+                    return terminal;
                 }
-                if (plan.steps.empty())
-                {
-                    terminal = WwStatus::Arrived;
-                    emit(WwEventKind::Arrived);
-                    arrivedEmitted = true;
-                    break;
-                }
-                teleAllowedAtLastPlan = true;
                 i = 0;
                 continue;
             }
-            teleAllowedAtLastPlan = teleAllowedNow;
+            st.isTeleAllowedAtLastPlan = isTeleAllowedNow;
             ++i;
         }
-
-        // Drained every step without an isInsideGoal short-circuit. The
-        // assembler's final step targets the acceptance set, but the walk
-        // hands back at its arrival radius — which can be a tile short of
-        // the goal test. Judge the live position instead of assuming the
-        // drain implies arrival: reporting ARRIVED from the neighbouring
-        // tile breaks the radius-0 contract for callers that interact next.
-        if (i >= plan.steps.size() && terminal == WwStatus::Arrived && !arrivedEmitted)
-        {
-            if (!isInsideGoal(position, goal))
-            {
-                // The walk poll often samples mid-stride; give the engine one
-                // tick to commit the final tile before judging.
-                callbacks->sleepTicks(callbacks->user, 1);
-                callbacks->readPosition(callbacks->user, &position);
-            }
-            if (isInsideGoal(position, goal))
-            {
-                emit(WwEventKind::Arrived);
-                arrivedEmitted = true;
-            }
-            else
-            {
-                failedStepIndex = static_cast<int32_t>(plan.steps.size()) - 1;
-                terminal = WwStatus::Failed;
-            }
-        }
-
-        if (terminal == WwStatus::Failed)
-        {
-            emit(WwEventKind::Failed, failedStepIndex, failedTransitionIndex);
-        }
-        return terminal;
+        return judgeDrainedRun(goal, st.position);
         // lease destructor returns the context to the pool here.
     }
 }

@@ -85,8 +85,13 @@ namespace
         }
         std::uniform_int_distribution<std::size_t> pickNode(0, nodes.size() - 1);
         std::uniform_int_distribution<int> radius(-32, 32);
-        while (out.size() < kCasesPerCategory)
+        // Attempt cap, like the other two samplers: an artifact where no
+        // centroid has a standable same-area tile within the radius must
+        // fall through to a short (or empty) category, not spin forever.
+        std::size_t attempts = 0;
+        while (out.size() < kCasesPerCategory && attempts < kCasesPerCategory * 20)
         {
+            ++attempts;
             const ww::format::AreaNodeRecord &node = nodes[pickNode(rng)];
             const int plane = static_cast<int>(node.plane);
             const int area  = view.areaAt(node.centroidX, node.centroidY, plane);

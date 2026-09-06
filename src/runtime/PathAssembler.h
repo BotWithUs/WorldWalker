@@ -60,11 +60,6 @@ namespace ww::runtime
     // (which themselves borrow the same artifact / view), holds reusable scratch
     // for the area route and the tile path. Not thread-safe; everything borrowed
     // must outlive the assembler.
-    //
-    // Phase 3d-2 scope: contiguous area route refined to tiles, WALK steps chunked
-    // to a local walk range, Transition steps emitted at each area-edge. Deferred
-    // to follow-on Phase 3d sub-steps: capability-predicate edge filtering (3d-3),
-    // global-teleport frontier seeding (3d-4), the search-context pool.
     class PathAssembler
     {
     public:
@@ -106,9 +101,12 @@ namespace ww::runtime
         // Find the closest standable tile to (originX, originY) that belongs to
         // `area`. The transition's object tile is permitted to be blocked, so the
         // player walks to an adjacent walkable tile and interacts from there. The
-        // origin tile itself wins when it qualifies.
+        // origin tile itself wins when it qualifies; otherwise the innermost ring
+        // with a candidate wins, and within it the tile nearest (nearX, nearY),
+        // the player's cursor, so the approach walk is as short as it can be.
         bool resolveInteractTile(int32_t originX, int32_t originY, int32_t plane,
-                                 int32_t area, int32_t &outX, int32_t &outY) const;
+                                 int32_t area, int32_t nearX, int32_t nearY,
+                                 int32_t &outX, int32_t &outY) const;
 
         // When the requested goal tile is blocked (off-area), find the nearest
         // standable tile within kGoalSnapRadius and report it (and its area) as
@@ -137,13 +135,21 @@ namespace ww::runtime
         bool appendWalkSegment(int32_t fromX, int32_t fromY, int32_t toX, int32_t toY,
                                int32_t plane, int32_t area, Plan &outPlan);
 
-        // One hop of the area route at areaPath.steps[pathIndex]: walk from the
-        // cursor to the transition's interact-tile in the prior area, emit the
-        // Transition step, advance the cursor to the destination tile. Returns
-        // false on any sub-step failure (bad index, no interact-tile, unreachable).
+        // Take one baked area edge from the cursor: walk inside edge.fromArea to
+        // the underlying transition's interact tile, emit the Transition step,
+        // and snap the cursor to the transition's destination tile. The one
+        // place a crossing is materialised — the area-route hop and the
+        // near-goal-exit chain both come through here. Returns false on a bad
+        // transition index, an illegal plane, a cursor that is not on the
+        // transition's origin plane, no interact tile, or an unreachable walk.
+        bool takeEdge(const format::AreaEdgeRecord &edge,
+                      int32_t &cursorX, int32_t &cursorY, int32_t &cursorPlane,
+                      Plan &outPlan);
+
+        // One hop of the area route at areaPath.steps[pathIndex]: validate the
+        // recorded edge index and take that edge. Returns false on any sub-step
+        // failure (bad index, no interact-tile, unreachable).
         bool appendTransitionHop(std::size_t pathIndex,
-                                 std::span<const format::AreaEdgeRecord> edges,
-                                 std::span<const format::TransitionRecord> transitions,
                                  int32_t &cursorX, int32_t &cursorY, int32_t &cursorPlane,
                                  Plan &outPlan);
 
@@ -157,6 +163,14 @@ namespace ww::runtime
                                int32_t startArea, int32_t goalX, int32_t goalY,
                                int32_t goalArea, const CapabilitySnapshot *capabilities,
                                std::span<const FrontierSeed> seeds, Plan &outPlan);
+
+        // The baseline plan before any teleport-landing improvement: a pure
+        // tile walk for a same-area query, otherwise the seeded area route.
+        // Writes into outPlan (cleared first) and returns true on success.
+        bool assembleBaseline(int32_t startX, int32_t startY, int32_t startPlane,
+                              int32_t startArea, int32_t goalX, int32_t goalY,
+                              int32_t goalArea, const CapabilitySnapshot *capabilities,
+                              Plan &outPlan);
 
         // Emit a global-teleport Transition step at the cursor (cast in place)
         // and snap the cursor to the transition's destination. No-op when the
@@ -191,7 +205,7 @@ namespace ww::runtime
         // Cached metadata for one baked area edge whose underlying
         // transition's destination tile is within kNearGoalRadius of the
         // query's goal tile on the goal plane (an "exit near the goal").
-        // Built once per assemble during the area-edge scan; the inner
+        // Built once per assemble by scanNearGoalExits; the inner
         // teleport-landing loop matches by fromArea and prunes by
         // closingBound + seed.cost without re-fetching the underlying
         // TransitionRecord per pair.
@@ -208,6 +222,44 @@ namespace ww::runtime
             float   closingBound;
         };
 
+        // Fill nearGoalEdgeScratch with every baked, non-global area edge whose
+        // transition lands within kNearGoalRadius of the goal on the goal
+        // plane, via the reader's per-square edge buckets (3x3 squares around
+        // the goal). Cleared first; the radius is goal-dependent.
+        void scanNearGoalExits(int32_t goalX, int32_t goalY, int32_t goalPlane);
+
+        // Order seedScratch's teleports by an admissible lower bound on the
+        // plan they can produce (see improveWithTeleports), cheapest first,
+        // into teleCandidateScratch.
+        void rankTeleportCandidates(int32_t goalX, int32_t goalY, int32_t goalArea);
+
+        // Teleport landing optimisation: realise, at tile level, every seedable
+        // teleport as teleport -> baked area route -> closing walk (plus the
+        // near-goal-exit chains), keeping the cheapest that beats ioBest.
+        // Candidates are visited cheapest-bound first so the loop stops as soon
+        // as no remaining one can win.
+        void improveWithTeleports(int32_t startX, int32_t startY, int32_t startPlane,
+                                  int32_t goalX, int32_t goalY, int32_t goalArea,
+                                  const CapabilitySnapshot *capabilities,
+                                  Plan &ioBest, bool &ioHaveBest);
+
+        // Cast `seed` in place, then route from its destination to the goal
+        // over baked crossings only. Writes into outAlt (cleared first).
+        bool tryTeleportLanding(int32_t startX, int32_t startY, int32_t startPlane,
+                                const FrontierSeed &seed,
+                                int32_t goalX, int32_t goalY, int32_t goalArea,
+                                const CapabilitySnapshot *capabilities, Plan &outAlt);
+
+        // For every near-goal exit leaving `seed`'s landing area, price the
+        // chained route (teleport -> walk -> exit -> closing route) and keep
+        // it in ioBest when it wins. Pairs whose lower bound cannot beat
+        // ioBest are skipped before any search runs.
+        void tryNearGoalExits(int32_t startX, int32_t startY, int32_t startPlane,
+                              const FrontierSeed &seed,
+                              int32_t goalX, int32_t goalY, int32_t goalArea,
+                              const CapabilitySnapshot *capabilities,
+                              Plan &ioBest, bool &ioHaveBest);
+
         // Try a chained route — emit the global teleport in `seed`, walk inside
         // its destination area to `edge`'s origin, take `edge`, then run the
         // closing area route from `edge.toArea` to (goalX, goalY, goalArea).
@@ -217,7 +269,7 @@ namespace ww::runtime
         // the teleport-landing optimisation to consider exits that AreaSearch
         // would not pick on area-cost alone but that drop the player next door
         // to the goal (the "dungeon-cape resource-dungeon" pattern called out
-        // in assemble's comment).
+        // in improveWithTeleports).
         bool tryTeleportNearGoalExit(int32_t startX, int32_t startY, int32_t startPlane,
                                      const FrontierSeed &seed,
                                      const format::AreaEdgeRecord &edge,

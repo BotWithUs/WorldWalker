@@ -218,32 +218,6 @@ namespace
         return {"plane_change", Outcome::Skip, "no traversable cross-plane edge"};
     }
 
-    // Builds a maximally permissive capability snapshot from every record in
-    // the artifact's requirement pool. Mirrors wwcli's existing helper so the
-    // test is self-contained.
-    void buildPermissiveSnapshot(const ww::format::ArtifactReader &reader,
-                                 ww::runtime::CapabilitySnapshot &out)
-    {
-        for (const ww::format::RequirementRecord &r : reader.requirements())
-        {
-            switch (static_cast<ww::data::RequirementKind>(r.kind))
-            {
-                case ww::data::RequirementKind::Skill:
-                    if (out.skillLevel(r.id) < r.amount) { out.setSkillLevel(r.id, r.amount); }
-                    break;
-                case ww::data::RequirementKind::Item:
-                    if (out.itemCount(r.id) < r.amount) { out.setItemCount(r.id, r.amount); }
-                    break;
-                case ww::data::RequirementKind::Varbit:
-                    out.setVarbit(r.id, r.amount);
-                    break;
-                case ww::data::RequirementKind::Varp:
-                    out.setVarp(r.id, r.amount);
-                    break;
-            }
-        }
-    }
-
     // Category 3 — teleport-seeded leading step. Walk from area[0]'s centroid
     // to a destination that's only cheaply reachable via a permissive global
     // teleport. Asserts the plan's first step is a Transition with the
@@ -259,7 +233,7 @@ namespace
             return {"teleport_seeded", Outcome::Skip, "no area nodes"};
         }
         ww::runtime::CapabilitySnapshot permissive;
-        buildPermissiveSnapshot(reader, permissive);
+        ww::runtime::applyPermissiveRequirements(reader.requirements(), permissive);
 
         const ww::format::AreaNodeRecord &n0 = nodes[0];
         const int startPlane = static_cast<int>(n0.plane);
@@ -371,33 +345,6 @@ namespace
         return false;
     }
 
-    // Build a snapshot calibrated to ACCEPT the given req run by satisfying
-    // each of its entries against its own amount. Per-run construction (not
-    // a global pool) means same-id-different-value collisions in unrelated
-    // transitions cannot make this run un-satisfiable.
-    void buildSnapshotForRun(std::span<const ww::format::RequirementRecord> run,
-                             ww::runtime::CapabilitySnapshot &out)
-    {
-        for (const ww::format::RequirementRecord &r : run)
-        {
-            switch (static_cast<ww::data::RequirementKind>(r.kind))
-            {
-                case ww::data::RequirementKind::Skill:
-                    if (out.skillLevel(r.id) < r.amount) { out.setSkillLevel(r.id, r.amount); }
-                    break;
-                case ww::data::RequirementKind::Item:
-                    if (out.itemCount(r.id) < r.amount) { out.setItemCount(r.id, r.amount); }
-                    break;
-                case ww::data::RequirementKind::Varbit:
-                    out.setVarbit(r.id, r.amount);
-                    break;
-                case ww::data::RequirementKind::Varp:
-                    out.setVarp(r.id, r.amount);
-                    break;
-            }
-        }
-    }
-
     // Category 4 — capability gate. For each requirement-bearing global
     // whose run contains at least one Skill/Item/non-zero-Varbit-or-Varp
     // gate (the kinds the empty snapshot can reject), verify:
@@ -443,7 +390,9 @@ namespace
                 ++emptyAccepts;
             }
             ww::runtime::CapabilitySnapshot tuned;
-            buildSnapshotForRun(run, tuned);
+            // Per-run construction (not the whole pool) so same-id-different-value
+            // collisions in unrelated transitions cannot make this run unsatisfiable.
+            ww::runtime::applyPermissiveRequirements(run, tuned);
             if (!ww::runtime::meetsRequirements(&tuned, run))
             {
                 ++tunedRejects;

@@ -1,6 +1,7 @@
 #include "data/DatasetLoader.h"
 
 #include "data/Transitions.h"
+#include "format/Artifact.h"
 
 #if defined(_MSC_VER)
 #  pragma warning(push, 0)
@@ -94,6 +95,23 @@ namespace ww::data
                                          + "' must be an integer");
             }
             return narrowJsonInt(v, context);
+        }
+
+        // Plane reader: a required integer that must also be a legal plane
+        // (0..3). The value is stored in a uint8_t and later packed into a
+        // 4-bit grid key, so an unchecked -1 or 16 would not fail - it would
+        // alias onto a real square's plane 0 and bake a transition into the
+        // wrong place. Every other malformed field throws; so does this one.
+        uint8_t readPlane(const json &node, const char *key, const char *context)
+        {
+            const int plane = readRequiredInt(node, key, context);
+            if (plane < 0 || plane >= format::kClipPlanes)
+            {
+                throw std::runtime_error(std::string(context) + ": field '" + key
+                                         + "' must be a plane in 0.." 
+                                         + std::to_string(format::kClipPlanes - 1));
+            }
+            return static_cast<uint8_t>(plane);
         }
 
         // Optional-field reader that still enforces integer typing when
@@ -328,12 +346,10 @@ namespace ww::data
                 t.kind = TransitionKind::Transport;
                 t.originX = readRequiredInt(e, "x", "transport_links");
                 t.originY = readRequiredInt(e, "y", "transport_links");
-                t.originPlane = static_cast<uint8_t>(
-                    readRequiredInt(e, "plane", "transport_links"));
+                t.originPlane = readPlane(e, "plane", "transport_links");
                 t.destX = readRequiredInt(e, "dest_x", "transport_links");
                 t.destY = readRequiredInt(e, "dest_y", "transport_links");
-                t.destPlane = static_cast<uint8_t>(
-                    readRequiredInt(e, "dest_plane", "transport_links"));
+                t.destPlane = readPlane(e, "dest_plane", "transport_links");
                 t.objectId = readOptionalInt(e, "object_id", -1, "transport_links");
                 t.shape = static_cast<uint8_t>(
                     readOptionalInt(e, "shape", 0, "transport_links"));
@@ -361,12 +377,10 @@ namespace ww::data
                                                 : TransitionKind::TeleportChain;
                 t.originX = readRequiredInt(e, "origin_x", "teleport_chains");
                 t.originY = readRequiredInt(e, "origin_y", "teleport_chains");
-                t.originPlane = static_cast<uint8_t>(
-                    readRequiredInt(e, "origin_plane", "teleport_chains"));
+                t.originPlane = readPlane(e, "origin_plane", "teleport_chains");
                 t.destX = readRequiredInt(e, "dest_x", "teleport_chains");
                 t.destY = readRequiredInt(e, "dest_y", "teleport_chains");
-                t.destPlane = static_cast<uint8_t>(
-                    readRequiredInt(e, "dest_plane", "teleport_chains"));
+                t.destPlane = readPlane(e, "dest_plane", "teleport_chains");
                 t.objectId = readOptionalInt(e, "object_id", -1, "teleport_chains");
                 copyCode(t.code, e.value("code", std::string{}));
                 // Previously omitted: per-entry capability gates and embedded
@@ -393,8 +407,7 @@ namespace ww::data
                 t.isGlobalOrigin = e.value("global", true);
                 t.destX = readRequiredInt(e, "dest_x", "spell_teleports");
                 t.destY = readRequiredInt(e, "dest_y", "spell_teleports");
-                t.destPlane = static_cast<uint8_t>(
-                    readRequiredInt(e, "dest_plane", "spell_teleports"));
+                t.destPlane = readPlane(e, "dest_plane", "spell_teleports");
                 // Non-global spells require an origin tile — otherwise the
                 // build would emit a transition rooted at (0,0,0). Read it
                 // strictly when isGlobalOrigin=false; global spells default
@@ -404,8 +417,7 @@ namespace ww::data
                 {
                     t.originX = readRequiredInt(e, "origin_x", "spell_teleports(non-global)");
                     t.originY = readRequiredInt(e, "origin_y", "spell_teleports(non-global)");
-                    t.originPlane = static_cast<uint8_t>(
-                        readRequiredInt(e, "origin_plane", "spell_teleports(non-global)"));
+                    t.originPlane = readPlane(e, "origin_plane", "spell_teleports(non-global)");
                 }
                 parseRequirements(e, t.requirements);
                 parseChain(e, t.chain);
@@ -475,8 +487,7 @@ namespace ww::data
                 t.isGlobalOrigin = true;
                 t.destX = readRequiredInt(d, "x", "lodestones.destination");
                 t.destY = readRequiredInt(d, "y", "lodestones.destination");
-                t.destPlane = static_cast<uint8_t>(
-                    readRequiredInt(d, "plane", "lodestones.destination"));
+                t.destPlane = readPlane(d, "plane", "lodestones.destination");
                 parseRequirements(d, t.requirements);
                 // Required: a destination without its map component used to
                 // default to component 0 and bake a teleport that clicks the
@@ -507,8 +518,7 @@ namespace ww::data
                 t.isGlobalOrigin = e.value("global", true);
                 t.destX = readRequiredInt(e, "dest_x", "item_teleports.teleport");
                 t.destY = readRequiredInt(e, "dest_y", "item_teleports.teleport");
-                t.destPlane = static_cast<uint8_t>(
-                    readRequiredInt(e, "dest_plane", "item_teleports.teleport"));
+                t.destPlane = readPlane(e, "dest_plane", "item_teleports.teleport");
                 parseRequirements(e, t.requirements);
                 parseChain(e, t.chain);
                 model.transitions.push_back(std::move(t));
@@ -524,7 +534,9 @@ namespace ww::data
             parseItemTeleports(j, model);
         }
 
-        void loadOne(const std::string &directory, const char *filename, LoaderFn parser,
+        // False when the file is absent (warned, skipped, and counted by the
+        // caller); true once a present file has been parsed into `model`.
+        bool loadOne(const std::string &directory, const char *filename, LoaderFn parser,
                      TransitionModel &model, uint32_t &hash)
         {
             std::string text;
@@ -532,11 +544,12 @@ namespace ww::data
             if (!readFileBytes(path, text))
             {
                 std::fprintf(stderr, "wwbuild: dataset not found, skipping: %s\n", path.c_str());
-                return;
+                return false;
             }
             fnv1a(hash, text);
             const json j = json::parse(text);
             parser(j, model);
+            return true;
         }
     }
 
@@ -544,10 +557,22 @@ namespace ww::data
     {
         LoadedDatasets result;
         uint32_t hash = 2166136261u;
-        loadOne(directory, "transport_links.json", &parseTransportLinks, result.model, hash);
-        loadOne(directory, "teleport_chains.json", &parseTeleportChains, result.model, hash);
-        loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash);
-        loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash);
+        if (!loadOne(directory, "transport_links.json", &parseTransportLinks, result.model, hash))
+        {
+            ++result.filesMissing;
+        }
+        if (!loadOne(directory, "teleport_chains.json", &parseTeleportChains, result.model, hash))
+        {
+            ++result.filesMissing;
+        }
+        if (!loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash))
+        {
+            ++result.filesMissing;
+        }
+        if (!loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash))
+        {
+            ++result.filesMissing;
+        }
         result.datasetHash = hash;
         return result;
     }
@@ -559,8 +584,14 @@ namespace ww::data
         // Only the global-origin teleport datasets. transport_links /
         // teleport_chains are local transitions wired into the baked area graph
         // and cannot be supplied at runtime, so they are deliberately skipped.
-        loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash);
-        loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash);
+        if (!loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash))
+        {
+            ++result.filesMissing;
+        }
+        if (!loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash))
+        {
+            ++result.filesMissing;
+        }
         result.datasetHash = hash;
 
         // Defensive: keep only global-origin transitions. The two files above

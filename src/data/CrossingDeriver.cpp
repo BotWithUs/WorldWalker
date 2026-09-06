@@ -1,5 +1,6 @@
 #include "data/CrossingDeriver.h"
 
+#include "data/CrossingStamp.h"
 #include "data/Transitions.h"
 #include "format/ClipFlags.h"
 
@@ -70,11 +71,12 @@ namespace ww::data
             }
         }
 
-        // Build one raw Transport transition origin->dest carrying the door loc.
-        Transition makeDoorHop(const ww::build::Crossing &c, int fromX, int fromY,
+        // Build one raw Transport transition origin->dest carrying the door loc
+        // already stamped onto `loc` (see stampCrossingLoc).
+        Transition makeDoorHop(const Transition &loc, int fromX, int fromY,
                                int toX, int toY, int plane)
         {
-            Transition t;
+            Transition t = loc;
             t.kind = TransitionKind::Transport;
             t.isGlobalOrigin = false;
             t.originX = fromX;
@@ -83,10 +85,6 @@ namespace ww::data
             t.destX = toX;
             t.destY = toY;
             t.destPlane = static_cast<uint8_t>(plane);
-            t.objectId = c.objectId;
-            t.shape = c.shape;
-            t.rotation = c.rotation;
-            t.optionIndex = (c.optionIndex == 0xFF) ? 0u : c.optionIndex;
             return t;
         }
     }
@@ -105,6 +103,16 @@ namespace ww::data
                 continue;
             }
             ++report.doorCrossings;
+
+            // The clickable loc, stamped once and copied into every hop. A door
+            // with no option slot cannot be opened by the executor, so no hop is
+            // derived through it (the planner would route into a stall).
+            Transition loc;
+            if (!stampCrossingLoc(c, loc))
+            {
+                ++report.noOption;
+                continue;
+            }
 
             const int lx = c.worldX;
             const int ly = c.worldY;
@@ -142,8 +150,8 @@ namespace ww::data
                     continue;
                 }
                 // Both directions: stand on either side, click the same door loc.
-                result.transitions.push_back(makeDoorHop(c, lx, ly, nx, ny, plane));
-                result.transitions.push_back(makeDoorHop(c, nx, ny, lx, ly, plane));
+                result.transitions.push_back(makeDoorHop(loc, lx, ly, nx, ny, plane));
+                result.transitions.push_back(makeDoorHop(loc, nx, ny, lx, ly, plane));
                 report.emitted += 2;
                 any = true;
             }

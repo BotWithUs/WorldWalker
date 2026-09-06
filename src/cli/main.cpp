@@ -100,14 +100,16 @@ namespace
         return mismatches;
     }
 
-    void dumpRuntimeLookup(const ww::format::ArtifactReader &reader)
+    // Returns the number of clip-word mismatches (0 when the runtime view agrees
+    // with the raw decompressed square).
+    std::size_t dumpRuntimeLookup(const ww::format::ArtifactReader &reader)
     {
         ww::runtime::WorldView view(reader);
         const auto squares = reader.collisionSquares();
         if (squares.empty())
         {
             std::printf("  runtime: no collision squares to cross-check\n");
-            return;
+            return 0;
         }
         const ww::format::CollisionSquareEntry &sq = squares[0];
         std::vector<uint32_t> words;
@@ -121,6 +123,7 @@ namespace
         std::printf("  runtime: off-world clip=0x%08x | tile (%d,%d,p0) standable=%d area=%d\n",
                     view.clipAt(-1, baseY, 0), baseX, baseY,
                     view.isStandable(baseX, baseY, 0) ? 1 : 0, view.areaAt(baseX, baseY, 0));
+        return mismatches;
     }
 
     // Confirm every hop's recorded AreaEdge actually connects the previous area
@@ -157,31 +160,34 @@ namespace
         return -1;
     }
 
-    void runQuery(ww::runtime::AreaSearch &search, const ww::format::ArtifactReader &reader,
-                  int32_t start, int32_t goal, const char *label)
+    // Returns the number of failed checks: broken links on a found route, or 1
+    // when a route the caller says must exist (shouldReach) did not.
+    std::size_t runQuery(ww::runtime::AreaSearch &search, const ww::format::ArtifactReader &reader,
+                         int32_t start, int32_t goal, const char *label, bool shouldReach)
     {
         ww::runtime::AreaPath path;
         if (!search.findPath(start, goal, path))
         {
             std::printf("  search: %-6s %d->%d unreachable\n", label, start, goal);
-            return;
+            return shouldReach ? 1u : 0u;
         }
         const std::size_t broken = checkContiguity(reader, path);
         std::printf("  search: %-6s %d->%d ok, %zu areas, cost=%.1f, %zu broken links\n",
                     label, start, goal, path.steps.size(),
                     static_cast<double>(path.cost), broken);
+        return broken;
     }
 
     // Drive the area-graph A* end to end on the runtime lookup layer: resolve a
     // tile to its area through WorldView, then run a self-query, a single-edge
     // hop, and a whole-graph endpoint query, checking each route's contiguity.
-    void dumpAreaSearch(const ww::format::ArtifactReader &reader)
+    std::size_t dumpAreaSearch(const ww::format::ArtifactReader &reader)
     {
         const auto nodes = reader.areaNodes();
         if (nodes.empty())
         {
             std::printf("  search: no area graph to search\n");
-            return;
+            return 0;
         }
         ww::runtime::WorldView view(reader);
         ww::runtime::AreaSearch search(reader);
@@ -191,18 +197,19 @@ namespace
                     n0.centroidX, n0.centroidY, n0.plane,
                     view.areaAt(n0.centroidX, n0.centroidY, n0.plane));
 
-        runQuery(search, reader, 0, 0, "self");
+        std::size_t failures = runQuery(search, reader, 0, 0, "self", true);
         const auto edges = reader.areaEdges();
         if (!edges.empty())
         {
-            runQuery(search, reader, edges[0].fromArea, edges[0].toArea, "edge0");
+            failures += runQuery(search, reader, edges[0].fromArea, edges[0].toArea, "edge0", true);
             const int32_t twoHop = reachableTwoHop(reader, edges[0].toArea, edges[0].fromArea);
             if (twoHop >= 0)
             {
-                runQuery(search, reader, edges[0].fromArea, twoHop, "2hop");
+                failures += runQuery(search, reader, edges[0].fromArea, twoHop, "2hop", true);
             }
         }
-        runQuery(search, reader, 0, static_cast<int32_t>(nodes.size()) - 1, "ends");
+        failures += runQuery(search, reader, 0, static_cast<int32_t>(nodes.size()) - 1, "ends", false);
+        return failures;
     }
 
     // Pick a standable in-constraint goal as far as possible from the centroid
@@ -254,33 +261,36 @@ namespace
         return broken;
     }
 
-    void runTileQuery(ww::runtime::TileSearch &search, ww::runtime::WorldView &view, int32_t sx,
-                      int32_t sy, int32_t gx, int32_t gy, int32_t plane, int32_t areaConstraint,
-                      const char *label)
+    // Returns the number of failed checks: broken tiles on a found path, or 1
+    // when a path the caller says must exist (shouldReach) did not.
+    std::size_t runTileQuery(ww::runtime::TileSearch &search, ww::runtime::WorldView &view,
+                             int32_t sx, int32_t sy, int32_t gx, int32_t gy, int32_t plane,
+                             int32_t areaConstraint, const char *label, bool shouldReach)
     {
         ww::runtime::TilePath path;
         if (!search.findPath(sx, sy, gx, gy, plane, areaConstraint, path))
         {
             std::printf("  tile:   %-6s (%d,%d)->(%d,%d) unreachable\n", label, sx, sy, gx, gy);
-            return;
+            return shouldReach ? 1u : 0u;
         }
         const std::size_t broken = checkTilePath(view, path, plane, areaConstraint);
         std::printf("  tile:   %-6s (%d,%d)->(%d,%d) ok, %zu tiles, cost=%.1f, %zu broken\n",
                     label, sx, sy, gx, gy, path.tiles.size(),
                     static_cast<double>(path.cost), broken);
+        return broken;
     }
 
     // Drive the tile-level refinement A* end to end on the runtime lookup layer:
     // resolve area[0]'s centroid, then run a self-query, a within-area route to
     // the farthest reachable in-area tile (and the same goal unconstrained), and
     // an off-map goal that must come back unreachable.
-    void dumpTileSearch(const ww::format::ArtifactReader &reader)
+    std::size_t dumpTileSearch(const ww::format::ArtifactReader &reader)
     {
         const auto nodes = reader.areaNodes();
         if (nodes.empty())
         {
             std::printf("  tile:   no area graph to refine\n");
-            return;
+            return 0;
         }
         ww::runtime::WorldView view(reader);
         ww::runtime::TileSearch search(view);
@@ -289,14 +299,17 @@ namespace
         const int32_t plane = static_cast<int32_t>(n0.plane);
         const int32_t area0 = view.areaAt(n0.centroidX, n0.centroidY, plane);
 
-        runTileQuery(search, view, n0.centroidX, n0.centroidY, n0.centroidX, n0.centroidY, plane,
-                     area0, "self");
+        std::size_t failures = runTileQuery(search, view, n0.centroidX, n0.centroidY,
+                                            n0.centroidX, n0.centroidY, plane, area0, "self", true);
         const ww::runtime::TilePoint goal =
             farthestInArea(view, n0.centroidX, n0.centroidY, plane, area0, 24);
-        runTileQuery(search, view, n0.centroidX, n0.centroidY, goal.x, goal.y, plane, area0, "inarea");
-        runTileQuery(search, view, n0.centroidX, n0.centroidY, goal.x, goal.y, plane, -1, "free");
-        runTileQuery(search, view, n0.centroidX, n0.centroidY, n0.centroidX + 4096, n0.centroidY,
-                     plane, area0, "offmap");
+        failures += runTileQuery(search, view, n0.centroidX, n0.centroidY, goal.x, goal.y, plane,
+                                 area0, "inarea", true);
+        failures += runTileQuery(search, view, n0.centroidX, n0.centroidY, goal.x, goal.y, plane,
+                                 -1, "free", true);
+        failures += runTileQuery(search, view, n0.centroidX, n0.centroidY, n0.centroidX + 4096,
+                                 n0.centroidY, plane, area0, "offmap", false);
+        return failures;
     }
 
     // Sanity-check an assembled Plan: every Walk lands on a standable tile, every
@@ -321,16 +334,19 @@ namespace
         return broken;
     }
 
-    void runPlanQuery(ww::runtime::PathAssembler &assembler, ww::runtime::WorldView &view,
-                      const ww::format::ArtifactReader &reader, int32_t sx, int32_t sy, int32_t sp,
-                      int32_t gx, int32_t gy, int32_t gp, const char *label)
+    // Returns the number of failed checks: broken steps on an assembled plan, or
+    // 1 when a plan the caller says must exist (shouldReach) did not.
+    std::size_t runPlanQuery(ww::runtime::PathAssembler &assembler, ww::runtime::WorldView &view,
+                             const ww::format::ArtifactReader &reader, int32_t sx, int32_t sy,
+                             int32_t sp, int32_t gx, int32_t gy, int32_t gp, const char *label,
+                             bool shouldReach)
     {
         ww::runtime::Plan plan;
         if (!assembler.assemble(sx, sy, sp, gx, gy, gp, plan))
         {
             std::printf("  plan:   %-6s (%d,%d,p%d)->(%d,%d,p%d) unreachable\n", label, sx, sy, sp,
                         gx, gy, gp);
-            return;
+            return shouldReach ? 1u : 0u;
         }
         std::size_t walks = 0;
         std::size_t hops = 0;
@@ -344,6 +360,7 @@ namespace
                     " cost=%.1f, %zu broken\n",
                     label, sx, sy, sp, gx, gy, gp, plan.steps.size(), walks, hops,
                     static_cast<double>(plan.cost), broken);
+        return broken;
     }
 
     // Same as runPlanQuery but routes through the capability-gated assemble
@@ -443,7 +460,9 @@ namespace
                 const int sx = std::atoi(argv[2]), sy = std::atoi(argv[3]), sp = std::atoi(argv[4]);
                 const int gx = std::atoi(argv[5]), gy = std::atoi(argv[6]), gp = std::atoi(argv[7]);
                 // Baseline: null caps (admit everything) — the unfiltered path.
-                runPlanQuery(assembler, view, reader, sx, sy, sp, gx, gy, gp, "tele");
+                // Informational probe: a missing route is reported, not a failure.
+                static_cast<void>(runPlanQuery(assembler, view, reader, sx, sy, sp, gx, gy, gp,
+                                               "tele", false));
 
                 // Reproduce the executor's planFrom requirement gating. Collect
                 // the distinct varbit ids any requirement references (lodestone
@@ -713,11 +732,12 @@ namespace
     // they're the 3d-4 frontier-seeding case), and when a req-bearing area edge
     // exists, run AreaSearch unfiltered (nullptr snapshot) vs gated by an empty
     // CapabilitySnapshot so the gate must re-route or come back blocked.
-    void dumpCapabilityFilter(const ww::format::ArtifactReader &reader,
+    std::size_t dumpCapabilityFilter(const ww::format::ArtifactReader &reader,
                               ww::runtime::WorldView &view, ww::runtime::AreaSearch &areaSearch)
     {
-        std::printf("  caps:   predicate self-check: %s\n",
-                    capabilityPredicateSelfCheck() ? "ok" : "FAIL");
+        const bool isPredicateOk = capabilityPredicateSelfCheck();
+        std::size_t failures = isPredicateOk ? 0u : 1u;
+        std::printf("  caps:   predicate self-check: %s\n", isPredicateOk ? "ok" : "FAIL");
 
         const auto edges = reader.areaEdges();
         const auto txs = reader.transitions();
@@ -750,7 +770,7 @@ namespace
         if (!pickRequiredCrossAreaPair(reader, view, reqEdgeIdx))
         {
             std::printf("  caps:   no traversable req-bearing area edge to exercise filter end-to-end\n");
-            return;
+            return failures;
         }
         const ww::format::AreaEdgeRecord &re = edges[reqEdgeIdx];
         const ww::format::TransitionRecord &rtx = txs[re.transitionIndex];
@@ -762,6 +782,7 @@ namespace
         const bool openOk = areaSearch.findPath(re.fromArea, re.toArea, openPath);
         const ww::runtime::CapabilitySnapshot empty;
         const bool gatedOk = areaSearch.findPath(re.fromArea, re.toArea, &empty, gatedPath);
+        failures += openOk ? 0u : 1u;  // the unfiltered route must exist; gating may block it
         std::printf("  caps:   open=%s(%zu steps, cost=%.1f) gated=%s", openOk ? "ok" : "X",
                     openPath.steps.size(), static_cast<double>(openPath.cost),
                     gatedOk ? "ok" : "blocked");
@@ -774,6 +795,7 @@ namespace
         {
             std::printf("\n");
         }
+        return failures;
     }
 
     // isTeleportAllowed self-check against synthetic wilderness + no-tele boxes
@@ -812,41 +834,6 @@ namespace
             && !isTeleportAllowed(noTele, wild, 20, 3510, 3510, 0)    // inside no-tele
             && !isTeleportAllowed(noTele, wild, 20, 1000, 1000, 4)    // bad plane (high)
             && !isTeleportAllowed(noTele, wild, 20, 1000, 1000, -1);  // bad plane (low)
-    }
-
-    // Build a maximally permissive capability snapshot from the artifact's full
-    // requirement pool: every Skill/Item id ends up at the highest amount any
-    // requirement names; every Varbit/Varp ends up at the last value it was
-    // asked for. Conflicting exact-match requirements (two globals demanding
-    // different values of the same varbit) cannot all pass, but each individual
-    // global remains independently exercisable via the build-from-reqs pattern.
-    void buildPermissiveSnapshotFromArtifact(const ww::format::ArtifactReader &reader,
-                                             ww::runtime::CapabilitySnapshot &outSnapshot)
-    {
-        for (const ww::format::RequirementRecord &r : reader.requirements())
-        {
-            switch (static_cast<ww::data::RequirementKind>(r.kind))
-            {
-                case ww::data::RequirementKind::Skill:
-                    if (outSnapshot.skillLevel(r.id) < r.amount)
-                    {
-                        outSnapshot.setSkillLevel(r.id, r.amount);
-                    }
-                    break;
-                case ww::data::RequirementKind::Item:
-                    if (outSnapshot.itemCount(r.id) < r.amount)
-                    {
-                        outSnapshot.setItemCount(r.id, r.amount);
-                    }
-                    break;
-                case ww::data::RequirementKind::Varbit:
-                    outSnapshot.setVarbit(r.id, r.amount);
-                    break;
-                case ww::data::RequirementKind::Varp:
-                    outSnapshot.setVarp(r.id, r.amount);
-                    break;
-            }
-        }
     }
 
     // First global the permissive snapshot accepts whose destArea is NOT
@@ -944,16 +931,17 @@ namespace
     // acceptance breakdown, and (when an eligible global exists) an end-to-end
     // plan whose goal is the chosen teleport's destination — verifying that the
     // plan's first step is the seeded Transition.
-    void dumpTeleportSeeding(const ww::format::ArtifactReader &reader,
+    std::size_t dumpTeleportSeeding(const ww::format::ArtifactReader &reader,
                              ww::runtime::WorldView &view,
                              ww::runtime::AreaSearch &areaSearch,
                              ww::runtime::PathAssembler &assembler)
     {
-        std::printf("  tele:   policy self-check: %s\n",
-                    teleportPolicySelfCheck() ? "ok" : "FAIL");
+        const bool isPolicyOk = teleportPolicySelfCheck();
+        std::size_t failures = isPolicyOk ? 0u : 1u;
+        std::printf("  tele:   policy self-check: %s\n", isPolicyOk ? "ok" : "FAIL");
 
         ww::runtime::CapabilitySnapshot permissive;
-        buildPermissiveSnapshotFromArtifact(reader, permissive);
+        ww::runtime::applyPermissiveRequirements(reader.requirements(), permissive);
         std::size_t globalsTotal = 0;
         std::size_t globalsEmpty = 0;
         std::size_t globalsPermissive = 0;
@@ -964,7 +952,7 @@ namespace
         const auto nodes = reader.areaNodes();
         if (nodes.empty())
         {
-            return;
+            return failures;
         }
         const ww::format::AreaNodeRecord &startNode = nodes[0];
         const int32_t startPlane = static_cast<int32_t>(startNode.plane);
@@ -977,7 +965,7 @@ namespace
                                          txIndex, destArea))
         {
             std::printf("  tele:   no global dominates walking from start area for e2e\n");
-            return;
+            return failures;
         }
         const ww::format::TransitionRecord &chosenTx = reader.transitions()[txIndex];
         const int32_t goalX = chosenTx.destX;
@@ -997,7 +985,7 @@ namespace
         if (!ok)
         {
             std::printf("  tele:   e2e plan unreachable\n");
-            return;
+            return failures + 1u;
         }
         std::size_t walks = 0;
         std::size_t hops = 0;
@@ -1016,18 +1004,19 @@ namespace
                                   : (leading.kind == ww::runtime::StepKind::Transition
                                          ? "Transition(other)"
                                          : "Walk"));
+        return failures + broken + (leadingIsTele ? 0u : 1u);
     }
 
     // Drive PathAssembler end to end: a same-area refinement, a cross-area route
     // (with at least one Transition step), and an off-map goal that must come back
     // unreachable. Validates step count, walk/hop breakdown, and contiguity.
-    void dumpPathAssembly(const ww::format::ArtifactReader &reader)
+    std::size_t dumpPathAssembly(const ww::format::ArtifactReader &reader)
     {
         const auto nodes = reader.areaNodes();
         if (nodes.empty())
         {
             std::printf("  plan:   no area graph to assemble against\n");
-            return;
+            return 0;
         }
         ww::runtime::WorldView view(reader);
         ww::runtime::AreaSearch areaSearch(reader);
@@ -1040,10 +1029,10 @@ namespace
         const ww::runtime::TilePoint goal =
             farthestInArea(view, n0.centroidX, n0.centroidY, plane, area0, 24);
 
-        runPlanQuery(assembler, view, reader, n0.centroidX, n0.centroidY, plane, goal.x, goal.y,
-                     plane, "inarea");
-        runPlanQuery(assembler, view, reader, n0.centroidX, n0.centroidY, plane,
-                     n0.centroidX + 4096, n0.centroidY, plane, "offmap");
+        std::size_t failures = runPlanQuery(assembler, view, reader, n0.centroidX, n0.centroidY,
+                                            plane, goal.x, goal.y, plane, "inarea", true);
+        failures += runPlanQuery(assembler, view, reader, n0.centroidX, n0.centroidY, plane,
+                                 n0.centroidX + 4096, n0.centroidY, plane, "offmap", false);
 
         ww::runtime::TilePoint startTile{};
         ww::runtime::TilePoint goalTile{};
@@ -1058,16 +1047,17 @@ namespace
                         " dest=(%d,%d,p%u)\n",
                         edgeIdx, e.fromArea, e.toArea, e.transitionIndex, tx.kind,
                         tx.originX, tx.originY, tx.originPlane, tx.destX, tx.destY, tx.destPlane);
-            runPlanQuery(assembler, view, reader, startTile.x, startTile.y, startPlane, goalTile.x,
-                         goalTile.y, goalPlane, "cross");
+            failures += runPlanQuery(assembler, view, reader, startTile.x, startTile.y, startPlane,
+                                     goalTile.x, goalTile.y, goalPlane, "cross", true);
         }
         else
         {
             std::printf("  plan:   no traversable cross-area edge available\n");
         }
 
-        dumpCapabilityFilter(reader, view, areaSearch);
-        dumpTeleportSeeding(reader, view, areaSearch, assembler);
+        failures += dumpCapabilityFilter(reader, view, areaSearch);
+        failures += dumpTeleportSeeding(reader, view, areaSearch, assembler);
+        return failures;
     }
 
     // Exercise the bounded search-context pool: build a 2-slot pool, validate the
@@ -1076,7 +1066,7 @@ namespace
     // through the borrowed context to prove the bundled components wire up
     // correctly. Blocking acquire() is not exercised here — the deterministic
     // harness avoids sleep-based thread sync; the executor drives it for real.
-    void dumpContextPool(const ww::format::ArtifactReader &reader)
+    std::size_t dumpContextPool(const ww::format::ArtifactReader &reader)
     {
         constexpr std::size_t kPoolSize = 2;
         ww::runtime::ContextPool pool(reader, kPoolSize);
@@ -1090,13 +1080,14 @@ namespace
         if (!l1 || !l2 || l3)
         {
             std::printf("  pool:   FAIL acquisition pattern\n");
-            return;
+            return 1;
         }
 
         l1.reset();  // returns slot 1
         ww::runtime::ContextLease l4 = pool.tryAcquire();
         std::printf("  pool:   reacquire after release=%d free=%zu\n",
                     l4 ? 1 : 0, pool.freeCount());
+        std::size_t failures = l4 ? 0u : 1u;
 
         const auto nodes = reader.areaNodes();
         if (l4 && !nodes.empty())
@@ -1108,11 +1099,14 @@ namespace
                                                    n0.centroidX, n0.centroidY, plane, plan);
             std::printf("  pool:   borrowed self-assemble ok=%d steps=%zu cost=%.1f\n",
                         ok ? 1 : 0, plan.steps.size(), static_cast<double>(plan.cost));
+            failures += ok ? 0u : 1u;
         }
 
         l4.reset();
         l2.reset();
         std::printf("  pool:   final free=%zu (expect %zu)\n", pool.freeCount(), kPoolSize);
+        failures += pool.freeCount() == kPoolSize ? 0u : 1u;
+        return failures;
     }
 
     // Counters + simulated position for the Executor harness. Routed via the
@@ -1130,7 +1124,9 @@ namespace
     //                          them).
     //   SimulateTransition   — walk + transition test; walkTo / sleepTicks /
     //                          shouldCancel as above; interact / runChainStep
-    //                          count silently; isInterfaceOpen reports the
+    //                          count silently and land the simulated player on
+    //                          transitionDest (the engine commits the destination
+    //                          after the click); isInterfaceOpen reports the
     //                          dialog open immediately so the chain doesn't
     //                          stall on the open-poll budget.
     //   SimulateReplanRecovery — Phase 4d re-plan path. walkTo only updates
@@ -1164,6 +1160,7 @@ namespace
         int                   replanStartedEvents;
         bool                  walkToUpdatesPosition;
         ww::exec::WwEventKind lastEventKind;
+        ww::exec::WwTile      transitionDest;   // SimulateTransition: where the click lands
     };
 
     extern "C" void harnessReadPosition(void *user, ww::exec::WwTile *outTile)
@@ -1283,6 +1280,10 @@ namespace
         {
             ++h->abortIfCalled;
         }
+        else
+        {
+            h->position = h->transitionDest;
+        }
         // The harness always "issues" the action, so the executor settles as
         // before — the SimulateTransition step counts depend on that wait.
         return 1;
@@ -1296,6 +1297,10 @@ namespace
         if (h->mode != ExecHarnessMode::SimulateTransition)
         {
             ++h->abortIfCalled;
+        }
+        else
+        {
+            h->position = h->transitionDest;
         }
     }
 
@@ -1343,16 +1348,17 @@ namespace
         }
     }
 
-    void dumpExecutor(const ww::format::ArtifactReader &reader, const char *artifactPath)
+    std::size_t dumpExecutor(const ww::format::ArtifactReader &reader, const char *artifactPath)
     {
         const auto nodes = reader.areaNodes();
         if (nodes.empty())
         {
             std::printf("  exec:   skipped (no area nodes)\n");
-            return;
+            return 0;
         }
 
         ww::runtime::ContextPool pool(reader, 1);
+        std::size_t failures = 0;
         const ww::format::AreaNodeRecord &n0 = nodes[0];
         const int32_t plane = static_cast<int32_t>(n0.plane);
 
@@ -1396,6 +1402,10 @@ namespace
                         static_cast<int>(harness.lastEventKind),
                         static_cast<int>(ww::exec::WwEventKind::Arrived),
                         harness.abortIfCalled);
+            failures += status == ww::exec::WwStatus::Arrived ? 0u : 1u;
+            failures += (harness.readPositionCalls == 1 && harness.onEventCalls == 1
+                         && harness.lastEventKind == ww::exec::WwEventKind::Arrived) ? 0u : 1u;
+            failures += harness.abortIfCalled == 0 ? 0u : 1u;
         }
 
         // Test 2: walk-only plan from the centroid to the farthest same-area
@@ -1411,7 +1421,7 @@ namespace
         if (farthest.x == n0.centroidX && farthest.y == n0.centroidY)
         {
             std::printf("  exec:   walk-loop skipped (no in-area target distinct from start)\n");
-            return;
+            return failures;
         }
 
         ExecHarness harness2{};
@@ -1437,6 +1447,9 @@ namespace
         std::printf("  exec:   walk-loop landed at (%d,%d,p%d), goal (%d,%d,p%d)\n",
                     harness2.position.x, harness2.position.y, harness2.position.plane,
                     farthest.x, farthest.y, plane);
+        failures += (status2 == ww::exec::WwStatus::Arrived
+                     && harness2.lastEventKind == ww::exec::WwEventKind::Arrived) ? 0u : 1u;
+        failures += harness2.abortIfCalled == 0 ? 0u : 1u;
 
         // Test 3: cross-area plan that crosses one Transition. Prefer a
         // chained transition so the Click/Wait dispatch in the chain loop is
@@ -1454,7 +1467,7 @@ namespace
         if (!picked)
         {
             std::printf("  exec:   transition test skipped (no traversable cross-area edge)\n");
-            return;
+            return failures;
         }
 
         const auto &edge = reader.areaEdges()[edgeIdx];
@@ -1467,7 +1480,7 @@ namespace
         {
             std::printf("  exec:   transition test skipped (picked edge tx%u has %u reqs)\n",
                         edge.transitionIndex, tx.requirementCount);
-            return;
+            return failures;
         }
         const bool isGlobal = (tx.flags & ww::format::kTransitionFlagGlobalOrigin) != 0;
         int32_t clickCount = 0;
@@ -1492,6 +1505,8 @@ namespace
         harness3.mode = ExecHarnessMode::SimulateTransition;
         harness3.position = ww::exec::WwTile{ startTile.x, startTile.y, startPlane };
         harness3.lastEventKind = ww::exec::WwEventKind::Failed;
+        harness3.transitionDest =
+            ww::exec::WwTile{ tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane) };
 
         ww::exec::Callbacks cb3 = cbProto;
         cb3.user = &harness3;
@@ -1512,6 +1527,11 @@ namespace
                     harness3.walkToCalls, harness3.sleepTicksCalls,
                     harness3.shouldCancelCalls, harness3.readPositionCalls,
                     harness3.onEventCalls, harness3.abortIfCalled);
+        failures += (status3 == ww::exec::WwStatus::Arrived
+                     && harness3.lastEventKind == ww::exec::WwEventKind::Arrived) ? 0u : 1u;
+        failures += (harness3.interactCalls == (isGlobal ? 0 : 1)
+                     && harness3.runChainStepCalls == clickCount) ? 0u : 1u;
+        failures += harness3.abortIfCalled == 0 ? 0u : 1u;
 
         // Test 4: stuck → re-plan → recover. The first walk's walkTo does NOT
         // advance the simulated position, so the stalled-distance counter
@@ -1544,6 +1564,10 @@ namespace
                     harness4.walkToCalls, harness4.sleepTicksCalls,
                     harness4.shouldCancelCalls, harness4.readPositionCalls,
                     harness4.onEventCalls, harness4.abortIfCalled);
+        failures += (status4 == ww::exec::WwStatus::Arrived
+                     && harness4.lastEventKind == ww::exec::WwEventKind::Arrived) ? 0u : 1u;
+        failures += (harness4.stuckEvents >= 1 && harness4.replanStartedEvents >= 1) ? 0u : 1u;
+        failures += harness4.abortIfCalled == 0 ? 0u : 1u;
         std::printf("  exec:   replan landed at (%d,%d,p%d), goal (%d,%d,p%d)\n",
                     harness4.position.x, harness4.position.y, harness4.position.plane,
                     farthest.x, farthest.y, plane);
@@ -1556,20 +1580,20 @@ namespace
         if (artifactPath == nullptr)
         {
             std::printf("  exec:   ffi test skipped (no artifact path)\n");
-            return;
+            return failures;
         }
         ww_artifact *cArt = ww_artifact_open(artifactPath);
         if (cArt == nullptr)
         {
             std::printf("  exec:   ffi ww_artifact_open failed: %s\n", ww_last_error());
-            return;
+            return failures + 1u;
         }
         ww_context_pool *cPool = ww_context_pool_create(cArt, 1);
         if (cPool == nullptr)
         {
             std::printf("  exec:   ffi ww_context_pool_create failed: %s\n", ww_last_error());
             ww_artifact_close(cArt);
-            return;
+            return failures + 1u;
         }
 
         ExecHarness harness5{};
@@ -1591,6 +1615,9 @@ namespace
                     harness5.walkToCalls, harness5.sleepTicksCalls,
                     harness5.shouldCancelCalls, harness5.readPositionCalls,
                     harness5.onEventCalls, harness5.abortIfCalled);
+        failures += (status5 == WW_STATUS_ARRIVED
+                     && harness5.lastEventKind == ww::exec::WwEventKind::Arrived) ? 0u : 1u;
+        failures += harness5.abortIfCalled == 0 ? 0u : 1u;
         std::printf("  exec:   ffi landed at (%d,%d,p%d), goal (%d,%d,p%d)\n",
                     harness5.position.x, harness5.position.y, harness5.position.plane,
                     farthest.x, farthest.y, plane);
@@ -1625,6 +1652,7 @@ namespace
                     static_cast<int>(queryStatus), ffiPath.stepCount, refPlan.steps.size(),
                     stepsMatch ? 1 : 0, static_cast<double>(ffiPath.cost),
                     static_cast<double>(refPlan.cost), costMatch ? 1 : 0);
+        failures += (queryStatus == WW_OK && stepsMatch && costMatch) ? 0u : 1u;
 
         ww_path_free(&ffiPath);
         std::printf("  exec:   ffi query post-free steps=%p stepCount=%zu cost=%.1f\n",
@@ -1633,9 +1661,12 @@ namespace
 
         ww_context_pool_destroy(cPool);
         ww_artifact_close(cArt);
+        return failures;
     }
 
-    void dumpArtifact(const ww::format::ArtifactReader &reader, const char *artifactPath)
+    // Returns the number of failed harness checks so main can turn them into a
+    // non-zero exit: a regression must fail the run, not just print a line.
+    std::size_t dumpArtifact(const ww::format::ArtifactReader &reader, const char *artifactPath)
     {
         const ww::format::ArtifactInfo &info = reader.info();
         std::printf("  formatVersion=%u cacheRevision=%u datasetHash=0x%08x\n", info.formatVersion,
@@ -1650,12 +1681,13 @@ namespace
         std::printf("  teleport: %zu wilderness regions, %zu no-tele zones (cutoff=%u)\n",
                     reader.wildernessRegions().size(), reader.noTeleZones().size(),
                     reader.wildernessCutoff());
-        dumpRuntimeLookup(reader);
-        dumpAreaSearch(reader);
-        dumpTileSearch(reader);
-        dumpPathAssembly(reader);
-        dumpContextPool(reader);
-        dumpExecutor(reader, artifactPath);
+        std::size_t failures = dumpRuntimeLookup(reader);
+        failures += dumpAreaSearch(reader);
+        failures += dumpTileSearch(reader);
+        failures += dumpPathAssembly(reader);
+        failures += dumpContextPool(reader);
+        failures += dumpExecutor(reader, artifactPath);
+        return failures;
     }
 }
 
@@ -1672,8 +1704,11 @@ int main(int argc, char **argv)
         std::printf("       wwcli scripted <artifact.wwa>\n");
         std::printf("       wwcli doors <artifact.wwa>\n");
         std::printf("       wwcli bench <artifact.wwa>\n");
+        std::printf("       wwcli teleports <artifact.wwa> <dataset_dir> [<sx> <sy> <sp> <gx> <gy> <gp>]\n");
+        std::printf("       wwcli doorprobe <artifact.wwa> <txIndex>\n");
+        std::printf("       wwcli txnear <artifact.wwa> <x> <y> <radius>\n");
         std::printf("       wwcli path <artifact.wwa> <fromX> <fromY> <fromPlane>"
-                    " <toX> <toY> <toPlane> [--out path.json]\n");
+                    " <toX> <toY> <toPlane> [--out path.json] [--teleports dir]\n");
         return 0;
     }
 
@@ -1767,7 +1802,12 @@ int main(int argc, char **argv)
     {
         const ww::format::ArtifactReader reader(argv[1]);
         std::printf("artifact: %s\n", argv[1]);
-        dumpArtifact(reader, argv[1]);
+        const std::size_t failures = dumpArtifact(reader, argv[1]);
+        std::printf("harness: %zu check(s) failed\n", failures);
+        if (failures > 0)
+        {
+            return 1;
+        }
     }
     catch (const std::exception &e)
     {

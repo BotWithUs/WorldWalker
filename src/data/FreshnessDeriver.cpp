@@ -2,6 +2,7 @@
 
 #include "build/CacheClient.h"
 #include "build/CollisionBuilder.h"
+#include "data/CrossingStamp.h"
 #include "data/Transitions.h"
 #include "format/Artifact.h"
 #include "format/ClipFlags.h"
@@ -109,10 +110,13 @@ namespace ww::data
                     ++report.droppedClimbMismatch;
                     return;
                 }
-                t.objectId = c.objectId;
-                t.shape = c.shape;
-                t.rotation = c.rotation;
-                t.optionIndex = (c.optionIndex == 0xFF) ? 0u : c.optionIndex;
+                // A climbable with no option slot cannot be clicked: drop the
+                // candidate rather than bake an edge the executor stalls at.
+                if (!stampCrossingLoc(c, t))
+                {
+                    ++report.droppedNoOption;
+                    return;
+                }
             }
 
             outModel.transitions.push_back(std::move(t));

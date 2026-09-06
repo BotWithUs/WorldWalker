@@ -58,23 +58,6 @@ namespace
     {
         g_lastError = std::move(message);
     }
-
-    // Apply each (id, value) entry of one capability run onto a runtime
-    // CapabilitySnapshot via `apply`. A null/zero-length run is a no-op; a
-    // null `entries` with non-zero count is the caller's bug and is treated
-    // as empty here so a malformed snapshot can't dereference past null.
-    template <typename ApplyFn>
-    void applyCapabilityRun(const WwCapabilityEntry *entries, size_t count, ApplyFn apply)
-    {
-        if (entries == nullptr || count == 0)
-        {
-            return;
-        }
-        for (size_t i = 0; i < count; ++i)
-        {
-            apply(entries[i].id, entries[i].value);
-        }
-    }
 }
 
 extern "C"
@@ -258,14 +241,7 @@ ww_result ww_query_ex(ww_artifact                *artifact,
         ww::runtime::CapabilitySnapshot snapshot;
         if (capabilities != nullptr)
         {
-            applyCapabilityRun(capabilities->skills, capabilities->skillCount,
-                               [&](int32_t id, int32_t v) { snapshot.setSkillLevel(id, v); });
-            applyCapabilityRun(capabilities->items, capabilities->itemCount,
-                               [&](int32_t id, int32_t v) { snapshot.setItemCount(id, v); });
-            applyCapabilityRun(capabilities->varbits, capabilities->varbitCount,
-                               [&](int32_t id, int32_t v) { snapshot.setVarbit(id, v); });
-            applyCapabilityRun(capabilities->varps, capabilities->varpCount,
-                               [&](int32_t id, int32_t v) { snapshot.setVarp(id, v); });
+            ww::exec::copyCapabilities(*capabilities, snapshot);
         }
         const ww::runtime::CapabilitySnapshot *snapshotPtr =
             (capabilities != nullptr) ? &snapshot : nullptr;

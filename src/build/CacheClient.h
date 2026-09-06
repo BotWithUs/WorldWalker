@@ -51,6 +51,11 @@ namespace ww::build
     inline constexpr uint8_t kClimbUp   = 0x1;
     inline constexpr uint8_t kClimbDown = 0x2;
 
+    // Crossing::optionIndex when the loc exposes no clickable option (a
+    // varbit-only door, decorative scenery): nothing the executor can interact
+    // with, so no transition may be derived through it.
+    inline constexpr uint8_t kCrossingNoOption = 0xFF;
+
     // RAII wrapper over the NXTCache C ABI for offline cache decode.
     // Non-copyable. The constructor throws std::runtime_error on open failure.
     class CacheClient

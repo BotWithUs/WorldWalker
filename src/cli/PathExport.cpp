@@ -6,6 +6,7 @@
 #include "runtime/AreaSearch.h"
 #include "runtime/CapabilitySnapshot.h"
 #include "runtime/PathAssembler.h"
+#include "runtime/RuntimeTeleports.h"
 #include "runtime/TileSearch.h"
 #include "runtime/WorldView.h"
 
@@ -22,7 +23,7 @@
 #include <string>
 #include <string_view>
 
-// `wwcli path <artifact> sx sy sp gx gy gp [--out path.json]`.
+// `wwcli path <artifact> sx sy sp gx gy gp [--out path.json] [--teleports dir]`.
 //
 // Runs the runtime PathAssembler with a maximally permissive capability
 // snapshot (so requirement-gated transitions are admitted) and emits the
@@ -42,6 +43,7 @@ namespace
         int32_t     goalY;
         int32_t     goalPlane;
         const char *outPath;   // nullptr -> stdout
+        const char *teleportDir;  // nullptr -> baked transitions only
     };
 
     void printUsage()
@@ -83,6 +85,7 @@ namespace
             return false;
         }
         out.outPath = nullptr;
+        out.teleportDir = nullptr;
         for (int i = 7; i < argc; ++i)
         {
             if (std::strcmp(argv[i], "--out") == 0)
@@ -95,42 +98,19 @@ namespace
                 ++i;
                 continue;
             }
+            if (std::strcmp(argv[i], "--teleports") == 0)
+            {
+                if (i + 1 >= argc)
+                {
+                    return false;
+                }
+                out.teleportDir = argv[i + 1];
+                ++i;
+                continue;
+            }
             return false;
         }
         return true;
-    }
-
-    // Build a maximally permissive snapshot from the artifact's own requirement
-    // pool. Mirrors the buildPermissiveSnapshotFromArtifact helper in main.cpp's
-    // harness so this subcommand admits the same set of transitions the
-    // executor would have admitted when given a fully-equipped player.
-    void buildPermissiveSnapshot(const ww::format::ArtifactReader &reader,
-                                 ww::runtime::CapabilitySnapshot &outSnapshot)
-    {
-        for (const ww::format::RequirementRecord &r : reader.requirements())
-        {
-            switch (static_cast<ww::data::RequirementKind>(r.kind))
-            {
-                case ww::data::RequirementKind::Skill:
-                    if (outSnapshot.skillLevel(r.id) < r.amount)
-                    {
-                        outSnapshot.setSkillLevel(r.id, r.amount);
-                    }
-                    break;
-                case ww::data::RequirementKind::Item:
-                    if (outSnapshot.itemCount(r.id) < r.amount)
-                    {
-                        outSnapshot.setItemCount(r.id, r.amount);
-                    }
-                    break;
-                case ww::data::RequirementKind::Varbit:
-                    outSnapshot.setVarbit(r.id, r.amount);
-                    break;
-                case ww::data::RequirementKind::Varp:
-                    outSnapshot.setVarp(r.id, r.amount);
-                    break;
-            }
-        }
     }
 
     const char *transitionKindName(uint8_t kind)
@@ -277,14 +257,20 @@ int runPathExport(int argc, char **argv)
 
     try
     {
-        const ww::format::ArtifactReader reader(args.artifactPath);
+        ww::format::ArtifactReader reader(args.artifactPath);
+        if (args.teleportDir != nullptr)
+        {
+            // Same loader the host runs at startup, so the plan considers the
+            // scripter-editable global teleports the executor would fire.
+            ww::runtime::loadGlobalTeleportsInto(reader, args.teleportDir);
+        }
         ww::runtime::WorldView    view(reader);
         ww::runtime::AreaSearch   areaSearch(reader);
         ww::runtime::TileSearch   tileSearch(view);
         ww::runtime::PathAssembler assembler(reader, view, areaSearch, tileSearch);
 
         ww::runtime::CapabilitySnapshot snapshot;
-        buildPermissiveSnapshot(reader, snapshot);
+        ww::runtime::applyPermissiveRequirements(reader.requirements(), snapshot);
 
         ww::runtime::Plan plan;
         const bool ok =

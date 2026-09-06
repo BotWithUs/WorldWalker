@@ -53,11 +53,15 @@ namespace ww::runtime
         // RS3 mapsquare axis width — the engine addresses squares with a
         // 16-bit field, but baked content reaches squareY ~200 (the
         // northern landmass extends past row 128). 256 covers every
-        // populated square without overshoot. Cache memory at 256: 65536
-        // clip slots (~1.5MB of vector headers) + 262144 grid/stamp slots
-        // (~12MB of vector headers, vectors empty until touched). Off-axis
-        // tiles act as blocked.
+        // populated square without overshoot. Off-axis tiles act as blocked.
+        // The caches below are hash maps sized to the working set, so this
+        // bound costs no memory up front.
         static constexpr std::size_t kSquaresPerAxis = 256;
+
+        // Per-context cache ceiling (see trimCache). 64 MB is ~1000 inflated
+        // squares - far more than any one walk touches, small enough that a
+        // core-count pool stays under a gigabyte in the worst case.
+        static constexpr std::size_t kCacheBudgetBytes = std::size_t{64} << 20;
 
         // The instance resolver refuses tiles outside the same band, so a
         // dynamic region can never answer "walkable" for a tile this class's
@@ -229,6 +233,22 @@ namespace ww::runtime
         // artifact itself has changed in a way that invalidates the bytes —
         // e.g. a forced reload.
         void clearCache();
+
+        // Approximate bytes held by the three caches (inflated clip words, area
+        // grids, visited stamps). They grow with every square a search touches
+        // and nothing else ever shrinks them, so a long-lived context that has
+        // roamed the world holds most of the artifact inflated - times the pool
+        // size. Cheap to compute; used by trimCache.
+        std::size_t cacheBytes() const;
+
+        // Bound the cache: wipe everything (clearCache) once cacheBytes exceeds
+        // kCacheBudgetBytes. Called between borrows (SearchContext::recycle),
+        // never mid-search - the visited stamps ARE the in-flight closed set
+        // and the sticky pointers alias the cached vectors. A wipe costs the
+        // next borrower a re-inflate of the squares it touches (tens of
+        // microseconds each); an unbounded cache costs the process the whole
+        // world per context.
+        void trimCache();
 
         // ---- Tile-search visited stamps (Phase 2) ---------------------------
         //

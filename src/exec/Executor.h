@@ -7,6 +7,7 @@
 #include "runtime/ContextPool.h"
 #include "runtime/PathAssembler.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 #include <vector>
@@ -30,16 +31,16 @@ namespace ww::exec
     // callback vtable; run(goal) owns the calling thread until arrival,
     // failure, or cancellation.
     //
-    // Phase 4b/4c/4d scope: the executor reads the player's position, short-
-    // circuits arrival when already inside the acceptance set, borrows a
-    // SearchContext from the pool, plans with a freshly-snapshotted capability
-    // view, and iterates the resulting Walk and Transition steps. After each
-    // step it re-evaluates the teleport-allowed predicate at the live position
-    // and re-plans when the player has just crossed into a teleport-allowed
-    // zone — the load-bearing "walk out of wilderness, then teleport" path
-    // (ADR 0009). Walk failures (stuck / stall) consume one re-plan from a
-    // bounded budget and retry from the live position; the budget runs out
-    // before infinite-loop pathologies do.
+    // The executor reads the player's position, short-circuits arrival when
+    // already inside the acceptance set, borrows a SearchContext from the pool,
+    // plans with a freshly-snapshotted capability view, and iterates the
+    // resulting Walk and Transition steps. After each step it re-evaluates the
+    // teleport-allowed predicate at the live position and re-plans when the
+    // player has just crossed into a teleport-allowed zone — the load-bearing
+    // "walk out of wilderness, then teleport" path (ADR 0009). Walk failures
+    // (stuck / stall) consume one re-plan from a bounded budget and retry from
+    // the live position; the budget runs out before infinite-loop pathologies
+    // do.
     //
     // Walk step: walkTo(target), then poll readPosition with sleepTicks between
     // samples; arrival = within the caller-supplied radius of the step target
@@ -63,8 +64,7 @@ namespace ww::exec
     // does not retry it.
     //
     // The pool borrow is held across the loop so re-plans reuse the same
-    // SearchContext without re-entering the blocking acquire path. The
-    // ww_executor_run C ABI entry (Phase 4e) follows.
+    // SearchContext without re-entering the blocking acquire path.
     //
     // Non-copyable, non-movable (it holds references to the borrowed artifact,
     // pool, and callbacks — relocation would dangle them).
@@ -84,6 +84,27 @@ namespace ww::exec
         WwStatus run(WwGoal goal);
 
     private:
+        // What one run knows between steps: the last sampled position, how
+        // much of the re-plan budget is spent, and whether the tile the
+        // current plan was anchored at allowed global teleports (so a
+        // false→true flip after a step can be detected).
+        struct RunState
+        {
+            WwTile  position{};
+            int32_t replansUsed{0};
+            bool    isTeleAllowedAtLastPlan{false};
+        };
+
+        // Outcome of one in-loop re-plan: the plan was rebuilt and the step
+        // cursor must restart at 0, the planner declared the goal already
+        // reached, or the planner found no route.
+        enum class ReplanOutcome
+        {
+            Restarted,
+            Arrived,
+            Failed,
+        };
+
         // Chebyshev arrival test against goal on the same plane.
         static bool isInsideGoal(const WwTile &tile, const WwGoal &goal);
 
@@ -98,12 +119,48 @@ namespace ww::exec
         bool planFrom(const WwTile &start, const WwGoal &goal,
                       runtime::SearchContext &context, runtime::Plan &outPlan);
 
-        // Copy the wire-shape entries from `src` into `dst`. Each id/value
-        // pair becomes a setSkillLevel / setItemCount / setVarbit / setVarp
-        // call; nullptr arrays with zero counts are no-ops. Static because
-        // it touches no Executor state.
-        static void copyCapabilities(const WwCapabilitySnapshot &src,
-                                     runtime::CapabilitySnapshot &dst);
+        // Read the live value of every varbit and item id any transition
+        // requirement references, through the batched host callbacks, into
+        // `snapshot`. readCapability cannot surface these — the host does not
+        // know which ids matter — and without them every requirement-gated
+        // teleport reads as locked and the planner only ever walks.
+        void refreshRequirementValues();
+
+        // Consume one re-plan from the budget: emit ReplanStarted, re-invoke
+        // the planner from io.position, and refresh the teleport-allowed
+        // anchor. The caller restarts its step cursor on Restarted; Arrived
+        // has already emitted the Arrived event.
+        ReplanOutcome replan(const WwGoal &goal, runtime::SearchContext &context,
+                             int32_t stepIndex, RunState &io);
+
+        // Emit the terminal Failed event carrying the step (and transition, or
+        // -1) it failed on, and return Failed.
+        WwStatus failRun(int32_t stepIndex, int32_t transitionIndex) const;
+
+        // Map a re-plan outcome onto the step loop: true when the plan was
+        // rebuilt and the cursor restarts at 0; false when the run is over,
+        // with its terminal status (Arrived, or Failed with the event emitted)
+        // in outStatus.
+        bool isRestart(ReplanOutcome outcome, int32_t stepIndex, WwStatus &outStatus) const;
+
+        // Drive plan.steps[i]: a Walk with the arrival radius its successor
+        // demands, or a Transition. Writes the final live position.
+        WwStatus executeStep(std::size_t i, const WwGoal &goal, WwTile &outPosition);
+
+        // Chebyshev distance at which the Walk step at index i counts as done:
+        // kHandoffChebyshev when another Walk follows (the next click fires
+        // while the avatar is still moving instead of stopping on each
+        // waypoint), 0 for the final walk of a radius-0 goal (the ARRIVED
+        // contract demands the exact tile, not its neighbour), else
+        // kArrivalChebyshev.
+        int32_t arrivalRadiusFor(std::size_t i, const WwGoal &goal) const;
+
+        // The plan drained without an in-loop arrival: the assembler's final
+        // step targets the acceptance set, but the walk hands back at its
+        // arrival radius, which can be a tile short of the goal test. Judge
+        // the live position (after one settling tick) rather than assuming
+        // the drain implies arrival.
+        WwStatus judgeDrainedRun(const WwGoal &goal, WwTile &ioPosition);
 
         // Drive one Walk step to its target. Issues walkTo, then alternates
         // shouldCancel / sleepTicks / readPosition until arrival, cancellation,
@@ -111,34 +168,42 @@ namespace ww::exec
         // StepAdvanced once at entry; emits Stuck on either failure path.
         // Writes the final sampled position to outPosition so run() can drive
         // re-plan / teleport-allowed checks without a redundant readPosition.
-        //
-        // arrivalRadius is the Chebyshev distance at which the step counts as
-        // done: run() passes the wider kHandoffChebyshev when another Walk
-        // follows (so the next click fires while the avatar is still moving,
-        // instead of stopping on each waypoint), the tight kArrivalChebyshev
-        // when the next action needs the avatar on an exact tile, and 0 for
-        // the final walk of a radius-0 goal (the ARRIVED contract demands the
-        // exact tile, not its neighbour).
         WwStatus walkOneStep(const runtime::Step &step, int32_t stepIndex,
                              int32_t arrivalRadius, WwTile &outPosition);
 
         // Drive one Transition step's interact + embedded chain. Looks up
         // the TransitionRecord, validates its chain range, fires interact for
-        // local-origin records, then runs the chain (interface-open gate per
-        // Click, sleepTicks per Wait) and finishes with a short settle sleep
-        // and a final readPosition into outPosition. Returns Arrived on
-        // success, Cancelled if shouldCancel trips, Failed on a bad index or
-        // an interface that never opens. Emits StepAdvanced at entry and
-        // TeleportInitiated for global-origin records; the terminal Failed
+        // local-origin records, then runs the chain and finishes with a short
+        // settle sleep and a final readPosition into outPosition. Returns
+        // Arrived on success, Cancelled if shouldCancel trips, Failed on a bad
+        // index or an interface that never opens. Emits StepAdvanced at entry
+        // and TeleportInitiated for global-origin records; the terminal Failed
         // event is emitted by run() so the (stepIndex, transitionIndex) pair
         // carries through.
         WwStatus executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
                                        WwTile &outPosition);
 
+        // Run every chain step of `tx` in order with a cancel poll between
+        // steps. Arrived when the whole chain ran; the first non-Arrived
+        // step result otherwise.
+        WwStatus runChain(const format::TransitionRecord &tx) const;
+
+        // Perform one chain step: the executor handles Wait / WaitInterface
+        // itself and gates a COMPONENT Click on its interface being open; the
+        // host-resolved kinds are forwarded. Arrived means "continue".
+        WwStatus runChainStep(const format::TransitionRecord &tx,
+                              const format::ChainStepRecord &cs) const;
+
         // Poll isInterfaceOpen(interfaceId) with sleepTicks between polls until
         // it opens. Returns Arrived when open, Cancelled if shouldCancel trips,
         // Failed if the poll budget elapses first.
         WwStatus waitForInterface(int32_t interfaceId) const;
+
+        // Sleep `ticks` game ticks one at a time with a cancel poll between.
+        // The count comes straight from the scripter-editable teleport JSON,
+        // so a typo'd wait must not pin the run past cancellation, and a
+        // negative one must never reach the host's sleep.
+        WwStatus sleepCancellable(int32_t ticks) const;
 
         // Forward one chain step to the host's runChainStep, passing the kind
         // discriminant and all nine generic slots so the host can resolve
@@ -164,13 +229,9 @@ namespace ww::exec
 
         // Distinct varbit / item ids referenced by any transition requirement.
         // Built once on the artifact (ArtifactReader::rebuildRequirementIdLists)
-        // and borrowed here; planFrom() reads each via the readVarbit /
-        // readItemCount callbacks on every (re-)plan and writes the live values
-        // into the capability snapshot. Without this a varbit-gated teleport
-        // (e.g. a lodestone-unlock varbit) would always read 0 from the
-        // capability snapshot and be rejected — the planner then only ever
-        // walks. Borrowed, not owned: the spans alias storage on the artifact
-        // that outlives the Executor.
+        // and borrowed here; refreshRequirementValues reads each on every
+        // (re-)plan. Borrowed, not owned: the spans alias storage on the
+        // artifact that outlives the Executor.
         std::span<const int32_t> requirementVarbitIds;
         std::span<const int32_t> requirementItemIds;
 

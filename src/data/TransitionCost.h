@@ -7,11 +7,13 @@
 // (finalizeTransitions) and the runtime teleport loader so both compute
 // identical costs — a single source of truth avoids the two paths drifting.
 //
-// The dataset format does NOT carry a per-transition cost field today: cost is
-// the per-kind base plus the sum of the chain's Wait ticks. If the dataset ever
-// grows a `cost_ticks` field, route it through Transition::cost at parse time
-// AND short-circuit here (cost==0 is not a safe sentinel — a legitimate
-// zero-cost transition would clash).
+// Cost is the per-kind base plus the sum of the chain's Wait ticks. The
+// datasets DO carry `cost` / `cost_quick` / `default_cost` fields, but those
+// are the legacy nav stack's unit (hundreds per teleport, not ticks) and the
+// loader deliberately ignores them rather than mix units. If a tick-denominated
+// field is ever added, route it through Transition::cost at parse time AND
+// short-circuit here on a negative sentinel (cost==0 is not a safe sentinel:
+// a legitimate zero-cost transition would clash).
 namespace ww::data
 {
     inline constexpr float kTransportTicks = 3.0f;

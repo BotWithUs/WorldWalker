@@ -2,8 +2,10 @@
 #define WORLDWALKER_EXEC_CALLBACKS_H
 
 #include "c_api/worldwalker_c.h"
+#include "runtime/CapabilitySnapshot.h"
 #include "runtime/InstanceMap.h"
 
+#include <cstddef>
 #include <cstdint>
 
 // C++ view of the executor wire-shapes that are canonically defined in the
@@ -87,6 +89,40 @@ namespace ww::exec
         outMap.assign(chunks->originMapX, chunks->originMapY,
                       chunks->gridW, chunks->gridH,
                       chunks->descriptors, chunks->descriptorCount);
+    }
+
+    // Apply one wire-shape capability run onto `outSnapshot` through `apply`.
+    // A null array with a non-zero count is the host's bug; it is treated as
+    // an empty run so a malformed snapshot cannot dereference past null.
+    template <typename ApplyFn>
+    void applyCapabilityRun(const WwCapabilityEntry *entries, std::size_t count, ApplyFn apply)
+    {
+        if (entries == nullptr)
+        {
+            return;
+        }
+        for (std::size_t i = 0; i < count; ++i)
+        {
+            apply(entries[i].id, entries[i].value);
+        }
+    }
+
+    // Copy the wire-shape entries of `src` into `outSnapshot`: each id/value
+    // pair becomes a setSkillLevel / setItemCount / setVarbit / setVarp call.
+    // The one translation from the C snapshot to the runtime one — the query
+    // entry (ww_query_ex) and the executor's per-plan pull both come through
+    // here, so the null-run rule above holds at both.
+    inline void copyCapabilities(const WwCapabilitySnapshot &src,
+                                 runtime::CapabilitySnapshot &outSnapshot)
+    {
+        applyCapabilityRun(src.skills, src.skillCount,
+                           [&](int32_t id, int32_t v) { outSnapshot.setSkillLevel(id, v); });
+        applyCapabilityRun(src.items, src.itemCount,
+                           [&](int32_t id, int32_t v) { outSnapshot.setItemCount(id, v); });
+        applyCapabilityRun(src.varbits, src.varbitCount,
+                           [&](int32_t id, int32_t v) { outSnapshot.setVarbit(id, v); });
+        applyCapabilityRun(src.varps, src.varpCount,
+                           [&](int32_t id, int32_t v) { outSnapshot.setVarp(id, v); });
     }
 }
 
