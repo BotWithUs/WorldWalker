@@ -292,9 +292,10 @@ namespace
                         tr.doors.foreignEdgeSkipped);
             std::printf("  areas: %zu nodes, %zu edges, %zu grids (largest %zu tiles)\n",
                         ag.areaCount, ag.edgeCount, ag.gridCount, ag.largestArea);
-            std::printf("  adjacency: %zu transitions linked | unresolved origin=%zu dest=%zu | intra=%zu global=%zu\n",
+            std::printf("  adjacency: %zu transitions linked | unresolved origin=%zu dest=%zu | "
+                        "intra-only=%zu intra-edges=%zu global=%zu\n",
                         ag.resolvedTransitions, ag.unresolvedOrigin, ag.unresolvedDest,
-                        ag.intraAreaSkipped, ag.globalSkipped);
+                        ag.intraAreaOnly, ag.intraAreaSkipped, ag.globalSkipped);
             std::printf("  landmarks: %zu chosen from %zu candidate areas | reachable entries=%zu\n",
                         alt.landmarkCount, alt.candidateAreas, alt.reachablePairs);
             std::printf("  teleport zones: %zu wilderness regions, %zu no-tele zones (cutoff=%u)\n",

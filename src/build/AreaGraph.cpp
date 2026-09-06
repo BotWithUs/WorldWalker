@@ -460,6 +460,16 @@ namespace ww::build
                 {
                     ++report.resolvedTransitions;
                 }
+                else
+                {
+                    // Both endpoints resolved, but every approach side is the
+                    // destination area already, so walking suffices and no edge
+                    // exists to emit. Counted separately from intraAreaSkipped
+                    // (which counts dropped edges, several per transition):
+                    // without this the transition appeared in no bucket of the
+                    // adjacency report at all, so the report did not add up.
+                    ++report.intraAreaOnly;
+                }
             }
         }
 
