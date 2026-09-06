@@ -1,5 +1,6 @@
 #include "build/AreaGraph.h"
 
+#include "data/Transitions.h"
 #include "format/Artifact.h"
 #include "format/ClipFlags.h"
 #include "format/WallApproach.h"
@@ -256,35 +257,43 @@ namespace ww::build
         }
 
         // Areas touching a transition's origin object — the tiles you could
-        // stand on to interact. The object tile itself is often blocked, so
-        // its 3x3 neighbourhood is scanned; a door on a boundary yields the
-        // side(s) reachable WITHOUT crossing a wall. The previous version
-        // ignored wall flags and so emitted AreaEdges through the un-reachable
-        // side of doors, sending the runtime to walk to the wrong side first.
+        // stand on to interact. The object tile is often blocked, so the
+        // neighbourhood within data::kTransitionApproachRadius is scanned; a
+        // door on a boundary yields the side(s) reachable WITHOUT crossing a
+        // wall. An earlier version ignored wall flags and so emitted AreaEdges
+        // through the un-reachable side of doors, sending the runtime to walk
+        // to the wrong side first.
         std::set<int32_t> collectOriginAreas(const AreaMap &map, const CollisionLookup &lookup,
                                              const Transition &t)
         {
+            constexpr int radius = ww::data::kTransitionApproachRadius;
+            const int plane = static_cast<int>(t.originPlane);
             std::set<int32_t> areas;
-            for (int ox = -1; ox <= 1; ++ox)
+            for (int ox = -radius; ox <= radius; ++ox)
             {
-                for (int oy = -1; oy <= 1; ++oy)
+                for (int oy = -radius; oy <= radius; ++oy)
                 {
-                    if (ox == 0 && oy == 0)
-                    {
-                        continue;  // origin itself is the object tile
-                    }
                     const int candX = t.originX + ox;
                     const int candY = t.originY + oy;
-                    // Walk from the candidate tile back toward the origin. If
-                    // a wall seals that approach, the door / wall sits between
-                    // the candidate and the object — exclude this side.
-                    if (format::approachSealed(clipAccessor(lookup), candX, candY,
-                                               t.originX, t.originY,
-                                               static_cast<int>(t.originPlane)))
+                    // The origin tile itself is a legitimate approach whenever
+                    // it is walkable, and for a door hop out of CrossingDeriver
+                    // it is THE approach: that origin is the walkable tile
+                    // beside the door, verified standable at emit time. It has
+                    // no approach to seal, so it only has to be in an area
+                    // (which is exactly the walkability test).
+                    if (ox != 0 || oy != 0)
                     {
-                        continue;
+                        // Walk from the candidate back toward the origin,
+                        // wall-checking each step. If it is sealed, the door /
+                        // wall sits between the candidate and the object —
+                        // exclude this side.
+                        if (format::approachSealed(clipAccessor(lookup), candX, candY,
+                                                   t.originX, t.originY, plane))
+                        {
+                            continue;
+                        }
                     }
-                    const int32_t a = map.areaAt(candX, candY, t.originPlane);
+                    const int32_t a = map.areaAt(candX, candY, plane);
                     if (a >= 0)
                     {
                         areas.insert(a);

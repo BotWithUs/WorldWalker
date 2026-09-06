@@ -10,6 +10,51 @@
 // runtime reads the baked records, never this model.
 namespace ww::data
 {
+    // Chebyshev radius around a local transition's origin tile within which the
+    // player may stand to use it. ONE answer to "where do you stand to use
+    // this", shared by the three stages that each used to have their own:
+    //
+    //   data/TransitionBuilder.cpp   keeps a local-origin transition only when
+    //                                a standable tile lies within this radius
+    //   build/AreaGraph.cpp          resolves the from-area(s) from the tiles
+    //                                within this radius whose approach to the
+    //                                origin is not wall-sealed
+    //   runtime/PathAssembler.cpp    resolves the interact-from tile within
+    //                                this radius at query time
+    //
+    // They used 5, 1 and 2. A transition the builder kept on the strength of a
+    // tile four tiles away could then be dropped by the graph as
+    // unresolvedOrigin, and the runtime could fail to find a tile the graph had
+    // used.
+    //
+    // CHOSEN FROM DATA, not from taste. Baked against the live cache at 1 and
+    // at 2 and diffed against the previous artifact by transition identity (not
+    // by index, since the transition count moves):
+    //
+    //   radius 1: 14362/14615 kept, dangling 232, unresolvedOrigin 183,
+    //             13127 linked, 13242 edges
+    //             -> 0 linked transitions lost, 0 area edges lost, +28 linked
+    //   radius 2: 14565/14615 kept, dangling  29, unresolvedOrigin 386,
+    //             13149 linked, 13447 edges
+    //             -> 0 linked transitions lost, 6 area edges lost, +50 linked
+    //
+    // 1 is the smallest that loses nothing, so 1 it is. Note that widening to 2
+    // is not free: it collects more approach sides, which makes the vertical
+    // stair/ladder pinning in AreaGraph fire on cases it previously left alone,
+    // and that costs 6 edges the narrower scan keeps.
+    //
+    // The jump in `dangling` at radius 1 (15 -> 232) is not a loss. Those are
+    // transitions with a standable tile within 5 but none within 1: the graph
+    // could never resolve an origin for them either, so they used to be kept by
+    // the builder and then silently dropped as unresolvedOrigin (which falls
+    // 422 -> 183 by the same amount). They are now dropped once, where the
+    // reason is known, instead of twice under two different names.
+    //
+    // This also matches what PathAssembler's comment already claimed its
+    // radius-2 constant did: "the origin itself plus the surrounding ring" is a
+    // radius of 1.
+    inline constexpr int32_t kTransitionApproachRadius = 1;
+
     // How a transition is executed, and what its origin means. The planner and
     // (later) the executor dispatch on this.
     enum class TransitionKind : uint8_t
