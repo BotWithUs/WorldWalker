@@ -3,6 +3,7 @@
 #include "build/CacheClient.h"
 #include "build/CollisionBuilder.h"
 #include "data/CrossingStamp.h"
+#include "data/DatasetOrigins.h"
 #include "data/Transitions.h"
 #include "format/Artifact.h"
 #include "format/ClipFlags.h"
@@ -28,27 +29,12 @@ namespace ww::data
                  + static_cast<std::size_t>(ly);
         }
 
-        // Pack a tile + plane into a unique key. World coords fit well under 2^15,
-        // so the shifted fields never overlap.
+        // Tile+plane key, shared with the door deriver so both suppress
+        // against the same set the same way (data/DatasetOrigins.h).
         uint64_t originKey(int x, int y, int plane)
         {
-            return (static_cast<uint64_t>(static_cast<uint32_t>(x)) << 40)
-                 | (static_cast<uint64_t>(static_cast<uint32_t>(y)) << 8)
-                 | static_cast<uint64_t>(plane & 0xFF);
-        }
-
-        std::unordered_set<uint64_t> collectDatasetOrigins(const TransitionModel &datasets)
-        {
-            std::unordered_set<uint64_t> origins;
-            origins.reserve(datasets.transitions.size() * 2 + 1);
-            for (const Transition &t : datasets.transitions)
-            {
-                if (!t.isGlobalOrigin)
-                {
-                    origins.insert(originKey(t.originX, t.originY, t.originPlane));
-                }
-            }
-            return origins;
+            return datasetOriginKey(static_cast<int32_t>(x), static_cast<int32_t>(y),
+                                    static_cast<uint8_t>(plane));
         }
 
         // (x, y, plane) -> the PlaneChange crossing that names the climbable loc
@@ -71,7 +57,7 @@ namespace ww::data
         }
 
         void addCandidate(TransitionModel &outModel, FreshnessReport &report,
-                          const std::unordered_set<uint64_t> &datasetOrigins,
+                          const DatasetOrigins &datasetOrigins,
                           const PlaneChangeMap &planeChange,
                           int x, int y, int fromPlane, int toPlane)
         {
@@ -126,7 +112,7 @@ namespace ww::data
         // Pair every column in this square that carries CLIP_PLANE_CHANGE on both
         // lowerPlane and lowerPlane + 1, emitting an up edge and a down edge.
         void scanPlanePair(const SquareClip &sq, int baseX, int baseY, int lowerPlane,
-                           const std::unordered_set<uint64_t> &datasetOrigins,
+                           const DatasetOrigins &datasetOrigins,
                            const PlaneChangeMap &planeChange,
                            TransitionModel &outModel, FreshnessReport &report)
         {
@@ -158,7 +144,7 @@ namespace ww::data
             }
         }
 
-        void scanSquare(const SquareClip &sq, const std::unordered_set<uint64_t> &datasetOrigins,
+        void scanSquare(const SquareClip &sq, const DatasetOrigins &datasetOrigins,
                         const PlaneChangeMap &planeChange,
                         TransitionModel &outModel, FreshnessReport &report)
         {
@@ -182,7 +168,7 @@ namespace ww::data
     {
         TransitionModel result;
         FreshnessReport report;
-        const std::unordered_set<uint64_t> datasetOrigins = collectDatasetOrigins(datasets);
+        const DatasetOrigins datasetOrigins = collectDatasetOrigins(datasets);
         const PlaneChangeMap planeChange = collectPlaneChangeCrossings(crossings);
         for (const SquareClip &sq : collision.squares)
         {

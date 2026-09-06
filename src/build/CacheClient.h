@@ -70,6 +70,15 @@ namespace ww::build
         // Archive ids present in a cache index (5 = maps).
         std::vector<int> archiveIds(int indexId) const;
 
+        // The map square an index-5 archive id addresses: x is the low 7 bits,
+        // y is the rest. Returns false when y falls outside the 256-square grid
+        // that the area-graph keys and the artifact reader both address — such
+        // an id would alias another square's key downstream, so it must be
+        // skipped, not decoded. Every caller that turns an archive id into a
+        // square goes through here so the aliasing guard cannot be forgotten in
+        // one of them.
+        static bool mapSquareOf(int archiveId, int &outSquareX, int &outSquareY);
+
         // Decode one map square's clip. Returns false if the square is absent
         // from the cache; throws std::runtime_error on a decode error.
         bool mapSquareClip(int squareX, int squareY, SquareClip &outClip) const;
@@ -79,6 +88,16 @@ namespace ww::build
         // std::runtime_error on a decode error. An empty present square returns
         // true with outCrossings empty.
         bool crossings(int squareX, int squareY, std::vector<Crossing> &outCrossings) const;
+
+        // Decode one map square's clip AND its crossings from a single cache
+        // decode. The producer builds both from one landscape pass, so a caller
+        // that wants both (the artifact bake wants both for every square) must
+        // use this rather than the two calls above, which each re-run the whole
+        // decode and discard half the result. Same contract as those two:
+        // returns false if the square is absent, throws on a decode error, and
+        // clears outCrossings first.
+        bool mapSquareClipAndCrossings(int squareX, int squareY, SquareClip &outClip,
+                                       std::vector<Crossing> &outCrossings) const;
 
     private:
         nxt_cache *handle;
