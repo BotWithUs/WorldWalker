@@ -25,28 +25,39 @@ namespace ww::build
         }
     }
 
+    const std::vector<uint32_t> &CollisionLookup::squareWords(int squareX, int squareY) const
+    {
+        if (lastWords != nullptr && squareX == lastSquareX && squareY == lastSquareY)
+        {
+            return *lastWords;
+        }
+        const auto it = squareIndex.find(squareKey(squareX, squareY));
+        const std::vector<uint32_t> *words =
+            (it == squareIndex.end()) ? &absentWords : &model.squares[it->second].words;
+        lastSquareX = squareX;
+        lastSquareY = squareY;
+        lastWords = words;
+        return *words;
+    }
+
     uint32_t CollisionLookup::clipAt(int worldX, int worldY, int plane) const
     {
         if (plane < 0 || plane >= format::kClipPlanes)
         {
             return static_cast<uint32_t>(format::CLIP_BLOCKED);
         }
-        const auto it = squareIndex.find(squareKey(worldX >> 6, worldY >> 6));
-        if (it == squareIndex.end())
-        {
-            return static_cast<uint32_t>(format::CLIP_BLOCKED);
-        }
-        const SquareClip &sq = model.squares[it->second];
+        const std::vector<uint32_t> &words = squareWords(worldX >> 6, worldY >> 6);
         const std::size_t planeBase =
             static_cast<std::size_t>(plane) * format::kClipSize * format::kClipSize;
         const std::size_t local = static_cast<std::size_t>(worldX & 63) * format::kClipSize
                                 + static_cast<std::size_t>(worldY & 63);
         const std::size_t idx = planeBase + local;
-        if (idx >= sq.words.size())
+        // An absent square holds no words at all, so this also covers the miss.
+        if (idx >= words.size())
         {
             return static_cast<uint32_t>(format::CLIP_BLOCKED);
         }
-        return sq.words[idx];
+        return words[idx];
     }
 
     bool CollisionLookup::isWalkable(int worldX, int worldY, int plane) const

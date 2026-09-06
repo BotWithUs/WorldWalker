@@ -107,9 +107,11 @@ namespace ww::build
         // `plane`: the destination must be standable and no wall edge may block the
         // crossing (a wall on either endpoint blocks it). The source is assumed
         // walkable — the flood fill only expands from already-assigned tiles.
-        bool canStep(const CollisionLookup &lookup, int x, int y, int plane, int dx, int dy)
+        // `src` is the source tile's clip word, read once by the caller for all
+        // four directions rather than re-fetched per direction.
+        bool canStep(const CollisionLookup &lookup, uint32_t src, int x, int y, int plane,
+                     int dx, int dy)
         {
-            const uint32_t src = lookup.clipAt(x, y, plane);
             const uint32_t dst = lookup.clipAt(x + dx, y + dy, plane);
             if ((dst & format::kClipStandBlockedMask) != 0u)
             {
@@ -181,11 +183,12 @@ namespace ww::build
                 sumY += y;
                 extendBounds(node, x, y);
 
+                const uint32_t src = lookup.clipAt(x, y, plane);
                 for (int d = 0; d < 4; ++d)
                 {
                     const int nx = x + dx[d];
                     const int ny = y + dy[d];
-                    if (!canStep(lookup, x, y, plane, dx[d], dy[d]))
+                    if (!canStep(lookup, src, x, y, plane, dx[d], dy[d]))
                     {
                         continue;
                     }
