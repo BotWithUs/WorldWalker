@@ -1,6 +1,7 @@
 #include "data/CrossingDeriver.h"
 
 #include "data/CrossingStamp.h"
+#include "data/DatasetOrigins.h"
 #include "data/Transitions.h"
 #include "format/ClipFlags.h"
 
@@ -91,6 +92,7 @@ namespace ww::data
 
     TransitionModel deriveDoorTransitions(const std::vector<ww::build::Crossing> &crossings,
                                           const ww::build::CollisionLookup &lookup,
+                                          const DatasetOrigins &datasetOrigins,
                                           CrossingReport *outReport)
     {
         TransitionModel result;
@@ -149,11 +151,34 @@ namespace ww::data
                 {
                     continue;
                 }
-                // Both directions: stand on either side, click the same door loc.
-                result.transitions.push_back(makeDoorHop(loc, lx, ly, nx, ny, plane));
-                result.transitions.push_back(makeDoorHop(loc, nx, ny, lx, ly, plane));
-                report.emitted += 2;
+                // The edge is crossable: whether either direction survives the
+                // dataset check below, it is not a "no blocked edge" case.
                 any = true;
+                // Both directions: stand on either side, click the same door
+                // loc. Each direction is suppressed on its own origin, since a
+                // curated entry claims one side of a door, not both.
+                const uint64_t fromKey =
+                    datasetOriginKey(lx, ly, static_cast<uint8_t>(plane));
+                const uint64_t backKey =
+                    datasetOriginKey(nx, ny, static_cast<uint8_t>(plane));
+                if (datasetOrigins.find(fromKey) == datasetOrigins.end())
+                {
+                    result.transitions.push_back(makeDoorHop(loc, lx, ly, nx, ny, plane));
+                    ++report.emitted;
+                }
+                else
+                {
+                    ++report.droppedDatasetConflict;
+                }
+                if (datasetOrigins.find(backKey) == datasetOrigins.end())
+                {
+                    result.transitions.push_back(makeDoorHop(loc, nx, ny, lx, ly, plane));
+                    ++report.emitted;
+                }
+                else
+                {
+                    ++report.droppedDatasetConflict;
+                }
             }
             if (!any)
             {

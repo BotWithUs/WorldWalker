@@ -169,10 +169,14 @@ namespace
         TransitionBuildResult out;
         out.datasetHash = datasets.datasetHash;
 
+        // Both cache derivers defer to the curated datasets on a shared origin
+        // tile (ADR 0003), so both read the same origin set.
+        const ww::data::DatasetOrigins datasetOrigins =
+            ww::data::collectDatasetOrigins(datasets.model);
         const ww::data::TransitionModel derived = ww::data::deriveVerticalTransitions(
             collision, datasets.model, crossings, &out.freshness);
         const ww::data::TransitionModel doors =
-            ww::data::deriveDoorTransitions(crossings, lookup, &out.doors);
+            ww::data::deriveDoorTransitions(crossings, lookup, datasetOrigins, &out.doors);
 
         ww::data::TransitionModel combined = datasets.model;
         combined.transitions.insert(combined.transitions.end(),
@@ -286,8 +290,9 @@ namespace
                         tr.freshness.droppedDatasetConflict,
                         tr.freshness.droppedClimbMismatch,
                         tr.freshness.droppedNoOption);
-            std::printf("  doors: %zu crossings -> +%zu directed hops (%zu blocked-origin, %zu no-option, %zu no-edge, %zu foreign-edge)\n",
+            std::printf("  doors: %zu crossings -> +%zu directed hops (%zu suppressed by datasets, %zu blocked-origin, %zu no-option, %zu no-edge, %zu foreign-edge)\n",
                         tr.doors.doorCrossings, tr.doors.emitted,
+                        tr.doors.droppedDatasetConflict,
                         tr.doors.blockedOrigin, tr.doors.noOption, tr.doors.noEdge,
                         tr.doors.foreignEdgeSkipped);
             std::printf("  areas: %zu nodes, %zu edges, %zu grids (largest %zu tiles)\n",
