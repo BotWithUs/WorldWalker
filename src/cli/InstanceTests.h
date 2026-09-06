@@ -18,6 +18,11 @@
 // (NXTDebugger/wire/PROTOCOL.md 2.10). Cases here are chosen to pin the parts a
 // port gets wrong — the mapsquare-vs-chunk units trap, hole handling, and the
 // published-count bound — rather than to re-derive the format.
+//
+// The last case drives WorldView::clipAt through an installed InstanceMap over a
+// small artifact written to a temp file, because that composition — resolve,
+// read, rotate — and its hole -> CLIP_BLOCKED policy are what production calls,
+// and testing the two halves apart leaves the join untested.
 int runInstanceTests();
 
 #endif  // WORLDWALKER_CLI_INSTANCETESTS_H

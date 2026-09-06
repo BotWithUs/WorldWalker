@@ -7,6 +7,7 @@
 #include "runtime/AreaSearch.h"
 #include "runtime/CapabilitySnapshot.h"
 #include "runtime/PathAssembler.h"
+#include "runtime/TileScan.h"
 #include "runtime/TileSearch.h"
 #include "runtime/WorldView.h"
 
@@ -152,32 +153,30 @@ namespace
         return -1;
     }
 
-    // First standable tile within radius 2 of (ox, oy), scanned ring by ring so
-    // the closest approach wins — the same order PathAssembler::resolveInteractTile
-    // uses. Returns false when the door has no walkable approach on this plane.
+    // The approach tile the planner will stand on to click this door: the
+    // nearest standable tile within radius 2 of (ox, oy) that belongs to an
+    // area, resolved through the same ww::runtime::findNearestTile that
+    // PathAssembler::resolveInteractTile calls — including its area check, which
+    // this used to drop. Without it the scan could settle on a standable tile
+    // with no area, which the caller then discards, throwing away a door that
+    // has a perfectly good approach one tile further round the ring.
+    // Returns false when the door has no usable approach on this plane.
     bool resolveApproach(ww::runtime::WorldView &view, int ox, int oy, int plane,
                          int &outX, int &outY)
     {
-        for (int r = 0; r <= 2; ++r)
+        const auto standableInArea = [&](int32_t x, int32_t y)
         {
-            for (int dy = -r; dy <= r; ++dy)
-            {
-                for (int dx = -r; dx <= r; ++dx)
-                {
-                    if (std::max(std::abs(dx), std::abs(dy)) != r)
-                    {
-                        continue;
-                    }
-                    if (view.isStandable(ox + dx, oy + dy, plane))
-                    {
-                        outX = ox + dx;
-                        outY = oy + dy;
-                        return true;
-                    }
-                }
-            }
+            return view.isStandable(x, y, plane) && view.areaAt(x, y, plane) >= 0;
+        };
+        int32_t x = 0;
+        int32_t y = 0;
+        if (!ww::runtime::findNearestTile(ox, oy, 2, true, standableInArea, ox, oy, x, y))
+        {
+            return false;
         }
-        return false;
+        outX = x;
+        outY = y;
+        return true;
     }
 
     // True when `plan` crosses a door: it contains a Transition step whose record
