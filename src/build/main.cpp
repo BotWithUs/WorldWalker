@@ -126,8 +126,8 @@ namespace
         try
         {
             ww::build::CacheClient cache(cacheDir, flags.isLive);
-            int skipped = 0;
-            ww::build::CollisionModel model = ww::build::buildCollisionModel(cache, &skipped);
+            const ww::build::CollisionBuildResult decoded = ww::build::buildCollisionModel(cache);
+            const ww::build::CollisionModel &model = decoded.model;
             if (model.squares.empty())
             {
                 std::fprintf(stderr, "wwbuild collision: no map squares decoded from %s "
@@ -139,7 +139,7 @@ namespace
                                      ww::data::TeleportZonesModel{},
                                      deriveCacheRevision(cacheDir), 0u);
             std::printf("collision: %zu squares written to %s (%d archives skipped)\n",
-                        model.squares.size(), outPath.c_str(), skipped);
+                        model.squares.size(), outPath.c_str(), decoded.skippedArchives);
             return 0;
         }
         catch (const std::exception &e)
@@ -149,9 +149,6 @@ namespace
         }
     }
 
-    // Map cache index: each archive id encodes a square (x = id & 0x7F, y = id >> 7).
-    constexpr int kMapIndex = 5;
-
     struct TransitionBuildResult
     {
         ww::data::TransitionModel transitions;
@@ -160,25 +157,6 @@ namespace
         ww::data::FreshnessReport freshness;
         ww::data::CrossingReport doors;
     };
-
-    // Decode the interactable crossings (doors / ladders-stairs / climb-overs /
-    // agility) across every map square once, so the transition derivers can name
-    // the loc to interact with — the clip grid alone cannot.
-    std::vector<ww::build::Crossing> gatherCrossings(const ww::build::CacheClient &cache)
-    {
-        std::vector<ww::build::Crossing> all;
-        std::vector<ww::build::Crossing> square;
-        for (int id : cache.archiveIds(kMapIndex))
-        {
-            const int squareX = id & 0x7F;
-            const int squareY = id >> 7;
-            if (cache.crossings(squareX, squareY, square))
-            {
-                all.insert(all.end(), square.begin(), square.end());
-            }
-        }
-        return all;
-    }
 
     // Given the loaded datasets, derive cache-only vertical ladders/stairs and
     // doors (dataset priority), then finalize the union into the bakeable
@@ -264,8 +242,12 @@ namespace
                 return 1;
             }
             ww::build::CacheClient cache(cacheDir, flags.isLive);
-            int skipped = 0;
-            ww::build::CollisionModel collision = ww::build::buildCollisionModel(cache, &skipped);
+            // One pass over the map index yields both the clip grid and the
+            // interactable crossings (doors / ladders-stairs / climb-overs /
+            // agility) the transition derivers need to name the loc to interact
+            // with — the clip grid alone cannot.
+            const ww::build::CollisionBuildResult decoded = ww::build::buildCollisionModel(cache);
+            const ww::build::CollisionModel &collision = decoded.model;
             // An empty decode is a wrong cache directory, not a world with no
             // squares: refuse rather than publish an artifact that walks nowhere.
             if (collision.squares.empty())
@@ -276,10 +258,8 @@ namespace
             }
             ww::build::CollisionLookup lookup(collision);
 
-            const std::vector<ww::build::Crossing> crossings = gatherCrossings(cache);
-
             const TransitionBuildResult tr =
-                assembleTransitions(collision, lookup, crossings, datasets);
+                assembleTransitions(collision, lookup, decoded.crossings, datasets);
 
             ww::build::AreaGraphReport ag;
             const ww::build::AreaGraphModel abstraction =
