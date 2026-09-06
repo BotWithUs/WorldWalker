@@ -93,9 +93,11 @@ WW_API void ww_artifact_close(ww_artifact *artifact);
    skipped. Returns WW_OK on success (including zero teleports), an error code
    on malformed JSON (call ww_last_error).
 
-   MUTATES the artifact: it is NOT safe to call concurrently with ww_query or
-   ww_executor_run on the same artifact. The caller must serialise it against
-   all in-flight queries / runs (the Java host holds its lifecycle write-lock). */
+   MUTATES the artifact, and serialises itself: the call takes the artifact's
+   lifecycle lock exclusively, so it waits for every in-flight ww_query /
+   ww_executor_run on the same artifact to return (a run lasts the whole walk)
+   and holds new ones off until the reload completes. Hosts need no lock of
+   their own; one is harmless. */
 WW_API ww_result ww_artifact_load_teleports(ww_artifact *artifact, const char *dir);
 
 /* ---- Search-context pool ------------------------------------------------ */
