@@ -1,5 +1,6 @@
 #include "runtime/PathAssembler.h"
 
+#include "data/Transitions.h"
 #include "format/Artifact.h"
 #include "runtime/InstanceMap.h"
 #include "runtime/TeleportPolicy.h"
@@ -21,11 +22,6 @@ namespace ww::runtime
         // walkTo at each chunk endpoint, which doubles as the natural cadence for
         // mid-walk stuck / drift checks (open tuning per the implementation plan).
         constexpr std::size_t kWalkChunkTiles = 16;
-
-        // Chebyshev radius searched around a transition's origin tile for the
-        // standable interact-from tile. 2 covers every authored transition: the
-        // origin itself (typically a one-tile object) plus the surrounding ring.
-        constexpr int32_t kInteractSearchRadius = 2;
 
         // Chebyshev radius searched around a blocked goal tile for the nearest
         // standable stand-in. A flag dropped on a wall, a closed door, or the
@@ -143,7 +139,7 @@ namespace ww::runtime
         {
             return view->isStandable(x, y, plane) && view->areaAt(x, y, plane) == area;
         };
-        return findNearestTile(originX, originY, kInteractSearchRadius, true,
+        return findNearestTile(originX, originY, data::kTransitionApproachRadius, true,
                                standableInArea, nearX, nearY, outX, outY);
     }
 

@@ -287,16 +287,12 @@ namespace
         return failures;
     }
 
-    // PathAssembler::resolveInteractTile's search radius. A local-origin
-    // Transition step's target is the tile the player stands on to click the
-    // loc, resolved within this many tiles (Chebyshev) of the record's origin,
-    // so a step farther out than this did not come from that record.
-    constexpr int32_t kInteractReach = 2;
-
     // Is this Transition step's target consistent with the record it names? For
     // a local origin, the interact tile must sit on the origin plane within
-    // kInteractReach of the origin loc. A global teleport is cast in place, so
-    // its step sits at the cursor and neither bound applies.
+    // data::kTransitionApproachRadius of the origin loc — the same bound
+    // PathAssembler::resolveInteractTile resolves within, so a step farther out
+    // than that did not come from this record. A global teleport is cast in
+    // place, so its step sits at the cursor and neither bound applies.
     bool transitionOriginOk(const ww::format::TransitionRecord &tx, const ww::runtime::Step &s)
     {
         if ((tx.flags & ww::format::kTransitionFlagGlobalOrigin) != 0u)
@@ -308,7 +304,7 @@ namespace
             return false;
         }
         return std::max(std::abs(s.targetX - tx.originX), std::abs(s.targetY - tx.originY))
-               <= kInteractReach;
+               <= ww::data::kTransitionApproachRadius;
     }
 
     // Sanity-check an assembled Plan. Three properties, each one a bug the

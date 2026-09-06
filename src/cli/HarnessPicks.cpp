@@ -1,5 +1,6 @@
 #include "cli/HarnessPicks.h"
 
+#include "data/Transitions.h"
 #include "runtime/TileScan.h"
 
 #include <algorithm>
@@ -7,13 +8,6 @@
 
 namespace ww::cli
 {
-    namespace
-    {
-        // PathAssembler::resolveInteractTile's search radius; the pick must land
-        // where the assembler will emit the transition step.
-        constexpr std::int32_t kInteractReach = 2;
-    }
-
     bool acceptAnyTransition(const format::TransitionRecord &tx)
     {
         static_cast<void>(tx);
@@ -46,10 +40,11 @@ namespace ww::cli
                 continue;
             }
             // Resolve the interact tile through the production scan
-            // PathAssembler::resolveInteractTile uses, so the harness starts
-            // exactly where the transition step will be emitted. A miss here is
-            // also the traversability test: an edge whose fromArea attribution
-            // is too loose for tile refinement has no such tile.
+            // PathAssembler::resolveInteractTile uses, over the same shared
+            // radius, so the harness starts exactly where the transition step
+            // will be emitted. A miss here is also the traversability test: an
+            // edge whose fromArea attribution is too loose for tile refinement
+            // has no such tile.
             const std::int32_t plane = static_cast<std::int32_t>(tx.originPlane);
             const auto standableInArea = [&](std::int32_t x, std::int32_t y)
             {
@@ -57,9 +52,9 @@ namespace ww::cli
             };
             std::int32_t startX = 0;
             std::int32_t startY = 0;
-            if (!runtime::findNearestTile(tx.originX, tx.originY, kInteractReach, true,
-                                          standableInArea, tx.originX, tx.originY,
-                                          startX, startY))
+            if (!runtime::findNearestTile(tx.originX, tx.originY,
+                                          data::kTransitionApproachRadius, true, standableInArea,
+                                          tx.originX, tx.originY, startX, startY))
             {
                 continue;
             }

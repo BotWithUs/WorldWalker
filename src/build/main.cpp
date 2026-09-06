@@ -126,8 +126,8 @@ namespace
         try
         {
             ww::build::CacheClient cache(cacheDir, flags.isLive);
-            int skipped = 0;
-            ww::build::CollisionModel model = ww::build::buildCollisionModel(cache, &skipped);
+            const ww::build::CollisionBuildResult decoded = ww::build::buildCollisionModel(cache);
+            const ww::build::CollisionModel &model = decoded.model;
             if (model.squares.empty())
             {
                 std::fprintf(stderr, "wwbuild collision: no map squares decoded from %s "
@@ -139,7 +139,7 @@ namespace
                                      ww::data::TeleportZonesModel{},
                                      deriveCacheRevision(cacheDir), 0u);
             std::printf("collision: %zu squares written to %s (%d archives skipped)\n",
-                        model.squares.size(), outPath.c_str(), skipped);
+                        model.squares.size(), outPath.c_str(), decoded.skippedArchives);
             return 0;
         }
         catch (const std::exception &e)
@@ -149,9 +149,6 @@ namespace
         }
     }
 
-    // Map cache index: each archive id encodes a square (x = id & 0x7F, y = id >> 7).
-    constexpr int kMapIndex = 5;
-
     struct TransitionBuildResult
     {
         ww::data::TransitionModel transitions;
@@ -160,25 +157,6 @@ namespace
         ww::data::FreshnessReport freshness;
         ww::data::CrossingReport doors;
     };
-
-    // Decode the interactable crossings (doors / ladders-stairs / climb-overs /
-    // agility) across every map square once, so the transition derivers can name
-    // the loc to interact with — the clip grid alone cannot.
-    std::vector<ww::build::Crossing> gatherCrossings(const ww::build::CacheClient &cache)
-    {
-        std::vector<ww::build::Crossing> all;
-        std::vector<ww::build::Crossing> square;
-        for (int id : cache.archiveIds(kMapIndex))
-        {
-            const int squareX = id & 0x7F;
-            const int squareY = id >> 7;
-            if (cache.crossings(squareX, squareY, square))
-            {
-                all.insert(all.end(), square.begin(), square.end());
-            }
-        }
-        return all;
-    }
 
     // Given the loaded datasets, derive cache-only vertical ladders/stairs and
     // doors (dataset priority), then finalize the union into the bakeable
@@ -191,10 +169,14 @@ namespace
         TransitionBuildResult out;
         out.datasetHash = datasets.datasetHash;
 
+        // Both cache derivers defer to the curated datasets on a shared origin
+        // tile (ADR 0003), so both read the same origin set.
+        const ww::data::DatasetOrigins datasetOrigins =
+            ww::data::collectDatasetOrigins(datasets.model);
         const ww::data::TransitionModel derived = ww::data::deriveVerticalTransitions(
             collision, datasets.model, crossings, &out.freshness);
         const ww::data::TransitionModel doors =
-            ww::data::deriveDoorTransitions(crossings, lookup, &out.doors);
+            ww::data::deriveDoorTransitions(crossings, lookup, datasetOrigins, &out.doors);
 
         ww::data::TransitionModel combined = datasets.model;
         combined.transitions.insert(combined.transitions.end(),
@@ -249,22 +231,27 @@ namespace
         }
         try
         {
-            // Datasets first: a typo'd directory fails here in milliseconds
-            // instead of after the minutes-long cache decode, and a partial
-            // dataset is refused unless the caller opted in - an artifact with
-            // collision but no transitions is a valid file that walks nowhere.
+            // Datasets first: a wrong directory fails here in milliseconds instead
+            // of after the minutes-long cache decode. Files may be absent one at a
+            // time (the in-tree set has no teleport_chains.json), but a directory with
+            // none of them is a typo, and baking on regardless yields a valid artifact
+            // that walks nowhere, so that is refused unless the caller opted in.
             const ww::data::LoadedDatasets datasets = ww::data::loadDatasets(datasetDir);
-            if (datasets.filesMissing > 0 && !flags.allowMissingDatasets)
+            if (datasets.filesFound == 0 && !flags.allowMissingDatasets)
             {
                 std::fprintf(stderr,
-                             "wwbuild build: %zu dataset file(s) missing under %s "
+                             "wwbuild build: no dataset files found under %s "
                              "(pass --allow-missing-datasets to bake without them)\n",
-                             datasets.filesMissing, datasetDir.c_str());
+                             datasetDir.c_str());
                 return 1;
             }
             ww::build::CacheClient cache(cacheDir, flags.isLive);
-            int skipped = 0;
-            ww::build::CollisionModel collision = ww::build::buildCollisionModel(cache, &skipped);
+            // One pass over the map index yields both the clip grid and the
+            // interactable crossings (doors / ladders-stairs / climb-overs /
+            // agility) the transition derivers need to name the loc to interact
+            // with — the clip grid alone cannot.
+            const ww::build::CollisionBuildResult decoded = ww::build::buildCollisionModel(cache);
+            const ww::build::CollisionModel &collision = decoded.model;
             // An empty decode is a wrong cache directory, not a world with no
             // squares: refuse rather than publish an artifact that walks nowhere.
             if (collision.squares.empty())
@@ -275,10 +262,8 @@ namespace
             }
             ww::build::CollisionLookup lookup(collision);
 
-            const std::vector<ww::build::Crossing> crossings = gatherCrossings(cache);
-
             const TransitionBuildResult tr =
-                assembleTransitions(collision, lookup, crossings, datasets);
+                assembleTransitions(collision, lookup, decoded.crossings, datasets);
 
             ww::build::AreaGraphReport ag;
             const ww::build::AreaGraphModel abstraction =
@@ -305,15 +290,17 @@ namespace
                         tr.freshness.droppedDatasetConflict,
                         tr.freshness.droppedClimbMismatch,
                         tr.freshness.droppedNoOption);
-            std::printf("  doors: %zu crossings -> +%zu directed hops (%zu blocked-origin, %zu no-option, %zu no-edge, %zu foreign-edge)\n",
+            std::printf("  doors: %zu crossings -> +%zu directed hops (%zu suppressed by datasets, %zu blocked-origin, %zu no-option, %zu no-edge, %zu foreign-edge)\n",
                         tr.doors.doorCrossings, tr.doors.emitted,
+                        tr.doors.droppedDatasetConflict,
                         tr.doors.blockedOrigin, tr.doors.noOption, tr.doors.noEdge,
                         tr.doors.foreignEdgeSkipped);
             std::printf("  areas: %zu nodes, %zu edges, %zu grids (largest %zu tiles)\n",
                         ag.areaCount, ag.edgeCount, ag.gridCount, ag.largestArea);
-            std::printf("  adjacency: %zu transitions linked | unresolved origin=%zu dest=%zu | intra=%zu global=%zu\n",
+            std::printf("  adjacency: %zu transitions linked | unresolved origin=%zu dest=%zu | "
+                        "intra-only=%zu intra-edges=%zu global=%zu\n",
                         ag.resolvedTransitions, ag.unresolvedOrigin, ag.unresolvedDest,
-                        ag.intraAreaSkipped, ag.globalSkipped);
+                        ag.intraAreaOnly, ag.intraAreaSkipped, ag.globalSkipped);
             std::printf("  landmarks: %zu chosen from %zu candidate areas | reachable entries=%zu\n",
                         alt.landmarkCount, alt.candidateAreas, alt.reachablePairs);
             std::printf("  teleport zones: %zu wilderness regions, %zu no-tele zones (cutoff=%u)\n",

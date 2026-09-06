@@ -136,8 +136,10 @@ namespace ww::format
         // is picked up automatically by the planner's frontier seeding and by
         // the executor (both index the full transitions() / chainSteps() spans).
         //
-        // NOT thread-safe with concurrent query / execution — the caller must
-        // serialise these against ww_query / ww_executor_run.
+        // NOT thread-safe with concurrent query / execution on their own; the
+        // C ABI (ww_artifact_load_teleports) serialises them against ww_query /
+        // ww_executor_run with the artifact handle's lifecycle lock, so C++
+        // callers that bypass the ABI must do the same.
 
         // Append POD records onto the owned pools. Each appended TransitionRecord
         // must already carry requirementStart / chainStart offsets relative to

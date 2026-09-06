@@ -231,105 +231,167 @@ namespace ww::data
             }
         }
 
+        // One parser per chain-step shape. Each recognises its own key, appends
+        // exactly one ChainStep and returns true, or returns false untouched so
+        // the next parser gets a look. Splitting the old else-if ladder this way
+        // keeps each step kind's field mapping (see ChainStepKind) beside the
+        // validation that shape needs, instead of a hundred lines deep in one
+        // function.
+
+        // Component-click shorthand [interface, component, option, sub?] ->
+        // generic COMPONENT action: param1=option, param2=sub (-1 when absent),
+        // param3=(iface<<16)|comp. The first two elements are required — a
+        // short array used to default them to 0 and bake a chain that clicks
+        // interface 0.
+        bool parseClickStep(const json &step, std::vector<ChainStep> &out)
+        {
+            if (!step.contains("click") || !step.at("click").is_array())
+            {
+                return false;
+            }
+            const json &c = step.at("click");
+            if (c.size() < 2)
+            {
+                throw std::runtime_error("chain.click needs at least [interface, component]");
+            }
+            const int iface  = arrInt(c, 0, 0,  "chain.click[0]");
+            const int comp   = arrInt(c, 1, 0,  "chain.click[1]");
+            const int option = arrInt(c, 2, 0,  "chain.click[2]");
+            const int sub    = arrInt(c, 3, -1, "chain.click[3]");
+            out.push_back({ChainStepKind::Click, kComponentActionId, option, sub,
+                           packIfaceComp(iface, comp, "chain.click")});
+            return true;
+        }
+
+        // Raw queued action [actionId, param1, param2, param3].
+        bool parseActionStep(const json &step, std::vector<ChainStep> &out)
+        {
+            if (!step.contains("action") || !step.at("action").is_array())
+            {
+                return false;
+            }
+            const json &a = step.at("action");
+            if (a.empty())
+            {
+                throw std::runtime_error("chain.action needs at least [actionId]");
+            }
+            out.push_back({ChainStepKind::Click,
+                           arrInt(a, 0, 0, "chain.action[0]"),
+                           arrInt(a, 1, 0, "chain.action[1]"),
+                           arrInt(a, 2, 0, "chain.action[2]"),
+                           arrInt(a, 3, 0, "chain.action[3]")});
+            return true;
+        }
+
+        // Fixed wait. a=ticks.
+        bool parseWaitStep(const json &step, std::vector<ChainStep> &out)
+        {
+            if (!step.contains("wait"))
+            {
+                return false;
+            }
+            out.push_back({ChainStepKind::Wait,
+                           readWaitTicks(step, "wait", 0, "chain.wait"),
+                           0, 0, 0, 0, 0, 0, 0, 0});
+            return true;
+        }
+
+        // Block until interface N is open (host poll). a=interfaceId.
+        bool parseWaitInterfaceStep(const json &step, std::vector<ChainStep> &out)
+        {
+            if (!step.contains("wait_interface"))
+            {
+                return false;
+            }
+            out.push_back({ChainStepKind::WaitInterface,
+                           readOptionalInt(step, "wait_interface", 0, "chain.wait_interface"),
+                           0, 0, 0, 0, 0, 0, 0, 0});
+            return true;
+        }
+
+        // Select option `index` in dialogue interface `interface`. a=interface,
+        // b=index, c=per_page, d=next_comp, e=wait_ticks. The host resolves the
+        // option component against the live dialogue (paging), so only these
+        // descriptors are carried.
+        bool parseDialogueSelectStep(const json &step, std::vector<ChainStep> &out)
+        {
+            if (!step.contains("dialogue_select") || !step.at("dialogue_select").is_object())
+            {
+                return false;
+            }
+            const json &ds = step.at("dialogue_select");
+            out.push_back({ChainStepKind::DialogueSelect,
+                           readOptionalInt(ds, "interface", 720, "chain.dialogue_select.interface"),
+                           readOptionalInt(ds, "index", 0, "chain.dialogue_select.index"),
+                           readOptionalInt(ds, "per_page", 9, "chain.dialogue_select.per_page"),
+                           readOptionalInt(ds, "next_comp", 44, "chain.dialogue_select.next_comp"),
+                           readWaitTicks(ds, "wait_ticks", 3, "chain.dialogue_select.wait_ticks"),
+                           0, 0, 0, 0});
+            return true;
+        }
+
+        // Click a teleport item that may be worn OR carried. The host picks the
+        // variant by checking the live worn/backpack containers for the
+        // transition's required item.
+        //   a..d = worn(iface, comp, option, sub)
+        //   e..h = backpack(iface, comp, option, sub)
+        //   i    = backpack_special (COMPONENT_SPECIAL when non-zero)
+        bool parseClickItemStep(const json &step, std::vector<ChainStep> &out)
+        {
+            if (!step.contains("click_item") || !step.at("click_item").is_object())
+            {
+                return false;
+            }
+            const json &ci = step.at("click_item");
+            const json &w = ci.contains("worn") ? ci.at("worn") : json::array();
+            const json &b = ci.contains("backpack") ? ci.at("backpack") : json::array();
+            // Absent = "variant not available"; a present-but-short array is a
+            // typo that would bake a click on interface 0.
+            if ((!w.empty() && w.size() < 2) || (!b.empty() && b.size() < 2))
+            {
+                throw std::runtime_error(
+                    "chain.click_item worn/backpack need at least [interface, component]");
+            }
+            const int special = ci.value("backpack_special", false) ? 1 : 0;
+            out.push_back({ChainStepKind::ClickItem,
+                           arrInt(w, 0, 0, "chain.click_item.worn[0]"),
+                           arrInt(w, 1, 0, "chain.click_item.worn[1]"),
+                           arrInt(w, 2, 1, "chain.click_item.worn[2]"),
+                           arrInt(w, 3, -1, "chain.click_item.worn[3]"),
+                           arrInt(b, 0, 0, "chain.click_item.backpack[0]"),
+                           arrInt(b, 1, 0, "chain.click_item.backpack[1]"),
+                           arrInt(b, 2, 1, "chain.click_item.backpack[2]"),
+                           arrInt(b, 3, -1, "chain.click_item.backpack[3]"),
+                           special});
+            return true;
+        }
+
         void parseChain(const json &node, std::vector<ChainStep> &out)
         {
             if (!node.contains("chain") || !node.at("chain").is_array())
             {
                 return;
             }
+            // Tried in order; the first parser that recognises the step's shape
+            // consumes it. A step matching none is ignored, which is what the
+            // else-if ladder this replaces did with an unknown chain key.
+            using StepParser = bool (*)(const json &, std::vector<ChainStep> &);
+            static constexpr StepParser kStepParsers[] = {
+                parseClickStep,
+                parseActionStep,
+                parseWaitStep,
+                parseWaitInterfaceStep,
+                parseDialogueSelectStep,
+                parseClickItemStep,
+            };
             for (const json &step : node.at("chain"))
             {
-                if (step.contains("click") && step.at("click").is_array())
+                for (const StepParser parseStep : kStepParsers)
                 {
-                    // Component-click shorthand [interface, component, option, sub?]
-                    // -> generic COMPONENT action: param1=option, param2=sub (-1
-                    // when absent), param3=(iface<<16)|comp. The first two
-                    // elements are required — a short array used to default
-                    // them to 0 and bake a chain that clicks interface 0.
-                    const json &c = step.at("click");
-                    if (c.size() < 2)
+                    if (parseStep(step, out))
                     {
-                        throw std::runtime_error(
-                            "chain.click needs at least [interface, component]");
+                        break;
                     }
-                    const int iface  = arrInt(c, 0, 0,  "chain.click[0]");
-                    const int comp   = arrInt(c, 1, 0,  "chain.click[1]");
-                    const int option = arrInt(c, 2, 0,  "chain.click[2]");
-                    const int sub    = arrInt(c, 3, -1, "chain.click[3]");
-                    out.push_back({ChainStepKind::Click, kComponentActionId, option, sub,
-                                   packIfaceComp(iface, comp, "chain.click")});
-                }
-                else if (step.contains("action") && step.at("action").is_array())
-                {
-                    // Raw queued action [actionId, param1, param2, param3].
-                    const json &a = step.at("action");
-                    if (a.empty())
-                    {
-                        throw std::runtime_error("chain.action needs at least [actionId]");
-                    }
-                    out.push_back({ChainStepKind::Click,
-                                   arrInt(a, 0, 0, "chain.action[0]"),
-                                   arrInt(a, 1, 0, "chain.action[1]"),
-                                   arrInt(a, 2, 0, "chain.action[2]"),
-                                   arrInt(a, 3, 0, "chain.action[3]")});
-                }
-                else if (step.contains("wait"))
-                {
-                    out.push_back({ChainStepKind::Wait,
-                                   readWaitTicks(step, "wait", 0, "chain.wait"),
-                                   0, 0, 0, 0, 0, 0, 0, 0});
-                }
-                else if (step.contains("wait_interface"))
-                {
-                    // Block until interface N is open (host poll). a=interfaceId.
-                    out.push_back({ChainStepKind::WaitInterface,
-                                   readOptionalInt(step, "wait_interface", 0, "chain.wait_interface"),
-                                   0, 0, 0, 0, 0, 0, 0, 0});
-                }
-                else if (step.contains("dialogue_select") && step.at("dialogue_select").is_object())
-                {
-                    // Select option `index` in dialogue interface `interface`.
-                    // a=interface, b=index, c=per_page, d=next_comp, e=wait_ticks.
-                    // The host resolves the option component against the live
-                    // dialogue (paging), so only these descriptors are carried.
-                    const json &ds = step.at("dialogue_select");
-                    out.push_back({ChainStepKind::DialogueSelect,
-                                   readOptionalInt(ds, "interface", 720, "chain.dialogue_select.interface"),
-                                   readOptionalInt(ds, "index", 0, "chain.dialogue_select.index"),
-                                   readOptionalInt(ds, "per_page", 9, "chain.dialogue_select.per_page"),
-                                   readOptionalInt(ds, "next_comp", 44, "chain.dialogue_select.next_comp"),
-                                   readWaitTicks(ds, "wait_ticks", 3, "chain.dialogue_select.wait_ticks"),
-                                   0, 0, 0, 0});
-                }
-                else if (step.contains("click_item") && step.at("click_item").is_object())
-                {
-                    // Click a teleport item that may be worn OR carried. The host
-                    // picks the variant by checking the live worn/backpack
-                    // containers for the transition's required item.
-                    //   a..d = worn(iface, comp, option, sub)
-                    //   e..h = backpack(iface, comp, option, sub)
-                    //   i    = backpack_special (COMPONENT_SPECIAL when non-zero)
-                    const json &ci = step.at("click_item");
-                    const json &w = ci.contains("worn") ? ci.at("worn") : json::array();
-                    const json &b = ci.contains("backpack") ? ci.at("backpack") : json::array();
-                    // Absent = "variant not available"; a present-but-short
-                    // array is a typo that would bake a click on interface 0.
-                    if ((!w.empty() && w.size() < 2) || (!b.empty() && b.size() < 2))
-                    {
-                        throw std::runtime_error(
-                            "chain.click_item worn/backpack need at least [interface, component]");
-                    }
-                    const int special = ci.value("backpack_special", false) ? 1 : 0;
-                    out.push_back({ChainStepKind::ClickItem,
-                                   arrInt(w, 0, 0, "chain.click_item.worn[0]"),
-                                   arrInt(w, 1, 0, "chain.click_item.worn[1]"),
-                                   arrInt(w, 2, 1, "chain.click_item.worn[2]"),
-                                   arrInt(w, 3, -1, "chain.click_item.worn[3]"),
-                                   arrInt(b, 0, 0, "chain.click_item.backpack[0]"),
-                                   arrInt(b, 1, 0, "chain.click_item.backpack[1]"),
-                                   arrInt(b, 2, 1, "chain.click_item.backpack[2]"),
-                                   arrInt(b, 3, -1, "chain.click_item.backpack[3]"),
-                                   special});
                 }
             }
         }
@@ -557,19 +619,35 @@ namespace ww::data
     {
         LoadedDatasets result;
         uint32_t hash = 2166136261u;
-        if (!loadOne(directory, "transport_links.json", &parseTransportLinks, result.model, hash))
+        if (loadOne(directory, "transport_links.json", &parseTransportLinks, result.model, hash))
+        {
+            ++result.filesFound;
+        }
+        else
         {
             ++result.filesMissing;
         }
-        if (!loadOne(directory, "teleport_chains.json", &parseTeleportChains, result.model, hash))
+        if (loadOne(directory, "teleport_chains.json", &parseTeleportChains, result.model, hash))
+        {
+            ++result.filesFound;
+        }
+        else
         {
             ++result.filesMissing;
         }
-        if (!loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash))
+        if (loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash))
+        {
+            ++result.filesFound;
+        }
+        else
         {
             ++result.filesMissing;
         }
-        if (!loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash))
+        if (loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash))
+        {
+            ++result.filesFound;
+        }
+        else
         {
             ++result.filesMissing;
         }
@@ -584,11 +662,19 @@ namespace ww::data
         // Only the global-origin teleport datasets. transport_links /
         // teleport_chains are local transitions wired into the baked area graph
         // and cannot be supplied at runtime, so they are deliberately skipped.
-        if (!loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash))
+        if (loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash))
+        {
+            ++result.filesFound;
+        }
+        else
         {
             ++result.filesMissing;
         }
-        if (!loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash))
+        if (loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash))
+        {
+            ++result.filesFound;
+        }
+        else
         {
             ++result.filesMissing;
         }

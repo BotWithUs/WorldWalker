@@ -12,14 +12,15 @@ namespace ww::data
     {
         TransitionModel model;     // raw transitions: pre-snap, pre-dedup, pre-cost
         uint32_t datasetHash{};    // FNV-1a over the bytes of the files that were present
+        std::size_t filesFound{};   // dataset files that were present and parsed
         std::size_t filesMissing{}; // dataset files that were not found (warned + skipped)
     };
 
     // Parse the four transition datasets in `directory` (transport_links.json,
     // teleport_chains.json, spell_teleports.json, item_teleports.json) into a raw
     // transition model. A missing file is warned about (stderr), skipped, and
-    // counted in filesMissing so the caller can decide whether a partial dataset
-    // is acceptable (wwbuild refuses one unless told otherwise). Throws (a nlohmann json
+    // counted in filesMissing (present ones in filesFound) so the caller can tell
+    // a partial dataset from a wrong directory (wwbuild refuses the latter). Throws (a nlohmann json
     // exception, derived from std::exception) on malformed JSON in a present file.
     LoadedDatasets loadDatasets(const std::string &directory);
 

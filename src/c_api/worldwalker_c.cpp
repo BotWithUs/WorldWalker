@@ -12,6 +12,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <utility>
 
@@ -28,6 +30,14 @@ static_assert(static_cast<uint8_t>(ww::runtime::StepKind::Transition) == WW_STEP
               "StepKind::Transition must match WW_STEP_KIND_TRANSITION");
 
 // Backs the opaque ww_artifact handle with the loaded, validated artifact.
+//
+// The reader is immutable except for the runtime-teleport pools, which
+// ww_artifact_load_teleports rewrites in place (and every in-flight query or
+// executor run reads through spans into). The library protects that itself
+// rather than trusting each host to: readers (ww_query, ww_executor_run) hold
+// `lifecycle` shared for their whole call, the reload holds it exclusive. A
+// reload therefore waits for running walks to finish, which is the only
+// moment the spans they borrowed can safely be re-pointed.
 struct ww_artifact
 {
     explicit ww_artifact(const char *path) : reader(std::string(path))
@@ -35,6 +45,7 @@ struct ww_artifact
     }
 
     ww::format::ArtifactReader reader;
+    mutable std::shared_mutex lifecycle;
 };
 
 // Backs the opaque ww_context_pool handle with the bounded search-context pool.
@@ -105,6 +116,9 @@ ww_result ww_artifact_load_teleports(ww_artifact *artifact, const char *dir)
     }
     try
     {
+        // Exclusive: blocks until every in-flight query / run has released
+        // its shared hold, and keeps new ones out until the pools are stable.
+        const std::unique_lock<std::shared_mutex> exclusive(artifact->lifecycle);
         ww::runtime::loadGlobalTeleportsInto(artifact->reader, std::string(dir));
         return WW_OK;
     }
@@ -189,6 +203,9 @@ int32_t ww_executor_run(ww_artifact      *artifact,
     }
     try
     {
+        // Shared for the whole walk: the Executor borrows requirement-id spans
+        // and transition records from the reader for its entire run.
+        const std::shared_lock<std::shared_mutex> shared(artifact->lifecycle);
         ww::exec::Executor executor(artifact->reader, pool->pool, *callbacks);
         return static_cast<int32_t>(executor.run(goal));
     }
@@ -238,6 +255,7 @@ ww_result ww_query_ex(ww_artifact                *artifact,
     }
     try
     {
+        const std::shared_lock<std::shared_mutex> shared(artifact->lifecycle);
         ww::runtime::CapabilitySnapshot snapshot;
         if (capabilities != nullptr)
         {

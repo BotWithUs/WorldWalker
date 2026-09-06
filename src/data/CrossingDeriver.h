@@ -3,6 +3,7 @@
 
 #include "build/CacheClient.h"
 #include "build/CollisionLookup.h"
+#include "data/DatasetOrigins.h"
 #include "data/Transitions.h"
 
 #include <cstddef>
@@ -17,6 +18,7 @@ namespace ww::data
         std::size_t blockedOrigin{};      // skipped: the door's loc tile is not standable
         std::size_t noOption{};           // skipped: the door loc has no clickable option (varbit-only)
         std::size_t noEdge{};             // skipped: no blocked wall edge to a standable neighbour
+        std::size_t droppedDatasetConflict{}; // hops suppressed because a dataset transition shares the origin
         std::size_t foreignEdgeSkipped{}; // blocked edges on the door tile that are NOT the door's own
         std::size_t emitted{};            // directed Transport transitions returned (2 per crossable edge)
     };
@@ -35,8 +37,16 @@ namespace ww::data
     // come from the curated transport-links dataset instead. The returned
     // transitions are raw (uncosted, unsnapped); feed them through
     // finalizeTransitions. *outReport (nullable) receives the counts.
+    //
+    // `datasetOrigins` is authoritative, per ADR 0003 and exactly as in
+    // deriveVerticalTransitions: a hop whose origin tile + plane is already
+    // claimed by a curated transition is dropped. Without this a curated gated
+    // door only won on an exact endpoint match in finalizeTransitions, so a
+    // curated entry that corrected the destination left the derived hop with the
+    // wrong destination standing beside it.
     TransitionModel deriveDoorTransitions(const std::vector<ww::build::Crossing> &crossings,
                                           const ww::build::CollisionLookup &lookup,
+                                          const DatasetOrigins &datasetOrigins,
                                           CrossingReport *outReport);
 }
 

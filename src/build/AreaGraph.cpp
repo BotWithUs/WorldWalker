@@ -1,7 +1,9 @@
 #include "build/AreaGraph.h"
 
+#include "data/Transitions.h"
 #include "format/Artifact.h"
 #include "format/ClipFlags.h"
+#include "format/WallApproach.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -107,9 +109,11 @@ namespace ww::build
         // `plane`: the destination must be standable and no wall edge may block the
         // crossing (a wall on either endpoint blocks it). The source is assumed
         // walkable — the flood fill only expands from already-assigned tiles.
-        bool canStep(const CollisionLookup &lookup, int x, int y, int plane, int dx, int dy)
+        // `src` is the source tile's clip word, read once by the caller for all
+        // four directions rather than re-fetched per direction.
+        bool canStep(const CollisionLookup &lookup, uint32_t src, int x, int y, int plane,
+                     int dx, int dy)
         {
-            const uint32_t src = lookup.clipAt(x, y, plane);
             const uint32_t dst = lookup.clipAt(x + dx, y + dy, plane);
             if ((dst & format::kClipStandBlockedMask) != 0u)
             {
@@ -181,11 +185,12 @@ namespace ww::build
                 sumY += y;
                 extendBounds(node, x, y);
 
+                const uint32_t src = lookup.clipAt(x, y, plane);
                 for (int d = 0; d < 4; ++d)
                 {
                     const int nx = x + dx[d];
                     const int ny = y + dy[d];
-                    if (!canStep(lookup, x, y, plane, dx[d], dy[d]))
+                    if (!canStep(lookup, src, x, y, plane, dx[d], dy[d]))
                     {
                         continue;
                     }
@@ -243,130 +248,52 @@ namespace ww::build
             }
         }
 
-        // True when a wall edge seals the cardinal crossing from (fromX, fromY)
-        // toward (dx, dy). Checked on BOTH endpoints per the ClipFlags.h
-        // contract: reflections that fall outside a square's 64x64 grid are
-        // dropped at bake time, so a one-sided check misses walls whose owning
-        // tile sits across the mapsquare seam (the runtime's TileSearch checks
-        // both sides for the same reason).
-        bool wallBlocksCardinal(const CollisionLookup &lookup, int fromX, int fromY, int plane,
-                                int dx, int dy)
+        // The clip accessor format::WallApproach templates over. Its contract
+        // (CLIP_BLOCKED for an unaddressable tile) is exactly what
+        // CollisionLookup::clipAt already promises.
+        auto clipAccessor(const CollisionLookup &lookup)
         {
-            uint32_t fromMask = 0;
-            uint32_t toMask = 0;
-            if (dy == 1)
-            {
-                fromMask = format::CLIP_WALL_N;
-                toMask = format::CLIP_WALL_S;
-            }
-            else if (dy == -1)
-            {
-                fromMask = format::CLIP_WALL_S;
-                toMask = format::CLIP_WALL_N;
-            }
-            else if (dx == 1)
-            {
-                fromMask = format::CLIP_WALL_E;
-                toMask = format::CLIP_WALL_W;
-            }
-            else
-            {
-                fromMask = format::CLIP_WALL_W;
-                toMask = format::CLIP_WALL_E;
-            }
-            return (lookup.clipAt(fromX, fromY, plane) & fromMask) != 0u
-                || (lookup.clipAt(fromX + dx, fromY + dy, plane) & toMask) != 0u;
-        }
-
-        // Corner-blocker bit for a diagonal crossing, checked on both
-        // endpoints like the cardinal edges.
-        bool cornerBlocksDiagonal(const CollisionLookup &lookup, int fromX, int fromY, int plane,
-                                  int dx, int dy)
-        {
-            uint32_t fromMask = 0;
-            uint32_t toMask = 0;
-            if (dx == 1 && dy == 1)
-            {
-                fromMask = format::CLIP_WALL_NE;
-                toMask = format::CLIP_WALL_SW;
-            }
-            else if (dx == 1 && dy == -1)
-            {
-                fromMask = format::CLIP_WALL_SE;
-                toMask = format::CLIP_WALL_NW;
-            }
-            else if (dx == -1 && dy == -1)
-            {
-                fromMask = format::CLIP_WALL_SW;
-                toMask = format::CLIP_WALL_NE;
-            }
-            else
-            {
-                fromMask = format::CLIP_WALL_NW;
-                toMask = format::CLIP_WALL_SE;
-            }
-            return (lookup.clipAt(fromX, fromY, plane) & fromMask) != 0u
-                || (lookup.clipAt(fromX + dx, fromY + dy, plane) & toMask) != 0u;
-        }
-
-        // True when walls seal the approach from (fromX, fromY) toward the
-        // origin tile one step away at (dx, dy). Cardinal approaches are a
-        // single two-sided edge check; diagonal approaches are blocked by the
-        // corner bit on either endpoint, or when BOTH flanking cardinal
-        // L-paths cross a wall (the no-corner-cutting rule — a candidate
-        // diagonally across a wall corner used to slip through on the single
-        // diagonal bit and admit the sealed side of a door).
-        bool wallBlocksApproach(const CollisionLookup &lookup, int fromX, int fromY, int plane,
-                                int dx, int dy)
-        {
-            if (dx == 0 || dy == 0)
-            {
-                return wallBlocksCardinal(lookup, fromX, fromY, plane, dx, dy);
-            }
-            if (cornerBlocksDiagonal(lookup, fromX, fromY, plane, dx, dy))
-            {
-                return true;
-            }
-            const bool viaXClear =
-                !wallBlocksCardinal(lookup, fromX, fromY, plane, dx, 0)
-                && !wallBlocksCardinal(lookup, fromX + dx, fromY, plane, 0, dy);
-            const bool viaYClear =
-                !wallBlocksCardinal(lookup, fromX, fromY, plane, 0, dy)
-                && !wallBlocksCardinal(lookup, fromX, fromY + dy, plane, dx, 0);
-            return !viaXClear && !viaYClear;
+            return [&lookup](int x, int y, int plane) { return lookup.clipAt(x, y, plane); };
         }
 
         // Areas touching a transition's origin object — the tiles you could
-        // stand on to interact. The object tile itself is often blocked, so
-        // its 3x3 neighbourhood is scanned; a door on a boundary yields the
-        // side(s) reachable WITHOUT crossing a wall. The previous version
-        // ignored wall flags and so emitted AreaEdges through the un-reachable
-        // side of doors, sending the runtime to walk to the wrong side first.
+        // stand on to interact. The object tile is often blocked, so the
+        // neighbourhood within data::kTransitionApproachRadius is scanned; a
+        // door on a boundary yields the side(s) reachable WITHOUT crossing a
+        // wall. An earlier version ignored wall flags and so emitted AreaEdges
+        // through the un-reachable side of doors, sending the runtime to walk
+        // to the wrong side first.
         std::set<int32_t> collectOriginAreas(const AreaMap &map, const CollisionLookup &lookup,
                                              const Transition &t)
         {
+            constexpr int radius = ww::data::kTransitionApproachRadius;
+            const int plane = static_cast<int>(t.originPlane);
             std::set<int32_t> areas;
-            for (int ox = -1; ox <= 1; ++ox)
+            for (int ox = -radius; ox <= radius; ++ox)
             {
-                for (int oy = -1; oy <= 1; ++oy)
+                for (int oy = -radius; oy <= radius; ++oy)
                 {
-                    if (ox == 0 && oy == 0)
-                    {
-                        continue;  // origin itself is the object tile
-                    }
                     const int candX = t.originX + ox;
                     const int candY = t.originY + oy;
-                    // Step from the candidate tile back toward the origin
-                    // (direction = -ox, -oy). If a wall blocks that approach,
-                    // the door / wall sits between the candidate and the
-                    // object — exclude this side.
-                    if (wallBlocksApproach(lookup, candX, candY,
-                                           static_cast<int>(t.originPlane),
-                                           -ox, -oy))
+                    // The origin tile itself is a legitimate approach whenever
+                    // it is walkable, and for a door hop out of CrossingDeriver
+                    // it is THE approach: that origin is the walkable tile
+                    // beside the door, verified standable at emit time. It has
+                    // no approach to seal, so it only has to be in an area
+                    // (which is exactly the walkability test).
+                    if (ox != 0 || oy != 0)
                     {
-                        continue;
+                        // Walk from the candidate back toward the origin,
+                        // wall-checking each step. If it is sealed, the door /
+                        // wall sits between the candidate and the object —
+                        // exclude this side.
+                        if (format::approachSealed(clipAccessor(lookup), candX, candY,
+                                                   t.originX, t.originY, plane))
+                        {
+                            continue;
+                        }
                     }
-                    const int32_t a = map.areaAt(candX, candY, t.originPlane);
+                    const int32_t a = map.areaAt(candX, candY, plane);
                     if (a >= 0)
                     {
                         areas.insert(a);
@@ -402,7 +329,6 @@ namespace ww::build
         void resolveAdjacency(const TransitionModel &transitions, const AreaMap &map,
                               const CollisionLookup &lookup,
                               std::vector<AreaEdge> &outEdges,
-                              std::vector<GlobalTeleport> &outGlobals,
                               AreaGraphReport &report)
         {
             for (std::size_t i = 0; i < transitions.transitions.size(); ++i)
@@ -410,15 +336,11 @@ namespace ww::build
                 const Transition &t = transitions.transitions[i];
                 if (t.isGlobalOrigin)
                 {
+                    // Not an area-graph edge: the runtime seeds global
+                    // teleports at the search frontier instead (ADR 0009).
+                    // main.cpp drops them all before this point today, so this
+                    // branch only counts.
                     ++report.globalSkipped;
-                    // Resolve the destination so the ALT bake can include
-                    // this teleport as an admissibility-preserving virtual
-                    // edge from the teleport hub.
-                    const int32_t destArea = map.areaAt(t.destX, t.destY, t.destPlane);
-                    if (destArea >= 0)
-                    {
-                        outGlobals.push_back({destArea, t.cost, static_cast<uint32_t>(i)});
-                    }
                     continue;
                 }
                 const int32_t destArea = map.areaAt(t.destX, t.destY, t.destPlane);
@@ -461,6 +383,16 @@ namespace ww::build
                 if (emitEdges(fromAreas, destArea, i, t.cost, outEdges, report))
                 {
                     ++report.resolvedTransitions;
+                }
+                else
+                {
+                    // Both endpoints resolved, but every approach side is the
+                    // destination area already, so walking suffices and no edge
+                    // exists to emit. Counted separately from intraAreaSkipped
+                    // (which counts dropped edges, several per transition):
+                    // without this the transition appeared in no bucket of the
+                    // adjacency report at all, so the report did not add up.
+                    ++report.intraAreaOnly;
                 }
             }
         }
@@ -511,7 +443,7 @@ namespace ww::build
         AreaGraphReport report;
 
         labelAreas(collision, lookup, map, model.nodes);
-        resolveAdjacency(transitions, map, lookup, model.edges, model.globalTeleports, report);
+        resolveAdjacency(transitions, map, lookup, model.edges, report);
         std::sort(model.edges.begin(), model.edges.end(), edgeLess);
 
         model.grids = map.takeGrids();

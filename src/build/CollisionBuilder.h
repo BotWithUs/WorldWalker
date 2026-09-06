@@ -16,10 +16,25 @@ namespace ww::build
         std::vector<SquareClip> squares;
     };
 
-    // Enumerate index-5 map archives and decode each into the model. *outSkipped
-    // (nullable) receives the count of archives that enumerated but failed to
-    // decode (a square vanishing between enumeration and read).
-    CollisionModel buildCollisionModel(const CacheClient &cache, int *outSkipped);
+    // Everything one pass over the map index yields. `crossings` holds the
+    // interactable crossings (doors / climb-overs / ladders-stairs / agility)
+    // of every decoded square in archive-enumeration order — the clip grid
+    // alone cannot name the loc a transition interacts with, and the producer
+    // builds both from a single landscape decode, so they are collected
+    // together rather than by a second sweep over the same archives.
+    struct CollisionBuildResult
+    {
+        CollisionModel model;
+        std::vector<Crossing> crossings;
+        // Archives that enumerated but did not decode into a square: a junk
+        // archive id outside the addressable grid, or a square vanishing
+        // between enumeration and read.
+        int skippedArchives{};
+    };
+
+    // Enumerate index-5 map archives and decode each square's clip and
+    // crossings in one pass.
+    CollisionBuildResult buildCollisionModel(const CacheClient &cache);
 }
 
 #endif  // WORLDWALKER_BUILD_COLLISIONBUILDER_H

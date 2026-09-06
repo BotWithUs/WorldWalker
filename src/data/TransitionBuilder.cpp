@@ -20,9 +20,13 @@ namespace ww::data
     {
         using ww::build::CollisionLookup;
 
-        // Endpoint snap radius. Per-kind tick costs and computeCost() now live in
-        // data/TransitionCost.h (shared with the runtime teleport loader so both
-        // paths cost identically).
+        // Destination snap radius: how far a dataset's recorded destination may
+        // be from the standable tile it meant. This is a DIFFERENT question
+        // from "where does the player stand to use this" (that one is
+        // kTransitionApproachRadius), so the two are separate constants even
+        // though both used to be this 5. Per-kind tick costs and computeCost()
+        // live in data/TransitionCost.h (shared with the runtime teleport
+        // loader so both paths cost identically).
         constexpr int kSnapRadius = 5;
 
         // Move (x, y) to the closest standable tile within `radius` (Chebyshev).
@@ -85,7 +89,8 @@ namespace ww::data
                 {
                     return Outcome::SelfLoop;
                 }
-                if (!hasWalkableNeighbor(collision, t.originX, t.originY, t.originPlane, kSnapRadius))
+                if (!hasWalkableNeighbor(collision, t.originX, t.originY, t.originPlane,
+                                         kTransitionApproachRadius))
                 {
                     return Outcome::Dangling;
                 }

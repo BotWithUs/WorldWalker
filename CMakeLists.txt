@@ -116,6 +116,7 @@ set(worldwalker_SOURCES
 	"src/format/ArtifactReader.cpp"
 	"src/format/ArtifactReader.h"
 	"src/format/ClipFlags.h"
+	"src/format/WallApproach.h"
 	"src/format/Zlib.cpp"
 	"src/format/Zlib.h"
 	"src/runtime/AltHeuristic.cpp"

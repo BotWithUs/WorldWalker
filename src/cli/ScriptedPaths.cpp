@@ -1,5 +1,6 @@
 #include "cli/ScriptedPaths.h"
 
+#include "data/Transitions.h"
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
 #include "runtime/AreaSearch.h"
@@ -168,8 +169,10 @@ namespace
             {
                 return view.isStandable(x, y, plane) && view.areaAt(x, y, plane) == edge.fromArea;
             };
-            if (!ww::runtime::findNearestTile(tx.originX, tx.originY, 2, true, standableInArea,
-                                              tx.originX, tx.originY, startX, startY))
+            if (!ww::runtime::findNearestTile(tx.originX, tx.originY,
+                                              ww::data::kTransitionApproachRadius, true,
+                                              standableInArea, tx.originX, tx.originY,
+                                              startX, startY))
             {
                 continue;
             }
@@ -393,7 +396,8 @@ namespace
             {
                 return view.isStandable(x, y, plane) && view.areaAt(x, y, plane) != area;
             };
-            if (!ww::runtime::findNearestTile(tx.originX, tx.originY, 2, true, standable,
+            if (!ww::runtime::findNearestTile(tx.originX, tx.originY,
+                                              ww::data::kTransitionApproachRadius, true, standable,
                                               tx.originX, tx.originY, sx, sy))
             {
                 continue;
