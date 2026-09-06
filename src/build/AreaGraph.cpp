@@ -2,6 +2,7 @@
 
 #include "format/Artifact.h"
 #include "format/ClipFlags.h"
+#include "format/WallApproach.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -246,97 +247,12 @@ namespace ww::build
             }
         }
 
-        // True when a wall edge seals the cardinal crossing from (fromX, fromY)
-        // toward (dx, dy). Checked on BOTH endpoints per the ClipFlags.h
-        // contract: reflections that fall outside a square's 64x64 grid are
-        // dropped at bake time, so a one-sided check misses walls whose owning
-        // tile sits across the mapsquare seam (the runtime's TileSearch checks
-        // both sides for the same reason).
-        bool wallBlocksCardinal(const CollisionLookup &lookup, int fromX, int fromY, int plane,
-                                int dx, int dy)
+        // The clip accessor format::WallApproach templates over. Its contract
+        // (CLIP_BLOCKED for an unaddressable tile) is exactly what
+        // CollisionLookup::clipAt already promises.
+        auto clipAccessor(const CollisionLookup &lookup)
         {
-            uint32_t fromMask = 0;
-            uint32_t toMask = 0;
-            if (dy == 1)
-            {
-                fromMask = format::CLIP_WALL_N;
-                toMask = format::CLIP_WALL_S;
-            }
-            else if (dy == -1)
-            {
-                fromMask = format::CLIP_WALL_S;
-                toMask = format::CLIP_WALL_N;
-            }
-            else if (dx == 1)
-            {
-                fromMask = format::CLIP_WALL_E;
-                toMask = format::CLIP_WALL_W;
-            }
-            else
-            {
-                fromMask = format::CLIP_WALL_W;
-                toMask = format::CLIP_WALL_E;
-            }
-            return (lookup.clipAt(fromX, fromY, plane) & fromMask) != 0u
-                || (lookup.clipAt(fromX + dx, fromY + dy, plane) & toMask) != 0u;
-        }
-
-        // Corner-blocker bit for a diagonal crossing, checked on both
-        // endpoints like the cardinal edges.
-        bool cornerBlocksDiagonal(const CollisionLookup &lookup, int fromX, int fromY, int plane,
-                                  int dx, int dy)
-        {
-            uint32_t fromMask = 0;
-            uint32_t toMask = 0;
-            if (dx == 1 && dy == 1)
-            {
-                fromMask = format::CLIP_WALL_NE;
-                toMask = format::CLIP_WALL_SW;
-            }
-            else if (dx == 1 && dy == -1)
-            {
-                fromMask = format::CLIP_WALL_SE;
-                toMask = format::CLIP_WALL_NW;
-            }
-            else if (dx == -1 && dy == -1)
-            {
-                fromMask = format::CLIP_WALL_SW;
-                toMask = format::CLIP_WALL_NE;
-            }
-            else
-            {
-                fromMask = format::CLIP_WALL_NW;
-                toMask = format::CLIP_WALL_SE;
-            }
-            return (lookup.clipAt(fromX, fromY, plane) & fromMask) != 0u
-                || (lookup.clipAt(fromX + dx, fromY + dy, plane) & toMask) != 0u;
-        }
-
-        // True when walls seal the approach from (fromX, fromY) toward the
-        // origin tile one step away at (dx, dy). Cardinal approaches are a
-        // single two-sided edge check; diagonal approaches are blocked by the
-        // corner bit on either endpoint, or when BOTH flanking cardinal
-        // L-paths cross a wall (the no-corner-cutting rule — a candidate
-        // diagonally across a wall corner used to slip through on the single
-        // diagonal bit and admit the sealed side of a door).
-        bool wallBlocksApproach(const CollisionLookup &lookup, int fromX, int fromY, int plane,
-                                int dx, int dy)
-        {
-            if (dx == 0 || dy == 0)
-            {
-                return wallBlocksCardinal(lookup, fromX, fromY, plane, dx, dy);
-            }
-            if (cornerBlocksDiagonal(lookup, fromX, fromY, plane, dx, dy))
-            {
-                return true;
-            }
-            const bool viaXClear =
-                !wallBlocksCardinal(lookup, fromX, fromY, plane, dx, 0)
-                && !wallBlocksCardinal(lookup, fromX + dx, fromY, plane, 0, dy);
-            const bool viaYClear =
-                !wallBlocksCardinal(lookup, fromX, fromY, plane, 0, dy)
-                && !wallBlocksCardinal(lookup, fromX, fromY + dy, plane, dx, 0);
-            return !viaXClear && !viaYClear;
+            return [&lookup](int x, int y, int plane) { return lookup.clipAt(x, y, plane); };
         }
 
         // Areas touching a transition's origin object — the tiles you could
@@ -359,13 +275,12 @@ namespace ww::build
                     }
                     const int candX = t.originX + ox;
                     const int candY = t.originY + oy;
-                    // Step from the candidate tile back toward the origin
-                    // (direction = -ox, -oy). If a wall blocks that approach,
-                    // the door / wall sits between the candidate and the
-                    // object — exclude this side.
-                    if (wallBlocksApproach(lookup, candX, candY,
-                                           static_cast<int>(t.originPlane),
-                                           -ox, -oy))
+                    // Walk from the candidate tile back toward the origin. If
+                    // a wall seals that approach, the door / wall sits between
+                    // the candidate and the object — exclude this side.
+                    if (format::approachSealed(clipAccessor(lookup), candX, candY,
+                                               t.originX, t.originY,
+                                               static_cast<int>(t.originPlane)))
                     {
                         continue;
                     }
