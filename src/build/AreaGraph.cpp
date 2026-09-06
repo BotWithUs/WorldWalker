@@ -402,7 +402,6 @@ namespace ww::build
         void resolveAdjacency(const TransitionModel &transitions, const AreaMap &map,
                               const CollisionLookup &lookup,
                               std::vector<AreaEdge> &outEdges,
-                              std::vector<GlobalTeleport> &outGlobals,
                               AreaGraphReport &report)
         {
             for (std::size_t i = 0; i < transitions.transitions.size(); ++i)
@@ -410,15 +409,11 @@ namespace ww::build
                 const Transition &t = transitions.transitions[i];
                 if (t.isGlobalOrigin)
                 {
+                    // Not an area-graph edge: the runtime seeds global
+                    // teleports at the search frontier instead (ADR 0009).
+                    // main.cpp drops them all before this point today, so this
+                    // branch only counts.
                     ++report.globalSkipped;
-                    // Resolve the destination so the ALT bake can include
-                    // this teleport as an admissibility-preserving virtual
-                    // edge from the teleport hub.
-                    const int32_t destArea = map.areaAt(t.destX, t.destY, t.destPlane);
-                    if (destArea >= 0)
-                    {
-                        outGlobals.push_back({destArea, t.cost, static_cast<uint32_t>(i)});
-                    }
                     continue;
                 }
                 const int32_t destArea = map.areaAt(t.destX, t.destY, t.destPlane);
@@ -511,7 +506,7 @@ namespace ww::build
         AreaGraphReport report;
 
         labelAreas(collision, lookup, map, model.nodes);
-        resolveAdjacency(transitions, map, lookup, model.edges, model.globalTeleports, report);
+        resolveAdjacency(transitions, map, lookup, model.edges, report);
         std::sort(model.edges.begin(), model.edges.end(), edgeLess);
 
         model.grids = map.takeGrids();
