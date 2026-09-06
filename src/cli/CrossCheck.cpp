@@ -286,7 +286,10 @@ namespace
             case ww::format::CLIP_AGILITY_SHORTCUT: return "AGILITY";
             case ww::format::CLIP_PLANE_CHANGE:     return "PLANE_CHG";
             case ww::format::CLIP_CLIMBOVER:        return "CLIMBOVER";
-            case 0x40000000u:                       return "bit30(TRANSPORT-oracle/CLIMBOVER-ww)";
+            // CLIP_CLIMBOVER is 0x20000000 (bit 29) and has its own case above;
+            // bit 30 is the oracle's TRANSPORT slot, which WorldWalker does not
+            // produce at all, so a difference here is expected drift.
+            case 0x40000000u:                       return "bit30(TRANSPORT-oracle)";
             default:                                return "?";
         }
     }
@@ -337,6 +340,49 @@ namespace
             std::printf("  (%u,%u): %llu mismatched tiles\n", d.squareX, d.squareY,
                         static_cast<unsigned long long>(d.mismatchTiles));
         }
+    }
+
+    // CI gate rate over the block-mask bits — the eight wall edges plus OBJECT,
+    // FLOOR_DECORATION, FLOOR and BLOCKED, the bits the two layouts genuinely
+    // agree on. Two snapshots of adjacent cache revisions differ on a handful of
+    // tiles where terrain actually changed; a decoder regression (an inverted
+    // wall nibble, a dropped BLOCKED bit) disagrees on a large fraction of every
+    // square. 1e-4 sits well above the former and orders of magnitude below the
+    // latter.
+    constexpr double kBlockMaskFailRate = 1e-4;
+
+    // Exit code for the run, with the reasoning printed. Two independent gates:
+    //
+    //   * "other" bits — outside the agreed contract on both sides. These should
+    //     never differ at all, so any count is a producer bug.
+    //   * block-mask bits — the shared collision contract. Gated on a RATE, not
+    //     a count, so genuine terrain drift passes and a systematic decode fault
+    //     does not. This is the gate that catches a wholesale wall-decoder
+    //     inversion, which the "other" bucket cannot see by construction.
+    //
+    // The upper specials (WATER, DOOR, AGILITY, PLANE_CHANGE, CLIMBOVER, and
+    // bit 30, the oracle's TRANSPORT slot that WorldWalker never sets) are
+    // intentional WW-vs-oracle drift and gate nothing.
+    int gateVerdict(const DiffStats &stats)
+    {
+        const double blockRate = stats.tilesCompared == 0
+            ? 0.0
+            : static_cast<double>(stats.mismatchBlockMask)
+                  / static_cast<double>(stats.tilesCompared);
+        const bool blockFail = blockRate > kBlockMaskFailRate;
+        const bool otherFail = stats.mismatchOther > 0;
+        std::printf("crosscheck: gate — blockmask rate=%.6f%% (limit %.6f%%) %s;"
+                    " other-bit mismatches=%llu %s\n",
+                    100.0 * blockRate, 100.0 * kBlockMaskFailRate, blockFail ? "FAIL" : "ok",
+                    static_cast<unsigned long long>(stats.mismatchOther),
+                    otherFail ? "FAIL" : "ok");
+        if (stats.tilesCompared == 0)
+        {
+            std::printf("crosscheck: gate — no overlapping tiles were compared;"
+                        " NOTHING WAS VERIFIED\n");
+            return 1;
+        }
+        return (blockFail || otherFail) ? 1 : 0;
     }
 }
 
@@ -412,14 +458,7 @@ int runCrossCheck(const char *wwaPath, const char *oraclePath)
                   { return a.mismatchTiles > b.mismatchTiles; });
 
         printSummary(stats);
-        // CI gating: a non-zero exit code surfaces a regression. We split the
-        // mismatch population into known categories (block-mask, walls,
-        // specials) and an "other" bucket — bits outside the agreed contract
-        // that should NEVER differ. Any "other" mismatch is a producer bug
-        // and fails. Block-mask / walls / specials are intentional WW-vs-
-        // oracle drift (e.g., bit-30 TRANSPORT vs CLIMBOVER) and don't
-        // gate CI by themselves.
-        return stats.mismatchOther > 0 ? 1 : 0;
+        return gateVerdict(stats);
     }
     catch (const std::exception &e)
     {

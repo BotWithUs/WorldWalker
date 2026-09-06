@@ -4,9 +4,11 @@
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
 #include "format/ClipFlags.h"
+#include "format/WallApproach.h"
 #include "runtime/AreaSearch.h"
 #include "runtime/CapabilitySnapshot.h"
 #include "runtime/PathAssembler.h"
+#include "runtime/TileScan.h"
 #include "runtime/TileSearch.h"
 #include "runtime/WorldView.h"
 
@@ -16,6 +18,8 @@
 #include <cstdlib>
 #include <exception>
 #include <span>
+#include <unordered_map>
+#include <vector>
 
 namespace
 {
@@ -61,88 +65,43 @@ namespace
         return hop >= 1 && hop <= kMaxDoorHop;
     }
 
+    // Clip accessor in the shape format::WallApproach's templates want: any
+    // callable answering the tile's clip word, with CLIP_BLOCKED for a tile it
+    // cannot address. WorldView::clipAt already does exactly that.
+    auto clipAccessor(ww::runtime::WorldView &view)
+    {
+        return [&view](int x, int y, int plane) { return view.clipAt(x, y, plane); };
+    }
+
     // --- Interact-side diagnostic -------------------------------------------
-    // For a FAILing door, ask whether a wider (radius-2) origin scan would let
-    // the area-graph builder wire an edge: is there a standable, wall-free
-    // interact side within radius 2 whose area differs from dest? Run against
-    // the baked WorldView (the same collision + area data the builder used), so
-    // it predicts a rebuild without one. "no edge" means widening the builder
-    // radius would NOT recover the door — the origin object is moated by blocked
-    // tiles and needs a different fix than a radius bump.
-
-    // True when a unit at (x, y) cannot step toward (dx, dy) because that
-    // direction is wall-blocked on the source tile. Mirrors AreaGraph.cpp's
-    // wallBlocksStepFrom; (dx, dy) in {-1, 0, 1}^2 \ {(0, 0)}.
-    bool wallBlocksStep(ww::runtime::WorldView &view, int x, int y, int plane, int dx, int dy)
-    {
-        const uint32_t flags = view.clipAt(x, y, plane);
-        uint32_t mask = 0;
-        if      (dx ==  0 && dy ==  1) { mask = ww::format::CLIP_WALL_N;  }
-        else if (dx ==  1 && dy ==  1) { mask = ww::format::CLIP_WALL_NE; }
-        else if (dx ==  1 && dy ==  0) { mask = ww::format::CLIP_WALL_E;  }
-        else if (dx ==  1 && dy == -1) { mask = ww::format::CLIP_WALL_SE; }
-        else if (dx ==  0 && dy == -1) { mask = ww::format::CLIP_WALL_S;  }
-        else if (dx == -1 && dy == -1) { mask = ww::format::CLIP_WALL_SW; }
-        else if (dx == -1 && dy ==  0) { mask = ww::format::CLIP_WALL_W;  }
-        else if (dx == -1 && dy ==  1) { mask = ww::format::CLIP_WALL_NW; }
-        return (flags & mask) != 0u;
-    }
-
-    // The interact-from area at offset (ox, oy), or -1 if unusable. Mirror of
-    // AreaGraph.cpp::reachableSideArea against WorldView.
-    int reachableSideArea(ww::runtime::WorldView &view, int ox, int oy, int originX, int originY,
-                          int plane)
-    {
-        int curX = originX + ox;
-        int curY = originY + oy;
-        if (!view.isStandable(curX, curY, plane))
-        {
-            return -1;
-        }
-        const int area = view.areaAt(curX, curY, plane);
-        if (area < 0)
-        {
-            return -1;
-        }
-        while (std::max(std::abs(curX - originX), std::abs(curY - originY)) > 1)
-        {
-            const int sx = (originX > curX) - (originX < curX);
-            const int sy = (originY > curY) - (originY < curY);
-            if (wallBlocksStep(view, curX, curY, plane, sx, sy))
-            {
-                return -1;
-            }
-            curX += sx;
-            curY += sy;
-            if (!view.isStandable(curX, curY, plane))
-            {
-                return -1;
-            }
-        }
-        const int fx = (originX > curX) - (originX < curX);
-        const int fy = (originY > curY) - (originY < curY);
-        if (wallBlocksStep(view, curX, curY, plane, fx, fy))
-        {
-            return -1;
-        }
-        return area;
-    }
-
-    // First radius-2 interact side whose area differs from destArea, or -1.
-    // A non-negative result means the fixed builder would emit an AreaEdge
-    // fromArea -> destArea for this door (i.e. the fix recovers it).
+    // For a FAILing door, ask whether the area-graph builder could wire an edge
+    // at all: is there a standable interact side within the shared approach
+    // radius, reachable from the origin without crossing a wall, whose area
+    // differs from dest? This mirrors AreaGraph::collectOriginAreas — through
+    // the same ww::format::approachSealed it calls, rather than a local
+    // re-derivation of the wall rules that had already drifted from it — run
+    // against the baked WorldView, i.e. the same collision + area data the
+    // builder used. "no edge" means the origin object is moated by blocked or
+    // sealed tiles and needs a different fix.
     int predictRecoveredFromArea(ww::runtime::WorldView &view, int originX, int originY, int plane,
                                  int destArea)
     {
-        for (int ox = -2; ox <= 2; ++ox)
+        constexpr int radius = ww::data::kTransitionApproachRadius;
+        for (int ox = -radius; ox <= radius; ++ox)
         {
-            for (int oy = -2; oy <= 2; ++oy)
+            for (int oy = -radius; oy <= radius; ++oy)
             {
-                if (ox == 0 && oy == 0)
+                const int candX = originX + ox;
+                const int candY = originY + oy;
+                // The origin tile itself has no approach to seal; it only has to
+                // be walkable, which is what having an area tests.
+                if ((ox != 0 || oy != 0)
+                    && ww::format::approachSealed(clipAccessor(view), candX, candY,
+                                                  originX, originY, plane))
                 {
                     continue;
                 }
-                const int a = reachableSideArea(view, ox, oy, originX, originY, plane);
+                const int a = view.areaAt(candX, candY, plane);
                 if (a >= 0 && a != destArea)
                 {
                     return a;
@@ -152,32 +111,90 @@ namespace
         return -1;
     }
 
-    // First standable tile within radius 2 of (ox, oy), scanned ring by ring so
-    // the closest approach wins — the same order PathAssembler::resolveInteractTile
-    // uses. Returns false when the door has no walkable approach on this plane.
-    bool resolveApproach(ww::runtime::WorldView &view, int ox, int oy, int plane,
-                         int &outX, int &outY)
+    // "Any area will do" for resolveApproach, used only for a door the graph
+    // baked no edge for, which therefore has no declared fromArea to pin to.
+    constexpr int kAnyArea = -1;
+
+    // The approach tile the planner will stand on to click this door: exactly
+    // what PathAssembler::resolveInteractTile resolves for the AreaEdge the
+    // planner would route over — standable AND in that edge's declared
+    // fromArea, over kTransitionApproachRadius, ranked from the origin.
+    //
+    // Pinning to fromArea is what keeps the nearest-tile tie-break honest. A
+    // predicate of merely "standable and in some area" lets the closest tile win
+    // even when it sits in a one-tile pocket the edge does not reach, and the
+    // harness then reports a door the planner can cross as one it cannot.
+    bool resolveApproach(ww::runtime::WorldView &view, int originX, int originY, int plane,
+                         int fromArea, int &outX, int &outY)
     {
-        for (int r = 0; r <= 2; ++r)
+        const auto standableInArea = [&](int32_t x, int32_t y)
         {
-            for (int dy = -r; dy <= r; ++dy)
+            if (!view.isStandable(x, y, plane))
             {
-                for (int dx = -r; dx <= r; ++dx)
-                {
-                    if (std::max(std::abs(dx), std::abs(dy)) != r)
-                    {
-                        continue;
-                    }
-                    if (view.isStandable(ox + dx, oy + dy, plane))
-                    {
-                        outX = ox + dx;
-                        outY = oy + dy;
-                        return true;
-                    }
-                }
+                return false;
+            }
+            const int32_t area = view.areaAt(x, y, plane);
+            return fromArea == kAnyArea ? area >= 0 : area == fromArea;
+        };
+        int32_t x = 0;
+        int32_t y = 0;
+        if (!ww::runtime::findNearestTile(originX, originY,
+                                          ww::data::kTransitionApproachRadius, true,
+                                          standableInArea, originX, originY, x, y))
+        {
+            return false;
+        }
+        outX = x;
+        outY = y;
+        return true;
+    }
+
+    // transitionIndex -> the AreaEdge rows the graph baked for it. A transition
+    // can own more than one when its object is approachable from several areas
+    // (AreaGraph::collectOriginAreas emits one edge per side), and the planner
+    // may route over any of them.
+    using EdgeIndex = std::unordered_multimap<uint32_t, std::size_t>;
+
+    EdgeIndex indexEdgesByTransition(std::span<const ww::format::AreaEdgeRecord> edges)
+    {
+        EdgeIndex index;
+        index.reserve(edges.size());
+        for (std::size_t i = 0; i < edges.size(); ++i)
+        {
+            index.emplace(edges[i].transitionIndex, i);
+        }
+        return index;
+    }
+
+    // Where the planner would stand to click this door. Prefer the fromArea of
+    // an AreaEdge the graph actually baked for this transition — that is the
+    // tile PathAssembler::resolveInteractTile picks when it routes over that
+    // edge, so the harness starts exactly where the plan will.
+    //
+    // A door the graph baked no edge for has no such area. It is driven anyway,
+    // from any standable in-area tile, so it fails loudly instead of dropping
+    // out of the sweep — an unwired door is precisely the defect this harness
+    // exists to surface.
+    bool resolveDoorApproach(ww::runtime::WorldView &view,
+                             std::span<const ww::format::AreaEdgeRecord> edges,
+                             const EdgeIndex &edgeIndex, uint32_t doorIndex,
+                             const ww::format::TransitionRecord &tx, int &outX, int &outY)
+    {
+        const int plane = static_cast<int>(tx.originPlane);
+        const auto range = edgeIndex.equal_range(doorIndex);
+        for (auto it = range.first; it != range.second; ++it)
+        {
+            if (resolveApproach(view, tx.originX, tx.originY, plane,
+                                edges[it->second].fromArea, outX, outY))
+            {
+                return true;
             }
         }
-        return false;
+        if (range.first != range.second)
+        {
+            return false;   // wired, but no side of it is standable
+        }
+        return resolveApproach(view, tx.originX, tx.originY, plane, kAnyArea, outX, outY);
     }
 
     // True when `plan` crosses a door: it contains a Transition step whose record
@@ -429,7 +446,9 @@ int runDoorPaths(const char *wwaPath)
         ww::runtime::CapabilitySnapshot snapshot;
         ww::runtime::applyPermissiveRequirements(reader.requirements(), snapshot);
 
-        const auto txs = reader.transitions();
+        const auto txs   = reader.transitions();
+        const auto edges = reader.areaEdges();
+        const EdgeIndex edgeIndex = indexEdgesByTransition(edges);
         std::printf("doors:  %s\n", wwaPath);
 
         Totals totals;
@@ -445,7 +464,7 @@ int runDoorPaths(const char *wwaPath)
             const int plane = static_cast<int>(tx.originPlane);
             int approachX = 0;
             int approachY = 0;
-            if (!resolveApproach(view, tx.originX, tx.originY, plane, approachX, approachY))
+            if (!resolveDoorApproach(view, edges, edgeIndex, i, tx, approachX, approachY))
             {
                 continue;
             }

@@ -1,10 +1,12 @@
 #include "cli/ScriptedPaths.h"
 
+#include "data/Transitions.h"
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
 #include "runtime/AreaSearch.h"
 #include "runtime/CapabilitySnapshot.h"
 #include "runtime/PathAssembler.h"
+#include "runtime/TileScan.h"
 #include "runtime/TileSearch.h"
 #include "runtime/WorldView.h"
 
@@ -32,10 +34,10 @@
 //                      uses the transition's destination plane.
 //   teleport_seeded  — when a global teleport dominates walking from the
 //                      start area, the leading plan step is that transition.
-//   capability_gate  — a synthetic capability snapshot decides predicate
-//                      checks consistently with the artifact's own pool, and
-//                      an empty snapshot refuses every requirement-bearing
-//                      global the permissive snapshot accepts.
+//   capability_gate  — a requirement-bearing transition appears in the plan
+//                      assembled with a snapshot tuned to its own requirement
+//                      run, and does not appear in the plan assembled with an
+//                      empty one.
 namespace
 {
     enum class Outcome { Pass, Fail, Skip };
@@ -156,36 +158,21 @@ namespace
             {
                 continue;
             }
-            // Resolve a standable interact-tile in fromArea within radius 2
-            // of the origin — mirrors PathAssembler::resolveInteractTile so
-            // the harness query starts where the transition step would.
+            // Resolve a standable interact-tile in fromArea within radius 2 of
+            // the origin through the same production scan
+            // PathAssembler::resolveInteractTile uses, so the harness query
+            // starts exactly where the transition step would.
             const int plane = static_cast<int>(tx.originPlane);
-            int startX = 0;
-            int startY = 0;
-            bool startOk = false;
-            for (int r = 0; r <= 2 && !startOk; ++r)
+            std::int32_t startX = 0;
+            std::int32_t startY = 0;
+            const auto standableInArea = [&](std::int32_t x, std::int32_t y)
             {
-                for (int dy = -r; dy <= r && !startOk; ++dy)
-                {
-                    for (int dx = -r; dx <= r && !startOk; ++dx)
-                    {
-                        if (std::max(std::abs(dx), std::abs(dy)) != r)
-                        {
-                            continue;
-                        }
-                        const int x = tx.originX + dx;
-                        const int y = tx.originY + dy;
-                        if (view.isStandable(x, y, plane)
-                            && view.areaAt(x, y, plane) == edge.fromArea)
-                        {
-                            startX = x;
-                            startY = y;
-                            startOk = true;
-                        }
-                    }
-                }
-            }
-            if (!startOk)
+                return view.isStandable(x, y, plane) && view.areaAt(x, y, plane) == edge.fromArea;
+            };
+            if (!ww::runtime::findNearestTile(tx.originX, tx.originY,
+                                              ww::data::kTransitionApproachRadius, true,
+                                              standableInArea, tx.originX, tx.originY,
+                                              startX, startY))
             {
                 continue;
             }
@@ -345,76 +332,145 @@ namespace
         return false;
     }
 
-    // Category 4 — capability gate. For each requirement-bearing global
-    // whose run contains at least one Skill/Item/non-zero-Varbit-or-Varp
-    // gate (the kinds the empty snapshot can reject), verify:
-    //   - an empty snapshot rejects the run.
-    //   - a snapshot built from THAT run's own entries accepts the run.
-    // Per-transition snapshot construction avoids the cross-transition
-    // same-id-different-value conflict that an aggregate permissive build
-    // would create. Surfaces a bug in either predicate evaluation or
-    // requirement decoding.
-    CaseResult capabilityGate(const ww::format::ArtifactReader &reader)
+    // True when `plan` routes through transition `index`.
+    bool planUsesTransition(const ww::runtime::Plan &plan, std::uint32_t index)
+    {
+        for (const ww::runtime::Step &s : plan.steps)
+        {
+            if (s.kind == ww::runtime::StepKind::Transition && s.transitionIndex == index)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // A requirement-bearing transition the planner might route through, with the
+    // query that would exercise it. For a global the query starts at area[0]'s
+    // centroid (a global is usable from anywhere); for a local-origin edge it
+    // starts on a standable tile beside the origin.
+    struct GatedCandidate
+    {
+        std::uint32_t index{};
+        int startX{};
+        int startY{};
+        int startPlane{};
+    };
+
+    // Fill `out` with the next requirement-bearing transition at or after
+    // `cursor` whose gate an empty snapshot actually rejects, advancing the
+    // cursor past it. Returns false once the pool is exhausted.
+    bool nextGatedCandidate(const ww::format::ArtifactReader &reader,
+                            ww::runtime::WorldView &view, int centroidX, int centroidY,
+                            int centroidPlane, std::uint32_t &ioCursor, GatedCandidate &out)
     {
         const auto txs  = reader.transitions();
         const auto reqs = reader.requirements();
-        ww::runtime::CapabilitySnapshot empty;
-
-        std::size_t testable        = 0;
-        std::size_t emptyAccepts    = 0;  // expected: 0
-        std::size_t tunedRejects    = 0;  // expected: 0
-        bool foundReqGlobal         = false;
-
-        for (const ww::format::TransitionRecord &tx : txs)
+        for (; ioCursor < txs.size(); ++ioCursor)
         {
-            if ((tx.flags & ww::format::kTransitionFlagGlobalOrigin) == 0u
-                || tx.requirementCount == 0u)
-            {
-                continue;
-            }
+            const ww::format::TransitionRecord &tx = txs[ioCursor];
             const std::uint64_t end =
                 static_cast<std::uint64_t>(tx.requirementStart) + tx.requirementCount;
-            if (end > reqs.size())
+            if (tx.requirementCount == 0u || end > reqs.size())
             {
                 continue;
             }
-            const auto run = reqs.subspan(tx.requirementStart, tx.requirementCount);
-            if (!runHasEmptyRejectingReq(run))
+            if (!runHasEmptyRejectingReq(reqs.subspan(tx.requirementStart, tx.requirementCount)))
             {
-                continue;  // not a testable gate (e.g. "varbit==0")
+                continue;  // an empty snapshot would accept it; nothing to gate on
             }
-            ++testable;
-            foundReqGlobal = true;
-            if (ww::runtime::meetsRequirements(&empty, run))
+            out.index = ioCursor;
+            if ((tx.flags & ww::format::kTransitionFlagGlobalOrigin) != 0u)
             {
-                ++emptyAccepts;
+                out.startX     = centroidX;
+                out.startY     = centroidY;
+                out.startPlane = centroidPlane;
+                ++ioCursor;
+                return true;
             }
+            const int plane = static_cast<int>(tx.originPlane);
+            const int area  = view.areaAt(tx.destX, tx.destY, static_cast<int>(tx.destPlane));
+            std::int32_t sx = 0;
+            std::int32_t sy = 0;
+            const auto standable = [&](std::int32_t x, std::int32_t y)
+            {
+                return view.isStandable(x, y, plane) && view.areaAt(x, y, plane) != area;
+            };
+            if (!ww::runtime::findNearestTile(tx.originX, tx.originY,
+                                              ww::data::kTransitionApproachRadius, true, standable,
+                                              tx.originX, tx.originY, sx, sy))
+            {
+                continue;
+            }
+            out.startX     = sx;
+            out.startY     = sy;
+            out.startPlane = plane;
+            ++ioCursor;
+            return true;
+        }
+        return false;
+    }
+
+    // Category 4 — capability gate, through the planner.
+    //
+    // The point is that a Requirement predicate changes what the PLANNER
+    // returns, so the planner is what gets driven: the same query is assembled
+    // twice, once with an empty snapshot and once with a snapshot tuned to the
+    // candidate transition's own requirement run, and the gated transition must
+    // appear in the tuned plan and not in the empty one. Asserting only that a
+    // tuned snapshot satisfies the run it was built from would be a tautology
+    // that never touches the planner at all — which is what this case used to do.
+    //
+    // The tuned snapshot is built per-run rather than from the whole pool so a
+    // same-id-different-value collision in an unrelated transition cannot make
+    // this run unsatisfiable.
+    CaseResult capabilityGate(const ww::format::ArtifactReader &reader,
+                              ww::runtime::WorldView &view,
+                              ww::runtime::PathAssembler &assembler)
+    {
+        const auto nodes = reader.areaNodes();
+        if (nodes.empty())
+        {
+            return {"capability_gate", Outcome::Skip, "no area nodes"};
+        }
+        const auto txs  = reader.transitions();
+        const auto reqs = reader.requirements();
+        const ww::format::AreaNodeRecord &n0 = nodes[0];
+
+        ww::runtime::CapabilitySnapshot empty;
+        std::uint32_t cursor = 0;
+        GatedCandidate candidate{};
+        while (nextGatedCandidate(reader, view, n0.centroidX, n0.centroidY,
+                                  static_cast<int>(n0.plane), cursor, candidate))
+        {
+            const ww::format::TransitionRecord &tx = txs[candidate.index];
             ww::runtime::CapabilitySnapshot tuned;
-            // Per-run construction (not the whole pool) so same-id-different-value
-            // collisions in unrelated transitions cannot make this run unsatisfiable.
-            ww::runtime::applyPermissiveRequirements(run, tuned);
-            if (!ww::runtime::meetsRequirements(&tuned, run))
+            ww::runtime::applyPermissiveRequirements(
+                reqs.subspan(tx.requirementStart, tx.requirementCount), tuned);
+
+            ww::runtime::Plan tunedPlan;
+            const bool tunedOk = assembler.assemble(candidate.startX, candidate.startY,
+                                                    candidate.startPlane, tx.destX, tx.destY,
+                                                    static_cast<int>(tx.destPlane), &tuned,
+                                                    tunedPlan);
+            if (!tunedOk || !planUsesTransition(tunedPlan, candidate.index))
             {
-                ++tunedRejects;
+                continue;  // the planner has a cheaper route; not a decisive case
             }
+            ww::runtime::Plan emptyPlan;
+            const bool emptyOk = assembler.assemble(candidate.startX, candidate.startY,
+                                                    candidate.startPlane, tx.destX, tx.destY,
+                                                    static_cast<int>(tx.destPlane), &empty,
+                                                    emptyPlan);
+            if (emptyOk && planUsesTransition(emptyPlan, candidate.index))
+            {
+                return {"capability_gate", Outcome::Fail,
+                        "empty snapshot still routed through a gated transition"};
+            }
+            return {"capability_gate", Outcome::Pass, nullptr};
         }
-        if (!foundReqGlobal)
-        {
-            return {"capability_gate", Outcome::Skip,
-                    "no testable requirement-bearing global transitions"};
-        }
-        if (emptyAccepts != 0)
-        {
-            return {"capability_gate", Outcome::Fail,
-                    "empty snapshot accepted a Skill/Item/non-zero-Var gated global"};
-        }
-        if (tunedRejects != 0)
-        {
-            return {"capability_gate", Outcome::Fail,
-                    "tuned snapshot failed to accept its own run"};
-        }
-        (void)testable;
-        return {"capability_gate", Outcome::Pass, nullptr};
+        return {"capability_gate", Outcome::Skip,
+                "no gated transition the planner routes through"};
     }
 }
 
@@ -433,7 +489,7 @@ int runScriptedPaths(const char *wwaPath)
             longWalk(reader, view, assembler),
             planeChange(reader, view, assembler),
             teleportSeeded(reader, view, areaSearch, assembler),
-            capabilityGate(reader),
+            capabilityGate(reader, view, assembler),
         };
         int passed  = 0;
         int failed  = 0;
@@ -454,6 +510,14 @@ int runScriptedPaths(const char *wwaPath)
             }
         }
         std::printf("scripted: total %d pass / %d fail / %d skip\n", passed, failed, skipped);
+        // A run where every case skipped exits 0 but has verified nothing about
+        // the planner. Say so loudly rather than letting a green exit code
+        // stand in for coverage that does not exist.
+        if (passed == 0 && failed == 0)
+        {
+            std::printf("scripted: *** NOTHING WAS TESTED — all %d case(s) skipped;"
+                        " this artifact exercises none of them ***\n", skipped);
+        }
         return failed == 0 ? 0 : 1;
     }
     catch (const std::exception &e)

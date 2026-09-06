@@ -1,10 +1,19 @@
 #include "cli/InstanceTests.h"
 
+#include "format/Artifact.h"
+#include "format/ArtifactReader.h"
 #include "format/ClipFlags.h"
+#include "format/Zlib.h"
 #include "runtime/InstanceMap.h"
+#include "runtime/WorldView.h"
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
+#include <exception>
+#include <filesystem>
+#include <fstream>
+#include <string>
 #include <vector>
 
 // Dynamic-region (instance) unit tests — see InstanceTests.h for why this layer
@@ -401,6 +410,187 @@ namespace
         }
         return failures;
     }
+
+    // ---- WorldView composition ------------------------------------------
+    //
+    // Everything above tests InstanceMap and rotateClipWord in isolation. The
+    // thing production actually calls is WorldView::clipAt, which composes them
+    // — resolve the source tile, read its baked word, rotate the directional
+    // bits — and which owns the hole policy (a cell with no source chunk reads
+    // as CLIP_BLOCKED rather than falling through to the unrelated static
+    // terrain underneath). Neither the composition nor that policy is asserted
+    // anywhere else, so the case below drives clipAt itself.
+    //
+    // ArtifactReader loads from a file, so the fixture is a real (tiny) .wwa
+    // written to a temp path: header + one-entry section directory + a Collision
+    // section holding one zlib-compressed square.
+
+    // Serialize `words` (exactly one square, kClipWordsPerSquare entries) as a
+    // complete artifact with a Collision section and nothing else.
+    std::vector<uint8_t> buildCollisionArtifact(const std::vector<uint32_t> &words)
+    {
+        const std::vector<uint8_t> blob = ww::format::zlibCompress(
+            reinterpret_cast<const uint8_t *>(words.data()),
+            words.size() * sizeof(uint32_t));
+
+        constexpr uint64_t kSectionOffset =
+            sizeof(ww::format::ArtifactHeader) + sizeof(ww::format::SectionEntry);
+        constexpr uint32_t kBlobOffset = sizeof(ww::format::CollisionSectionHeader)
+                                       + sizeof(ww::format::CollisionSquareEntry);
+
+        ww::format::ArtifactHeader header{};
+        header.magic         = ww::format::kArtifactMagic;
+        header.formatVersion = ww::format::kArtifactFormatVersion;
+        header.sectionCount  = 1;
+
+        ww::format::SectionEntry entry{};
+        entry.id     = static_cast<uint32_t>(ww::format::SectionId::Collision);
+        entry.offset = kSectionOffset;
+        entry.length = kBlobOffset + blob.size();
+
+        ww::format::CollisionSectionHeader section{};
+        section.squareCount = 1;
+
+        ww::format::CollisionSquareEntry square{};
+        square.planeMask  = 0x1;
+        square.blobOffset = kBlobOffset;
+        square.blobLength = static_cast<uint32_t>(blob.size());
+        square.rawLength  = static_cast<uint32_t>(words.size() * sizeof(uint32_t));
+
+        std::vector<uint8_t> out;
+        out.reserve(static_cast<std::size_t>(kSectionOffset + entry.length));
+        const auto append = [&out](const void *src, std::size_t size)
+        {
+            const uint8_t *bytes = static_cast<const uint8_t *>(src);
+            out.insert(out.end(), bytes, bytes + size);
+        };
+        append(&header, sizeof(header));
+        append(&entry, sizeof(entry));
+        append(&section, sizeof(section));
+        append(&square, sizeof(square));
+        append(blob.data(), blob.size());
+        return out;
+    }
+
+    // The two source tiles the composition case reads through, chosen so the
+    // instance's rotation-1 mapping (instance local (x, y) -> source local
+    // (y, 7 - x)) lands on them from tiles well inside chunk (0, 0).
+    constexpr int32_t kWallSourceX     = 3;   // holds CLIP_WALL_E
+    constexpr int32_t kWallSourceY     = 2;
+    constexpr int32_t kWallInstanceX   = 5;   // rotateLocal(5, 3, 1) == (3, 2)
+    constexpr int32_t kWallInstanceY   = 3;
+    constexpr int32_t kBlockedSourceX  = 4;   // holds CLIP_BLOCKED
+    constexpr int32_t kBlockedSourceY  = 2;
+    constexpr int32_t kBlockedInstanceX = 5;  // rotateLocal(5, 4, 1) == (4, 2)
+    constexpr int32_t kBlockedInstanceY = 4;
+    constexpr int32_t kHoleTileX       = 8;   // instance chunk (1, 0) is a hole
+    constexpr int32_t kHoleTileY       = 0;
+
+    std::size_t clipWordIndex(int32_t x, int32_t y, int32_t plane)
+    {
+        return (static_cast<std::size_t>(plane) * ww::format::kClipSize
+                + static_cast<std::size_t>(x)) * ww::format::kClipSize
+               + static_cast<std::size_t>(y);
+    }
+
+    // Assert clipAt against an installed InstanceMap: a rotated wall bit, a
+    // whole-tile bit that rotation must leave alone, and a hole.
+    int checkInstancedClipAt(ww::runtime::WorldView &view)
+    {
+        int failures = 0;
+        // Before installing anything, the same tiles read their static words —
+        // so the assertions below are about the instance, not about terrain
+        // that was already there.
+        if (view.clipAt(kWallInstanceX, kWallInstanceY, 0) != ww::format::CLIP_OPEN
+            || view.clipAt(kHoleTileX, kHoleTileY, 0) != ww::format::CLIP_OPEN)
+        {
+            failures += fail("fixture: the static square under the instance was not open");
+        }
+
+        constexpr int32_t gridW = 2;
+        constexpr int32_t gridH = 2;
+        std::vector<int32_t> grid = makeGrid(gridW, gridH);
+        // Instance chunk (0, 0) on plane 0 copies source chunk (0, 0) turned one
+        // step; every other cell — including chunk (1, 0), which covers the hole
+        // tile — stays kNoChunk.
+        setCell(grid, gridW, gridH, 0, 0, 0, packDescriptor(0, 0, 0, 1));
+
+        InstanceMap map;
+        map.assign(0, 0, gridW, gridH, grid.data(), grid.size());
+        if (!map.isActive())
+        {
+            return fail("composition: the fixture descriptor grid failed to install");
+        }
+        view.setInstance(&map);
+
+        const uint32_t wallWant = rotateClipWord(ww::format::CLIP_WALL_E, 1);
+        const uint32_t wallGot  = view.clipAt(kWallInstanceX, kWallInstanceY, 0);
+        if (wallGot != wallWant)
+        {
+            std::printf("  FAIL: clipAt on a rotated instance tile gave 0x%X, expected 0x%X"
+                        " (source WALL_E turned one step)\n", wallGot, wallWant);
+            ++failures;
+        }
+        if (!view.isStandable(kWallInstanceX, kWallInstanceY, 0))
+        {
+            failures += fail("composition: a wall edge made a rotated instance tile unstandable");
+        }
+        if (view.clipAt(kBlockedInstanceX, kBlockedInstanceY, 0) != ww::format::CLIP_BLOCKED)
+        {
+            failures += fail("composition: rotation disturbed a whole-tile bit through clipAt");
+        }
+        if (view.isStandable(kBlockedInstanceX, kBlockedInstanceY, 0))
+        {
+            failures += fail("composition: a blocked source tile stayed standable in the instance");
+        }
+        // THE HOLE POLICY. The static square underneath is open, so anything
+        // other than fully blocked here means clipAt fell through to terrain the
+        // instance does not use.
+        if (view.clipAt(kHoleTileX, kHoleTileY, 0) != ww::runtime::WorldView::kBlockedWord
+            || view.isStandable(kHoleTileX, kHoleTileY, 0))
+        {
+            failures += fail("composition: a hole did not read as CLIP_BLOCKED");
+        }
+        view.setInstance(nullptr);
+        return failures;
+    }
+
+    // Write the fixture artifact, open it through the production reader, and run
+    // the composition assertions against a WorldView over it.
+    int checkWorldViewComposition()
+    {
+        const std::filesystem::path path =
+            std::filesystem::temp_directory_path() / "wwcli_instance_composition.wwa";
+        int failures = 0;
+        try
+        {
+            std::vector<uint32_t> words(ww::format::kClipWordsPerSquare, 0u);
+            words[clipWordIndex(kWallSourceX, kWallSourceY, 0)] = ww::format::CLIP_WALL_E;
+            words[clipWordIndex(kBlockedSourceX, kBlockedSourceY, 0)] = ww::format::CLIP_BLOCKED;
+            const std::vector<uint8_t> bytes = buildCollisionArtifact(words);
+
+            std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+            stream.write(reinterpret_cast<const char *>(bytes.data()),
+                         static_cast<std::streamsize>(bytes.size()));
+            stream.close();
+            if (!stream)
+            {
+                return fail("composition: could not write the fixture artifact");
+            }
+
+            const ww::format::ArtifactReader reader(path.string());
+            ww::runtime::WorldView view(reader);
+            failures = checkInstancedClipAt(view);
+        }
+        catch (const std::exception &e)
+        {
+            std::printf("  FAIL: composition fixture threw: %s\n", e.what());
+            failures = 1;
+        }
+        std::error_code ignored;
+        std::filesystem::remove(path, ignored);
+        return failures;
+    }
 }
 
 int runInstanceTests()
@@ -414,6 +604,7 @@ int runInstanceTests()
     failures += checkUnitsTrap();
     failures += checkHolesAndBounds();
     failures += checkCountDiscipline();
+    failures += checkWorldViewComposition();
 
     if (failures == 0)
     {
