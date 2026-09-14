@@ -60,6 +60,21 @@ warns when it sees an empty cache directory.
 JS5 is unauthenticated public content distribution — the same thing the game
 client does on every launch. No account is involved.
 
+A bake against a complete local cache takes **seconds**, not minutes: measured at
+~11 s for a full `build` and ~6 s for `collision`. Budget for a long run only when
+the cache is cold and `--live` has to fetch the world.
+
+### One cosmetic trap when capturing output
+
+`wwbuild` writes a benign warning to stderr when an optional dataset is absent
+(`dataset not found, skipping: teleport_chains.json` — `teleport_chains.json` is
+legitimately not in the tree). Run in a terminal it is one plain line. Captured
+through **PowerShell 5.1**, native stderr gets wrapped in a `NativeCommandError`
+record, so that one warning renders as a red multi-line error block and `$?` goes
+`$false` even though the process exited 0. Nothing is wrong; do not go looking for
+a bug, and do not branch on `$?` around a native call. Branch on `$LASTEXITCODE`,
+which is what `bake.ps1` does.
+
 ---
 
 ## 2. Provenance: what a given artifact was baked from
@@ -245,17 +260,58 @@ in any area is silently never used by the planner, and reads downstream as
 
 ## 7. Before this repo can be opened to contributors
 
-Two things block the public workflow, both bigger than any one bake:
+Two things block the public workflow — but the first one blocks **less than half**
+of the contribution surface, which is worth being precise about.
 
-1. **WorldWalker cannot be built without a private sibling.** `cmake.toml` imports
-   `NXTCache.{lib,dll}` from `..\NXTCacheLibrary`, and that repo is private. An
-   outside contributor cannot configure the project, let alone bake. Options:
-   publish NXTCacheLibrary, ship prebuilt `NXTCache.dll` + headers as a release
-   asset, or keep `wwbuild` internal and have a maintainer bake contributed
-   dataset changes.
-2. **There is no CI.** Nothing validates a PR automatically. A bake needs a cache
-   and network access, so CI would have to be self-hosted, or limited to JSON
-   schema and lint checks with the bake done by a maintainer.
+1. **Only `wwbuild` needs the private sibling.** `cmake.toml` links
+   `NXTCache::NXTCache` into the `wwbuild` target alone; `worldwalker` and `wwcli`
+   link only zlib and nlohmann_json. Confirmed against the built binaries rather
+   than the build files — `dumpbin /dependents` shows `NXTCache.dll` imported by
+   `wwbuild.exe` and by neither `worldwalker.dll` nor `wwcli.exe`. So **the runtime
+   library and the harness neither link nor load NXTCacheLibrary at all.** What a
+   contributor without it cannot do is *bake* — decode the cache.
+
+   **Why a configure also survives the sibling being gone, and the trap in it:**
+   `cmake.toml`'s `cmake-after` declares `NXTCache::NXTCache` as a `SHARED IMPORTED`
+   target pointing at `..\NXTCacheLibrary\build\<CONFIG>\`. CMake does **not** check
+   an imported target's `IMPORTED_LOCATION` at configure time — it is only needed
+   when something links it — so configuring with the sibling absent succeeds, and
+   only a `wwbuild` link fails. (That half is reasoning from CMake's semantics, not
+   something measured here; the `dumpbin` result above is the measured part.)
+
+   This reads like an oversight, and the obvious "fix" is an existence check next to
+   the `set_target_properties` call so the failure arrives early with a good message
+   instead of as a link error. That is a reasonable thing to want — **but an
+   unconditional check would delete the split this table describes**, because a
+   contributor touching only the runtime-loaded teleport files would be stopped at
+   configure time by a dependency they never use. If you add one, scope it to the
+   case where `wwbuild` is actually going to be built.
+
+   Cross that with how the datasets are consumed and the contribution surface
+   splits in two:
+
+   | Dataset | Needs a bake? | Contributable without the private repo? |
+   |---|---|---|
+   | `spell_teleports.json` | **No** — loaded at runtime | **Yes** |
+   | `item_teleports.json` | **No** — loaded at runtime | **Yes** |
+   | `transport_links.json` | Yes — baked into the area graph | No |
+   | `teleport_chains.json` | Yes — baked | No |
+
+   The two runtime-loaded files are appended to an already-built artifact at
+   open time, so a contributor with a released `.wwa`, `wwcli`, and no cache at all
+   can edit them and run `wwcli check <artifact> datasets` end to end. That is not
+   theoretical: the gate appends 151 global teleports to an existing artifact and
+   verifies every destination is seedable, with no cache involved.
+
+   And that half is exactly the data whose absence caused the incident this
+   document opens with. Options for the baked half: publish NXTCacheLibrary, ship
+   prebuilt `NXTCache.dll` + headers as a release asset, or keep `wwbuild` internal
+   and have a maintainer bake contributed `transport_links` changes.
+
+2. **There is no CI.** Nothing validates a PR automatically. A full bake needs a
+   cache, so CI would have to be self-hosted — but note that validating a
+   *teleport* change needs only a released artifact and `wwcli`, which is an
+   ordinary hosted runner's job.
 
 One thing that is already right: nothing in `src`, `docs`, `datasets`,
 `cmake.toml` or `CONTEXT.md` contains an absolute path, a drive letter, or a
