@@ -173,6 +173,9 @@ namespace ww::format
         case SectionId::TeleportAllowed:
             decodeTeleportAllowed(entry);
             break;
+        case SectionId::Provenance:
+            decodeProvenance(entry);
+            break;
         default:
             break;  // in-range but unmapped id — skip
         }
@@ -611,5 +614,21 @@ namespace ww::format
         const uint64_t zoneBytes = static_cast<uint64_t>(header.noTeleCount) * sizeof(NoTeleZone);
         requireRange(cursor, zoneBytes, bytes.size(), "no-tele zones");
         noTeleList = readPodArray<NoTeleZone>(bytes, cursor, header.noTeleCount);
+    }
+
+    void ArtifactReader::decodeProvenance(const SectionEntry &entry)
+    {
+        requireRange(entry.offset, sizeof(ProvenanceSectionHeader), bytes.size(), "provenance header");
+        const ProvenanceSectionHeader header = readPod<ProvenanceSectionHeader>(bytes, entry.offset);
+        const uint64_t bodyOffset = entry.offset + sizeof(ProvenanceSectionHeader);
+        requireRange(bodyOffset, header.jsonLength, bytes.size(), "provenance body");
+
+        // An unrecognised schema is recorded and the body kept verbatim rather
+        // than refused: provenance is descriptive, so a document this build does
+        // not understand is still worth handing to whoever asked for it. Nothing
+        // in the planner reads either field.
+        provenanceDocSchema = header.schema;
+        const auto *first = reinterpret_cast<const char *>(bytes.data() + bodyOffset);
+        provenanceDoc.assign(first, static_cast<std::size_t>(header.jsonLength));
     }
 }

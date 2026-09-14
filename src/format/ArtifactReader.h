@@ -252,6 +252,31 @@ namespace ww::format
             return {noTeleList.data(), noTeleList.size()};
         }
 
+        // ---- Provenance -----------------------------------------------------
+        // What the artifact was baked from. Descriptive only — nothing in the
+        // planner reads it, and an artifact without the section is still valid
+        // (every artifact baked before the section existed lacks it).
+        bool hasProvenance() const
+        {
+            return hasSection(SectionId::Provenance);
+        }
+
+        // Schema of the JSON below, or 0 when the section is absent. An
+        // unrecognised schema means "treat the document as opaque", never
+        // "reject the artifact".
+        uint32_t provenanceSchema() const
+        {
+            return provenanceDocSchema;
+        }
+
+        // The raw UTF-8 JSON document, empty when the section is absent. Handed
+        // back unparsed: the reader compiles into the runtime DLL, which has no
+        // reason to pay for a JSON parse of text only tools and humans read.
+        const std::string &provenanceJson() const
+        {
+            return provenanceDoc;
+        }
+
     private:
         void parseDirectory();
         void decodeSection(const SectionEntry &entry);
@@ -260,6 +285,7 @@ namespace ww::format
         void decodeAbstraction(const SectionEntry &entry);
         void decodeAltLandmarks(const SectionEntry &entry);
         void decodeTeleportAllowed(const SectionEntry &entry);
+        void decodeProvenance(const SectionEntry &entry);
         std::vector<float> decompressFloatTable(const AltTableDescriptor &desc, uint64_t sectionOffset) const;
         // Rescan transitionTable and rebuild globalOriginIndices. Called
         // after any change to the transition pool (decodeTransitions,
@@ -330,6 +356,9 @@ namespace ww::format
         std::vector<WildernessRegion> wildernessList;
         std::vector<NoTeleZone> noTeleList;
         uint32_t teleportCutoff{};
+
+        std::string provenanceDoc;
+        uint32_t provenanceDocSchema{};
     };
 }
 

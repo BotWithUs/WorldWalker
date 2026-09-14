@@ -327,6 +327,22 @@ namespace ww::build
             return section;
         }
 
+        // Provenance section payload: header + the UTF-8 JSON body, stored
+        // uncompressed (under a kilobyte, and a record nobody can read without
+        // running code is a worse record).
+        std::vector<uint8_t> buildProvenanceSection(const std::string &document)
+        {
+            using namespace ww::format;
+            ProvenanceSectionHeader header{};
+            header.schema = kProvenanceSchema;
+            header.jsonLength = static_cast<uint32_t>(document.size());
+
+            std::vector<uint8_t> section;
+            appendPod(section, header);
+            section.insert(section.end(), document.begin(), document.end());
+            return section;
+        }
+
         // Atomic write: serialize to `path.tmp`, flush + close, then rename
         // over `path`. A mid-write failure (disk full, signal, antivirus
         // delete) leaves the *temporary* corrupted file behind — not the
@@ -399,7 +415,7 @@ namespace ww::build
                        const AreaGraphModel &abstraction,
                        const AltLandmarksModel &altLandmarks,
                        const ww::data::TeleportZonesModel &teleportZones,
-                       uint32_t cacheRevision, uint32_t datasetHash)
+                       const ArtifactMeta &meta)
     {
         using namespace ww::format;
 
@@ -421,6 +437,10 @@ namespace ww::build
         {
             sections.push_back({SectionId::TeleportAllowed, buildTeleportSection(teleportZones)});
         }
+        if (!meta.provenanceJson.empty())
+        {
+            sections.push_back({SectionId::Provenance, buildProvenanceSection(meta.provenanceJson)});
+        }
 
         const uint32_t sectionCount = static_cast<uint32_t>(sections.size());
         const uint64_t directoryBytes = static_cast<uint64_t>(sectionCount) * sizeof(SectionEntry);
@@ -428,8 +448,8 @@ namespace ww::build
         ArtifactHeader header{};
         header.magic = kArtifactMagic;
         header.formatVersion = kArtifactFormatVersion;
-        header.cacheRevision = cacheRevision;
-        header.datasetHash = datasetHash;
+        header.cacheRevision = meta.cacheRevision;
+        header.datasetHash = meta.datasetHash;
         header.sectionCount = sectionCount;
 
         std::vector<uint8_t> file;

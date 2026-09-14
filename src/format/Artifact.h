@@ -38,15 +38,29 @@ namespace ww::format
         Abstraction     = 3,   // reserved — abstraction graph sub-step
         AltLandmarks    = 4,   // ALT landmark distance tables over the area graph
         TeleportAllowed = 5,   // wilderness regions + curated no-teleport zones
+        Provenance      = 6,   // what this artifact was baked from (JSON; see below)
     };
 
-    // File header at offset 0, fixed 64 bytes. cacheRevision + datasetHash let
-    // the runtime soft-warn on a stale artifact; formatVersion is a hard gate.
+    // File header at offset 0, fixed 64 bytes. formatVersion is a hard gate.
+    //
+    // datasetHash is trustworthy: FNV-1a over the bytes of the dataset files that
+    // were actually loaded (see ww::data::loadDatasets).
+    //
+    // cacheRevision is NOT trustworthy and must not be used to decide anything.
+    // wwbuild derives it from the mtimes of `main_file_cache.dat2` / `.js5`, two
+    // files that do not exist in an RS3 NXT cache directory (the NXT cache is a
+    // set of `js5-<N>.jcache` SQLite databases), so both stamps read 0 and the
+    // value collapses to a hash of the cache directory's own mtime — it moves
+    // when the client merely runs, and can sit still when the map data changes.
+    // The field is kept as-is so nothing downstream shifts behaviour, but the
+    // honest, machine-independent fingerprint of the baked map data is
+    // `collisionFingerprint` in the Provenance section. ADR 0005's soft-warn
+    // wants that one.
     struct ArtifactHeader
     {
         uint32_t magic;          // kArtifactMagic
         uint32_t formatVersion;  // kArtifactFormatVersion
-        uint32_t cacheRevision;  // RS build the collision was decoded from (0 = unknown)
+        uint32_t cacheRevision;  // legacy cache-dir mtime hash — see above, do not trust
         uint32_t datasetHash;    // hash of the transition datasets (0 until ingested)
         uint32_t sectionCount;   // number of SectionEntry records following the header
         uint32_t reserved[11];   // zero-filled padding to 64 bytes
@@ -334,7 +348,42 @@ namespace ww::format
         uint8_t  pad[2];     // zero-filled
     };
 
+    // ---- Provenance section --------------------------------------------------
+    //
+    // What this artifact was baked from, so "where did this file come from" has an
+    // answer that does not depend on anyone's memory. Purely descriptive: no
+    // runtime behaviour keys off it, and a reader that ignores it is correct.
+    //
+    // Payload layout (all offsets relative to the section start):
+    //   ProvenanceSectionHeader
+    //   char json[jsonLength]     (UTF-8, not null-terminated)
+    //
+    // The body is JSON rather than a POD struct on purpose: it is variable-length,
+    // human-read far more often than machine-read, and expected to gain fields.
+    // Freezing it into a versioned struct would buy nothing and cost a format bump
+    // every time a field is added; `schema` covers the compatibility that matters.
+    //
+    // Adding this section needs NO kArtifactFormatVersion bump, and must not get
+    // one: ArtifactReader has skipped unknown section ids since its first commit
+    // (in-range-but-unmapped ids take the `default` arm, out-of-range ids return
+    // early), so every reader ever shipped loads a provenanced artifact unchanged.
+    // A format bump, by contrast, is a hard refuse that would strand every client
+    // already in the field (ADR 0005). Verified by experiment, not just by reading:
+    // injecting this section into the shipping artifact left the full wwcli harness
+    // byte-identical. Note the reader bounds-checks the section entry BEFORE
+    // skipping it, so the offset/length must still be written correctly.
+    struct ProvenanceSectionHeader
+    {
+        uint32_t schema;      // provenance document schema (kProvenanceSchema)
+        uint32_t jsonLength;  // byte length of the UTF-8 JSON body that follows
+    };
+
+    // Bumped when the provenance JSON's meaning changes incompatibly. Readers
+    // should present an unrecognised schema as opaque rather than refuse the file.
+    inline constexpr uint32_t kProvenanceSchema = 1u;
+
     static_assert(sizeof(ArtifactHeader) == 64, "ArtifactHeader must be 64 bytes");
+    static_assert(sizeof(ProvenanceSectionHeader) == 8, "ProvenanceSectionHeader must be 8 bytes");
     static_assert(sizeof(SectionEntry) == 24, "SectionEntry must be 24 bytes");
     static_assert(sizeof(CollisionSectionHeader) == 8, "CollisionSectionHeader must be 8 bytes");
     static_assert(sizeof(CollisionSquareEntry) == 20, "CollisionSquareEntry must be 20 bytes");

@@ -596,89 +596,69 @@ namespace ww::data
             parseItemTeleports(j, model);
         }
 
-        // False when the file is absent (warned, skipped, and counted by the
-        // caller); true once a present file has been parsed into `model`.
-        bool loadOne(const std::string &directory, const char *filename, LoaderFn parser,
-                     TransitionModel &model, uint32_t &hash)
+        void fnv1a64(uint64_t &hash, const std::string &bytes)
+        {
+            for (const char ch : bytes)
+            {
+                hash ^= static_cast<uint8_t>(ch);
+                hash *= 1099511628211ull;
+            }
+        }
+
+        // Read one dataset file into `result`, folding its bytes into the running
+        // datasetHash and recording it in `result.files`. A missing file is
+        // warned about and skipped. The found/missing bookkeeping lives here
+        // rather than at each call site: it used to be an if/else repeated at
+        // every one of the six calls, which is six chances for the counters and
+        // the hash to disagree about which files were actually read.
+        void loadOne(const std::string &directory, const char *filename, LoaderFn parser,
+                     LoadedDatasets &result)
         {
             std::string text;
             const std::string path = directory + "/" + filename;
             if (!readFileBytes(path, text))
             {
                 std::fprintf(stderr, "wwbuild: dataset not found, skipping: %s\n", path.c_str());
-                return false;
+                ++result.filesMissing;
+                return;
             }
-            fnv1a(hash, text);
+            // Parse before recording anything: a malformed file throws out of
+            // here, and `result` should not be left claiming it read a file it
+            // could not use.
             const json j = json::parse(text);
-            parser(j, model);
-            return true;
+            parser(j, result.model);
+
+            fnv1a(result.datasetHash, text);
+            DatasetFileInfo info;
+            info.name = filename;
+            info.bytes = text.size();
+            info.fingerprint = 14695981039346656037ull;
+            fnv1a64(info.fingerprint, text);
+            result.files.push_back(std::move(info));
+            ++result.filesFound;
         }
     }
 
     LoadedDatasets loadDatasets(const std::string &directory)
     {
         LoadedDatasets result;
-        uint32_t hash = 2166136261u;
-        if (loadOne(directory, "transport_links.json", &parseTransportLinks, result.model, hash))
-        {
-            ++result.filesFound;
-        }
-        else
-        {
-            ++result.filesMissing;
-        }
-        if (loadOne(directory, "teleport_chains.json", &parseTeleportChains, result.model, hash))
-        {
-            ++result.filesFound;
-        }
-        else
-        {
-            ++result.filesMissing;
-        }
-        if (loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash))
-        {
-            ++result.filesFound;
-        }
-        else
-        {
-            ++result.filesMissing;
-        }
-        if (loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash))
-        {
-            ++result.filesFound;
-        }
-        else
-        {
-            ++result.filesMissing;
-        }
-        result.datasetHash = hash;
+        result.datasetHash = 2166136261u;
+        loadOne(directory, "transport_links.json", &parseTransportLinks, result);
+        loadOne(directory, "teleport_chains.json", &parseTeleportChains, result);
+        loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result);
+        loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result);
         return result;
     }
 
     LoadedDatasets loadGlobalTeleports(const std::string &directory)
     {
         LoadedDatasets result;
-        uint32_t hash = 2166136261u;
+        result.datasetHash = 2166136261u;
         // Only the global-origin teleport datasets. transport_links /
         // teleport_chains are local transitions wired into the baked area graph
         // and cannot be supplied at runtime, so they are deliberately skipped.
-        if (loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result.model, hash))
-        {
-            ++result.filesFound;
-        }
-        else
-        {
-            ++result.filesMissing;
-        }
-        if (loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result.model, hash))
-        {
-            ++result.filesFound;
-        }
-        else
-        {
-            ++result.filesMissing;
-        }
-        result.datasetHash = hash;
+        loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result);
+        loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result);
 
         // Defensive: keep only global-origin transitions. The two files above
         // produce global teleports today, but a non-global spell (origin_x set)

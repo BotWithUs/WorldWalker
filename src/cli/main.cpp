@@ -29,6 +29,7 @@
 #include <cstring>
 #include <exception>
 #include <filesystem>
+#include <string>
 #include <vector>
 
 // wwcli — WorldWalker dev harness (queries + benchmarks).
@@ -38,6 +39,63 @@
 // later Phase 3/6 steps.
 namespace
 {
+    // Pull one string field out of the provenance document. A hand-rolled scan
+    // rather than a JSON parse: wwcli is showing a few fields of a document it
+    // does not own, and linking a parser into the harness to print four lines
+    // would be the tail wagging the dog. Anything not found prints as
+    // "(unrecorded)", which is also the honest answer when the field is null.
+    std::string provenanceField(const std::string &document, const char *key)
+    {
+        const std::string needle = std::string("\"") + key + "\":";
+        const std::size_t at = document.find(needle);
+        if (at == std::string::npos)
+        {
+            return {};
+        }
+        const std::size_t valueAt = at + needle.size();
+        if (valueAt >= document.size() || document[valueAt] != '"')
+        {
+            return {};  // null, a number, or an object — not a string field
+        }
+        const std::size_t from = valueAt + 1;
+        const std::size_t to = document.find('"', from);
+        if (to == std::string::npos)
+        {
+            return {};
+        }
+        return document.substr(from, to - from);
+    }
+
+    const char *orUnrecorded(const std::string &value)
+    {
+        return value.empty() ? "(unrecorded)" : value.c_str();
+    }
+
+    // What the artifact says it was baked from. An artifact with no provenance
+    // section is not an error — every artifact baked before the section existed
+    // lacks one — but it is worth saying out loud, because "no record" is
+    // exactly the state this section was added to stop being normal.
+    void dumpProvenance(const ww::format::ArtifactReader &reader)
+    {
+        if (!reader.hasProvenance())
+        {
+            std::printf("  provenance: none recorded (baked before provenance existed, "
+                        "or by a tool that does not write it)\n");
+            return;
+        }
+        const std::string &document = reader.provenanceJson();
+        std::printf("  provenance: schema=%u built=%s by %s\n", reader.provenanceSchema(),
+                    orUnrecorded(provenanceField(document, "builtAtUtc")),
+                    orUnrecorded(provenanceField(document, "command")));
+        std::printf("    collision=%s cache=%s/%s\n",
+                    orUnrecorded(provenanceField(document, "collisionFingerprint")),
+                    orUnrecorded(provenanceField(document, "cacheId")),
+                    orUnrecorded(provenanceField(document, "cacheKind")));
+        std::printf("    source=%s datasets=%s\n",
+                    orUnrecorded(provenanceField(document, "sourceVersion")),
+                    orUnrecorded(provenanceField(document, "datasetVersion")));
+    }
+
     void dumpCollision(const ww::format::ArtifactReader &reader)
     {
         const auto squares = reader.collisionSquares();
@@ -941,6 +999,7 @@ namespace
         const ww::format::ArtifactInfo &info = reader.info();
         std::printf("  formatVersion=%u cacheRevision=%u datasetHash=0x%08x\n", info.formatVersion,
                     info.cacheRevision, info.datasetHash);
+        dumpProvenance(reader);
         dumpCollision(reader);
         std::printf("  transitions: %zu records, %zu requirements, %zu chain steps\n",
                     reader.transitions().size(), reader.requirements().size(),
@@ -1021,7 +1080,135 @@ namespace
         int (*run)(int argc, char **argv);
     };
 
+    // ---- check: the acceptance gate ----------------------------------------
+    //
+    // `wwcli <artifact>` already exits non-zero on a harness regression, but a
+    // gate needs more than "the harness did not trip": it needs to assert that
+    // the artifact is *complete* — every section present, nothing empty, every
+    // global teleport actually seedable, and a provenance record saying where it
+    // came from. Those are the properties a pull request changing datasets/ must
+    // preserve, and a human reading fifty lines of output is not an acceptance
+    // test.
+    struct CheckTally
+    {
+        std::size_t run{};
+        std::size_t failed{};
+    };
+
+    void record(CheckTally &tally, const char *name, bool isOk, const std::string &detail)
+    {
+        ++tally.run;
+        tally.failed += isOk ? 0u : 1u;
+        std::printf("check: %-14s %s  %s\n", name, isOk ? "PASS" : "FAIL", detail.c_str());
+    }
+
+    std::string countDetail(const char *label, std::size_t value)
+    {
+        return std::string(label) + "=" + std::to_string(value);
+    }
+
+    // Every section a full `wwbuild build` produces. A collision-only bake is a
+    // legitimate artifact but not a shippable one, and the two are otherwise
+    // indistinguishable without opening them — which is the confusion that put a
+    // June test fixture into production for three months.
+    void checkSections(const ww::format::ArtifactReader &reader, CheckTally &tally)
+    {
+        const bool isComplete = reader.hasCollision() && reader.hasTransitions()
+                             && reader.hasAbstraction() && reader.hasAltLandmarks()
+                             && reader.hasTeleportZones();
+        std::string detail = "collision/transitions/abstraction/alt/teleport";
+        if (!isComplete)
+        {
+            detail += " — missing:";
+            if (!reader.hasCollision())      { detail += " collision"; }
+            if (!reader.hasTransitions())    { detail += " transitions"; }
+            if (!reader.hasAbstraction())    { detail += " abstraction"; }
+            if (!reader.hasAltLandmarks())   { detail += " alt"; }
+            if (!reader.hasTeleportZones())  { detail += " teleport"; }
+        }
+        record(tally, "sections", isComplete, detail);
+    }
+
+    void checkPopulated(const ww::format::ArtifactReader &reader, CheckTally &tally)
+    {
+        const std::size_t squares = reader.collisionSquares().size();
+        const std::size_t transitions = reader.transitions().size();
+        const std::size_t areas = reader.areaNodes().size();
+        const std::size_t edges = reader.areaEdges().size();
+        const bool isPopulated = squares > 0 && transitions > 0 && areas > 0 && edges > 0;
+        record(tally, "populated", isPopulated,
+               countDetail("squares", squares) + " " + countDetail("transitions", transitions)
+                   + " " + countDetail("areas", areas) + " " + countDetail("edges", edges)
+                   + " " + countDetail("landmarks", reader.landmarkCount()));
+    }
+
+    // Every global teleport must land somewhere the planner can seed from. One
+    // that does not is dead weight the planner silently never uses — the failure
+    // mode reads downstream as "pathing ignores my teleport", not as a bad bake.
+    void checkTeleports(ww::format::ArtifactReader &reader, const char *datasetDir,
+                        CheckTally &tally)
+    {
+        const std::size_t appended = ww::runtime::loadGlobalTeleportsInto(reader, datasetDir);
+        ww::runtime::WorldView view(reader);
+        const auto txs = reader.transitions();
+        std::size_t globals = 0;
+        std::size_t seedable = 0;
+        for (const ww::format::TransitionRecord &tx : txs)
+        {
+            if ((tx.flags & ww::format::kTransitionFlagGlobalOrigin) == 0u)
+            {
+                continue;
+            }
+            ++globals;
+            seedable += view.areaAt(tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane)) >= 0
+                            ? 1u : 0u;
+        }
+        record(tally, "teleports", globals > 0 && seedable == globals,
+               countDetail("appended", appended) + " " + countDetail("global", globals) + " "
+                   + countDetail("seedable", seedable));
+    }
+
+    int runCheck(int argc, char **argv)
+    {
+        const char *artifactPath = argv[0];
+        const char *datasetDir = argc >= 2 ? argv[1] : nullptr;
+        try
+        {
+            ww::format::ArtifactReader reader(artifactPath);
+            std::printf("artifact: %s\n", artifactPath);
+
+            CheckTally tally;
+            record(tally, "load", true, std::string("formatVersion=")
+                       + std::to_string(reader.info().formatVersion));
+            checkSections(reader, tally);
+            checkPopulated(reader, tally);
+            record(tally, "provenance", reader.hasProvenance(),
+                   reader.hasProvenance()
+                       ? "schema=" + std::to_string(reader.provenanceSchema())
+                       : "no provenance section — re-bake with a wwbuild that writes one");
+            if (datasetDir != nullptr)
+            {
+                checkTeleports(reader, datasetDir, tally);
+            }
+            else
+            {
+                std::printf("check: %-14s SKIP  pass a dataset dir to check global teleports\n",
+                            "teleports");
+            }
+
+            std::printf("check: %zu of %zu failed\n", tally.failed, tally.run);
+            return tally.failed > 0 ? 1 : 0;
+        }
+        catch (const std::exception &e)
+        {
+            std::printf("check: load  FAIL  %s\n", e.what());
+            std::printf("check: 1 of 1 failed\n");
+            return 1;
+        }
+    }
+
     constexpr Subcommand kSubcommands[] = {
+        {"check",      1, "wwcli check <artifact.wwa> [<dataset_dir>]", runCheck},
         {"crosscheck", 2, "wwcli crosscheck <artifact.wwa> <collision_map.bin>",
          runCrossCheckCmd},
         {"walltest",   0, "wwcli walltest", runWallShapeTestsCmd},

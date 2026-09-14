@@ -4,6 +4,7 @@
 #include "build/CacheClient.h"
 #include "build/CollisionBuilder.h"
 #include "build/CollisionLookup.h"
+#include "build/Provenance.h"
 #include "data/CrossingDeriver.h"
 #include "data/DatasetLoader.h"
 #include "data/FreshnessDeriver.h"
@@ -36,8 +37,14 @@ namespace
     {
         std::printf("wwbuild - WorldWalker offline artifact builder\n");
         std::printf("usage:\n");
-        std::printf("  wwbuild collision <cache_dir> <out.wwa> [--live]\n");
-        std::printf("  wwbuild build <cache_dir> <dataset_dir> <out.wwa> [--live]\n");
+        std::printf("  wwbuild collision <cache_dir> <out.wwa> [options]\n");
+        std::printf("  wwbuild build <cache_dir> <dataset_dir> <out.wwa> [options]\n");
+        std::printf("options:\n");
+        std::printf("  --live                      complete missing cache data from the live JS5 servers\n");
+        std::printf("  --allow-missing-datasets    bake even when the dataset dir holds none of them\n");
+        std::printf("  --source-version <v>        record this as the WorldWalker revision baked from\n");
+        std::printf("  --dataset-version <v>       record this as the datasets/ revision baked from\n");
+        std::printf("  --no-sidecar                skip writing <out.wwa>.json beside the artifact\n");
         return 2;
     }
 
@@ -48,7 +55,28 @@ namespace
     {
         bool isLive{false};
         bool allowMissingDatasets{false};
+        bool writeSidecar{true};
+        // Recorded verbatim into the provenance section. wwbuild does not shell
+        // out to git to discover them: a build tool guessing at its own version
+        // is how a wrong answer gets recorded confidently. The caller knows
+        // (bake.ps1 passes `git describe`); when nobody says, it stays null.
+        std::string sourceVersion;
+        std::string datasetVersion;
     };
+
+    // Reads the value of a `--flag <value>` pair. Returns false (having
+    // complained) when the value is missing, so a trailing `--source-version`
+    // fails the run instead of silently recording nothing.
+    bool takeValue(int argc, char **argv, int &i, const char *name, std::string &outValue)
+    {
+        if (i + 1 >= argc)
+        {
+            std::fprintf(stderr, "wwbuild: %s needs a value\n", name);
+            return false;
+        }
+        outValue = argv[++i];
+        return true;
+    }
 
     bool parseFlags(int argc, char **argv, int first, BuildFlags &outFlags)
     {
@@ -62,6 +90,24 @@ namespace
             {
                 outFlags.allowMissingDatasets = true;
             }
+            else if (std::strcmp(argv[i], "--no-sidecar") == 0)
+            {
+                outFlags.writeSidecar = false;
+            }
+            else if (std::strcmp(argv[i], "--source-version") == 0)
+            {
+                if (!takeValue(argc, argv, i, "--source-version", outFlags.sourceVersion))
+                {
+                    return false;
+                }
+            }
+            else if (std::strcmp(argv[i], "--dataset-version") == 0)
+            {
+                if (!takeValue(argc, argv, i, "--dataset-version", outFlags.datasetVersion))
+                {
+                    return false;
+                }
+            }
             else
             {
                 std::fprintf(stderr, "wwbuild: unknown option %s\n", argv[i]);
@@ -71,32 +117,45 @@ namespace
         return true;
     }
 
-    // Poor-man's cache revision: hash the mtimes of the primary NXTCache data
-    // files (main_file_cache.dat2 + .js5, with directory mtime as fallback)
-    // into a stable uint32. NXTCacheLibrary's C ABI does not yet expose the
-    // engine's own cache revision; once it does, route that through here
-    // instead. Until then, an mtime-derived value is enough for the runtime's
-    // "soft-warn on stale artifact" path to function — it changes every time
-    // the cache does, which is the contract that matters.
+    int64_t stampOf(const std::filesystem::path &path)
+    {
+        std::error_code ec;
+        const auto t = std::filesystem::last_write_time(path, ec);
+        if (ec)
+        {
+            return 0;
+        }
+        return t.time_since_epoch().count();
+    }
+
+    // The header's legacy cacheRevision. IT DOES NOT MEAN WHAT ITS NAME SAYS,
+    // and it is computed here unchanged only so nothing downstream shifts
+    // behaviour in the commit that adds provenance.
+    //
+    // The two filenames below do not exist. An RS3 NXT cache directory is a set
+    // of `js5-<N>.jcache` SQLite databases (see NXTCacheLibrary's RSCache::index,
+    // which opens exactly that and nothing else); `main_file_cache.dat2` / `.js5`
+    // are the *old Java client's* layout and appear nowhere else in this
+    // workspace. So both stamps read 0 on every machine, always have, and the
+    // hash collapses to a function of the cache directory's own mtime — which
+    // moves when the client merely runs, and can sit still when the map data
+    // changes. ADR 0005's "soft-warn on a stale artifact" has therefore never
+    // worked.
+    //
+    // Do not "fix" this in place: changing the value changes what every shipped
+    // client compares against. The honest fingerprint is collisionFingerprint in
+    // the provenance record, and repointing the runtime at it is a deliberate
+    // behaviour change that belongs in its own commit.
     uint32_t deriveCacheRevision(const std::string &cacheDir)
     {
         namespace fs = std::filesystem;
-        auto stamp = [](const fs::path &p) -> int64_t
-        {
-            std::error_code ec;
-            const auto t = fs::last_write_time(p, ec);
-            if (ec) { return 0; }
-            return t.time_since_epoch().count();
-        };
         const fs::path dir(cacheDir);
         const int64_t parts[] = {
-            stamp(dir / "main_file_cache.dat2"),
-            stamp(dir / "main_file_cache.js5"),
-            stamp(dir),
+            stampOf(dir / "main_file_cache.dat2"),  // always 0 — see above
+            stampOf(dir / "main_file_cache.js5"),   // always 0 — see above
+            stampOf(dir),
         };
-        // FNV-1a 32 over the three mtime words. A non-existent file
-        // contributes 0; the resulting hash still changes when one of the
-        // others does.
+        // FNV-1a 32 over the three mtime words.
         uint32_t h = 2166136261u;
         for (const int64_t v : parts)
         {
@@ -108,6 +167,85 @@ namespace
             }
         }
         return h;
+    }
+
+    // The final component of the cache path, and nothing else. The path as given
+    // is routinely under C:\Users\<name>, and a developer's username has no
+    // business travelling inside an artifact that gets shipped or attached to a
+    // pull request. This is not a private-repo-only precaution: a file written
+    // under one policy outlives the era it was written in.
+    std::string cacheIdOf(const std::string &cacheDir)
+    {
+        std::filesystem::path path(cacheDir);
+        if (path.has_filename())
+        {
+            return path.filename().string();
+        }
+        return path.parent_path().filename().string();
+    }
+
+    // Assemble the record that answers "what was this baked from". `command`
+    // distinguishes a full `build` from a collision-only bake, because the two
+    // produce artifacts that are not interchangeable and are easy to confuse
+    // once they are two files in a directory.
+    ww::build::BakeProvenance describeBake(const char *command, const std::string &cacheDir,
+                                           const BuildFlags &flags,
+                                           const ww::build::CollisionModel &collision)
+    {
+        ww::build::BakeProvenance provenance;
+        provenance.builtAtUtc = ww::build::utcTimestamp();
+        provenance.command = command;
+        provenance.sourceVersion = flags.sourceVersion;
+        provenance.datasetVersion = flags.datasetVersion;
+        provenance.wwbuildBuiltAt = std::string(__DATE__) + " " + __TIME__;
+        provenance.cacheId = cacheIdOf(cacheDir);
+        provenance.cacheKind = flags.isLive ? "local+live" : "local";
+        provenance.cacheDirMtime = stampOf(std::filesystem::path(cacheDir));
+        provenance.collisionFingerprint = ww::build::collisionFingerprint(collision);
+        provenance.squares = collision.squares.size();
+        return provenance;
+    }
+
+    // Write the artifact, then the sidecar beside it. The sidecar carries the
+    // same document the artifact embeds: the deploy script, a reviewer reading a
+    // pull request, and anyone asking what shipped should not need a C++ tool
+    // and a 10 MB binary to read 800 bytes of text. Silent, so the caller keeps
+    // control of the report order — nothing should announce a write before the
+    // write has actually happened.
+    void emitArtifact(const std::string &outPath, const BuildFlags &flags,
+                      const ww::build::BakeProvenance &provenance,
+                      const ww::build::CollisionModel &collision,
+                      const ww::data::TransitionModel &transitions,
+                      const ww::build::AreaGraphModel &abstraction,
+                      const ww::build::AltLandmarksModel &landmarks,
+                      const ww::data::TeleportZonesModel &teleportZones,
+                      uint32_t cacheRevision, uint32_t datasetHash)
+    {
+        ww::build::ArtifactMeta meta;
+        meta.cacheRevision = cacheRevision;
+        meta.datasetHash = datasetHash;
+        meta.provenanceJson = ww::build::renderProvenanceJson(provenance);
+
+        ww::build::writeArtifact(outPath, collision, transitions, abstraction, landmarks,
+                                 teleportZones, meta);
+        if (flags.writeSidecar)
+        {
+            ww::build::writeProvenanceSidecar(outPath + ".json", meta.provenanceJson);
+        }
+    }
+
+    void reportProvenance(const std::string &outPath, const BuildFlags &flags,
+                          const ww::build::BakeProvenance &provenance)
+    {
+        std::printf("  provenance: collision=%s cache=%s/%s source=%s datasets=%s\n",
+                    ww::build::hexOf(provenance.collisionFingerprint).c_str(),
+                    provenance.cacheId.c_str(), provenance.cacheKind.c_str(),
+                    provenance.sourceVersion.empty() ? "(unrecorded)" : provenance.sourceVersion.c_str(),
+                    provenance.datasetVersion.empty() ? "(unrecorded)" : provenance.datasetVersion.c_str());
+        if (flags.writeSidecar)
+        {
+            std::printf("  sidecar: %s.json\n", outPath.c_str());
+        }
     }
 
     int runCollision(int argc, char **argv)
@@ -134,12 +272,14 @@ namespace
                                      "(is this a RuneScape cache directory?)\n", cacheDir.c_str());
                 return 1;
             }
-            ww::build::writeArtifact(outPath, model, ww::data::TransitionModel{},
-                                     ww::build::AreaGraphModel{}, ww::build::AltLandmarksModel{},
-                                     ww::data::TeleportZonesModel{},
-                                     deriveCacheRevision(cacheDir), 0u);
+            const ww::build::BakeProvenance provenance =
+                describeBake("collision", cacheDir, flags, model);
+            emitArtifact(outPath, flags, provenance, model, ww::data::TransitionModel{},
+                         ww::build::AreaGraphModel{}, ww::build::AltLandmarksModel{},
+                         ww::data::TeleportZonesModel{}, deriveCacheRevision(cacheDir), 0u);
             std::printf("collision: %zu squares written to %s (%d archives skipped)\n",
                         model.squares.size(), outPath.c_str(), decoded.skippedArchives);
+            reportProvenance(outPath, flags, provenance);
             return 0;
         }
         catch (const std::exception &e)
@@ -215,6 +355,43 @@ namespace
         return out;
     }
 
+    // The per-phase bake summary. Lifted out of runBuild because it is a dozen
+    // printfs that say nothing about control flow, and burying the sequence of
+    // build steps under them made the one thing runBuild is for hard to read.
+    void reportBuild(const std::string &outPath, const ww::build::CollisionModel &collision,
+                     const TransitionBuildResult &tr, const ww::build::AreaGraphReport &ag,
+                     const ww::build::AltLandmarksReport &alt,
+                     const ww::data::TeleportZonesModel &teleportZones)
+    {
+        std::printf("build: %zu squares, %zu/%zu transitions -> %s\n",
+                    collision.squares.size(), tr.finalize.kept, tr.finalize.input,
+                    outPath.c_str());
+        std::printf("  dropped: dangling=%zu selfloop=%zu dup=%zu | snapped dest=%zu\n",
+                    tr.finalize.droppedDangling, tr.finalize.droppedSelfLoop,
+                    tr.finalize.droppedDuplicate, tr.finalize.snappedDest);
+        std::printf("  freshness: %zu vertical pairs -> +%zu derived (%zu suppressed by datasets, %zu climb-dir mismatch, %zu no-option)\n",
+                    tr.freshness.pairsFound, tr.freshness.kept,
+                    tr.freshness.droppedDatasetConflict,
+                    tr.freshness.droppedClimbMismatch,
+                    tr.freshness.droppedNoOption);
+        std::printf("  doors: %zu crossings -> +%zu directed hops (%zu suppressed by datasets, %zu blocked-origin, %zu no-option, %zu no-edge, %zu foreign-edge)\n",
+                    tr.doors.doorCrossings, tr.doors.emitted,
+                    tr.doors.droppedDatasetConflict,
+                    tr.doors.blockedOrigin, tr.doors.noOption, tr.doors.noEdge,
+                    tr.doors.foreignEdgeSkipped);
+        std::printf("  areas: %zu nodes, %zu edges, %zu grids (largest %zu tiles)\n",
+                    ag.areaCount, ag.edgeCount, ag.gridCount, ag.largestArea);
+        std::printf("  adjacency: %zu transitions linked | unresolved origin=%zu dest=%zu | "
+                    "intra-only=%zu intra-edges=%zu global=%zu\n",
+                    ag.resolvedTransitions, ag.unresolvedOrigin, ag.unresolvedDest,
+                    ag.intraAreaOnly, ag.intraAreaSkipped, ag.globalSkipped);
+        std::printf("  landmarks: %zu chosen from %zu candidate areas | reachable entries=%zu\n",
+                    alt.landmarkCount, alt.candidateAreas, alt.reachablePairs);
+        std::printf("  teleport zones: %zu wilderness regions, %zu no-tele zones (cutoff=%u)\n",
+                    teleportZones.wilderness.size(), teleportZones.noTele.size(),
+                    static_cast<unsigned>(teleportZones.defaultWildernessCutoff));
+    }
+
     int runBuild(int argc, char **argv)
     {
         if (argc < 5)
@@ -275,37 +452,20 @@ namespace
 
             const ww::data::TeleportZonesModel teleportZones = ww::data::buildTeleportZones();
 
-            ww::build::writeArtifact(outPath, collision, tr.transitions, abstraction, landmarks,
-                                     teleportZones, deriveCacheRevision(cacheDir),
-                                     tr.datasetHash);
+            ww::build::BakeProvenance provenance = describeBake("build", cacheDir, flags, collision);
+            provenance.datasetHash = tr.datasetHash;
+            provenance.datasetFiles = datasets.files;
+            provenance.transitions = tr.transitions.transitions.size();
+            provenance.areas = ag.areaCount;
+            provenance.edges = ag.edgeCount;
+            provenance.landmarks = alt.landmarkCount;
+            provenance.teleportZones = teleportZones.wilderness.size() + teleportZones.noTele.size();
 
-            std::printf("build: %zu squares, %zu/%zu transitions -> %s\n",
-                        collision.squares.size(), tr.finalize.kept, tr.finalize.input,
-                        outPath.c_str());
-            std::printf("  dropped: dangling=%zu selfloop=%zu dup=%zu | snapped dest=%zu\n",
-                        tr.finalize.droppedDangling, tr.finalize.droppedSelfLoop,
-                        tr.finalize.droppedDuplicate, tr.finalize.snappedDest);
-            std::printf("  freshness: %zu vertical pairs -> +%zu derived (%zu suppressed by datasets, %zu climb-dir mismatch, %zu no-option)\n",
-                        tr.freshness.pairsFound, tr.freshness.kept,
-                        tr.freshness.droppedDatasetConflict,
-                        tr.freshness.droppedClimbMismatch,
-                        tr.freshness.droppedNoOption);
-            std::printf("  doors: %zu crossings -> +%zu directed hops (%zu suppressed by datasets, %zu blocked-origin, %zu no-option, %zu no-edge, %zu foreign-edge)\n",
-                        tr.doors.doorCrossings, tr.doors.emitted,
-                        tr.doors.droppedDatasetConflict,
-                        tr.doors.blockedOrigin, tr.doors.noOption, tr.doors.noEdge,
-                        tr.doors.foreignEdgeSkipped);
-            std::printf("  areas: %zu nodes, %zu edges, %zu grids (largest %zu tiles)\n",
-                        ag.areaCount, ag.edgeCount, ag.gridCount, ag.largestArea);
-            std::printf("  adjacency: %zu transitions linked | unresolved origin=%zu dest=%zu | "
-                        "intra-only=%zu intra-edges=%zu global=%zu\n",
-                        ag.resolvedTransitions, ag.unresolvedOrigin, ag.unresolvedDest,
-                        ag.intraAreaOnly, ag.intraAreaSkipped, ag.globalSkipped);
-            std::printf("  landmarks: %zu chosen from %zu candidate areas | reachable entries=%zu\n",
-                        alt.landmarkCount, alt.candidateAreas, alt.reachablePairs);
-            std::printf("  teleport zones: %zu wilderness regions, %zu no-tele zones (cutoff=%u)\n",
-                        teleportZones.wilderness.size(), teleportZones.noTele.size(),
-                        static_cast<unsigned>(teleportZones.defaultWildernessCutoff));
+            emitArtifact(outPath, flags, provenance, collision, tr.transitions, abstraction,
+                         landmarks, teleportZones, deriveCacheRevision(cacheDir), tr.datasetHash);
+
+            reportBuild(outPath, collision, tr, ag, alt, teleportZones);
+            reportProvenance(outPath, flags, provenance);
             return 0;
         }
         catch (const std::exception &e)
@@ -314,6 +474,7 @@ namespace
             return 1;
         }
     }
+
 }
 
 int main(int argc, char **argv)

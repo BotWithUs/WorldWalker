@@ -177,6 +177,7 @@ set(wwbuild_SOURCES
 	"src/build/CacheClient.cpp"
 	"src/build/CollisionBuilder.cpp"
 	"src/build/CollisionLookup.cpp"
+	"src/build/Provenance.cpp"
 	"src/build/main.cpp"
 	"src/data/CrossingDeriver.cpp"
 	"src/data/FreshnessDeriver.cpp"
