@@ -4,7 +4,10 @@
 
 # Local Release cmkr generator (the cmkr.cmake bootstrap builds a Debug cmkr
 # that asserts on this project's cmake.toml; we use a prebuilt Release one).
-/tools/
+# Ignore the binary, NOT all of /tools/ -- tools/viewer/ is tracked source that
+# cmake.toml references.
+/tools/cmkr.exe
+/tools/.idea/
 
 # IDE files
 /.idea/

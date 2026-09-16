@@ -1,0 +1,51 @@
+WorldWalker
+Copyright (c) 2026 BotWithUs
+
+This product includes software developed by the WorldWalker contributors,
+licensed under the MIT License (see LICENSE).
+
+--------------------------------------------------------------------------------
+Third-party data
+--------------------------------------------------------------------------------
+
+The curated transition datasets in `datasets/` -- `transport_links.json`,
+`spell_teleports.json`, and `item_teleports.json` -- are not original to this
+project. They derive from the community-maintained "Gibson" transport data and
+the `nav_data` export, and have since been reformatted, consolidated, and
+extended for WorldWalker's schema.
+
+Credit for the original survey work belongs to those upstream maintainers.
+
+The MIT license in LICENSE is WorldWalker's grant over its own source code. It
+is NOT a license over these data files, and is not a claim of authorship over
+the upstream work they descend from. Their upstream terms could not be
+established -- see the provenance section of datasets/README.md -- so treat them
+as unknown rather than permissive, and do not assume MIT terms when reusing them
+in another project.
+
+If you are an upstream maintainer and want the attribution worded differently --
+or the files removed -- please open an issue.
+
+The datasets record factual game data (tile coordinates, interface and varbit
+ids, tick costs). They contain no RuneScape game assets, no cache contents, and
+no decryption keys.
+
+--------------------------------------------------------------------------------
+Third-party dependencies
+--------------------------------------------------------------------------------
+
+Fetched at configure time via vcpkg; each carries its own license:
+
+  zlib            (zlib License)      -- artifact section compression
+  nlohmann/json   (MIT License)       -- dataset parsing
+  cmkr            (MIT License)       -- CMakeLists.txt generation from cmake.toml
+
+--------------------------------------------------------------------------------
+Trademarks
+--------------------------------------------------------------------------------
+
+RuneScape is a trademark of Jagex Limited. WorldWalker is an independent,
+unofficial project. It is not affiliated with, endorsed by, or sponsored by
+Jagex Limited. No Jagex code, game assets, or cache data are distributed here;
+WorldWalker reads a cache that the user's own installed client has already
+downloaded.

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WorldWalker path viewer</title>
+<link rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin="">
+<style>
+    html, body { margin: 0; padding: 0; height: 100%; font: 13px system-ui, sans-serif; }
+    #map { position: absolute; inset: 0 0 0 240px; }
+    #side {
+        position: absolute; top: 0; left: 0; bottom: 0; width: 240px;
+        background: #111; color: #ddd; padding: 12px 14px; overflow-y: auto;
+        box-shadow: inset -1px 0 0 #333;
+    }
+    h1 { font-size: 14px; margin: 0 0 10px; color: #fff; letter-spacing: 0.5px; }
+    .section { margin: 14px 0 0; }
+    .section > .label { font-size: 11px; color: #888; text-transform: uppercase;
+                        letter-spacing: 1px; margin-bottom: 4px; }
+    .plane-row label { display: inline-block; margin-right: 8px; cursor: pointer; }
+    #file { width: 100%; color: #aaa; }
+    #stats { font-family: ui-monospace, Consolas, monospace; font-size: 12px; line-height: 1.55;
+             color: #cde; white-space: pre; }
+    #stats .dim { color: #777; }
+    .legend { font-family: ui-monospace, monospace; font-size: 11px; line-height: 1.7; }
+    .legend .sw { display: inline-block; width: 10px; height: 10px; margin-right: 6px;
+                  vertical-align: middle; border-radius: 50%; }
+    .legend .sw.start    { background: #4ade80; }
+    .legend .sw.goal     { background: #f87171; }
+    .legend .sw.walk     { background: #38bdf8; }
+    .legend .sw.transit  { background: #fbbf24; border-radius: 2px; }
+    .legend .sw.dest     { background: #fbbf24; border: 1px dashed #fbbf24; opacity: 0.6;
+                           border-radius: 2px; }
+    .coord-readout {
+        position: absolute; bottom: 8px; right: 8px; z-index: 1000;
+        background: rgba(0,0,0,0.65); color: #fff; padding: 3px 8px;
+        font: 12px ui-monospace, Consolas, monospace; border-radius: 3px;
+        pointer-events: none;
+    }
+</style>
+</head>
+<body>
+<div id="side">
+    <h1>WorldWalker Viewer</h1>
+    <div class="section">
+        <div class="label">Plane</div>
+        <div class="plane-row" id="plane-row">
+            <label><input type="radio" name="plane" value="0" checked> 0</label>
+            <label><input type="radio" name="plane" value="1"> 1</label>
+            <label><input type="radio" name="plane" value="2"> 2</label>
+            <label><input type="radio" name="plane" value="3"> 3</label>
+        </div>
+    </div>
+    <div class="section">
+        <div class="label">Icons overlay</div>
+        <label><input type="checkbox" id="icons-toggle"> Show map icons</label>
+    </div>
+    <div class="section">
+        <div class="label">Load path</div>
+        <input type="file" id="file" accept=".json,application/json">
+        <div class="dim" style="margin-top:6px;">…or drop a path.json on the map.</div>
+    </div>
+    <div class="section">
+        <div class="label">Path</div>
+        <div id="stats"><span class="dim">no path loaded</span></div>
+    </div>
+    <div class="section">
+        <div class="label">Legend</div>
+        <div class="legend">
+            <div><span class="sw start"></span>start</div>
+            <div><span class="sw goal"></span>goal</div>
+            <div><span class="sw walk"></span>walk step</div>
+            <div><span class="sw transit"></span>transition (this plane)</div>
+            <div><span class="sw dest"></span>transition dest (other plane)</div>
+        </div>
+    </div>
+</div>
+<div id="map"></div>
+<div id="coord" class="coord-readout">—</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+<script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
+<script src="viewer.js"></script>
+</body>
+</html>
