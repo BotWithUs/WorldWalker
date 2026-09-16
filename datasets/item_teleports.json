@@ -6,6 +6,10 @@
       "open_option": 1,
       "select_interface": 1092,
       "select_option": 1,
+      "spell_interface": 1461,
+      "spell_component": 1,
+      "spell_option": 1,
+      "filter_varbit": 50990,
       "open_wait": 6,
       "teleport_wait": 18,
       "default_cost": 80.0,
@@ -18,6 +22,7 @@
         "y": 2955,
         "plane": 0,
         "component": 8,
+        "spell_slot": 222,
         "requirements": {
           "varbit": {
             "id": 9482,
@@ -35,6 +40,7 @@
         "y": 3912,
         "plane": 0,
         "component": 9,
+        "spell_slot": 235,
         "requirements": {
           "varbit": {
             "id": 10236,
@@ -52,6 +58,7 @@
         "y": 3185,
         "plane": 0,
         "component": 10,
+        "spell_slot": 218,
         "requirements": {
           "varbit": {
             "id": 28,
@@ -69,6 +76,7 @@
         "y": 3349,
         "plane": 0,
         "component": 11,
+        "spell_slot": 220,
         "requirements": {
           "varbit": {
             "id": 29,
@@ -86,6 +94,7 @@
         "y": 3545,
         "plane": 0,
         "component": 12,
+        "spell_slot": 223,
         "requirements": {
           "varbit": {
             "id": 30,
@@ -103,6 +112,7 @@
         "y": 3450,
         "plane": 0,
         "component": 13,
+        "spell_slot": 225,
         "requirements": {
           "varbit": {
             "id": 31,
@@ -120,6 +130,7 @@
         "y": 3299,
         "plane": 0,
         "component": 14,
+        "spell_slot": 227,
         "requirements": {
           "varbit": {
             "id": 32,
@@ -137,6 +148,7 @@
         "y": 3506,
         "plane": 0,
         "component": 15,
+        "spell_slot": 229,
         "requirements": {
           "varbit": {
             "id": 33,
@@ -154,6 +166,7 @@
         "y": 3404,
         "plane": 0,
         "component": 16,
+        "spell_slot": 230,
         "requirements": {
           "varbit": {
             "id": 34,
@@ -171,6 +184,7 @@
         "y": 3222,
         "plane": 0,
         "component": 17,
+        "spell_slot": 234,
         "requirements": {
           "varbit": {
             "id": 35,
@@ -188,6 +202,7 @@
         "y": 3216,
         "plane": 0,
         "component": 18,
+        "spell_slot": 238,
         "requirements": {
           "varbit": {
             "id": 36,
@@ -205,6 +220,7 @@
         "y": 3483,
         "plane": 0,
         "component": 19,
+        "spell_slot": 240,
         "requirements": {
           "varbit": {
             "id": 37,
@@ -222,6 +238,7 @@
         "y": 3443,
         "plane": 0,
         "component": 20,
+        "spell_slot": 241,
         "requirements": {
           "varbit": {
             "id": 38,
@@ -239,6 +256,7 @@
         "y": 3377,
         "plane": 0,
         "component": 21,
+        "spell_slot": 243,
         "requirements": {
           "varbit": {
             "id": 39,
@@ -256,6 +274,7 @@
         "y": 3526,
         "plane": 0,
         "component": 22,
+        "spell_slot": 231,
         "requirements": {
           "varbit": {
             "id": 52518,
@@ -273,6 +292,7 @@
         "y": 2717,
         "plane": 0,
         "component": 23,
+        "spell_slot": 236,
         "requirements": {
           "varbit": {
             "id": 36173,
@@ -294,6 +314,7 @@
         "y": 2339,
         "plane": 0,
         "component": 24,
+        "spell_slot": 219,
         "requirements": {
           "varbit": {
             "id": 44270,
@@ -311,6 +332,7 @@
         "y": 3095,
         "plane": 0,
         "component": 25,
+        "spell_slot": 245,
         "requirements": {
           "varbit": {
             "id": 40,
@@ -328,6 +350,7 @@
         "y": 3516,
         "plane": 0,
         "component": 26,
+        "spell_slot": 224,
         "requirements": {
           "varbit": {
             "id": 18523,
@@ -345,6 +368,7 @@
         "y": 3480,
         "plane": 0,
         "component": 27,
+        "spell_slot": 228,
         "requirements": {
           "varbit": {
             "id": 18524,
@@ -362,6 +386,7 @@
         "y": 3678,
         "plane": 0,
         "component": 28,
+        "spell_slot": 232,
         "requirements": {
           "varbit": {
             "id": 18525,
@@ -379,6 +404,7 @@
         "y": 3148,
         "plane": 0,
         "component": 29,
+        "spell_slot": 233,
         "requirements": {
           "varbit": {
             "id": 18526,
@@ -396,6 +422,7 @@
         "y": 2872,
         "plane": 0,
         "component": 30,
+        "spell_slot": 237,
         "requirements": {
           "varbit": {
             "id": 18527,
@@ -413,6 +440,7 @@
         "y": 3150,
         "plane": 0,
         "component": 31,
+        "spell_slot": 242,
         "requirements": {
           "varbit": {
             "id": 18528,
@@ -434,6 +462,7 @@
         "y": 3636,
         "plane": 0,
         "component": 32,
+        "spell_slot": 244,
         "requirements": {
           "varbit": {
             "id": 18529,
@@ -451,6 +480,7 @@
         "y": 2709,
         "plane": 2,
         "component": 33,
+        "spell_slot": 221,
         "requirements": {
           "varbit": {
             "id": 22430,
@@ -468,6 +498,7 @@
         "y": 3361,
         "plane": 1,
         "component": 34,
+        "spell_slot": 239,
         "requirements": {
           "varbit": {
             "id": 24967,
@@ -489,6 +520,7 @@
         "y": 1768,
         "plane": 1,
         "component": 35,
+        "spell_slot": 226,
         "requirements": {
           "varbit": {
             "id": 53270,
@@ -506,6 +538,7 @@
         "y": 1520,
         "plane": 0,
         "component": 40,
+        "spell_slot": 259,
         "requirements": {
           "varbit": {
             "id": 60739,

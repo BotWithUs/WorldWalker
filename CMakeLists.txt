@@ -218,6 +218,7 @@ set(wwcli_SOURCES
 	"src/cli/ExecutorTests.cpp"
 	"src/cli/HarnessPicks.cpp"
 	"src/cli/InstanceTests.cpp"
+	"src/cli/LodestoneTests.cpp"
 	"src/cli/PathExport.cpp"
 	"src/cli/ScriptedPaths.cpp"
 	"src/cli/WallShapeTests.cpp"
