@@ -49,25 +49,72 @@ if(MSVC)
     add_compile_options(/W4 /WX /permissive- /Zc:preprocessor /utf-8)
 endif()
 
-# wwbuild decodes the RS cache through the NXTCache C ABI (offline only). Import
+# wwbuild decodes the RS cache through the NXTCache C ABI (offline only), from
 # the prebuilt DLL + import lib produced by NXTCacheLibrary's `cmake -B build`.
-# Override NXTCACHE_BUILD_DIR to point elsewhere; it must contain
-# <CONFIG>/NXTCache.{lib,dll}. The DLL must be on PATH (or beside wwbuild.exe)
-# at run time.
+# That sibling is not public, so it may simply be absent.
+#
+# Absent is a supported configuration. `worldwalker` and `wwcli` link only zlib
+# and nlohmann_json, so everything except baking still builds; wwbuild is
+# dropped from the build instead of failing it. Auto-detected here, overridable
+# with -DWORLDWALKER_BUILD_WWBUILD=ON/OFF, and -DNXTCACHE_BUILD_DIR=<dir> points
+# the search elsewhere (that dir must contain <CONFIG>/NXTCache.{lib,dll}).
+#
+# The detection is deliberately scoped to "is wwbuild going to be built", NOT
+# run unconditionally: a contributor editing only the runtime-loaded teleport
+# datasets must never be stopped at configure time by a dependency they do not
+# use. See docs/artifact-delivery.md section 7.
 if(NOT DEFINED NXTCACHE_BUILD_DIR)
     set(NXTCACHE_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../NXTCacheLibrary/build")
 endif()
-if(NOT TARGET NXTCache::NXTCache)
-    add_library(NXTCache::NXTCache SHARED IMPORTED)
-    set_target_properties(NXTCache::NXTCache PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/../NXTCacheLibrary/src"
-        IMPORTED_CONFIGURATIONS "DEBUG;RELEASE"
-        IMPORTED_IMPLIB_DEBUG     "${NXTCACHE_BUILD_DIR}/Debug/NXTCache.lib"
-        IMPORTED_LOCATION_DEBUG   "${NXTCACHE_BUILD_DIR}/Debug/NXTCache.dll"
-        IMPORTED_IMPLIB_RELEASE   "${NXTCACHE_BUILD_DIR}/Release/NXTCache.lib"
-        IMPORTED_LOCATION_RELEASE "${NXTCACHE_BUILD_DIR}/Release/NXTCache.dll"
-        MAP_IMPORTED_CONFIG_RELWITHDEBINFO "Release"
-        MAP_IMPORTED_CONFIG_MINSIZEREL "Release")
+set(NXTCACHE_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../NXTCacheLibrary/src")
+
+if(EXISTS "${NXTCACHE_INCLUDE_DIR}/c_api/nxtcache_c.h"
+   AND (EXISTS "${NXTCACHE_BUILD_DIR}/Release/NXTCache.lib"
+        OR EXISTS "${NXTCACHE_BUILD_DIR}/Debug/NXTCache.lib"))
+    set(WORLDWALKER_NXTCACHE_FOUND ON)
+else()
+    set(WORLDWALKER_NXTCACHE_FOUND OFF)
+endif()
+
+option(WORLDWALKER_BUILD_WWBUILD
+       "Build wwbuild, the offline artifact baker (requires NXTCacheLibrary)"
+       ${WORLDWALKER_NXTCACHE_FOUND})
+
+# An explicit -DWORLDWALKER_BUILD_WWBUILD=ON with no sibling is a mistake worth
+# catching now, with a message that says what to do, rather than as an opaque
+# link error several minutes into the build.
+if(WORLDWALKER_BUILD_WWBUILD AND NOT WORLDWALKER_NXTCACHE_FOUND)
+    message(FATAL_ERROR
+        "WORLDWALKER_BUILD_WWBUILD=ON but NXTCacheLibrary was not found.
+"
+        "  Looked for: ${NXTCACHE_INCLUDE_DIR}/c_api/nxtcache_c.h
+"
+        "        and : ${NXTCACHE_BUILD_DIR}/<Release|Debug>/NXTCache.lib
+"
+        "Build the sibling repo first, pass -DNXTCACHE_BUILD_DIR=<dir>, or "
+        "configure with -DWORLDWALKER_BUILD_WWBUILD=OFF to skip the baker. "
+        "The runtime library and wwcli do not need it.")
+endif()
+
+if(WORLDWALKER_BUILD_WWBUILD)
+    if(NOT TARGET NXTCache::NXTCache)
+        add_library(NXTCache::NXTCache SHARED IMPORTED)
+        set_target_properties(NXTCache::NXTCache PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${NXTCACHE_INCLUDE_DIR}"
+            IMPORTED_CONFIGURATIONS "DEBUG;RELEASE"
+            IMPORTED_IMPLIB_DEBUG     "${NXTCACHE_BUILD_DIR}/Debug/NXTCache.lib"
+            IMPORTED_LOCATION_DEBUG   "${NXTCACHE_BUILD_DIR}/Debug/NXTCache.dll"
+            IMPORTED_IMPLIB_RELEASE   "${NXTCACHE_BUILD_DIR}/Release/NXTCache.lib"
+            IMPORTED_LOCATION_RELEASE "${NXTCACHE_BUILD_DIR}/Release/NXTCache.dll"
+            MAP_IMPORTED_CONFIG_RELWITHDEBINFO "Release"
+            MAP_IMPORTED_CONFIG_MINSIZEREL "Release")
+    endif()
+    message(STATUS "WorldWalker: baking enabled (NXTCacheLibrary at ${NXTCACHE_BUILD_DIR})")
+else()
+    message(STATUS
+        "WorldWalker: NXTCacheLibrary not found -- building worldwalker + wwcli only. "
+        "Baking an artifact needs it; everything else does not. "
+        "Grab a prebuilt .wwa from the releases page.")
 endif()
 
 if(CMKR_ROOT_PROJECT AND NOT CMKR_DISABLE_VCPKG)
@@ -169,46 +216,48 @@ set_target_properties(worldwalker PROPERTIES
 )
 
 # Target: wwbuild
-set(wwbuild_SOURCES
-	cmake.toml
-	"src/build/AltLandmarks.cpp"
-	"src/build/AreaGraph.cpp"
-	"src/build/ArtifactWriter.cpp"
-	"src/build/CacheClient.cpp"
-	"src/build/CollisionBuilder.cpp"
-	"src/build/CollisionLookup.cpp"
-	"src/build/Provenance.cpp"
-	"src/build/main.cpp"
-	"src/data/CrossingDeriver.cpp"
-	"src/data/FreshnessDeriver.cpp"
-	"src/data/TeleportZones.cpp"
-	"src/data/TransitionBuilder.cpp"
-)
+if(WORLDWALKER_BUILD_WWBUILD) # build-wwbuild
+	set(wwbuild_SOURCES
+		cmake.toml
+		"src/build/AltLandmarks.cpp"
+		"src/build/AreaGraph.cpp"
+		"src/build/ArtifactWriter.cpp"
+		"src/build/CacheClient.cpp"
+		"src/build/CollisionBuilder.cpp"
+		"src/build/CollisionLookup.cpp"
+		"src/build/Provenance.cpp"
+		"src/build/main.cpp"
+		"src/data/CrossingDeriver.cpp"
+		"src/data/FreshnessDeriver.cpp"
+		"src/data/TeleportZones.cpp"
+		"src/data/TransitionBuilder.cpp"
+	)
 
-add_executable(wwbuild)
+	add_executable(wwbuild)
 
-target_sources(wwbuild PRIVATE ${wwbuild_SOURCES})
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${wwbuild_SOURCES})
+	target_sources(wwbuild PRIVATE ${wwbuild_SOURCES})
+	source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES ${wwbuild_SOURCES})
 
-target_compile_features(wwbuild PRIVATE
-	cxx_std_23
-)
+	target_compile_features(wwbuild PRIVATE
+		cxx_std_23
+	)
 
-target_include_directories(wwbuild PRIVATE
-	src
-)
+	target_include_directories(wwbuild PRIVATE
+		src
+	)
 
-target_link_libraries(wwbuild PRIVATE
-	worldwalker
-	NXTCache::NXTCache
-	nlohmann_json::nlohmann_json
-)
+	target_link_libraries(wwbuild PRIVATE
+		worldwalker
+		NXTCache::NXTCache
+		nlohmann_json::nlohmann_json
+	)
 
-get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
-if(NOT CMKR_VS_STARTUP_PROJECT)
-	set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT wwbuild)
+	get_directory_property(CMKR_VS_STARTUP_PROJECT DIRECTORY ${PROJECT_SOURCE_DIR} DEFINITION VS_STARTUP_PROJECT)
+	if(NOT CMKR_VS_STARTUP_PROJECT)
+		set_property(DIRECTORY ${PROJECT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT wwbuild)
+	endif()
+
 endif()
-
 # Target: wwcli
 set(wwcli_SOURCES
 	cmake.toml
