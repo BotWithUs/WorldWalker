@@ -260,8 +260,9 @@ in any area is silently never used by the planner, and reads downstream as
 
 ## 7. Before this repo can be opened to contributors
 
-Two things block the public workflow — but the first one blocks **less than half**
-of the contribution surface, which is worth being precise about.
+Three things stood between this repo and contributors. The third is settled; the
+first blocks **less than half** of the contribution surface, which is worth
+being precise about.
 
 1. **Only `wwbuild` needs the private sibling.** `cmake.toml` links
    `NXTCache::NXTCache` into the `wwbuild` target alone; `worldwalker` and `wwcli`
@@ -271,21 +272,33 @@ of the contribution surface, which is worth being precise about.
    library and the harness neither link nor load NXTCacheLibrary at all.** What a
    contributor without it cannot do is *bake* — decode the cache.
 
-   **Why a configure also survives the sibling being gone, and the trap in it:**
-   `cmake.toml`'s `cmake-after` declares `NXTCache::NXTCache` as a `SHARED IMPORTED`
-   target pointing at `..\NXTCacheLibrary\build\<CONFIG>\`. CMake does **not** check
-   an imported target's `IMPORTED_LOCATION` at configure time — it is only needed
-   when something links it — so configuring with the sibling absent succeeds, and
-   only a `wwbuild` link fails. (That half is reasoning from CMake's semantics, not
-   something measured here; the `dumpbin` result above is the measured part.)
+   **How the build behaves when the sibling is gone — now scoped, and measured:**
+   `cmake-after` probes for `../NXTCacheLibrary/src/c_api/nxtcache_c.h` and a
+   `<CONFIG>/NXTCache.lib` under `NXTCACHE_BUILD_DIR`, and sets the
+   `WORLDWALKER_BUILD_WWBUILD` option from what it finds. When the probe misses,
+   the imported target is never declared and the `wwbuild` target is not emitted
+   at all (cmkr condition `build-wwbuild`); `worldwalker` and `wwcli` build as
+   normal. Verified on this machine, all three paths:
 
-   This reads like an oversight, and the obvious "fix" is an existence check next to
-   the `set_target_properties` call so the failure arrives early with a good message
-   instead of as a link error. That is a reasonable thing to want — **but an
-   unconditional check would delete the split this table describes**, because a
-   contributor touching only the runtime-loaded teleport files would be stopped at
-   configure time by a dependency they never use. If you add one, scope it to the
-   case where `wwbuild` is actually going to be built.
+   | Configuration | Result |
+   |---|---|
+   | Sibling absent, no flags | Configure + `--build` succeed; `worldwalker.dll` + `wwcli.exe` produced, no `wwbuild` |
+   | Sibling absent, `-DWORLDWALKER_BUILD_WWBUILD=ON` | `FATAL_ERROR` at configure naming both searched paths |
+   | Sibling present, no flags | All three targets build, `wwbuild.exe` included |
+
+   Before this, the sibling's absence was survivable at configure time only by
+   accident — CMake does not check an imported target's `IMPORTED_LOCATION` until
+   something links it, so `cmake -B build` passed and the default `cmake --build`
+   then failed on a `wwbuild` link error. A contributor following the README hit
+   that failure and had nothing telling them it was expected.
+
+   The check is deliberately **scoped to the case where `wwbuild` is actually
+   going to be built**, which is what an earlier revision of this section warned
+   was the whole difficulty: an unconditional existence check would delete the
+   split the table below describes, stopping a contributor who touches only the
+   runtime-loaded teleport files at configure time over a dependency they never
+   use. Auto-detect plus a target condition keeps the split intact — which is why
+   it is an option defaulted from a probe, and not a hard `find_package`.
 
    Cross that with how the datasets are consumed and the contribution surface
    splits in two:
@@ -308,13 +321,49 @@ of the contribution surface, which is worth being precise about.
    prebuilt `NXTCache.dll` + headers as a release asset, or keep `wwbuild` internal
    and have a maintainer bake contributed `transport_links` changes.
 
-2. **There is no CI.** Nothing validates a PR automatically. A full bake needs a
-   cache, so CI would have to be self-hosted — but note that validating a
-   *teleport* change needs only a released artifact and `wwcli`, which is an
-   ordinary hosted runner's job.
+2. **~~There is no CI.~~** `.github/workflows/ci.yml` now runs on every push and
+   PR, on hosted Windows runners, in three jobs:
 
-One thing that is already right: nothing in `src`, `docs`, `datasets`,
-`cmake.toml` or `CONTEXT.md` contains an absolute path, a drive letter, or a
-username. `cacheId` records the cache directory's **basename only**, permanently
-and not just while the repo is private — a file written under one policy outlives
-the era it was written in.
+   | Job | What it proves |
+   |---|---|
+   | `build` | The repo configures and builds **with no NXTCacheLibrary on the machine** — the contributor configuration — and asserts `wwbuild.exe` was skipped rather than silently required. Then runs `wwcli walltest` and `wwcli instance`, both cache-free. |
+   | `acceptance` | Downloads the newest published `worldwalker.wwa` and runs `wwcli check <artifact> datasets` — the teleport-contribution gate. Skips cleanly when no release exists. |
+   | `cmkr-drift` | Regenerates with cmkr v0.2.44 and fails if `CMakeLists.txt` or `vcpkg.json` differ from what is committed. |
+
+   The split predicted here held: a hosted runner covers everything except the
+   bake. `build` needs no cache and no private sibling, and `acceptance` needs
+   only a release asset. **A full bake is still not in CI** and would need a
+   self-hosted runner with a cache — that part is unchanged.
+
+   The `build` job doubles as the regression test for item 1. If the NXTCache
+   dependency is ever made unconditional again, the contributor build breaks and
+   that job is what reports it.
+
+3. **~~No license, no README, no attribution.~~** Settled in the pre-publication
+   pass: MIT (`LICENSE`), a root `README.md`, `CONTRIBUTING.md`, and a `NOTICE`
+   carrying both the third-party dataset attribution and the Jagex trademark
+   disclaimer. GitHub treats an unlicensed public repo as all-rights-reserved,
+   so this one blocked reuse outright rather than merely looking untidy.
+
+### On absolute paths
+
+`cacheId` records the cache directory's **basename only**, permanently and not
+just while the repo is private — a file written under one policy outlives the era
+it was written in. The same rule now applies to tracked text.
+
+An earlier revision of this section claimed that nothing in `src`, `docs`,
+`datasets`, `cmake.toml` or `CONTEXT.md` contained an absolute path, a drive
+letter, or a username. **That was not true when it was written.** A
+pre-publication audit found four in `docs/adr/0002` and one in
+`src/cli/WallShapeTests.h`, all naming the maintainer's local drive layout or the
+prior in-house nav stack. They are now repo-relative paths or prose. The claim
+holds because it was checked, not because it was asserted.
+
+Three drive-letter strings remain on purpose and should stay:
+`C:\ProgramData\Jagex\RuneScape` (where the NXT cache actually lives), the
+`C:\Program Files\Git\...` probes in `bake.ps1`, and the `C:\Users\<name>`
+mentions in `Provenance.h` / `build/main.cpp` — comments explaining *why* the
+username is stripped.
+
+The same audit found no credentials, tokens, keys, internal hostnames or IP
+addresses, in the working tree or in any of the 54 commits of history.

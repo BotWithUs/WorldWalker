@@ -1,0 +1,156 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+# Read-only is all any job needs; the acceptance gate only downloads a release
+# asset.
+permissions:
+  contents: read
+
+# A cancelled-and-superseded PR run wastes a Windows runner for no reason.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # cmkr's bootstrap skips generation when CI is set (cmkr.cmake), so every job
+  # here builds the COMMITTED CMakeLists.txt. The generated-vs-source check is
+  # the separate `cmkr-drift` job below.
+  VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-binary-cache
+
+jobs:
+  # The contributor build: no NXTCacheLibrary anywhere on the runner. This is
+  # the configuration an outside contributor actually has, so it is the one CI
+  # defends. wwbuild is expected to be absent from the output.
+  build:
+    name: Build + test (no cache decoder)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'cmake.toml') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-
+
+      - name: Configure
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:VCPKG_DEFAULT_BINARY_CACHE" | Out-Null
+          cmake -B build
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Build
+        run: |
+          cmake --build build --config Release
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      # Regression guard for the graceful-degradation path. If someone makes the
+      # NXTCache dependency unconditional again, the contributor build breaks and
+      # this is the step that says so.
+      - name: Assert the baker was skipped, not silently required
+        run: |
+          if (-not (Test-Path "build\Release\worldwalker.dll")) { throw "worldwalker.dll missing" }
+          if (-not (Test-Path "build\Release\wwcli.exe"))       { throw "wwcli.exe missing" }
+          if (Test-Path "build\Release\wwbuild.exe") {
+            throw "wwbuild.exe was built without NXTCacheLibrary present - the dependency probe is wrong"
+          }
+          Write-Host "OK: worldwalker + wwcli built, wwbuild correctly skipped"
+
+      # These two suites are self-contained: no artifact, no cache, no datasets.
+      # Branch on $LASTEXITCODE, never on $? -- see docs/artifact-delivery.md section 1.
+      - name: wwcli walltest (wall shape/rotation table)
+        run: |
+          .\build\Release\wwcli.exe walltest
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: wwcli instance (dynamic-region chunk remap)
+        run: |
+          .\build\Release\wwcli.exe instance
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: worldwalker-windows-x64
+          path: |
+            build/Release/worldwalker.dll
+            build/Release/wwcli.exe
+          if-no-files-found: error
+
+  # The documented teleport-contribution gate: a released .wwa plus wwcli, no
+  # cache involved. Skips cleanly when no release exists yet rather than going
+  # red on a repo that has not published one.
+  acceptance:
+    name: Acceptance gate (released artifact)
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: worldwalker-windows-x64
+          path: bin
+
+      - name: Fetch the latest published artifact
+        id: fetch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>$null
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+            Write-Host "No release published yet - skipping the acceptance gate."
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "found=false"
+            exit 0
+          }
+          gh release download $tag --pattern "worldwalker.wwa" --dir .
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path "worldwalker.wwa")) {
+            Write-Host "Release '$tag' carries no worldwalker.wwa asset - skipping."
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "found=false"
+            exit 0
+          }
+          Write-Host "Using artifact from release '$tag'."
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "found=true"
+
+      # Appends the runtime-loaded global teleports to the artifact and verifies
+      # every destination lands in a seedable area. This is the check that makes
+      # a teleport-only PR reviewable without a bake.
+      - name: wwcli check <artifact> datasets
+        if: steps.fetch.outputs.found == 'true'
+        run: |
+          .\bin\wwcli.exe check worldwalker.wwa datasets
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+  # CMakeLists.txt is generated from cmake.toml and both are committed. Nothing
+  # stops a PR from editing one and not the other, so check that regenerating
+  # reproduces exactly what is in the tree.
+  cmkr-drift:
+    name: CMakeLists.txt matches cmake.toml
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regenerate with cmkr and diff
+        run: |
+          $tmp = Join-Path $env:RUNNER_TEMP "cmkr"
+          New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+          Invoke-WebRequest -Uri "https://github.com/build-cpp/cmkr/releases/download/v0.2.44/cmkr-windows.zip" -OutFile "$tmp\cmkr.zip"
+          Expand-Archive "$tmp\cmkr.zip" -DestinationPath "$tmp\bin" -Force
+          $cmkr = Get-ChildItem -Path "$tmp\bin" -Filter cmkr.exe -Recurse | Select-Object -First 1
+          if (-not $cmkr) { throw "cmkr.exe not found in the release archive" }
+          & $cmkr.FullName gen
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          # cmkr regenerates vcpkg.json from cmake.toml as well, so check both.
+          git diff --exit-code -- CMakeLists.txt vcpkg.json
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::CMakeLists.txt / vcpkg.json are out of date. Re-run the configure step and commit the regenerated files."
+            exit 1
+          }
+          Write-Host "OK: generated build files match cmake.toml"
