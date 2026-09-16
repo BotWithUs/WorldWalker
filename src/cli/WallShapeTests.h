@@ -12,9 +12,10 @@
 // test's path at all.
 //
 // Three things are checked, in increasing independence from the function:
-//   * agreement with the vendored expected values from the prior reference at
-//     E:/BotWithUs V2/BotWithUs2/shared/src/collision/collision_map.cpp:91
-//     (function getWallFlagsForShape) — the absolute anchor;
+//   * agreement with the vendored expected values from the prior in-house nav
+//     stack's getWallFlagsForShape (that codebase is not public, so the values
+//     are vendored into this test rather than cited by path) — the absolute
+//     anchor;
 //   * the reflection property — reflecting a shape's edges across the tile
 //     yields the same shape turned 180 degrees;
 //   * the rotation property — rotation N is rotation 0 turned 90 degrees N

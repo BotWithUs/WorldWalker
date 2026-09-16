@@ -1,9 +1,9 @@
 # Hierarchical pathfinding — connected-component area graph (HPA*-cluster deferred)
 
-Flat tile-grid A* across the whole RS3 world is too slow for long routes. The planner needs an abstraction that A* can search cheaply, with tile-level refinement *inside* each abstract node. Two designs were on the table when planning began (see `lovely-forging-honey.md` — "Abstraction layer decided empirically"):
+Flat tile-grid A* across the whole RS3 world is too slow for long routes. The planner needs an abstraction that A* can search cheaply, with tile-level refinement *inside* each abstract node. Two designs were on the table when planning began, under a "prototype both, decide empirically" brief:
 
 - **HPA*-cluster** — partition each plane's tile grid into fixed-size clusters, expose border entrances ("portals") with precomputed intra-cluster portal-to-portal distances, and search the portal graph.
-- **Connected-component area graph** — flood-fill each plane into walkable connected components ("areas"); each area is one abstract node; transitions are edges between areas (including cross-plane and cross-mapsquare edges). This is the structure the prior `BotWithUs2` nav stack used (see `E:/BotWithUs V2/BotWithUs2/area_gen/`).
+- **Connected-component area graph** — flood-fill each plane into walkable connected components ("areas"); each area is one abstract node; transitions are edges between areas (including cross-plane and cross-mapsquare edges). This is the structure the prior in-house nav stack used (its `area_gen` component; that codebase is not public).
 
 Special transitions — teleports, ladders, stairs, doors — are modeled the same way under both designs: as additional edges in the abstract layer, rather than a separate routing tier. We preferred that generic structure to a bespoke anchor-graph or a single flat grid + special-edge search.
 
@@ -36,7 +36,7 @@ Reopen this ADR if any of the following hold:
 
 ## References
 
-- Bench source: `E:/BotWithUsv2.5/WorldWalker/src/cli/Bench.cpp`
-- Area graph build: `E:/BotWithUsv2.5/WorldWalker/src/build/AreaGraph.cpp`
-- ALT bake: `E:/BotWithUsv2.5/WorldWalker/src/build/AltLandmarks.cpp`
-- Original "prototype both" decision: `lovely-forging-honey.md` — "Abstraction layer decided empirically"
+- Bench source: `src/cli/Bench.cpp`
+- Area graph build: `src/build/AreaGraph.cpp`
+- ALT bake: `src/build/AltLandmarks.cpp`
+- Original "prototype both" decision: recorded in pre-repo planning notes, which are not published.
