@@ -999,9 +999,12 @@
     "dest_x": 3877,
     "dest_y": 5526,
     "dest_plane": 1,
-    "requirements": [
-      {"varbit_id": 10826, "varbit_value": 60}
-    ]
+    "requirements": {
+      "varbit": {
+        "id": 10826,
+        "value": 60
+      }
+    }
   },
   {
     "name": "Exit",
@@ -22987,394 +22990,1384 @@
     "dest_plane": 2
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 13 to level 18)",
     "object_id": 65619,
     "x": 3154,
     "y": 3622,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3219,
     "dest_y": 3655,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          20,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3156,
+          3621
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 13 to level 27)",
     "object_id": 65619,
     "x": 3154,
     "y": 3622,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3036,
     "dest_y": 3732,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          23,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3156,
+          3621
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 13 to level 35)",
     "object_id": 65619,
     "x": 3154,
     "y": 3622,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3105,
     "dest_y": 3795,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          26,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3156,
+          3621
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 13 to level 44)",
     "object_id": 65619,
     "x": 3154,
     "y": 3622,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2979,
     "dest_y": 3865,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          29,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3156,
+          3621
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 13 to level 50)",
     "object_id": 65619,
     "x": 3154,
     "y": 3622,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3307,
     "dest_y": 3917,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          32,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3156,
+          3621
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 18 to level 13)",
     "object_id": 65620,
     "x": 3217,
     "y": 3654,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3156,
     "dest_y": 3621,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          1,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3219,
+          3655
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 18 to level 27)",
     "object_id": 65620,
     "x": 3217,
     "y": 3654,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3036,
     "dest_y": 3732,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          23,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3219,
+          3655
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 18 to level 35)",
     "object_id": 65620,
     "x": 3217,
     "y": 3654,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3105,
     "dest_y": 3795,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          26,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3219,
+          3655
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 18 to level 44)",
     "object_id": 65620,
     "x": 3217,
     "y": 3654,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2979,
     "dest_y": 3865,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          29,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3219,
+          3655
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 18 to level 50)",
     "object_id": 65620,
     "x": 3217,
     "y": 3654,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3307,
     "dest_y": 3917,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          32,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3219,
+          3655
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 27 to level 13)",
     "object_id": 65625,
     "x": 3035,
     "y": 3732,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3156,
     "dest_y": 3621,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          1,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3036,
+          3732
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 27 to level 18)",
     "object_id": 65625,
     "x": 3035,
     "y": 3732,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3219,
     "dest_y": 3655,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          20,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3036,
+          3732
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 27 to level 35)",
     "object_id": 65625,
     "x": 3035,
     "y": 3732,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3105,
     "dest_y": 3795,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          26,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3036,
+          3732
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 27 to level 44)",
     "object_id": 65625,
     "x": 3035,
     "y": 3732,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2979,
     "dest_y": 3865,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          29,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3036,
+          3732
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 27 to level 50)",
     "object_id": 65625,
     "x": 3035,
     "y": 3732,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3307,
     "dest_y": 3917,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          32,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3036,
+          3732
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 35 to level 13)",
     "object_id": 65618,
     "x": 3104,
     "y": 3796,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3156,
     "dest_y": 3621,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          1,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3105,
+          3795
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 35 to level 18)",
     "object_id": 65618,
     "x": 3104,
     "y": 3796,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3219,
     "dest_y": 3655,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          20,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3105,
+          3795
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 35 to level 27)",
     "object_id": 65618,
     "x": 3104,
     "y": 3796,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3036,
     "dest_y": 3732,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          23,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3105,
+          3795
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 35 to level 44)",
     "object_id": 65618,
     "x": 3104,
     "y": 3796,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2979,
     "dest_y": 3865,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          29,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3105,
+          3795
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 35 to level 50)",
     "object_id": 65618,
     "x": 3104,
     "y": 3796,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3307,
     "dest_y": 3917,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          32,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3105,
+          3795
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 44 to level 13)",
     "object_id": 2854,
     "x": 2978,
     "y": 3864,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3156,
     "dest_y": 3621,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          1,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          2979,
+          3865
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 44 to level 18)",
     "object_id": 2854,
     "x": 2978,
     "y": 3864,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3219,
     "dest_y": 3655,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          20,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          2979,
+          3865
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 44 to level 27)",
     "object_id": 2854,
     "x": 2978,
     "y": 3864,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3036,
     "dest_y": 3732,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          23,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          2979,
+          3865
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 44 to level 35)",
     "object_id": 2854,
     "x": 2978,
     "y": 3864,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3105,
     "dest_y": 3795,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          26,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          2979,
+          3865
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 44 to level 50)",
     "object_id": 2854,
     "x": 2978,
     "y": 3864,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3307,
     "dest_y": 3917,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          32,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          2979,
+          3865
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 50 to level 13)",
     "object_id": 2855,
     "x": 3305,
     "y": 3918,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3156,
     "dest_y": 3621,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          1,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3307,
+          3917
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 50 to level 18)",
     "object_id": 2855,
     "x": 3305,
     "y": 3918,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3219,
     "dest_y": 3655,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          20,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3307,
+          3917
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 50 to level 27)",
     "object_id": 2855,
     "x": 3305,
     "y": 3918,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3036,
     "dest_y": 3732,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          23,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3307,
+          3917
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 50 to level 35)",
     "object_id": 2855,
     "x": 3305,
     "y": 3918,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3105,
     "dest_y": 3795,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          26,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3307,
+          3917
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
-    "name": "Wilderness obelisks",
+    "name": "Wilderness obelisk (level 50 to level 44)",
     "object_id": 2855,
     "x": 3305,
     "y": 3918,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2979,
     "dest_y": 3865,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 720
+      },
+      {
+        "click": [
+          720,
+          29,
+          0,
+          -1
+        ]
+      },
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          23,
+          1,
+          3307,
+          3917
+        ]
+      },
+      {
+        "wait": 12
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33386,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Poison Waste Islands",
