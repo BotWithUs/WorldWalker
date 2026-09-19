@@ -69,10 +69,11 @@ namespace ww::data
 
     enum class RequirementKind : uint8_t
     {
-        Skill  = 0,  // amount = required level
-        Item   = 1,  // amount = required count
-        Varbit = 2,  // amount = required value
-        Varp   = 3,  // amount = required value
+        Skill         = 0,  // amount = required level
+        Item          = 1,  // amount = required count
+        Varbit        = 2,  // amount = required value, matched exactly
+        Varp          = 3,  // amount = required value, matched exactly
+        VarbitAtLeast = 4,  // amount = minimum value
     };
 
     // One structured predicate filtered against a per-query capability snapshot.

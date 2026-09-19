@@ -96,8 +96,12 @@ namespace ww::runtime
         // True when this snapshot satisfies one structured predicate. Skill and
         // item gates pass when the snapshot value is at least req.amount; varbit
         // and varp gates require an exact match (a single-value gate is the
-        // documented dataset convention). An unknown kind byte is rejected
-        // conservatively — a malformed artifact must not silently pass a gate.
+        // documented dataset convention), and VarbitAtLeast is the minimum-value
+        // form for the varbits that count up rather than flag — a task-set
+        // reward state, a reputation total — where an exact gate would deny the
+        // very accounts that are furthest past it. An unknown kind byte is
+        // rejected conservatively: a malformed artifact must not silently pass a
+        // gate, and a reader older than the kind denies the edge and walks.
         bool meets(const format::RequirementRecord &req) const
         {
             switch (static_cast<data::RequirementKind>(req.kind))
@@ -110,6 +114,8 @@ namespace ww::runtime
                     return varbit(req.id) == req.amount;
                 case data::RequirementKind::Varp:
                     return varp(req.id) == req.amount;
+                case data::RequirementKind::VarbitAtLeast:
+                    return varbit(req.id) >= req.amount;
             }
             return false;
         }
@@ -222,6 +228,12 @@ namespace ww::runtime
                     break;
                 case data::RequirementKind::Varp:
                     outSnapshot.setVarp(r.id, r.amount);
+                    break;
+                case data::RequirementKind::VarbitAtLeast:
+                    if (outSnapshot.varbit(r.id) < r.amount)
+                    {
+                        outSnapshot.setVarbit(r.id, r.amount);
+                    }
                     break;
             }
         }

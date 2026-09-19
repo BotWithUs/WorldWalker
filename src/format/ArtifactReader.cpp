@@ -424,7 +424,13 @@ namespace ww::format
         for (const RequirementRecord &r : requirementPool)
         {
             const auto kind = static_cast<ww::data::RequirementKind>(r.kind);
-            if (kind == ww::data::RequirementKind::Varbit)
+            // Both varbit forms feed the same id list: the executor reads a
+            // value per id, and how that value is compared is the gate's
+            // business, not the reader's. Omitting VarbitAtLeast here would
+            // leave its ids unread, so every such gate would test against the
+            // absent-id default of 0 and deny an account that in fact qualifies.
+            if (kind == ww::data::RequirementKind::Varbit
+                || kind == ww::data::RequirementKind::VarbitAtLeast)
             {
                 addUnique(requirementVarbitIdList, r.id);
             }
