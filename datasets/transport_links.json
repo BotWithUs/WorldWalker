@@ -33429,5 +33429,57 @@
     "dest_x": 3158,
     "dest_y": 3950,
     "dest_plane": 0
+  },
+  {
+    "name": "Gate south of the Wilderness Agility Course",
+    "object_id": 65365,
+    "x": 2998,
+    "y": 3915,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2998,
+    "dest_y": 3917,
+    "dest_plane": 0
+  },
+  {
+    "name": "Gate south of the Wilderness Agility Course",
+    "object_id": 65365,
+    "x": 2998,
+    "y": 3917,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2998,
+    "dest_y": 3915,
+    "dest_plane": 0
+  },
+  {
+    "name": "Gate into the Wilderness Agility Course",
+    "object_id": 65367,
+    "x": 2998,
+    "y": 3929,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2998,
+    "dest_y": 3931,
+    "dest_plane": 0
+  },
+  {
+    "name": "Gate into the Wilderness Agility Course",
+    "object_id": 65367,
+    "x": 2998,
+    "y": 3931,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2998,
+    "dest_y": 3929,
+    "dest_plane": 0
   }
 ]
