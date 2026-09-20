@@ -1779,6 +1779,60 @@
           }
         ]
       }
+    },
+    {
+      "name": "War's Retreat Teleport",
+      "global": true,
+      "dest_x": 3294,
+      "dest_y": 10131,
+      "dest_plane": 0,
+      "cost": 80.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            1,
+            1,
+            205
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "varbit": {
+          "id": 45680,
+          "value": 1
+        }
+      }
+    },
+    {
+      "name": "Max guild Teleport",
+      "global": true,
+      "dest_x": 2276,
+      "dest_y": 3311,
+      "dest_plane": 1,
+      "cost": 80.0,
+      "chain": [
+        {
+          "click": [
+            1461,
+            1,
+            1,
+            199
+          ]
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "varbit": {
+          "id": 44136,
+          "value": 1
+        }
+      }
     }
   ]
 }
