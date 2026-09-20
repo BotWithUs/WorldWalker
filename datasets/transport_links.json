@@ -13,19 +13,6 @@
     "dest_plane": 0
   },
   {
-    "name": "Pull",
-    "object_id": 1814,
-    "x": 3091,
-    "y": 3476,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 3154,
-    "dest_y": 3925,
-    "dest_plane": 0
-  },
-  {
     "name": "Open",
     "object_id": 2112,
     "x": 3046,
@@ -127,19 +114,6 @@
     "option_index": 0,
     "dest_x": 3073,
     "dest_y": 3519,
-    "dest_plane": 0
-  },
-  {
-    "name": "Pull",
-    "object_id": 1815,
-    "x": 3154,
-    "y": 3925,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2562,
-    "dest_y": 3311,
     "dest_plane": 0
   },
   {
@@ -14771,45 +14745,6 @@
     "option_index": 0,
     "dest_x": 2792,
     "dest_y": 4722,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 1814,
-    "x": 3090,
-    "y": 3474,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 3154,
-    "dest_y": 3924,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 26816,
-    "x": 2561,
-    "y": 3309,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 3154,
-    "dest_y": 3924,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 1815,
-    "x": 3153,
-    "y": 3923,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2562,
-    "dest_y": 3311,
     "dest_plane": 0
   },
   {
@@ -33338,5 +33273,44 @@
     "dest_x": 2850,
     "dest_y": 3502,
     "dest_plane": 0
+  },
+  {
+    "dest_plane": 0,
+    "dest_x": 3154,
+    "dest_y": 3924,
+    "name": "Edgeville lever to the Deserted Keep",
+    "object_id": 1814,
+    "option_index": 0,
+    "plane": 0,
+    "rotation": 0,
+    "shape": 10,
+    "x": 3090,
+    "y": 3474
+  },
+  {
+    "dest_plane": 0,
+    "dest_x": 3154,
+    "dest_y": 3924,
+    "name": "Ardougne lever to the Deserted Keep",
+    "object_id": 1814,
+    "option_index": 0,
+    "plane": 0,
+    "rotation": 0,
+    "shape": 10,
+    "x": 2561,
+    "y": 3311
+  },
+  {
+    "dest_plane": 0,
+    "dest_x": 2562,
+    "dest_y": 3311,
+    "name": "Deserted Keep lever to Ardougne",
+    "object_id": 1815,
+    "option_index": 0,
+    "plane": 0,
+    "rotation": 0,
+    "shape": 10,
+    "x": 3153,
+    "y": 3923
   }
 ]
