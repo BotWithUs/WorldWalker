@@ -191,9 +191,21 @@ namespace ww::data
 
         void parseRequirements(const json &node, std::vector<Requirement> &out)
         {
-            if (!node.contains("requirements") || !node.at("requirements").is_object())
+            if (!node.contains("requirements"))
             {
                 return;
+            }
+            // A requirements value of the wrong shape used to fall through this
+            // check and leave the entry ungated, which is the worst of both
+            // worlds: the dataset says the transition is gated and the artifact
+            // admits it to everyone. Refuse the bake instead, so the shape is
+            // fixed once rather than silently costing every account that lacks
+            // whatever the entry meant to require.
+            if (!node.at("requirements").is_object())
+            {
+                throw std::runtime_error(
+                    "requirements must be an object of gate kinds "
+                    "(skill / varbit / varbit_at_least / varp / items)");
             }
             // `id` is required on every gate: a requirement without one is
             // meaningless, and the silent -1 default used to flow through to
@@ -212,6 +224,13 @@ namespace ww::data
                 out.push_back({RequirementKind::Varbit,
                                readRequiredInt(v, "id", "requirements.varbit"),
                                readOptionalInt(v, "value", 0, "requirements.varbit")});
+            }
+            if (req.contains("varbit_at_least") && req.at("varbit_at_least").is_object())
+            {
+                const json &v = req.at("varbit_at_least");
+                out.push_back({RequirementKind::VarbitAtLeast,
+                               readRequiredInt(v, "id", "requirements.varbit_at_least"),
+                               readOptionalInt(v, "value", 1, "requirements.varbit_at_least")});
             }
             if (req.contains("varp") && req.at("varp").is_object())
             {
