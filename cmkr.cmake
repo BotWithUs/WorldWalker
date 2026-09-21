@@ -15,7 +15,17 @@ endif()
 # Set these from the command line to customize for development/debugging purposes
 set(CMKR_EXECUTABLE "" CACHE FILEPATH "cmkr executable")
 set(CMKR_SKIP_GENERATION OFF CACHE BOOL "skip automatic cmkr generation")
-set(CMKR_BUILD_TYPE "Debug" CACHE STRING "cmkr build configuration")
+# Release, not Debug, and FORCE so an existing cache entry of Debug is overridden.
+# A Debug-built cmkr v0.2.44 crashes on `cmkr gen` for a large enough cmake.toml:
+# it dies with exit 3 (abort), 0x80000003 (breakpoint) or 0xC0000409 (fast-fail)
+# depending on which targets are present, and writes no CMakeLists.txt at all.
+# The crash is count-dependent (NXTLibrary's toml: the first 19 targets pass,
+# 20 or more crash), which looks like heap corruption the Debug CRT catches. A
+# Release-built cmkr 0.2.44 exits 0 on the same tomls and its output is
+# byte-identical to the committed CMakeLists.txt. cmkr_exec turns the non-zero
+# exit into FATAL_ERROR, so every fresh build directory -- which is what an IDE
+# creates -- failed to configure.
+set(CMKR_BUILD_TYPE "Release" CACHE STRING "cmkr build configuration" FORCE)
 mark_as_advanced(CMKR_REPO CMKR_TAG CMKR_COMMIT_HASH CMKR_EXECUTABLE CMKR_SKIP_GENERATION CMKR_BUILD_TYPE)
 
 # Disable cmkr if generation is disabled
@@ -69,7 +79,11 @@ if(DEFINED ENV{CMKR_CACHE})
 else()
     set(CMKR_DIRECTORY_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/_cmkr_")
 endif()
-set(CMKR_DIRECTORY "${CMKR_DIRECTORY_PREFIX}${CMKR_TAG}")
+# The build type is part of the bootstrap directory name so a build directory
+# that already bootstrapped a Debug cmkr re-bootstraps a Release one. Without the
+# suffix the cached executable path still matches and is reused, so the FORCE
+# above would change the cache entry but not the binary that runs.
+set(CMKR_DIRECTORY "${CMKR_DIRECTORY_PREFIX}${CMKR_TAG}-${CMKR_BUILD_TYPE}")
 set(CMKR_CACHED_EXECUTABLE "${CMKR_DIRECTORY}/bin/${CMKR_EXECUTABLE_NAME}")
 
 # Helper function to check if a string starts with a prefix
