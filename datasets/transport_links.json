@@ -826,7 +826,7 @@
     "plane": 1,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3165,
     "dest_y": 3307,
     "dest_plane": 2
@@ -839,14 +839,14 @@
     "plane": 1,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3165,
     "dest_y": 3307,
     "dest_plane": 0
   },
   {
     "name": "Climb-down",
-    "object_id": 36796,
+    "object_id": 36797,
     "x": 3165,
     "y": 3307,
     "plane": 2,
@@ -865,7 +865,7 @@
     "plane": 2,
     "shape": 10,
     "rotation": 0,
-    "option_index": 2,
+    "option_index": 1,
     "dest_x": 3165,
     "dest_y": 3307,
     "dest_plane": 0
@@ -1287,7 +1287,7 @@
     "plane": 1,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3229,
     "dest_y": 3214,
     "dest_plane": 0
@@ -1560,7 +1560,7 @@
     "plane": 2,
     "shape": 10,
     "rotation": 0,
-    "option_index": 2,
+    "option_index": 1,
     "dest_x": 2633,
     "dest_y": 3385,
     "dest_plane": 0
@@ -5330,7 +5330,7 @@
     "plane": 1,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 2572,
     "dest_y": 3287,
     "dest_plane": 0
