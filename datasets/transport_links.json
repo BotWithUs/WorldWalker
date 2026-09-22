@@ -215,7 +215,7 @@
     "plane": 1,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3205,
     "dest_y": 3209,
     "dest_plane": 2
@@ -228,7 +228,7 @@
     "plane": 1,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3205,
     "dest_y": 3209,
     "dest_plane": 0
@@ -254,7 +254,7 @@
     "plane": 2,
     "shape": 10,
     "rotation": 0,
-    "option_index": 2,
+    "option_index": 1,
     "dest_x": 3205,
     "dest_y": 3209,
     "dest_plane": 0
