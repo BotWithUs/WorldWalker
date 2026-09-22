@@ -20,6 +20,7 @@
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
+#include <random>
 #include <stdexcept>
 #include <string>
 #include <system_error>
@@ -35,6 +36,9 @@ namespace
 
     constexpr int32_t kComponentAction = 57;
     constexpr int32_t kFilterVarbit = 50990;
+    // A second gate on the same route, to exercise the array spelling of
+    // `requirements.varbit`. Any id does — the loader gives it no meaning.
+    constexpr int32_t kCombinedBookVarbit = 3170;
     constexpr int32_t kLumbridgeUnlockVarbit = 35;
     constexpr int32_t kEdgevilleUnlockVarbit = 33;
     constexpr int32_t kLumbridgeX = 3233;
@@ -58,35 +62,38 @@ namespace
     constexpr Requirement kLumbridgeUnlocked{RequirementKind::Varbit, kLumbridgeUnlockVarbit, 1};
     constexpr Requirement kEdgevilleUnlocked{RequirementKind::Varbit, kEdgevilleUnlockVarbit, 1};
     constexpr Requirement kSpellsShown{RequirementKind::Varbit, kFilterVarbit, 0};
-    constexpr Requirement kSpellsFiltered{RequirementKind::Varbit, kFilterVarbit, 1};
+    constexpr Requirement kCombinedBook{RequirementKind::Varbit, kCombinedBookVarbit, 1};
 
     // loadGlobalTeleports reads both files; an empty spell file keeps the
     // loader's "dataset not found" warning out of the report.
     const char *const kEmptySpellFixture = R"({ "teleports": [] })";
 
-    // Book route configured. Lumbridge has a spell slot, Edgeville does not.
-    // The option keys are left out so their default of 1 is exercised too.
-    const char *const kConfiguredFixture = R"({
+    // Lumbridge carries the ability-book route, Edgeville carries none. The
+    // option keys are left out so their default of 1 is exercised too.
+    const char *const kRoutedFixture = R"({
       "lodestones": {
         "config": {
           "open_interface": 1465, "open_component": 33,
           "select_interface": 1092,
-          "spell_interface": 1461, "spell_component": 1,
-          "filter_varbit": 50990,
           "open_wait": 6, "teleport_wait": 18
         },
         "destinations": [
           { "name": "Lumbridge", "x": 3233, "y": 3222, "plane": 0, "component": 17,
-            "spell_slot": 234, "requirements": { "varbit": { "id": 35, "value": 1 } } },
+            "requirements": { "varbit": { "id": 35, "value": 1 } },
+            "routes": [
+              { "name": "ability book",
+                "requirements": { "varbit": { "id": 50990, "value": 0 } },
+                "chain": [ { "click": [1461, 1, 1, 234] }, { "wait": 18 } ] }
+            ] },
           { "name": "Edgeville", "x": 3067, "y": 3506, "plane": 0, "component": 15,
             "requirements": { "varbit": { "id": 33, "value": 1 } } }
         ]
       }
     })";
 
-    // A config from before the book route: no filter_varbit, so a spell_slot
-    // on a destination must not conjure a spell transition.
-    const char *const kUnconfiguredFixture = R"({
+    // No routes: the destination is the map chain and nothing else, exactly as
+    // before routes existed.
+    const char *const kNoRoutesFixture = R"({
       "lodestones": {
         "config": {
           "open_interface": 1465, "open_component": 33,
@@ -95,38 +102,63 @@ namespace
         },
         "destinations": [
           { "name": "Lumbridge", "x": 3233, "y": 3222, "plane": 0, "component": 17,
-            "spell_slot": 234, "requirements": { "varbit": { "id": 35, "value": 1 } } }
+            "requirements": { "varbit": { "id": 35, "value": 1 } } }
         ]
       }
     })";
 
-    // filter_varbit without the spell's interface: must throw, not cast from
-    // interface 0.
-    const char *const kMissingSpellInterfaceFixture = R"({
+    // The array spelling of `requirements.varbit`: two gates on one route, on
+    // top of the destination's own unlock.
+    const char *const kArrayGateFixture = R"({
       "lodestones": {
         "config": {
           "open_interface": 1465, "open_component": 33,
           "select_interface": 1092,
-          "spell_component": 1,
-          "filter_varbit": 50990
+          "open_wait": 6, "teleport_wait": 18
         },
         "destinations": [
-          { "x": 3233, "y": 3222, "plane": 0, "component": 17, "spell_slot": 234 }
+          { "name": "Lumbridge", "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "varbit": { "id": 35, "value": 1 } },
+            "routes": [
+              { "requirements": { "varbit": [ { "id": 50990, "value": 0 },
+                                              { "id": 3170, "value": 1 } ] },
+                "chain": [ { "click": [1461, 1, 1, 234] }, { "wait": 18 } ] }
+            ] }
         ]
       }
     })";
 
-    // A negative slot is the click encoding's "no sub-component": must throw.
-    const char *const kNegativeSlotFixture = R"({
+    // `routes` as an object rather than an array: must throw, not be ignored.
+    const char *const kRoutesNotArrayFixture = R"({
       "lodestones": {
-        "config": {
-          "open_interface": 1465, "open_component": 33,
-          "select_interface": 1092,
-          "spell_interface": 1461, "spell_component": 1,
-          "filter_varbit": 50990
-        },
+        "config": { "open_interface": 1465, "open_component": 33, "select_interface": 1092 },
         "destinations": [
-          { "x": 3233, "y": 3222, "plane": 0, "component": 17, "spell_slot": -1 }
+          { "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "routes": { "chain": [ { "click": [1461, 1, 1, 234] } ] } }
+        ]
+      }
+    })";
+
+    // A route whose only step key is a typo. parseChain skips steps it does not
+    // recognise, so this would otherwise be an edge that teleports nowhere.
+    const char *const kRouteWithoutChainFixture = R"({
+      "lodestones": {
+        "config": { "open_interface": 1465, "open_component": 33, "select_interface": 1092 },
+        "destinations": [
+          { "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "routes": [ { "chain": [ { "clik": [1461, 1, 1, 234] } ] } ] }
+        ]
+      }
+    })";
+
+    // A scalar where a var gate belongs: must throw rather than leave the
+    // transition ungated.
+    const char *const kScalarVarbitFixture = R"({
+      "lodestones": {
+        "config": { "open_interface": 1465, "open_component": 33, "select_interface": 1092 },
+        "destinations": [
+          { "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "varbit": 35 } }
         ]
       }
     })";
@@ -141,13 +173,15 @@ namespace
         "config": {
           "open_interface": 1465, "open_component": 33,
           "select_interface": 1092,
-          "spell_interface": 1461, "spell_component": 1,
-          "filter_varbit": 50990,
           "open_wait": 6, "teleport_wait": 18
         },
         "destinations": [
           { "name": "Lumbridge", "x": 3233, "y": 3222, "plane": 0, "component": 17,
-            "spell_slot": 234 }
+            "routes": [
+              { "name": "ability book",
+                "requirements": { "varbit": { "id": 50990, "value": 0 } },
+                "chain": [ { "click": [1461, 1, 1, 234] }, { "wait": 18 } ] }
+            ] }
         ]
       }
     })";
@@ -188,6 +222,18 @@ namespace
     {
         stageFixture(dir, fixture);
         return ww::data::loadGlobalTeleports(dir.string());
+    }
+
+    // Unique per run: parallel `wwcli lodestones` invocations on one machine
+    // used to overwrite each other's fixtures and remove_all the other's
+    // directory mid-run, which reads as a loader bug.
+    std::filesystem::path fixtureDir()
+    {
+        std::random_device entropy;
+        char name[48];
+        std::snprintf(name, sizeof(name), "wwcli_lodestone_fixtures_%08x%08x",
+                      static_cast<unsigned>(entropy()), static_cast<unsigned>(entropy()));
+        return std::filesystem::temp_directory_path() / name;
     }
 
     bool sameStep(const ChainStep &got, const ChainStep &want)
@@ -270,65 +316,83 @@ namespace
         return fail(label);
     }
 
-    // Configured book route: a destination with a slot splits into a map
-    // transition gated on the filter being on and a spell transition gated on
-    // it being off, both keeping the destination's own unlock gate. A
-    // destination without a slot keeps the single, ungated map transition.
-    int checkConfiguredSplit(const std::filesystem::path &dir)
+    // A destination with a route yields the route and the map, in that order.
+    // The route keeps the destination's unlock gate and adds its own; the map
+    // keeps the unlock gate and nothing else — it is the fallback, so it must
+    // never be gated against a route.
+    int checkRoutedDestination(const std::filesystem::path &dir)
     {
-        const ww::data::LoadedDatasets loaded = loadFixture(dir, kConfiguredFixture);
+        const ww::data::LoadedDatasets loaded = loadFixture(dir, kRoutedFixture);
         const std::vector<Transition> &txs = loaded.model.transitions;
-        std::printf("lodestones: configured fixture -> %zu transitions (expect 3)\n",
-                    txs.size());
+        std::printf("lodestones: routed fixture -> %zu transitions (expect 3)\n", txs.size());
         if (txs.size() != 3)
         {
-            return fail("configured: expected Lumbridge map + spell and Edgeville map");
+            return fail("routed: expected Lumbridge book + map and Edgeville map");
         }
         int failures = 0;
-        failures += expectLodestone("configured: Lumbridge map", txs[0], kLumbridgeX, kLumbridgeY,
-                                    {kLumbridgeUnlocked, kSpellsFiltered},
-                                    {kOpenMap, kOpenWait, kPickLumbridge, kTeleportWait});
-        failures += expectLodestone("configured: Lumbridge spell", txs[1], kLumbridgeX,
-                                    kLumbridgeY, {kLumbridgeUnlocked, kSpellsShown},
+        failures += expectLodestone("routed: Lumbridge book", txs[0], kLumbridgeX, kLumbridgeY,
+                                    {kLumbridgeUnlocked, kSpellsShown},
                                     {kCastLumbridge, kTeleportWait});
-        failures += expectLodestone("configured: Edgeville map (no slot)", txs[2], kEdgevilleX,
+        failures += expectLodestone("routed: Lumbridge map (must stay ungated)", txs[1],
+                                    kLumbridgeX, kLumbridgeY, {kLumbridgeUnlocked},
+                                    {kOpenMap, kOpenWait, kPickLumbridge, kTeleportWait});
+        failures += expectLodestone("routed: Edgeville map (no routes)", txs[2], kEdgevilleX,
                                     kEdgevilleY, {kEdgevilleUnlocked},
                                     {kOpenMap, kOpenWait, kPickEdgeville, kTeleportWait});
 
         // A null capability snapshot (ww_query without one) admits both, and
         // the planner then takes the cheaper, so the cast must stay cheaper.
-        const float spellCost = ww::data::computeCost(txs[1]);
-        const float mapCost = ww::data::computeCost(txs[0]);
-        std::printf("lodestones: spell cost=%.1f map cost=%.1f (expect spell < map)\n",
-                    static_cast<double>(spellCost), static_cast<double>(mapCost));
-        if (!(spellCost < mapCost))
+        const float bookCost = ww::data::computeCost(txs[0]);
+        const float mapCost = ww::data::computeCost(txs[1]);
+        std::printf("lodestones: book cost=%.1f map cost=%.1f (expect book < map)\n",
+                    static_cast<double>(bookCost), static_cast<double>(mapCost));
+        if (!(bookCost < mapCost))
         {
-            failures += fail("configured: the book cast is not cheaper than the map");
+            failures += fail("routed: the book cast is not cheaper than the map");
         }
         return failures;
     }
 
-    int checkUnconfiguredIsMapOnly(const std::filesystem::path &dir)
+    int checkNoRoutesIsMapOnly(const std::filesystem::path &dir)
     {
-        const ww::data::LoadedDatasets loaded = loadFixture(dir, kUnconfiguredFixture);
+        const ww::data::LoadedDatasets loaded = loadFixture(dir, kNoRoutesFixture);
         const std::vector<Transition> &txs = loaded.model.transitions;
-        std::printf("lodestones: unconfigured fixture -> %zu transitions (expect 1)\n",
-                    txs.size());
+        std::printf("lodestones: routeless fixture -> %zu transitions (expect 1)\n", txs.size());
         if (txs.size() != 1)
         {
-            return fail("unconfigured: a spell_slot without filter_varbit changed the count");
+            return fail("routeless: a destination without routes is not the map alone");
         }
-        return expectLodestone("unconfigured: Lumbridge map", txs[0], kLumbridgeX, kLumbridgeY,
+        return expectLodestone("routeless: Lumbridge map", txs[0], kLumbridgeX, kLumbridgeY,
                                {kLumbridgeUnlocked},
                                {kOpenMap, kOpenWait, kPickLumbridge, kTeleportWait});
     }
 
+    // The array spelling of a var gate: both entries land, in order, after the
+    // destination's own gate.
+    int checkArrayVarGate(const std::filesystem::path &dir)
+    {
+        const ww::data::LoadedDatasets loaded = loadFixture(dir, kArrayGateFixture);
+        const std::vector<Transition> &txs = loaded.model.transitions;
+        std::printf("lodestones: array-gate fixture -> %zu transitions (expect 2)\n", txs.size());
+        if (txs.size() != 2)
+        {
+            return fail("array gate: expected a book route and a map");
+        }
+        return expectLodestone("array gate: Lumbridge book", txs[0], kLumbridgeX, kLumbridgeY,
+                               {kLumbridgeUnlocked, kSpellsShown, kCombinedBook},
+                               {kCastLumbridge, kTeleportWait});
+    }
+
+    // Staging happens outside the try: writeText throws too, and a read-only
+    // temp directory used to satisfy every one of these without the loader
+    // ever running.
     int expectLoadThrows(const std::filesystem::path &dir, const char *label,
                          const char *fixture)
     {
+        stageFixture(dir, fixture);
         try
         {
-            static_cast<void>(loadFixture(dir, fixture));
+            static_cast<void>(ww::data::loadGlobalTeleports(dir.string()));
         }
         catch (const std::exception &e)
         {
@@ -373,7 +437,8 @@ namespace
     // Plan the query with only the filter varbit set, and require the plan to
     // lead with `wantIndex` and never touch `otherIndex`.
     int expectLead(ww::runtime::PathAssembler &assembler, const PlannerQuery &q,
-                   int32_t filterValue, uint32_t wantIndex, uint32_t otherIndex)
+                   int32_t filterValue, uint32_t wantIndex, uint32_t otherIndex,
+                   const char *label)
     {
         ww::runtime::CapabilitySnapshot snapshot;
         snapshot.setVarbit(kFilterVarbit, filterValue);
@@ -387,17 +452,16 @@ namespace
                     static_cast<double>(plan.cost), plan.steps.size());
         if (!isPlanned || lead != static_cast<int64_t>(wantIndex) || planUses(plan, otherIndex))
         {
-            return fail(filterValue == 0 ? "planner: filter off did not cast from the book"
-                                         : "planner: filter on did not open the map");
+            return fail(label);
         }
         return 0;
     }
 
-    // The appended spell record is what the executor will run: its chain must
+    // The appended route record is what the executor will run: its chain must
     // still be the book cast once encoded into the reader's pools.
-    int expectAppendedSpell(const ww::format::ArtifactReader &reader, uint32_t spellIndex)
+    int expectAppendedCast(const ww::format::ArtifactReader &reader, uint32_t routeIndex)
     {
-        const ww::format::TransitionRecord &tx = reader.transitions()[spellIndex];
+        const ww::format::TransitionRecord &tx = reader.transitions()[routeIndex];
         const auto chain = reader.chainSteps();
         const bool isCast = tx.chainCount == 2
                          && chain[tx.chainStart].kind
@@ -406,7 +470,7 @@ namespace
                          && chain[tx.chainStart].b == kCastLumbridge.b
                          && chain[tx.chainStart].c == kCastLumbridge.c
                          && chain[tx.chainStart].d == kCastLumbridge.d;
-        return isCast ? 0 : fail("planner: the appended spell record is not the book cast");
+        return isCast ? 0 : fail("planner: the appended route record is not the book cast");
     }
 
     int runPlannerChecks(ww::format::ArtifactReader &reader, const std::filesystem::path &dir)
@@ -415,22 +479,22 @@ namespace
         const std::size_t appended = ww::runtime::loadGlobalTeleportsInto(reader, dir.string());
         if (appended != 2)
         {
-            return fail("planner: the fixture did not append exactly a map + spell pair");
+            return fail("planner: the fixture did not append exactly a route + map pair");
         }
         const auto txs = reader.transitions();
-        const uint32_t mapIndex = static_cast<uint32_t>(txs.size() - 2);
-        const uint32_t spellIndex = mapIndex + 1;
-        int failures = expectAppendedSpell(reader, spellIndex);
+        const uint32_t routeIndex = static_cast<uint32_t>(txs.size() - 2);
+        const uint32_t mapIndex = routeIndex + 1;
+        int failures = expectAppendedCast(reader, routeIndex);
 
         ww::runtime::WorldView view(reader);
-        const ww::format::TransitionRecord &spell = txs[spellIndex];
-        const int32_t goalPlane = static_cast<int32_t>(spell.destPlane);
-        PlannerQuery q{0, 0, spell.destX, spell.destY, goalPlane};
+        const ww::format::TransitionRecord &route = txs[routeIndex];
+        const int32_t goalPlane = static_cast<int32_t>(route.destPlane);
+        PlannerQuery q{0, 0, route.destX, route.destY, goalPlane};
         const auto standable = [&](int32_t x, int32_t y)
         {
             return view.isStandable(x, y, kStartPlane);
         };
-        if (view.areaAt(spell.destX, spell.destY, goalPlane) < 0
+        if (view.areaAt(route.destX, route.destY, goalPlane) < 0
             || !ww::runtime::findNearestTile(kStartX, kStartY, kStartSnapRadius, true, standable,
                                              kStartX, kStartY, q.startX, q.startY))
         {
@@ -441,8 +505,15 @@ namespace
         ww::runtime::AreaSearch areaSearch(reader);
         ww::runtime::TileSearch tileSearch(view);
         ww::runtime::PathAssembler assembler(reader, view, areaSearch, tileSearch);
-        failures += expectLead(assembler, q, 0, spellIndex, mapIndex);
-        failures += expectLead(assembler, q, 1, mapIndex, spellIndex);
+        failures += expectLead(assembler, q, 0, routeIndex, mapIndex,
+                               "planner: filter off did not cast from the book");
+        failures += expectLead(assembler, q, 1, mapIndex, routeIndex,
+                               "planner: filter on did not open the map");
+        // The reason the map carries no route gate: a filter value neither
+        // route describes must still leave the destination reachable, not drop
+        // it out of the graph.
+        failures += expectLead(assembler, q, 7, mapIndex, routeIndex,
+                               "planner: an unexpected filter value lost the lodestone");
         return failures;
     }
 
@@ -469,11 +540,13 @@ namespace
     {
         try
         {
-            int failures = checkConfiguredSplit(dir);
-            failures += checkUnconfiguredIsMapOnly(dir);
-            failures += expectLoadThrows(dir, "filter_varbit without spell_interface",
-                                         kMissingSpellInterfaceFixture);
-            failures += expectLoadThrows(dir, "negative spell_slot", kNegativeSlotFixture);
+            int failures = checkRoutedDestination(dir);
+            failures += checkNoRoutesIsMapOnly(dir);
+            failures += checkArrayVarGate(dir);
+            failures += expectLoadThrows(dir, "routes as an object", kRoutesNotArrayFixture);
+            failures += expectLoadThrows(dir, "a route with no recognised step",
+                                         kRouteWithoutChainFixture);
+            failures += expectLoadThrows(dir, "a scalar varbit gate", kScalarVarbitFixture);
             return failures;
         }
         catch (const std::exception &e)
@@ -486,9 +559,8 @@ namespace
 
 int runLodestoneTests(const char *artifactPath)
 {
-    std::printf("lodestones: ability-book vs lodestone-map routes\n");
-    const std::filesystem::path dir =
-        std::filesystem::temp_directory_path() / "wwcli_lodestone_fixtures";
+    std::printf("lodestones: dataset routes vs the lodestone map\n");
+    const std::filesystem::path dir = fixtureDir();
     std::error_code ignored;
     std::filesystem::create_directories(dir, ignored);
 

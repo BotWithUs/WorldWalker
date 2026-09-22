@@ -31,6 +31,7 @@
 #include <exception>
 #include <filesystem>
 #include <string>
+#include <utility>
 #include <vector>
 
 // wwcli — WorldWalker dev harness (queries + benchmarks).
@@ -533,21 +534,35 @@ namespace
                                                "tele", false));
 
                 // Reproduce the executor's planFrom requirement gating. Collect
-                // the distinct varbit ids any requirement references (lodestone
-                // unlocks live here), then plan twice with a non-null snapshot:
-                // once empty (every varbit reads 0 → gated teleports rejected,
-                // the live bug) and once with all those varbits set to 1 (the
-                // post-fix executor reads the player's true unlock state via the
-                // readVarbits callback → gated teleports admitted).
-                std::vector<int32_t> varbitIds;
+                // each distinct varbit a requirement references together with
+                // the value that requirement asks for, then plan twice with a
+                // non-null snapshot: once empty (every varbit reads 0 → gated
+                // teleports rejected, the live bug) and once with every gate
+                // satisfied (the post-fix executor reads the player's true
+                // state via the readVarbits callback → gated teleports
+                // admitted).
+                //
+                // The value matters because varbit gates are exact-match: a
+                // flat 1 for every id rejected Bandit Camp (15), Lunar Isle
+                // (190) and every route gated on a varbit being 0. First value
+                // wins, so two gates that disagree about one varbit are simply
+                // not both representable in a single snapshot.
+                std::vector<std::pair<int32_t, int32_t>> varbits;
                 std::vector<int32_t> itemIds;
+                const auto isKnownVarbit = [&varbits](int32_t id)
+                {
+                    const auto sameId = [id](const std::pair<int32_t, int32_t> &v)
+                    {
+                        return v.first == id;
+                    };
+                    return std::find_if(varbits.begin(), varbits.end(), sameId) != varbits.end();
+                };
                 for (const ww::format::RequirementRecord &r : reader.requirements())
                 {
                     const auto kind = static_cast<ww::data::RequirementKind>(r.kind);
-                    if (kind == ww::data::RequirementKind::Varbit
-                        && std::find(varbitIds.begin(), varbitIds.end(), r.id) == varbitIds.end())
+                    if (kind == ww::data::RequirementKind::Varbit && !isKnownVarbit(r.id))
                     {
-                        varbitIds.push_back(r.id);
+                        varbits.emplace_back(r.id, r.amount);
                     }
                     else if (kind == ww::data::RequirementKind::Item
                              && std::find(itemIds.begin(), itemIds.end(), r.id) == itemIds.end())
@@ -557,14 +572,15 @@ namespace
                 }
                 ww::runtime::CapabilitySnapshot empty;
                 runPlanQueryCaps(assembler, reader, &empty, sx, sy, sp, gx, gy, gp, "caps:empty");
-                // Full-unlock snapshot: every gate satisfied (unlock varbits set,
-                // every required item held) — mirrors what the executor's
-                // planFrom builds for a fully-equipped player, so item-gated
-                // teleports (dungeoneering cape, jewellery) are admitted.
+                // Full-unlock snapshot: every gate satisfied (each varbit at the
+                // value its gate asks for, every required item held) — mirrors
+                // what the executor's planFrom builds for a fully-equipped
+                // player, so item-gated teleports (dungeoneering cape,
+                // jewellery) are admitted.
                 ww::runtime::CapabilitySnapshot unlocked;
-                for (int32_t id : varbitIds)
+                for (const std::pair<int32_t, int32_t> &v : varbits)
                 {
-                    unlocked.setVarbit(id, 1);
+                    unlocked.setVarbit(v.first, v.second);
                 }
                 for (int32_t id : itemIds)
                 {

@@ -6,10 +6,6 @@
       "open_option": 1,
       "select_interface": 1092,
       "select_option": 1,
-      "spell_interface": 1461,
-      "spell_component": 1,
-      "spell_option": 1,
-      "filter_varbit": 50990,
       "open_wait": 6,
       "teleport_wait": 18,
       "default_cost": 80.0,
@@ -22,7 +18,6 @@
         "y": 2955,
         "plane": 0,
         "component": 8,
-        "spell_slot": 222,
         "requirements": {
           "varbit": {
             "id": 9482,
@@ -32,7 +27,31 @@
         "hotkey": {
           "key_code": 68,
           "modifier": 2
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  222
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Lunar Isle",
@@ -40,7 +59,6 @@
         "y": 3912,
         "plane": 0,
         "component": 9,
-        "spell_slot": 235,
         "requirements": {
           "varbit": {
             "id": 10236,
@@ -50,7 +68,31 @@
         "hotkey": {
           "key_code": 56,
           "modifier": 2
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  235
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Al Kharid",
@@ -58,7 +100,6 @@
         "y": 3185,
         "plane": 0,
         "component": 10,
-        "spell_slot": 218,
         "requirements": {
           "varbit": {
             "id": 28,
@@ -68,7 +109,31 @@
         "hotkey": {
           "key_code": 48,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  218
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Ardougne",
@@ -76,7 +141,6 @@
         "y": 3349,
         "plane": 0,
         "component": 11,
-        "spell_slot": 220,
         "requirements": {
           "varbit": {
             "id": 29,
@@ -86,7 +150,31 @@
         "hotkey": {
           "key_code": 48,
           "modifier": 2
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  220
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Burthorpe",
@@ -94,7 +182,6 @@
         "y": 3545,
         "plane": 0,
         "component": 12,
-        "spell_slot": 223,
         "requirements": {
           "varbit": {
             "id": 30,
@@ -104,7 +191,31 @@
         "hotkey": {
           "key_code": 68,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  223
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Catherby",
@@ -112,7 +223,6 @@
         "y": 3450,
         "plane": 0,
         "component": 13,
-        "spell_slot": 225,
         "requirements": {
           "varbit": {
             "id": 31,
@@ -122,7 +232,31 @@
         "hotkey": {
           "key_code": 66,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  225
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Draynor Village",
@@ -130,7 +264,6 @@
         "y": 3299,
         "plane": 0,
         "component": 14,
-        "spell_slot": 227,
         "requirements": {
           "varbit": {
             "id": 32,
@@ -140,7 +273,31 @@
         "hotkey": {
           "key_code": 50,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  227
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Edgeville",
@@ -148,7 +305,6 @@
         "y": 3506,
         "plane": 0,
         "component": 15,
-        "spell_slot": 229,
         "requirements": {
           "varbit": {
             "id": 33,
@@ -158,7 +314,31 @@
         "hotkey": {
           "key_code": 34,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  229
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Falador",
@@ -166,7 +346,6 @@
         "y": 3404,
         "plane": 0,
         "component": 16,
-        "spell_slot": 230,
         "requirements": {
           "varbit": {
             "id": 34,
@@ -176,7 +355,31 @@
         "hotkey": {
           "key_code": 51,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  230
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Lumbridge",
@@ -184,7 +387,6 @@
         "y": 3222,
         "plane": 0,
         "component": 17,
-        "spell_slot": 234,
         "requirements": {
           "varbit": {
             "id": 35,
@@ -194,7 +396,31 @@
         "hotkey": {
           "key_code": 56,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  234
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Port Sarim",
@@ -202,7 +428,6 @@
         "y": 3216,
         "plane": 0,
         "component": 18,
-        "spell_slot": 238,
         "requirements": {
           "varbit": {
             "id": 36,
@@ -212,7 +437,31 @@
         "hotkey": {
           "key_code": 41,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  238
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Seers' Village",
@@ -220,7 +469,6 @@
         "y": 3483,
         "plane": 0,
         "component": 19,
-        "spell_slot": 240,
         "requirements": {
           "varbit": {
             "id": 37,
@@ -230,7 +478,31 @@
         "hotkey": {
           "key_code": 49,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  240
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Taverley",
@@ -238,7 +510,6 @@
         "y": 3443,
         "plane": 0,
         "component": 20,
-        "spell_slot": 241,
         "requirements": {
           "varbit": {
             "id": 38,
@@ -248,7 +519,31 @@
         "hotkey": {
           "key_code": 36,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  241
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Varrock",
@@ -256,7 +551,6 @@
         "y": 3377,
         "plane": 0,
         "component": 21,
-        "spell_slot": 243,
         "requirements": {
           "varbit": {
             "id": 39,
@@ -266,7 +560,31 @@
         "hotkey": {
           "key_code": 67,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  243
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Fort Forinthry",
@@ -274,7 +592,6 @@
         "y": 3526,
         "plane": 0,
         "component": 22,
-        "spell_slot": 231,
         "requirements": {
           "varbit": {
             "id": 52518,
@@ -284,7 +601,31 @@
         "hotkey": {
           "key_code": 51,
           "modifier": 4
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  231
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Menaphos",
@@ -292,7 +633,6 @@
         "y": 2717,
         "plane": 0,
         "component": 23,
-        "spell_slot": 236,
         "requirements": {
           "varbit": {
             "id": 36173,
@@ -306,7 +646,31 @@
         "hotkey": {
           "key_code": 70,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  236
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Anachronia",
@@ -314,7 +678,6 @@
         "y": 2339,
         "plane": 0,
         "component": 24,
-        "spell_slot": 219,
         "requirements": {
           "varbit": {
             "id": 44270,
@@ -324,7 +687,31 @@
         "hotkey": {
           "key_code": 50,
           "modifier": 2
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  219
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Yanille",
@@ -332,7 +719,6 @@
         "y": 3095,
         "plane": 0,
         "component": 25,
-        "spell_slot": 245,
         "requirements": {
           "varbit": {
             "id": 40,
@@ -342,7 +728,31 @@
         "hotkey": {
           "key_code": 37,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  245
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Canifis",
@@ -350,7 +760,6 @@
         "y": 3516,
         "plane": 0,
         "component": 26,
-        "spell_slot": 224,
         "requirements": {
           "varbit": {
             "id": 18523,
@@ -360,7 +769,31 @@
         "hotkey": {
           "key_code": 66,
           "modifier": 2
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  224
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Eagles' Peak",
@@ -368,7 +801,6 @@
         "y": 3480,
         "plane": 0,
         "component": 27,
-        "spell_slot": 228,
         "requirements": {
           "varbit": {
             "id": 18524,
@@ -378,7 +810,31 @@
         "hotkey": {
           "key_code": 34,
           "modifier": 2
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  228
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Fremennik Province",
@@ -386,7 +842,6 @@
         "y": 3678,
         "plane": 0,
         "component": 28,
-        "spell_slot": 232,
         "requirements": {
           "varbit": {
             "id": 18525,
@@ -396,7 +851,31 @@
         "hotkey": {
           "key_code": 51,
           "modifier": 2
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  232
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Karamja",
@@ -404,7 +883,6 @@
         "y": 3148,
         "plane": 0,
         "component": 29,
-        "spell_slot": 233,
         "requirements": {
           "varbit": {
             "id": 18526,
@@ -414,7 +892,31 @@
         "hotkey": {
           "key_code": 55,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  233
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Oo'glog",
@@ -422,7 +924,6 @@
         "y": 2872,
         "plane": 0,
         "component": 30,
-        "spell_slot": 237,
         "requirements": {
           "varbit": {
             "id": 18527,
@@ -432,7 +933,31 @@
         "hotkey": {
           "key_code": 40,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  237
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Tirannwn",
@@ -440,7 +965,6 @@
         "y": 3150,
         "plane": 0,
         "component": 31,
-        "spell_slot": 242,
         "requirements": {
           "varbit": {
             "id": 18528,
@@ -454,7 +978,31 @@
         "hotkey": {
           "key_code": 36,
           "modifier": 2
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  242
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Wilderness Crater",
@@ -462,7 +1010,6 @@
         "y": 3636,
         "plane": 0,
         "component": 32,
-        "spell_slot": 244,
         "requirements": {
           "varbit": {
             "id": 18529,
@@ -472,7 +1019,31 @@
         "hotkey": {
           "key_code": 33,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  244
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Ashdale",
@@ -480,7 +1051,6 @@
         "y": 2709,
         "plane": 2,
         "component": 33,
-        "spell_slot": 221,
         "requirements": {
           "varbit": {
             "id": 22430,
@@ -490,7 +1060,31 @@
         "hotkey": {
           "key_code": 48,
           "modifier": 4
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  221
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Prifddinas",
@@ -498,7 +1092,6 @@
         "y": 3361,
         "plane": 1,
         "component": 34,
-        "spell_slot": 239,
         "requirements": {
           "varbit": {
             "id": 24967,
@@ -512,7 +1105,31 @@
         "hotkey": {
           "key_code": 41,
           "modifier": 2
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  239
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "City of Um",
@@ -520,7 +1137,6 @@
         "y": 1768,
         "plane": 1,
         "component": 35,
-        "spell_slot": 226,
         "requirements": {
           "varbit": {
             "id": 53270,
@@ -530,7 +1146,31 @@
         "hotkey": {
           "key_code": 38,
           "modifier": 8
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  226
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       },
       {
         "name": "Wendlewick",
@@ -538,7 +1178,6 @@
         "y": 1520,
         "plane": 0,
         "component": 40,
-        "spell_slot": 259,
         "requirements": {
           "varbit": {
             "id": 60739,
@@ -548,7 +1187,31 @@
         "hotkey": {
           "key_code": 33,
           "modifier": 2
-        }
+        },
+        "routes": [
+          {
+            "name": "ability book",
+            "requirements": {
+              "varbit": {
+                "id": 50990,
+                "value": 0
+              }
+            },
+            "chain": [
+              {
+                "click": [
+                  1461,
+                  1,
+                  1,
+                  259
+                ]
+              },
+              {
+                "wait": 18
+              }
+            ]
+          }
+        ]
       }
     ]
   },

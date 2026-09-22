@@ -63,7 +63,7 @@ jobs:
           }
           Write-Host "OK: worldwalker + wwcli built, wwbuild correctly skipped"
 
-      # These two suites are self-contained: no artifact, no cache, no datasets.
+      # These suites are self-contained: no artifact, no cache, no datasets.
       # Branch on $LASTEXITCODE, never on $? -- see docs/artifact-delivery.md section 1.
       - name: wwcli walltest (wall shape/rotation table)
         run: |
@@ -73,6 +73,13 @@ jobs:
       - name: wwcli instance (dynamic-region chunk remap)
         run: |
           .\build\Release\wwcli.exe instance
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      # Loader and schema layers only: without an artifact the planner layer
+      # prints SKIP. The acceptance job runs it against the released .wwa.
+      - name: wwcli lodestones (dataset routes, loader layers)
+        run: |
+          .\build\Release\wwcli.exe lodestones
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Upload binaries
@@ -127,6 +134,22 @@ jobs:
         run: |
           .\bin\wwcli.exe check worldwalker.wwa datasets
           if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      # The planner layer: the map must stay reachable at a filter value no
+      # route describes. It SKIPs (exit 0) when the artifact lacks the Lumbridge
+      # landing or the Varrock start, so a SKIP here is a failure: a pass that
+      # tested nothing is worse than a red step.
+      - name: wwcli lodestones <artifact> (planner layer)
+        if: steps.fetch.outputs.found == 'true'
+        run: |
+          $out = & .\bin\wwcli.exe lodestones worldwalker.wwa
+          $code = $LASTEXITCODE
+          $out | ForEach-Object { Write-Host $_ }
+          if ($code -ne 0) { exit 1 }
+          if ($out -match 'planner SKIP') {
+            Write-Host "::error::the lodestone planner layer skipped against the released artifact"
+            exit 1
+          }
 
   # CMakeLists.txt is generated from cmake.toml and both are committed. Nothing
   # stops a PR from editing one and not the other, so check that regenerating
