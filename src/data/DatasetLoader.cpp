@@ -189,6 +189,46 @@ namespace ww::data
         // chain / runtime teleport JSON, so it is part of the wire contract).
         constexpr int kComponentActionId = 57;
 
+        // One `{id, value}` var gate, appended as `kind`.
+        void pushVarRequirement(const json &v, RequirementKind kind, const char *context,
+                                std::vector<Requirement> &out)
+        {
+            out.push_back({kind, readRequiredInt(v, "id", context),
+                           readOptionalInt(v, "value", 0, context)});
+        }
+
+        // `varbit` / `varp` is either one `{id, value}` object or an array of
+        // them, the way `items` has always been an array. The array spelling is
+        // what lets one entry demand more than one var — an unlock *and* a
+        // setting, say — without the parser knowing what those vars mean. Both
+        // spellings produce the same flat Requirement list, so nothing
+        // downstream can tell them apart.
+        void readVarRequirements(const json &req, const char *key, RequirementKind kind,
+                                 const char *context, std::vector<Requirement> &out)
+        {
+            if (!req.contains(key))
+            {
+                return;
+            }
+            const json &node = req.at(key);
+            if (node.is_object())
+            {
+                pushVarRequirement(node, kind, context, out);
+                return;
+            }
+            // Anything else is a typo (`"varbit": 50990`) that used to be
+            // dropped in silence, leaving the transition ungated.
+            if (!node.is_array())
+            {
+                throw std::runtime_error(std::string(context)
+                                         + ": must be an object or an array of objects");
+            }
+            for (const json &v : node)
+            {
+                pushVarRequirement(v, kind, context, out);
+            }
+        }
+
         void parseRequirements(const json &node, std::vector<Requirement> &out)
         {
             if (!node.contains("requirements"))
@@ -218,13 +258,8 @@ namespace ww::data
                                readRequiredInt(s, "id", "requirements.skill"),
                                readOptionalInt(s, "level", 0, "requirements.skill")});
             }
-            if (req.contains("varbit") && req.at("varbit").is_object())
-            {
-                const json &v = req.at("varbit");
-                out.push_back({RequirementKind::Varbit,
-                               readRequiredInt(v, "id", "requirements.varbit"),
-                               readOptionalInt(v, "value", 0, "requirements.varbit")});
-            }
+            readVarRequirements(req, "varbit", RequirementKind::Varbit, "requirements.varbit",
+                                out);
             if (req.contains("varbit_at_least") && req.at("varbit_at_least").is_object())
             {
                 const json &v = req.at("varbit_at_least");
@@ -232,13 +267,7 @@ namespace ww::data
                                readRequiredInt(v, "id", "requirements.varbit_at_least"),
                                readOptionalInt(v, "value", 1, "requirements.varbit_at_least")});
             }
-            if (req.contains("varp") && req.at("varp").is_object())
-            {
-                const json &v = req.at("varp");
-                out.push_back({RequirementKind::Varp,
-                               readRequiredInt(v, "id", "requirements.varp"),
-                               readOptionalInt(v, "value", 0, "requirements.varp")});
-            }
+            readVarRequirements(req, "varp", RequirementKind::Varp, "requirements.varp", out);
             if (req.contains("items") && req.at("items").is_array())
             {
                 for (const json &it : req.at("items"))
@@ -506,12 +535,6 @@ namespace ww::data
             }
         }
 
-        // Values of the ability-book lodestone filter varbit
-        // (ABILITY_BOOK_FILTER_LODESTONE_TELEPORTS): 0 while the Magic book
-        // lists the lodestone spells, 1 once the player has filtered them out.
-        constexpr int kLodestoneSpellsShown = 0;
-        constexpr int kLodestoneSpellsFiltered = 1;
-
         struct LodestoneConfig
         {
             int openInterface{};
@@ -522,32 +545,7 @@ namespace ww::data
             int selectSub{-1};
             int openWait{};
             int teleportWait{};
-            // The ability-book route. Off unless the config names
-            // `filter_varbit`; when off, only the map chain is built.
-            bool hasSpellRoute{};
-            int spellInterface{};
-            int spellComponent{};
-            int spellOption{1};
-            int filterVarbit{};
         };
-
-        // `filter_varbit` switches the ability-book route on. Once it is on the
-        // spell interface/component are required for the same reason the map's
-        // are: a defaulted 0 would cast from interface 0.
-        void readLodestoneSpellRoute(const json &cfg, LodestoneConfig &ioConfig)
-        {
-            ioConfig.hasSpellRoute = cfg.contains("filter_varbit");
-            if (!ioConfig.hasSpellRoute)
-            {
-                return;
-            }
-            ioConfig.filterVarbit = readRequiredInt(cfg, "filter_varbit", "lodestones.config");
-            ioConfig.spellInterface =
-                readRequiredInt(cfg, "spell_interface", "lodestones.config");
-            ioConfig.spellComponent =
-                readRequiredInt(cfg, "spell_component", "lodestones.config");
-            ioConfig.spellOption = readOptionalInt(cfg, "spell_option", 1, "lodestones.config");
-        }
 
         LodestoneConfig readLodestoneConfig(const json &cfg)
         {
@@ -562,7 +560,6 @@ namespace ww::data
             c.selectSub = readOptionalInt(cfg, "select_sub_component", -1, "lodestones.config");
             c.openWait = readWaitTicks(cfg, "open_wait", 0, "lodestones.config");
             c.teleportWait = readWaitTicks(cfg, "teleport_wait", 0, "lodestones.config");
-            readLodestoneSpellRoute(cfg, c);
             return c;
         }
 
@@ -580,42 +577,59 @@ namespace ww::data
             out.push_back({ChainStepKind::Wait, c.teleportWait, 0, 0, 0});
         }
 
-        // Cast the lodestone spell straight from the Magic ability book: one
-        // COMPONENT click on the book's abilities layer whose sub index is the
-        // spell's slot, then the teleport wait. The map is never opened.
-        void buildLodestoneSpellChain(const LodestoneConfig &c, int spellSlot,
-                                      std::vector<ChainStep> &out)
-        {
-            out.push_back({ChainStepKind::Click, kComponentActionId, c.spellOption, spellSlot,
-                           packIfaceComp(c.spellInterface, c.spellComponent,
-                                         "lodestones.config")});
-            out.push_back({ChainStepKind::Wait, c.teleportWait, 0, 0, 0});
-        }
-
-        // The spell's slot in the Magic ability book (struct param 2793). -1 is
-        // the click encoding's "no sub-component", so a negative slot would
-        // click the abilities layer itself rather than any spell.
-        int readSpellSlot(const json &d)
-        {
-            const int slot = readRequiredInt(d, "spell_slot", "lodestones.destination");
-            if (slot < 0)
-            {
-                throw std::runtime_error(
-                    "lodestones.destination: field 'spell_slot' must not be negative");
-            }
-            return slot;
-        }
-
-        // One destination's transitions. Every field is read before anything is
-        // appended, so a malformed destination throws with `model` untouched.
+        // Alternative ways to reach the same lodestone, each an explicit
+        // requirements+chain pair authored in the dataset. The loader knows
+        // nothing about what a route does — casting from the Magic ability
+        // book, a split-book variant, some future interface — they are all
+        // just chains, so a new route is a dataset edit rather than a loader
+        // change. A route carries the destination's identity and unlock gate,
+        // with its own gates ANDed on top.
         //
-        // With the ability-book route configured and a `spell_slot` on the
-        // destination, it becomes two transitions split on the filter varbit:
-        // the spell while the book lists lodestone spells, the map only once
-        // they are filtered out (V1 nav's InteractStep LODESTONE rule). Exact
-        // varbit matching makes the two mutually exclusive for any real
-        // snapshot. Otherwise the map chain is the only one, with no filter
-        // gate.
+        // Collected into `out` rather than straight into the model so a
+        // malformed route leaves the model untouched.
+        void parseLodestoneRoutes(const json &d, const Transition &base,
+                                  std::vector<Transition> &out)
+        {
+            if (!d.contains("routes"))
+            {
+                return;
+            }
+            if (!d.at("routes").is_array())
+            {
+                throw std::runtime_error("lodestones.destination: 'routes' must be an array");
+            }
+            for (const json &r : d.at("routes"))
+            {
+                Transition t = base;
+                parseRequirements(r, t.requirements);
+                parseChain(r, t.chain);
+                // parseChain ignores a step whose shape it does not recognise,
+                // so a typo'd step key would otherwise yield an edge the
+                // planner happily takes and the executor completes instantly
+                // without teleporting.
+                if (t.chain.empty())
+                {
+                    throw std::runtime_error(
+                        "lodestones.destination: a route needs a non-empty 'chain'");
+                }
+                out.push_back(std::move(t));
+            }
+        }
+
+        // One destination's transitions: its routes, if any, plus the map.
+        // Every field is read before anything is appended, so a malformed
+        // destination throws with `model` untouched.
+        //
+        // The map chain is always emitted, and never gated against the routes.
+        // It is the fallback for any player the routes' gates do not *describe*
+        // — an unexpected varbit value, an id a client build stops mapping — so
+        // a destination never drops out of the graph entirely.
+        //
+        // It does not rescue a player whose route is admitted but cannot
+        // *complete*: a failed transition is terminal in the executor, and the
+        // caller's next plan picks the same cheapest edge again. Covering that
+        // means a route gated on whatever distinguishes the player (the split
+        // magic books, say), which is a dataset edit.
         void parseLodestoneDestination(const LodestoneConfig &cfg, const json &d,
                                        TransitionModel &model)
         {
@@ -632,28 +646,22 @@ namespace ww::data
             const int comp = readRequiredInt(d, "component", "lodestones.destination");
             const int sub =
                 readOptionalInt(d, "sub_component", cfg.selectSub, "lodestones.destination");
-            if (!cfg.hasSpellRoute || !d.contains("spell_slot"))
-            {
-                buildLodestoneChain(cfg, comp, sub, map.chain);
-                model.transitions.push_back(std::move(map));
-                return;
-            }
-            const int slot = readSpellSlot(d);
-
-            Transition spell = map;
-            buildLodestoneSpellChain(cfg, slot, spell.chain);
-            spell.requirements.push_back(
-                {RequirementKind::Varbit, cfg.filterVarbit, kLodestoneSpellsShown});
+            // Taken before the map chain is appended: routes share the
+            // destination's identity and gates, not its chain.
+            std::vector<Transition> built;
+            parseLodestoneRoutes(d, map, built);
             buildLodestoneChain(cfg, comp, sub, map.chain);
-            map.requirements.push_back(
-                {RequirementKind::Varbit, cfg.filterVarbit, kLodestoneSpellsFiltered});
-            // Map first, spell last. Nothing in the runtime depends on the
-            // order, but the dev harness's permissive snapshot keeps the LAST
-            // value asked of a varbit (applyPermissiveRequirements), so this
-            // order has `wwcli path --teleports` preview the spell route, which
-            // is what a player on the default, unfiltered book gets.
-            model.transitions.push_back(std::move(map));
-            model.transitions.push_back(std::move(spell));
+            built.push_back(std::move(map));
+            // A destination's transitions differ only in their chain, and
+            // TransitionBuilder::finalizeTransitions dedups on (kind, origin,
+            // dest, isGlobalOrigin). Global-origin transitions are stripped
+            // before that dedup (src/build/main.cpp), so nothing collapses
+            // today, but anything that starts baking globals has to key on the
+            // chain too.
+            for (Transition &t : built)
+            {
+                model.transitions.push_back(std::move(t));
+            }
         }
 
         void parseLodestones(const json &j, TransitionModel &model)

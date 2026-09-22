@@ -20,6 +20,29 @@ vanished on a clean and weren't tracked. They now live here, in the source tree.
 | `item_teleports.json`  | build + run  | same as above (`lodestones` + generic item `teleports`) |
 | `teleport_chains.json` | build time   | *(optional, currently absent)* — the loader skips it if missing |
 
+## Gates and routes
+
+Every entry may carry a `requirements` object. `skill` is one `{id, level}`;
+`items` is an array of `{id, count}` and passes when **any** of them is held on
+an item teleport; `varbit` and `varp` are either one `{id, value}` or an
+**array** of them, and each is an exact-value match; `varbit_at_least` is one
+`{id, value}` that passes at or above `value`. The array spelling is how one
+entry demands more than one var — an unlock *and* a setting — without the
+loader having to know what those vars mean.
+
+A `lodestones` destination may also carry `routes`: an array of
+`{requirements?, chain}` pairs, each an alternative way to reach that same
+destination. A route inherits the destination's identity and unlock gate and
+ANDs its own gates on top. The shipped dataset gives every lodestone one route —
+the cast from the Magic ability book (`1461:1`, sub = the spell's `param 2793`
+slot), gated on the book's lodestone filter varbit `50990` being `0`.
+
+The config-built lodestone-map chain is **always** emitted alongside the routes
+and is deliberately left ungated. It is the fallback for any player the routes
+do not describe, and a route that cannot complete must never be a destination's
+only candidate — the executor would fail it and re-plan onto the same edge
+forever.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a
