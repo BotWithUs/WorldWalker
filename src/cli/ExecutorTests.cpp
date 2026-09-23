@@ -102,6 +102,14 @@ namespace ww::cli
             // jump dropping them into a pit.
             int               failedLandingsLeft;
             exec::WwTile      failedLanding;
+            // SimulateTransition: a door that walks the player through itself.
+            // The landing commits `landingDelayTicks` ticks after the click; a
+            // walk clicked before then cancels it, as the game does, and is
+            // counted in cancelledLandings. droppedInteracts clicks do nothing.
+            int               landingDelayTicks;
+            int               pendingLandingTicks;
+            int               cancelledLandings;
+            int               droppedInteracts;
         };
 
         // Every callback that can surprise the harness. The class each one
@@ -243,6 +251,12 @@ namespace ww::cli
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->walkToCalls;
+            if (h->pendingLandingTicks > 0)
+            {
+                h->pendingLandingTicks = 0;
+                ++h->cancelledLandings;
+                return;
+            }
             if (h->droppedWalkClicks > 0)
             {
                 --h->droppedWalkClicks;
@@ -288,6 +302,14 @@ namespace ww::cli
                 --h->failedLandingsLeft;
                 h->position = h->failedLanding;
             }
+            else if (h->droppedInteracts > 0)
+            {
+                --h->droppedInteracts;
+            }
+            else if (h->landingDelayTicks > 0)
+            {
+                h->pendingLandingTicks = h->landingDelayTicks;
+            }
             else
             {
                 h->position = h->transitionDest;
@@ -314,10 +336,19 @@ namespace ww::cli
             }
         }
 
-        extern "C" void harnessSleepTicks(void *user, std::int32_t)
+        extern "C" void harnessSleepTicks(void *user, std::int32_t ticks)
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->sleepTicksCalls;
+            if (h->pendingLandingTicks > 0)
+            {
+                h->pendingLandingTicks -= ticks;
+                if (h->pendingLandingTicks <= 0)
+                {
+                    h->pendingLandingTicks = 0;
+                    h->position = h->transitionDest;
+                }
+            }
             if (h->mode == ExecHarnessMode::AbortOnAction)
             {
                 recordUnexpected(h, HarnessCallback::SleepTicks);
@@ -665,6 +696,58 @@ namespace ww::cli
             return failures;
         }
 
+        // An ungated one-tile door: the click is made from a tile already
+        // within a tile of the far side.
+        bool acceptUngatedOneTileDoor(const format::TransitionRecord &tx)
+        {
+            const int hop = std::max(std::abs(tx.originX - tx.destX),
+                                     std::abs(tx.originY - tx.destY));
+            return acceptUngatedDoor(tx) && hop == 1;
+        }
+
+        // Test 4f: a door that walks the player through itself, a few ticks
+        // after the click (Draynor Manor's front door). The next walk must not
+        // be clicked before the player is through, or the game cancels the
+        // walk-through; with `droppedInteracts` the first click does nothing
+        // and the door is clicked again.
+        std::size_t testWalkThroughDoor(ExecContext &ctx, int droppedInteracts)
+        {
+            CrossAreaPick pick{};
+            if (!pickCrossAreaPair(ctx.reader, ctx.view, acceptUngatedOneTileDoor, pick))
+            {
+                std::printf("  exec:   walk-through door test skipped (no one-tile door)\n");
+                return 0;
+            }
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            const auto &tx   = ctx.reader.transitions()[edge.transitionIndex];
+
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, pick.start.x,
+                                              pick.start.y, pick.startPlane);
+            harness.transitionDest =
+                exec::WwTile{ tx.destX, tx.destY, static_cast<std::int32_t>(tx.destPlane) };
+            harness.landingDelayTicks = 4;
+            harness.droppedInteracts  = droppedInteracts;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            const int wantInteracts = 1 + droppedInteracts;
+            std::printf("  exec:   walk-through door tx%u dropped=%d status=%d (expect 0)"
+                        " interacts=%d (expect %d) cancelled=%d stucks=%d (expect 0, 0)\n",
+                        edge.transitionIndex, droppedInteracts, static_cast<int>(status),
+                        harness.interactCalls, wantInteracts, harness.cancelledLandings,
+                        harness.stuckEvents);
+            printCallPattern("walk-through ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.interactCalls == wantInteracts ? 0u : 1u;
+            failures += (harness.cancelledLandings == 0 && harness.stuckEvents == 0) ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
         // Test 4d: the game drops the first walk click (the player was still in
         // an agility obstacle's forced move). The stall re-clicks once before
         // calling it stuck, so the walk arrives without a Stuck or a re-plan.
@@ -926,6 +1009,8 @@ namespace ww::cli
         failures += testDroppedWalkClick(ctx);
         failures += testOffCourseLanding(ctx, 1, true);
         failures += testOffCourseLanding(ctx, 99, false);
+        failures += testWalkThroughDoor(ctx, 0);
+        failures += testWalkThroughDoor(ctx, 1);
         failures += testFfi(ctx, artifactPath);
         return failures;
     }

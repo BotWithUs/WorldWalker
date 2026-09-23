@@ -383,6 +383,9 @@ namespace ww::exec
                                              WwTile &outPosition, bool &outIsOffCourse)
     {
         outIsOffCourse = false;
+        // outPosition arrives holding the live position the prior step left,
+        // which is where the player clicks this transition from.
+        const WwTile start = outPosition;
         // The terminal Failed event is emitted by run() with both stepIndex
         // and transitionIndex; failure paths here just return WwStatus::Failed
         // so the dispatch site can carry the indices through.
@@ -446,29 +449,55 @@ namespace ww::exec
         callbacks->readPosition(callbacks->user, &outPosition);
         if (!isGlobal && hasIssuedAction)
         {
-            awaitLanding(tx, outPosition);
+            awaitLanding(tx, start, outPosition);
+            if (runtime::isSameFloorCrossing(tx) && isSameTile(outPosition, start))
+            {
+                // Still where the click was made: the click was dropped, or a
+                // door that walks you through (Draynor Manor) has not started.
+                // Click it once more. An open door is no longer found, so the
+                // host no-ops and the walk goes on through the doorway.
+                if (interactWithLoc(tx) == LocInteract::Issued)
+                {
+                    callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
+                    callbacks->readPosition(callbacks->user, &outPosition);
+                    awaitLanding(tx, start, outPosition);
+                }
+            }
         }
         outIsOffCourse = didAct && isOffCourse(tx, outPosition);
         return WwStatus::Arrived;
     }
 
-    void Executor::awaitLanding(const format::TransitionRecord &tx, WwTile &ioPosition) const
+    bool Executor::isSameTile(const WwTile &a, const WwTile &b)
     {
+        return a.x == b.x && a.y == b.y && a.plane == b.plane;
+    }
+
+    bool Executor::hasLanded(const format::TransitionRecord &tx, const WwTile &start,
+                             const WwTile &at)
+    {
+        // Near the destination is not enough on its own: on a one-tile door
+        // the tile the click is made from is already within a tile of the far
+        // side. The player must be on the destination, or have moved to near it.
         const WwTile dest{ tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane) };
+        return isSameTile(at, dest)
+            || (!isSameTile(at, start) && chebyshev(at, dest) <= kArrivalChebyshev);
+    }
+
+    void Executor::awaitLanding(const format::TransitionRecord &tx, const WwTile &start,
+                                WwTile &ioPosition) const
+    {
         int32_t stillPolls = 0;
         for (int32_t tick = 0; tick < kLandingMaxTicks; ++tick)
         {
-            if (chebyshev(ioPosition, dest) <= kArrivalChebyshev
-                || stillPolls >= kLandingStillPolls)
+            if (hasLanded(tx, start, ioPosition) || stillPolls >= kLandingStillPolls)
             {
                 return;
             }
             callbacks->sleepTicks(callbacks->user, 1);
             WwTile pos{};
             callbacks->readPosition(callbacks->user, &pos);
-            const bool isStill = pos.x == ioPosition.x && pos.y == ioPosition.y
-                              && pos.plane == ioPosition.plane;
-            stillPolls = isStill ? stillPolls + 1 : 0;
+            stillPolls = isSameTile(pos, ioPosition) ? stillPolls + 1 : 0;
             ioPosition = pos;
         }
     }

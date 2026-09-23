@@ -232,7 +232,20 @@ namespace ww::exec
         // a small budget. An agility obstacle keeps moving the player after
         // the click, and a walk clicked during that move is dropped by the
         // game; the next walk must start from where the player came to rest.
-        void awaitLanding(const format::TransitionRecord &tx, WwTile &ioPosition) const;
+        //
+        // A same-floor crossing whose player has not moved at all after this
+        // is clicked once more (executeTransitionStep): a door like Draynor
+        // Manor's walks the player through itself, and a walk clicked before
+        // that starts cancels it.
+        void awaitLanding(const format::TransitionRecord &tx, const WwTile &start,
+                          WwTile &ioPosition) const;
+
+        // True when `at` counts as having crossed tx from `start`: on the
+        // destination tile, or moved off `start` to within a tile of it.
+        static bool hasLanded(const format::TransitionRecord &tx, const WwTile &start,
+                              const WwTile &at);
+
+        static bool isSameTile(const WwTile &a, const WwTile &b);
 
         // True when `at` is too far from tx's destination (or on another plane)
         // for the transition to have been crossed: the player fell, or the
