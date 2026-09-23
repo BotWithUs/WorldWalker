@@ -81,19 +81,26 @@ namespace ww::exec
         : artifact(&reader),
           pool(&pool),
           callbacks(&callbacks),
-          requirementVarbitIds(reader.requirementVarbitIds()),
+          planVarbitIds(reader.requirementVarbitIds().begin(),
+                        reader.requirementVarbitIds().end()),
           requirementItemIds(reader.requirementItemIds())
     {
-        // Distinct varbit / item id lists are built once on the artifact and
-        // borrowed here, so the Executor pays no per-construction scan over
-        // the requirement pool. ww_executor_run constructs a fresh Executor on
-        // every run, so the savings matter even at one call per game tick.
+        if (std::find(planVarbitIds.begin(), planVarbitIds.end(), runtime::kInCombatVarbitId)
+            == planVarbitIds.end())
+        {
+            planVarbitIds.push_back(runtime::kInCombatVarbitId);
+        }
+        // Distinct varbit / item id lists are built once on the artifact, so
+        // the Executor pays no per-construction scan over the requirement
+        // pool; the varbit list is copied only to add the combat varbit.
+        // ww_executor_run constructs a fresh Executor on every run, so the
+        // savings matter even at one call per game tick.
         //
         // Size the batched-callback output buffers once to the (fixed) lengths
         // of the id lists. resize() fills with zero so a host that bails out
         // and writes nothing (e.g. callback threw on first id) still leaves
         // sentinel-zero values for the planner to read.
-        varbitValues.resize(requirementVarbitIds.size());
+        varbitValues.resize(planVarbitIds.size());
         itemValues.resize(requirementItemIds.size());
     }
 
@@ -436,16 +443,13 @@ namespace ww::exec
         // host-side call, which the Java bridge in turn services with at most
         // two batched RPCs instead of N synchronous ones. This was the
         // dominant cost in pre-walk latency.
-        if (!requirementVarbitIds.empty())
+        callbacks->readVarbits(callbacks->user,
+                               planVarbitIds.data(),
+                               planVarbitIds.size(),
+                               varbitValues.data());
+        for (std::size_t i = 0; i < planVarbitIds.size(); ++i)
         {
-            callbacks->readVarbits(callbacks->user,
-                                   requirementVarbitIds.data(),
-                                   requirementVarbitIds.size(),
-                                   varbitValues.data());
-            for (std::size_t i = 0; i < requirementVarbitIds.size(); ++i)
-            {
-                snapshot.setVarbit(requirementVarbitIds[i], varbitValues[i]);
-            }
+            snapshot.setVarbit(planVarbitIds[i], varbitValues[i]);
         }
         // Likewise the live count of every item a requirement references (e.g.
         // the dungeoneering cape). Without this an item-gated teleport is
@@ -512,9 +516,25 @@ namespace ww::exec
             emit(WwEventKind::Arrived);
             return ReplanOutcome::Arrived;
         }
-        io.isTeleAllowedAtLastPlan = runtime::isTeleportAllowed(
-            *artifact, io.position.x, io.position.y, io.position.plane);
+        io.isTeleAllowedAtLastPlan = isTeleAllowedForPlan(io.position);
         return ReplanOutcome::Restarted;
+    }
+
+    bool Executor::isTeleAllowedForPlan(const WwTile &at) const
+    {
+        return runtime::isTeleportAllowed(*artifact, &snapshot, at.x, at.y, at.plane);
+    }
+
+    bool Executor::isTeleAllowedLive(const WwTile &at) const
+    {
+        if (!runtime::isTeleportAllowed(*artifact, at.x, at.y, at.plane))
+        {
+            return false;
+        }
+        const int32_t id = runtime::kInCombatVarbitId;
+        int32_t inCombat = 0;
+        callbacks->readVarbits(callbacks->user, &id, 1, &inCombat);
+        return inCombat != 1;
     }
 
     bool Executor::isRestart(ReplanOutcome outcome, int32_t stepIndex, WwStatus &outStatus) const
@@ -605,9 +625,10 @@ namespace ww::exec
         // post-step check can detect a false→true flip and re-plan with global
         // teleports newly considerable (ADR 0009). It is evaluated fresh per
         // step — it changes at wilderness-level (8-tile) and no-tele-box
-        // granularity, so any coarser caching detects the flip late.
-        st.isTeleAllowedAtLastPlan = runtime::isTeleportAllowed(
-            *artifact, st.position.x, st.position.y, st.position.plane);
+        // granularity, and when combat ends, so any coarser caching detects
+        // the flip late. The anchor reads the snapshot the plan itself used,
+        // so the plan and its anchor cannot disagree about combat.
+        st.isTeleAllowedAtLastPlan = isTeleAllowedForPlan(st.position);
 
         std::size_t i = 0;
         while (i < plan.steps.size())
@@ -649,8 +670,7 @@ namespace ww::exec
                 emit(WwEventKind::Arrived);
                 return WwStatus::Arrived;
             }
-            const bool isTeleAllowedNow = runtime::isTeleportAllowed(
-                *artifact, st.position.x, st.position.y, st.position.plane);
+            const bool isTeleAllowedNow = isTeleAllowedLive(st.position);
             if (isTeleAllowedNow && !st.isTeleAllowedAtLastPlan && st.replansUsed < kMaxReplans)
             {
                 WwStatus terminal = WwStatus::Failed;

@@ -546,9 +546,12 @@ namespace ww::runtime
         }
 
         // Teleport seeds feed both the inter-area backbone search and the
-        // goal-area landing optimisation, so build them once up front.
+        // goal-area landing optimisation, so build them once up front. In
+        // combat nothing is seeded: the game refuses the cast, so the plan
+        // walks and the executor re-plans once combat ends.
         seedScratch.clear();
-        const bool teleportAllowed = isTeleportAllowed(*artifact, startX, startY, startPlane);
+        const bool teleportAllowed =
+            isTeleportAllowed(*artifact, capabilities, startX, startY, startPlane);
         if (teleportAllowed)
         {
             buildGlobalTeleportSeeds(capabilities);

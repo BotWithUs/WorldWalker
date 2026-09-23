@@ -37,7 +37,9 @@ namespace ww::exec
     // resulting Walk and Transition steps. After each step it re-evaluates the
     // teleport-allowed predicate at the live position and re-plans when the
     // player has just crossed into a teleport-allowed zone — the load-bearing
-    // "walk out of wilderness, then teleport" path (ADR 0009). Walk failures
+    // "walk out of wilderness, then teleport" path (ADR 0009). Combat counts
+    // too: in combat no teleport is planned, and the flip back out of combat
+    // re-plans the same way (runtime::kInCombatVarbitId). Walk failures
     // (stuck / stall) consume one re-plan from a bounded budget and retry from
     // the live position; the budget runs out before infinite-loop pathologies
     // do.
@@ -87,8 +89,8 @@ namespace ww::exec
 
     private:
         // What one run knows between steps: the last sampled position, how
-        // much of the re-plan budget is spent, and whether the tile the
-        // current plan was anchored at allowed global teleports (so a
+        // much of the re-plan budget is spent, and whether global teleports
+        // were allowed when last checked, by tile and by combat state (so a
         // false→true flip after a step can be detected).
         struct RunState
         {
@@ -121,9 +123,9 @@ namespace ww::exec
         bool planFrom(const WwTile &start, const WwGoal &goal,
                       runtime::SearchContext &context, runtime::Plan &outPlan);
 
-        // Read the live value of every varbit and item id any transition
-        // requirement references, through the batched host callbacks, into
-        // `snapshot`. readCapability cannot surface these — the host does not
+        // Read the live value of every varbit in planVarbitIds and every item
+        // id any transition requirement references, through the batched host
+        // callbacks, into `snapshot`. readCapability cannot surface these — the host does not
         // know which ids matter — and without them every requirement-gated
         // teleport reads as locked and the planner only ever walks.
         void refreshRequirementValues();
@@ -134,6 +136,16 @@ namespace ww::exec
         // has already emitted the Arrived event.
         ReplanOutcome replan(const WwGoal &goal, runtime::SearchContext &context,
                              int32_t stepIndex, RunState &io);
+
+        // Whether the plan just made from `at` could seed global teleports:
+        // the tile allows them and `snapshot` (the one that plan read) says
+        // the player is out of combat.
+        bool isTeleAllowedForPlan(const WwTile &at) const;
+
+        // Whether a global teleport could be cast from `at` right now. Reads
+        // the combat varbit live, and only when the tile allows teleports at
+        // all, since otherwise the answer is no either way.
+        bool isTeleAllowedLive(const WwTile &at) const;
 
         // How a local-origin transition's interact went: the action was
         // issued, the loc was absent on a same-floor crossing (a door already
@@ -249,12 +261,16 @@ namespace ww::exec
         runtime::ContextPool *pool;
         const Callbacks *callbacks;
 
-        // Distinct varbit / item ids referenced by any transition requirement.
-        // Built once on the artifact (ArtifactReader::rebuildRequirementIdLists)
-        // and borrowed here; refreshRequirementValues reads each on every
-        // (re-)plan. Borrowed, not owned: the spans alias storage on the
-        // artifact that outlives the Executor.
-        std::span<const int32_t> requirementVarbitIds;
+        // Varbits read on every (re-)plan: the distinct ids any transition
+        // requirement references (ArtifactReader::rebuildRequirementIdLists)
+        // plus the combat varbit the teleport policy consults, which no
+        // requirement names. Owned, because the artifact's list is not the
+        // whole set; copying a few dozen ints per run costs nothing next to
+        // the pipe round-trip they feed.
+        std::vector<int32_t> planVarbitIds;
+
+        // Distinct item ids referenced by any transition requirement, borrowed
+        // from the artifact that outlives the Executor.
         std::span<const int32_t> requirementItemIds;
 
         // Reused per (re-)plan so consecutive plans share their backing

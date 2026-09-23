@@ -9,6 +9,7 @@
 #include "runtime/AreaSearch.h"
 #include "runtime/ContextPool.h"
 #include "runtime/PathAssembler.h"
+#include "runtime/TeleportPolicy.h"
 #include "runtime/TileSearch.h"
 #include "runtime/TransitionShape.h"
 #include "runtime/WorldView.h"
@@ -80,6 +81,10 @@ namespace ww::cli
             bool              walkToUpdatesPosition;
             exec::WwEventKind lastEventKind;
             exec::WwTile      transitionDest;   // SimulateTransition: where the click lands
+            // The combat varbit is modelled, not a surprise: every plan reads
+            // it. It answers 1 (in combat) for this many reads, then 0.
+            int               inCombatReadsLeft;
+            int               combatReads;
             // SimulateTransition: interact answers 0 ("no such loc here") and
             // does not move the player, as the host does for a loc it cannot
             // find near the origin.
@@ -164,19 +169,32 @@ namespace ww::cli
             return 0;
         }
 
-        extern "C" void harnessReadVarbits(void *user, const std::int32_t *, size_t count,
+        extern "C" void harnessReadVarbits(void *user, const std::int32_t *ids, size_t count,
                                            std::int32_t *out)
         {
-            // The batched variant is invoked at every (re-)plan even when no
-            // requirement references a varbit (count == 0), so a zero-count call
-            // is not a surprise at all. Only flag actual reads.
-            if (count > 0)
+            // The batched variant is invoked at every (re-)plan and after every
+            // step, always carrying the combat varbit. That one is modelled;
+            // any other id is an unmodelled read answered 0.
+            ExecHarness *h = static_cast<ExecHarness *>(user);
+            bool hasOtherId = false;
+            for (size_t i = 0; i < count; ++i)
             {
-                recordUnexpected(static_cast<ExecHarness *>(user), HarnessCallback::ReadVarbits);
-                for (size_t i = 0; i < count; ++i)
+                out[i] = 0;
+                if (ids[i] != runtime::kInCombatVarbitId)
                 {
-                    out[i] = 0;
+                    hasOtherId = true;
+                    continue;
                 }
+                ++h->combatReads;
+                if (h->inCombatReadsLeft > 0)
+                {
+                    --h->inCombatReadsLeft;
+                    out[i] = 1;
+                }
+            }
+            if (hasOtherId)
+            {
+                recordUnexpected(h, HarnessCallback::ReadVarbits);
             }
         }
 
@@ -627,6 +645,52 @@ namespace ww::cli
             return failures;
         }
 
+        // Test 4c: in combat at the first plan, out of it after the first step.
+        // The walk-only goal needs no teleport, but the flip back out of combat
+        // must still re-plan once, since that is the moment teleports come
+        // back into consideration (V1 interrupted its walk the same way).
+        std::size_t testCombatEndReplan(ExecContext &ctx)
+        {
+            if (!runtime::isTeleportAllowed(ctx.reader, ctx.node.centroidX, ctx.node.centroidY,
+                                            ctx.plane))
+            {
+                std::printf("  exec:   combat test skipped (start tile is not teleport-allowed)\n");
+                return 0;
+            }
+            runtime::AreaSearch    refAreaSearch(ctx.reader);
+            runtime::TileSearch    refTileSearch(ctx.view);
+            runtime::PathAssembler refAssembler(ctx.reader, ctx.view, refAreaSearch, refTileSearch);
+            runtime::Plan refPlan;
+            if (!refAssembler.assemble(ctx.node.centroidX, ctx.node.centroidY, ctx.plane,
+                                       ctx.farthest.x, ctx.farthest.y, ctx.plane, refPlan)
+                || refPlan.steps.size() < 2)
+            {
+                std::printf("  exec:   combat test skipped (walk has fewer than two steps)\n");
+                return 0;
+            }
+
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              ctx.node.centroidX, ctx.node.centroidY, ctx.plane);
+            harness.inCombatReadsLeft = 1;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ ctx.farthest.x, ctx.farthest.y, ctx.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   combat-end status=%d (expect 0=Arrived) replans=%d (expect 1)"
+                        " combat-reads=%d (expect >= 2)\n",
+                        static_cast<int>(status), harness.replanStartedEvents,
+                        harness.combatReads);
+            printCallPattern("combat ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.replanStartedEvents == 1 ? 0u : 1u;
+            failures += harness.combatReads >= 2 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
         // Test 5: drive the same walk-only goal as Test 2 through the public C
         // ABI (ww_executor_run) instead of constructing the C++ Executor
         // directly. Validates that the artifact / pool handles, the WwCallbacks
@@ -753,6 +817,7 @@ namespace ww::cli
         failures += testReplanRecovery(ctx);
         failures += testMissingLoc(ctx, acceptUngatedDoor, "door");
         failures += testMissingLoc(ctx, acceptUngatedNonDoor, "non-door");
+        failures += testCombatEndReplan(ctx);
         failures += testFfi(ctx, artifactPath);
         return failures;
     }

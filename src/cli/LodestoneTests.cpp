@@ -9,6 +9,7 @@
 #include "runtime/CapabilitySnapshot.h"
 #include "runtime/PathAssembler.h"
 #include "runtime/RuntimeTeleports.h"
+#include "runtime/TeleportPolicy.h"
 #include "runtime/TileScan.h"
 #include "runtime/TileSearch.h"
 #include "runtime/WorldView.h"
@@ -457,6 +458,29 @@ namespace
         return 0;
     }
 
+    // In combat the game refuses every teleport, so the same query that casts
+    // from the book out of combat must plan neither lodestone record.
+    int expectNoTeleportInCombat(ww::runtime::PathAssembler &assembler, const PlannerQuery &q,
+                                 uint32_t routeIndex, uint32_t mapIndex)
+    {
+        ww::runtime::CapabilitySnapshot snapshot;
+        snapshot.setVarbit(kFilterVarbit, 0);
+        snapshot.setVarbit(ww::runtime::kInCombatVarbitId, 1);
+        ww::runtime::Plan plan;
+        const bool isPlanned = assembler.assemble(q.startX, q.startY, kStartPlane, q.goalX,
+                                                  q.goalY, q.goalPlane, &snapshot, plan);
+        const bool isTeleporting = planUses(plan, routeIndex) || planUses(plan, mapIndex);
+        std::printf("lodestones: planner in combat planned=%d teleports=%d (expect 0)"
+                    " cost=%.1f steps=%zu\n",
+                    isPlanned ? 1 : 0, isTeleporting ? 1 : 0, static_cast<double>(plan.cost),
+                    plan.steps.size());
+        if (isTeleporting)
+        {
+            return fail("planner: in combat still planned a lodestone");
+        }
+        return 0;
+    }
+
     // The appended route record is what the executor will run: its chain must
     // still be the book cast once encoded into the reader's pools.
     int expectAppendedCast(const ww::format::ArtifactReader &reader, uint32_t routeIndex)
@@ -514,6 +538,7 @@ namespace
         // it out of the graph.
         failures += expectLead(assembler, q, 7, mapIndex, routeIndex,
                                "planner: an unexpected filter value lost the lodestone");
+        failures += expectNoTeleportInCombat(assembler, q, routeIndex, mapIndex);
         return failures;
     }
 
