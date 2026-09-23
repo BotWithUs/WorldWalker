@@ -48,8 +48,9 @@ namespace ww::exec
     // samples; arrival = within the caller-supplied radius of the step target
     // (kHandoffChebyshev when another Walk follows, so the next click fires
     // mid-stride; kArrivalChebyshev when the next action needs an exact tile). A
-    // stalled-distance counter (no progress for N polls) and a wall-clock
-    // deadline together detect "stuck" and surface as Failed; shouldCancel
+    // stalled-distance counter (no progress for N polls; the first trip only
+    // re-clicks, since the game drops a click made mid forced-move) and a
+    // wall-clock deadline together detect "stuck" and surface as Failed; shouldCancel
     // polled before every sleep aborts with Cancelled. The final live
     // position is written out so run() can drive re-plan / teleport-allowed
     // checks without re-reading.
@@ -65,7 +66,10 @@ namespace ww::exec
     // component, option); for each Wait, sleepTicks(ticks). After a short
     // post-chain settle the live position is read out (the engine commits the
     // destination during the settle). Transition Failed is terminal — re-plan
-    // does not retry it.
+    // does not retry it. After an issued local transition the executor waits
+    // for the player to land (awaitLanding); one that lands off course, like a
+    // failed agility jump into a pit, re-plans from there on a reroute budget
+    // of its own rather than the stuck-recovery budget.
     //
     // The pool borrow is held across the loop so re-plans reuse the same
     // SearchContext without re-entering the blocking acquire path.
@@ -96,6 +100,7 @@ namespace ww::exec
         {
             WwTile  position{};
             int32_t replansUsed{0};
+            int32_t reroutesUsed{0};
             bool    isTeleAllowedAtLastPlan{false};
         };
 
@@ -130,10 +135,12 @@ namespace ww::exec
         // teleport reads as locked and the planner only ever walks.
         void refreshRequirementValues();
 
-        // Consume one re-plan from the budget: emit ReplanStarted, re-invoke
-        // the planner from io.position, and refresh the teleport-allowed
-        // anchor. The caller restarts its step cursor on Restarted; Arrived
-        // has already emitted the Arrived event.
+        // Emit ReplanStarted, re-invoke the planner from io.position, and
+        // refresh the teleport-allowed anchor. The caller has already spent
+        // the budget the re-plan belongs to (stuck recovery and the teleport
+        // flip share replansUsed; an off-course landing spends reroutesUsed).
+        // The caller restarts its step cursor on Restarted; Arrived has
+        // already emitted the Arrived event.
         ReplanOutcome replan(const WwGoal &goal, runtime::SearchContext &context,
                              int32_t stepIndex, RunState &io);
 
@@ -179,7 +186,10 @@ namespace ww::exec
 
         // Drive plan.steps[i]: a Walk with the arrival radius its successor
         // demands, or a Transition. Writes the final live position.
-        WwStatus executeStep(std::size_t i, const WwGoal &goal, WwTile &outPosition);
+        // outIsOffCourse is set when a Transition step left the player away from
+        // its destination (see isOffCourse).
+        WwStatus executeStep(std::size_t i, const WwGoal &goal, WwTile &outPosition,
+                             bool &outIsOffCourse);
 
         // Chebyshev distance at which the Walk step at index i counts as done:
         // kHandoffChebyshev when another Walk follows (the next click fires
@@ -215,7 +225,19 @@ namespace ww::exec
         // event is emitted by run() so the (stepIndex, transitionIndex) pair
         // carries through.
         WwStatus executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
-                                       WwTile &outPosition);
+                                       WwTile &outPosition, bool &outIsOffCourse);
+
+        // After an issued local transition, poll a tick at a time until the
+        // player lands near tx's destination or stands still elsewhere, within
+        // a small budget. An agility obstacle keeps moving the player after
+        // the click, and a walk clicked during that move is dropped by the
+        // game; the next walk must start from where the player came to rest.
+        void awaitLanding(const format::TransitionRecord &tx, WwTile &ioPosition) const;
+
+        // True when `at` is too far from tx's destination (or on another plane)
+        // for the transition to have been crossed: the player fell, or the
+        // teleport was refused. A skipped open door stays within the slack.
+        static bool isOffCourse(const format::TransitionRecord &tx, const WwTile &at);
 
         // Run every chain step of `tx` in order with a cancel poll between
         // steps. Arrived when the whole chain ran; the first non-Arrived

@@ -60,6 +60,27 @@ namespace ww::exec
         // for one sample, so one miss is not proof; three, a tick apart, is.
         constexpr int32_t kMissingLocAttempts = 3;
 
+        // Landing after an issued local transition. An agility obstacle moves
+        // the player for several ticks after the click, and the game drops a
+        // walk click issued during that forced move, so the executor waits for
+        // the player to land: near the destination, or standing still for
+        // kLandingStillPolls ticks somewhere else (a failed jump drops you in a
+        // pit), within kLandingMaxTicks.
+        constexpr int32_t kLandingMaxTicks   = 8;   // ~4.8s past the fixed settle
+        constexpr int32_t kLandingStillPolls = 3;
+
+        // How far from a transition's destination the player may end up and
+        // still count as having crossed it. A skipped open door leaves the
+        // player on the near side, at most a same-floor hop plus the stand
+        // tile away; anything farther, or on another plane, is off course.
+        constexpr int32_t kLandingSlack = runtime::kMaxSameFloorHop + 1;
+
+        // Re-plans spent on a transition that landed off course (a failed
+        // agility obstacle, a refused teleport). A budget of their own, so
+        // falling into a pit does not spend the stuck-recovery budget, and
+        // bounded, so a transition that never lands cannot loop forever.
+        constexpr int32_t kMaxReroutes = 3;
+
         // Chebyshev distance on the same plane; INT32_MAX on plane mismatch so
         // a teleport mid-walk reads as "infinitely far" and trips the stall
         // counter immediately rather than masquerading as progress.
@@ -144,6 +165,7 @@ namespace ww::exec
         callbacks->readPosition(callbacks->user, &lastPos);
         outPosition = lastPos;
         int32_t stalledPolls = 0;
+        bool hasReclicked = false;
 
         while (true)
         {
@@ -174,7 +196,18 @@ namespace ww::exec
             const auto elapsed = std::chrono::steady_clock::now() - stepStart;
             const auto elapsedMs =
                 std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
-            if (stalledPolls >= kStalledPollsTrip || elapsedMs >= kStuckTimeoutMs)
+            const bool isStalled = stalledPolls >= kStalledPollsTrip;
+            const bool isTimedOut = elapsedMs >= kStuckTimeoutMs;
+            if (isStalled && !hasReclicked && !isTimedOut)
+            {
+                // The game drops a walk click issued while the player is still
+                // in a forced move, which reads exactly like a stall. Click once
+                // more before calling it stuck.
+                callbacks->walkTo(callbacks->user, target);
+                hasReclicked = true;
+                stalledPolls = 0;
+            }
+            else if (isStalled || isTimedOut)
             {
                 emit(WwEventKind::Stuck, stepIndex);
                 return WwStatus::Failed;
@@ -347,8 +380,9 @@ namespace ww::exec
     }
 
     WwStatus Executor::executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
-                                             WwTile &outPosition)
+                                             WwTile &outPosition, bool &outIsOffCourse)
     {
+        outIsOffCourse = false;
         // The terminal Failed event is emitted by run() with both stepIndex
         // and transitionIndex; failure paths here just return WwStatus::Failed
         // so the dispatch site can carry the indices through.
@@ -410,7 +444,39 @@ namespace ww::exec
             callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
         }
         callbacks->readPosition(callbacks->user, &outPosition);
+        if (!isGlobal && hasIssuedAction)
+        {
+            awaitLanding(tx, outPosition);
+        }
+        outIsOffCourse = didAct && isOffCourse(tx, outPosition);
         return WwStatus::Arrived;
+    }
+
+    void Executor::awaitLanding(const format::TransitionRecord &tx, WwTile &ioPosition) const
+    {
+        const WwTile dest{ tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane) };
+        int32_t stillPolls = 0;
+        for (int32_t tick = 0; tick < kLandingMaxTicks; ++tick)
+        {
+            if (chebyshev(ioPosition, dest) <= kArrivalChebyshev
+                || stillPolls >= kLandingStillPolls)
+            {
+                return;
+            }
+            callbacks->sleepTicks(callbacks->user, 1);
+            WwTile pos{};
+            callbacks->readPosition(callbacks->user, &pos);
+            const bool isStill = pos.x == ioPosition.x && pos.y == ioPosition.y
+                              && pos.plane == ioPosition.plane;
+            stillPolls = isStill ? stillPolls + 1 : 0;
+            ioPosition = pos;
+        }
+    }
+
+    bool Executor::isOffCourse(const format::TransitionRecord &tx, const WwTile &at)
+    {
+        const WwTile dest{ tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane) };
+        return chebyshev(at, dest) > kLandingSlack;
     }
 
     Executor::LocInteract Executor::interactWithLoc(const format::TransitionRecord &tx) const
@@ -501,7 +567,6 @@ namespace ww::exec
     Executor::ReplanOutcome Executor::replan(const WwGoal &goal, runtime::SearchContext &context,
                                              int32_t stepIndex, RunState &io)
     {
-        ++io.replansUsed;
         emit(WwEventKind::ReplanStarted, stepIndex);
         if (!planFrom(io.position, goal, context, plan))
         {
@@ -563,15 +628,17 @@ namespace ww::exec
         return kArrivalChebyshev;
     }
 
-    WwStatus Executor::executeStep(std::size_t i, const WwGoal &goal, WwTile &outPosition)
+    WwStatus Executor::executeStep(std::size_t i, const WwGoal &goal, WwTile &outPosition,
+                                   bool &outIsOffCourse)
     {
         const runtime::Step &step = plan.steps[i];
         const int32_t stepIndex = static_cast<int32_t>(i);
+        outIsOffCourse = false;
         if (step.kind == runtime::StepKind::Walk)
         {
             return walkOneStep(step, stepIndex, arrivalRadiusFor(i, goal), outPosition);
         }
-        return executeTransitionStep(step, stepIndex, outPosition);
+        return executeTransitionStep(step, stepIndex, outPosition, outIsOffCourse);
     }
 
     WwStatus Executor::judgeDrainedRun(const WwGoal &goal, WwTile &ioPosition)
@@ -634,7 +701,8 @@ namespace ww::exec
         while (i < plan.steps.size())
         {
             const int32_t stepIndex = static_cast<int32_t>(i);
-            const WwStatus stepResult = executeStep(i, goal, st.position);
+            bool isOffCourse = false;
+            const WwStatus stepResult = executeStep(i, goal, st.position, isOffCourse);
             if (stepResult == WwStatus::Cancelled)
             {
                 return WwStatus::Cancelled;
@@ -654,6 +722,7 @@ namespace ww::exec
                                    isTransition ? static_cast<int32_t>(step.transitionIndex) : -1);
                 }
                 callbacks->readPosition(callbacks->user, &st.position);
+                ++st.replansUsed;
                 WwStatus terminal = WwStatus::Failed;
                 if (!isRestart(replan(goal, context, stepIndex, st), stepIndex, terminal))
                 {
@@ -670,9 +739,29 @@ namespace ww::exec
                 emit(WwEventKind::Arrived);
                 return WwStatus::Arrived;
             }
+            if (isOffCourse)
+            {
+                // The transition put the player somewhere other than its
+                // destination: a failed agility obstacle, a refused teleport.
+                // Plan again from where they are, on the reroute budget.
+                const int32_t txIndex = static_cast<int32_t>(plan.steps[i].transitionIndex);
+                if (st.reroutesUsed >= kMaxReroutes)
+                {
+                    return failRun(stepIndex, txIndex);
+                }
+                ++st.reroutesUsed;
+                WwStatus terminal = WwStatus::Failed;
+                if (!isRestart(replan(goal, context, stepIndex, st), stepIndex, terminal))
+                {
+                    return terminal;
+                }
+                i = 0;
+                continue;
+            }
             const bool isTeleAllowedNow = isTeleAllowedLive(st.position);
             if (isTeleAllowedNow && !st.isTeleAllowedAtLastPlan && st.replansUsed < kMaxReplans)
             {
+                ++st.replansUsed;
                 WwStatus terminal = WwStatus::Failed;
                 if (!isRestart(replan(goal, context, stepIndex, st), stepIndex, terminal))
                 {

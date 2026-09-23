@@ -14,7 +14,9 @@
 #include "runtime/TransitionShape.h"
 #include "runtime/WorldView.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 
@@ -92,6 +94,14 @@ namespace ww::cli
             // transitionIndex of the last Failed event: the failing transition,
             // or -1 when the run failed somewhere other than a transition.
             int               failedTransitionIndex;
+            // Walk clicks the game drops before one lands, as it does for a
+            // click made while the player is still in a forced move.
+            int               droppedWalkClicks;
+            // SimulateTransition: this many interacts land the player on
+            // `failedLanding` instead of transitionDest, like a failed agility
+            // jump dropping them into a pit.
+            int               failedLandingsLeft;
+            exec::WwTile      failedLanding;
         };
 
         // Every callback that can surprise the harness. The class each one
@@ -233,6 +243,11 @@ namespace ww::cli
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->walkToCalls;
+            if (h->droppedWalkClicks > 0)
+            {
+                --h->droppedWalkClicks;
+                return;
+            }
             if (h->mode == ExecHarnessMode::SimulateInstantWalk
                 || h->mode == ExecHarnessMode::SimulateTransition)
             {
@@ -267,6 +282,11 @@ namespace ww::cli
             else if (h->isLocMissing)
             {
                 return 0;
+            }
+            else if (h->failedLandingsLeft > 0)
+            {
+                --h->failedLandingsLeft;
+                h->position = h->failedLanding;
             }
             else
             {
@@ -645,6 +665,91 @@ namespace ww::cli
             return failures;
         }
 
+        // Test 4d: the game drops the first walk click (the player was still in
+        // an agility obstacle's forced move). The stall re-clicks once before
+        // calling it stuck, so the walk arrives without a Stuck or a re-plan.
+        std::size_t testDroppedWalkClick(ExecContext &ctx)
+        {
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              ctx.node.centroidX, ctx.node.centroidY, ctx.plane);
+            harness.droppedWalkClicks = 1;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ ctx.farthest.x, ctx.farthest.y, ctx.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   dropped-click status=%d (expect 0=Arrived) stucks=%d replans=%d"
+                        " (expect 0, 0) walks=%d (expect >= 2)\n",
+                        static_cast<int>(status), harness.stuckEvents,
+                        harness.replanStartedEvents, harness.walkToCalls);
+            printCallPattern("dropped-click ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += (harness.stuckEvents == 0 && harness.replanStartedEvents == 0) ? 0u : 1u;
+            failures += harness.walkToCalls >= 2 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4e: a non-door transition lands the player back where they
+        // started (a failed jump into a pit) `failedLandings` times. Each is a
+        // re-plan from the live position that spends no stuck budget; one
+        // failure is recovered, endless failures end on that transition once
+        // the reroute budget is gone rather than looping.
+        std::size_t testOffCourseLanding(ExecContext &ctx, int failedLandings, bool isRecoverable)
+        {
+            CrossAreaPick pick{};
+            if (!pickCrossAreaPair(ctx.reader, ctx.view, acceptUngatedNonDoor, pick))
+            {
+                std::printf("  exec:   off-course test skipped (no traversable non-door edge)\n");
+                return 0;
+            }
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            const auto &tx   = ctx.reader.transitions()[edge.transitionIndex];
+            const exec::WwTile start{ pick.start.x, pick.start.y, pick.startPlane };
+            const exec::WwTile dest{ tx.destX, tx.destY, static_cast<std::int32_t>(tx.destPlane) };
+            const std::int32_t spread = std::max(std::abs(start.x - dest.x),
+                                                 std::abs(start.y - dest.y));
+            if (start.plane == dest.plane && spread <= runtime::kMaxSameFloorHop + 1)
+            {
+                std::printf("  exec:   off-course test skipped (tx%u lands too near its start)\n",
+                            edge.transitionIndex);
+                return 0;
+            }
+
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, start.x,
+                                              start.y, start.plane);
+            harness.transitionDest     = dest;
+            harness.failedLandingsLeft = failedLandings;
+            harness.failedLanding      = start;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            // One interact per attempt: the first plus one per reroute, and the
+            // reroute budget is 3.
+            const int wantInteracts = isRecoverable ? failedLandings + 1 : 4;
+            const int txIndex = static_cast<int>(edge.transitionIndex);
+            const bool isStatusRight = isRecoverable
+                ? status == exec::WwStatus::Arrived
+                : (status == exec::WwStatus::Failed && harness.failedTransitionIndex == txIndex);
+            std::printf("  exec:   off-course tx%d fails=%d status=%d (expect %d) interacts=%d"
+                        " (expect %d) stucks=%d (expect 0)\n",
+                        txIndex, failedLandings, static_cast<int>(status),
+                        isRecoverable ? 0 : 1, harness.interactCalls, wantInteracts,
+                        harness.stuckEvents);
+            printCallPattern("off-course ", harness);
+            std::size_t failures = isStatusRight ? 0u : 1u;
+            failures += harness.interactCalls == wantInteracts ? 0u : 1u;
+            failures += harness.stuckEvents == 0 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
         // Test 4c: in combat at the first plan, out of it after the first step.
         // The walk-only goal needs no teleport, but the flip back out of combat
         // must still re-plan once, since that is the moment teleports come
@@ -818,6 +923,9 @@ namespace ww::cli
         failures += testMissingLoc(ctx, acceptUngatedDoor, "door");
         failures += testMissingLoc(ctx, acceptUngatedNonDoor, "non-door");
         failures += testCombatEndReplan(ctx);
+        failures += testDroppedWalkClick(ctx);
+        failures += testOffCourseLanding(ctx, 1, true);
+        failures += testOffCourseLanding(ctx, 99, false);
         failures += testFfi(ctx, artifactPath);
         return failures;
     }
