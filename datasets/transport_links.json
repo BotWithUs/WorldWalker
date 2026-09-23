@@ -911,27 +911,27 @@
   {
     "name": "Enter",
     "object_id": 67043,
-    "x": 2919,
-    "y": 3466,
+    "x": 2915,
+    "y": 3465,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
+    "rotation": 3,
     "option_index": 0,
-    "dest_x": 2217,
+    "dest_x": 2219,
     "dest_y": 4532,
     "dest_plane": 0
   },
   {
     "name": "Exit",
     "object_id": 67044,
-    "x": 2217,
+    "x": 2219,
     "y": 4532,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
+    "rotation": 1,
     "option_index": 0,
     "dest_x": 2919,
-    "dest_y": 3466,
+    "dest_y": 3465,
     "dest_plane": 0
   },
   {
@@ -28985,19 +28985,6 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 25636,
-    "x": 2220,
-    "y": 4531,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2919,
-    "dest_y": 3467,
-    "dest_plane": 0
-  },
-  {
-    "name": "Dungeon entrances",
     "object_id": 66990,
     "x": 2879,
     "y": 3459,
@@ -31269,19 +31256,6 @@
     "option_index": 0,
     "dest_x": 2208,
     "dest_y": 4364,
-    "dest_plane": 0
-  },
-  {
-    "name": "Dungeon entrances",
-    "object_id": 38731,
-    "x": 2918,
-    "y": 3469,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2219,
-    "dest_y": 4532,
     "dest_plane": 0
   },
   {
