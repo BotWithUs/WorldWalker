@@ -10,6 +10,7 @@
 #include "runtime/PathAssembler.h"
 #include "runtime/TileScan.h"
 #include "runtime/TileSearch.h"
+#include "runtime/TransitionShape.h"
 #include "runtime/WorldView.h"
 
 #include <algorithm>
@@ -23,13 +24,6 @@
 
 namespace
 {
-    // A door must hop no farther than this (Chebyshev, origin->dest). Doors and
-    // gates step you onto the tile just past the wall; the dest may have snapped
-    // a tile or two during the bake, so the bound is loose enough to admit those
-    // without letting long Transport links (mine-cart rides, levers that fling
-    // you across the map) masquerade as doors.
-    constexpr int kMaxDoorHop = 4;
-
     // Drive every area-splitting door end to end (no sampling cap). Per-door
     // lines are emitted only for failures and anomalies so a full sweep stays
     // readable; the trailing summary carries the verdict.
@@ -39,30 +33,11 @@ namespace
         return std::max(std::abs(ax - bx), std::abs(ay - by));
     }
 
-    // True when tx is a "door" in the graph sense: a local-origin Transport
-    // that stays on one plane and hops a short distance — you interact with an
-    // object to cross a same-floor barrier. In the curated dataset this single
-    // category (all shape 10) covers literal doors/gates ("Open"/"Enter"),
-    // wilderness-wall crossings, and stepping-stone / interactive-scenery
-    // shortcuts; shape does NOT distinguish them, so it is not filtered on.
-    // Ladders/stairs (plane change), teleports (global origin), and long
-    // Transport rides are excluded.
+    // A door in the graph sense: the executor's own rule for which crossings a
+    // missing loc may be skipped on (runtime/TransitionShape.h).
     bool isDoor(const ww::format::TransitionRecord &tx)
     {
-        if (static_cast<ww::data::TransitionKind>(tx.kind) != ww::data::TransitionKind::Transport)
-        {
-            return false;
-        }
-        if ((tx.flags & ww::format::kTransitionFlagGlobalOrigin) != 0u)
-        {
-            return false;
-        }
-        if (tx.originPlane != tx.destPlane)
-        {
-            return false;
-        }
-        const int hop = chebyshev(tx.originX, tx.originY, tx.destX, tx.destY);
-        return hop >= 1 && hop <= kMaxDoorHop;
+        return ww::runtime::isSameFloorCrossing(tx);
     }
 
     // Clip accessor in the shape format::WallApproach's templates want: any

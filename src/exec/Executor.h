@@ -55,7 +55,9 @@ namespace ww::exec
     // Transition step: look up the TransitionRecord by step.transitionIndex.
     // For local-origin (the common case) fire interact(objectId, originTile,
     // optionIndex); for global-origin emit TeleportInitiated and skip the
-    // interact. Then iterate the embedded chain — for each Click, poll
+    // interact. A loc the host cannot find is skipped for a same-floor
+    // crossing (an open door) and fails the transition otherwise. Then
+    // iterate the embedded chain — for each Click, poll
     // isInterfaceOpen(targetInterface) with sleepTicks between polls until it
     // opens (or the budget elapses → Failed) then runChainStep(interface,
     // component, option); for each Wait, sleepTicks(ticks). After a short
@@ -132,6 +134,26 @@ namespace ww::exec
         // has already emitted the Arrived event.
         ReplanOutcome replan(const WwGoal &goal, runtime::SearchContext &context,
                              int32_t stepIndex, RunState &io);
+
+        // How a local-origin transition's interact went: the action was
+        // issued, the loc was absent on a same-floor crossing (a door already
+        // open, walk on through), or it was absent on anything else.
+        enum class LocInteract
+        {
+            Issued,
+            SkippedOpenCrossing,
+            Missing,
+        };
+
+        // Fire interact for tx's loc from its origin tile. The host answers
+        // zero when no such loc sits near the origin. That is the normal case
+        // for a door that is already open, but for a cave mouth, ladder or
+        // long ride there is no other way across: walking on stalls, re-plans
+        // onto the same edge and loops until the budget runs out. So only a
+        // same-floor crossing may be skipped; anything else is retried a few
+        // ticks (a loc can drop out of one scene snapshot) and then reported
+        // Missing, which fails the transition.
+        LocInteract interactWithLoc(const format::TransitionRecord &tx) const;
 
         // Emit the terminal Failed event carrying the step (and transition, or
         // -1) it failed on, and return Failed.

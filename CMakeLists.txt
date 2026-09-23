@@ -184,6 +184,7 @@ set(worldwalker_SOURCES
 	"src/runtime/TileScan.h"
 	"src/runtime/TileSearch.cpp"
 	"src/runtime/TileSearch.h"
+	"src/runtime/TransitionShape.h"
 	"src/runtime/WorldView.cpp"
 	"src/runtime/WorldView.h"
 )

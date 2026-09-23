@@ -4,6 +4,7 @@
 #include "format/Artifact.h"
 #include "runtime/SearchContext.h"
 #include "runtime/TeleportPolicy.h"
+#include "runtime/TransitionShape.h"
 
 #include <algorithm>
 #include <chrono>
@@ -53,6 +54,11 @@ namespace ww::exec
         // stuck recovery + one wilderness-exit teleport re-plan + a margin)
         // without inviting tail-latency surprises.
         constexpr int32_t kMaxReplans = 3;
+
+        // Interact attempts on a loc the host reports absent before a
+        // non-door transition fails. A loc can drop out of the scene snapshot
+        // for one sample, so one miss is not proof; three, a tick apart, is.
+        constexpr int32_t kMissingLocAttempts = 3;
 
         // Chebyshev distance on the same plane; INT32_MAX on plane mismatch so
         // a teleport mid-walk reads as "infinitely far" and trips the stall
@@ -361,15 +367,15 @@ namespace ww::exec
             // Click the world object from the interact-tile (the prior Walk
             // step put the player there). The object tile itself may be
             // blocked; the engine resolves the click from an adjacent tile.
-            // interact returns zero when it was a no-op — the baked loc is
-            // gone from the live scene, which for a door means it is already
-            // open (open doors are a different loc id). Nothing was issued, so
-            // there is no action to settle for; we skip the post-chain wait
-            // below and the next Walk step flows straight through the doorway.
-            const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
-            hasIssuedAction =
-                callbacks->interact(callbacks->user, tx.objectId, origin,
-                                    static_cast<int32_t>(tx.optionIndex)) != 0;
+            // An open door skipped here issued nothing, so there is no action
+            // to settle for; we skip the post-chain wait below and the next
+            // Walk step flows straight through the doorway.
+            const LocInteract outcome = interactWithLoc(tx);
+            if (outcome == LocInteract::Missing)
+            {
+                return WwStatus::Failed;
+            }
+            hasIssuedAction = outcome == LocInteract::Issued;
         }
         else
         {
@@ -398,6 +404,29 @@ namespace ww::exec
         }
         callbacks->readPosition(callbacks->user, &outPosition);
         return WwStatus::Arrived;
+    }
+
+    Executor::LocInteract Executor::interactWithLoc(const format::TransitionRecord &tx) const
+    {
+        const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
+        const bool isSkippable = runtime::isSameFloorCrossing(tx);
+        for (int32_t attempt = 0; attempt < kMissingLocAttempts; ++attempt)
+        {
+            if (attempt > 0)
+            {
+                callbacks->sleepTicks(callbacks->user, 1);
+            }
+            if (callbacks->interact(callbacks->user, tx.objectId, origin,
+                                    static_cast<int32_t>(tx.optionIndex)) != 0)
+            {
+                return LocInteract::Issued;
+            }
+            if (isSkippable)
+            {
+                return LocInteract::SkippedOpenCrossing;
+            }
+        }
+        return LocInteract::Missing;
     }
 
     void Executor::refreshRequirementValues()
