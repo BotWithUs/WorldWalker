@@ -16983,7 +16983,7 @@
     "dest_plane": 0
   },
   {
-    "name": "Interactive scenery",
+    "name": "Enter",
     "object_id": 43808,
     "x": 2854,
     "y": 3461,
@@ -16996,13 +16996,13 @@
     "dest_plane": 0
   },
   {
-    "name": "Interactive scenery",
-    "object_id": 0,
+    "name": "Exit",
+    "object_id": 43809,
     "x": 5028,
     "y": 9678,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
+    "rotation": 2,
     "option_index": 0,
     "dest_x": 2857,
     "dest_y": 3457,
