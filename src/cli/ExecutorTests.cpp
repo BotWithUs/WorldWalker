@@ -116,6 +116,17 @@ namespace ww::cli
             bool              hasEntryChat;
             bool              isChatOpen;
             int               continueClicks;
+            // The next walk click opens a message box (chatOnNextWalk) or the
+            // option list (optionListOnNextWalk) instead of moving the player;
+            // while either is open no walk moves. chatNeverCloses keeps the
+            // message box open through every continue.
+            bool              chatOnNextWalk;
+            bool              chatNeverCloses;
+            bool              optionListOnNextWalk;
+            bool              isOptionListOpen;
+            // DialogueAnswer steps the executor sent, and the last answer's text.
+            int               answerCalls;
+            char              lastAnswer[40];
         };
 
         // Every callback that can surprise the harness. The class each one
@@ -240,6 +251,10 @@ namespace ww::cli
         constexpr std::int32_t kMessageBox = 1186;
         constexpr std::int32_t kMessageBoxContinue = (kMessageBox << 16) | 8;
         constexpr std::int32_t kDialogueAction = 30;
+        constexpr std::int32_t kOptionList = 1188;
+        constexpr std::int32_t kDialogueAnswerKind =
+            static_cast<std::int32_t>(data::ChainStepKind::DialogueAnswer);
+        constexpr int kMaxDialogActionsPerRun = 20;  // the executor's per-run budget
 
         bool isChatInterface(std::int32_t interfaceId)
         {
@@ -261,6 +276,10 @@ namespace ww::cli
             {
                 return (h->isChatOpen && interfaceId == kMessageBox) ? 1 : 0;
             }
+            if (interfaceId == kOptionList)
+            {
+                return h->isOptionListOpen ? 1 : 0;
+            }
             if (h->mode == ExecHarnessMode::SimulateTransition)
             {
                 return 1;
@@ -273,6 +292,22 @@ namespace ww::cli
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->walkToCalls;
+            if (h->isChatOpen || h->isOptionListOpen)
+            {
+                return;
+            }
+            if (h->chatOnNextWalk)
+            {
+                h->chatOnNextWalk = false;
+                h->isChatOpen = true;
+                return;
+            }
+            if (h->optionListOnNextWalk)
+            {
+                h->optionListOnNextWalk = false;
+                h->isOptionListOpen = true;
+                return;
+            }
             if (h->pendingLandingTicks > 0)
             {
                 h->pendingLandingTicks = 0;
@@ -345,18 +380,41 @@ namespace ww::cli
             return 1;
         }
 
-        extern "C" void harnessRunChainStep(void *user, std::int32_t, std::int32_t a,
-                                            std::int32_t, std::int32_t, std::int32_t d,
-                                            std::int32_t, std::int32_t, std::int32_t,
-                                            std::int32_t, std::int32_t)
+        // A DialogueAnswer step: unpack the answer, and close the option list
+        // when it is the reply the harness's conversation wants ("Yes.").
+        void harnessAnswer(ExecHarness *h, const std::int32_t (&slots)[9])
+        {
+            ++h->answerCalls;
+            static_assert(sizeof(slots) < sizeof(h->lastAnswer));
+            std::memcpy(h->lastAnswer, slots, sizeof(slots));
+            h->lastAnswer[sizeof(slots)] = '\0';
+            if (h->isOptionListOpen && std::strcmp(h->lastAnswer, "Yes.") == 0)
+            {
+                h->isOptionListOpen = false;
+            }
+        }
+
+        extern "C" void harnessRunChainStep(void *user, std::int32_t kind, std::int32_t a,
+                                            std::int32_t b, std::int32_t c, std::int32_t d,
+                                            std::int32_t e, std::int32_t f, std::int32_t g,
+                                            std::int32_t hh, std::int32_t i)
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
+            if (kind == kDialogueAnswerKind)
+            {
+                harnessAnswer(h, { a, b, c, d, e, f, g, hh, i });
+                return;
+            }
             if (a == kDialogueAction && d == kMessageBoxContinue && h->isChatOpen)
             {
-                // The page closes and the door starts carrying the player in.
+                // The page closes (and a walk-through door starts carrying the
+                // player in), unless the test wants a page that never does.
                 ++h->continueClicks;
-                h->isChatOpen = false;
-                h->pendingLandingTicks = h->landingDelayTicks;
+                if (!h->chatNeverCloses)
+                {
+                    h->isChatOpen = false;
+                    h->pendingLandingTicks = h->landingDelayTicks;
+                }
                 return;
             }
             ++h->runChainStepCalls;
@@ -788,6 +846,154 @@ namespace ww::cli
             return failures;
         }
 
+        // Test 4g: a walk click raises a plain chat page. The walk continues
+        // it and clicks on, rather than reading the held player as a stall.
+        std::size_t testChatDuringWalk(ExecContext &ctx)
+        {
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              ctx.node.centroidX, ctx.node.centroidY, ctx.plane);
+            harness.chatOnNextWalk = true;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ ctx.farthest.x, ctx.farthest.y, ctx.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   walk-chat status=%d (expect 0) continues=%d (expect 1)"
+                        " stucks=%d replans=%d (expect 0, 0)\n",
+                        static_cast<int>(status), harness.continueClicks, harness.stuckEvents,
+                        harness.replanStartedEvents);
+            printCallPattern("walk-chat ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.continueClicks == 1 ? 0u : 1u;
+            failures += (harness.stuckEvents == 0 && harness.replanStartedEvents == 0) ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4h: a chat page that never closes. The run spends its dialog
+        // budget and no more, then fails like any other stuck walk.
+        std::size_t testChatNeverCloses(ExecContext &ctx)
+        {
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              ctx.node.centroidX, ctx.node.centroidY, ctx.plane);
+            harness.chatOnNextWalk = true;
+            harness.chatNeverCloses = true;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ ctx.farthest.x, ctx.farthest.y, ctx.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   stuck-chat status=%d (expect 1) continues=%d (expect %d)\n",
+                        static_cast<int>(status), harness.continueClicks,
+                        kMaxDialogActionsPerRun);
+            std::size_t failures = status == exec::WwStatus::Failed ? 0u : 1u;
+            failures += harness.continueClicks == kMaxDialogActionsPerRun ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // A standable tile inside the first dialog zone, and a walk goal a few
+        // tiles on in the same area; false when the artifact has no zone.
+        bool pickZoneWalk(ExecContext &ctx, runtime::TilePoint &outStart,
+                          runtime::TilePoint &outGoal, std::int32_t &outPlane,
+                          const char *&outAnswer)
+        {
+            const auto zones = ctx.reader.dialogZones();
+            if (zones.empty())
+            {
+                return false;
+            }
+            const format::DialogZoneRecord &zone = zones[0];
+            outPlane = static_cast<std::int32_t>(zone.planeMin);
+            outAnswer = ctx.reader.dialogAnswers()[zone.answerStart].text;
+            for (std::int32_t y = zone.minY; y <= zone.maxY; ++y)
+            {
+                for (std::int32_t x = zone.minX; x <= zone.maxX; ++x)
+                {
+                    const std::int32_t area = ctx.view.areaAt(x, y, outPlane);
+                    if (area < 0)
+                    {
+                        continue;
+                    }
+                    outStart = { x, y };
+                    outGoal = farthestInArea(ctx.view, x, y, outPlane, area, 6);
+                    if (outGoal.x != x || outGoal.y != y)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Test 4i: inside a dialog zone, a walk click raises the option list.
+        // The executor sends the zone's answer and walks on once it closes.
+        std::size_t testZoneAnswer(ExecContext &ctx)
+        {
+            runtime::TilePoint start{};
+            runtime::TilePoint goal{};
+            std::int32_t plane = 0;
+            const char *answer = nullptr;
+            if (!pickZoneWalk(ctx, start, goal, plane, answer))
+            {
+                std::printf("  exec:   zone-answer test skipped (artifact has no dialog zone)\n");
+                return 0;
+            }
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk, start.x,
+                                              start.y, plane);
+            harness.optionListOnNextWalk = true;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwStatus status = executor.run(exec::WwGoal{ goal.x, goal.y, plane, 0 });
+
+            const bool isAnswerRight = std::strncmp(harness.lastAnswer, answer, 36) == 0;
+            std::printf("  exec:   zone-answer (%d,%d,p%d) status=%d (expect 0) answers=%d"
+                        " (expect 1) sent='%s' (expect '%.36s')\n",
+                        start.x, start.y, plane, static_cast<int>(status), harness.answerCalls,
+                        harness.lastAnswer, answer);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += (harness.answerCalls == 1 && isAnswerRight) ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4j: the same option list outside every dialog zone. The
+        // executor must never pick an option there.
+        std::size_t testNoZoneNeverAnswers(ExecContext &ctx)
+        {
+            for (const format::DialogZoneRecord &z : ctx.reader.dialogZones())
+            {
+                if (ctx.node.centroidX >= z.minX && ctx.node.centroidX <= z.maxX
+                    && ctx.node.centroidY >= z.minY && ctx.node.centroidY <= z.maxY)
+                {
+                    std::printf("  exec:   no-zone test skipped (start lies in a zone)\n");
+                    return 0;
+                }
+            }
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              ctx.node.centroidX, ctx.node.centroidY, ctx.plane);
+            harness.optionListOnNextWalk = true;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ ctx.farthest.x, ctx.farthest.y, ctx.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   no-zone status=%d (expect 1) answers=%d (expect 0)\n",
+                        static_cast<int>(status), harness.answerCalls);
+            std::size_t failures = status == exec::WwStatus::Failed ? 0u : 1u;
+            failures += harness.answerCalls == 0 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
         // Test 4d: the game drops the first walk click (the player was still in
         // an agility obstacle's forced move). The stall re-clicks once before
         // calling it stuck, so the walk arrives without a Stuck or a re-plan.
@@ -1052,6 +1258,10 @@ namespace ww::cli
         failures += testWalkThroughDoor(ctx, 0, false);
         failures += testWalkThroughDoor(ctx, 1, false);
         failures += testWalkThroughDoor(ctx, 0, true);
+        failures += testChatDuringWalk(ctx);
+        failures += testChatNeverCloses(ctx);
+        failures += testZoneAnswer(ctx);
+        failures += testNoZoneNeverAnswers(ctx);
         failures += testFfi(ctx, artifactPath);
         return failures;
     }

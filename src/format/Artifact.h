@@ -39,6 +39,7 @@ namespace ww::format
         AltLandmarks    = 4,   // ALT landmark distance tables over the area graph
         TeleportAllowed = 5,   // wilderness regions + curated no-teleport zones
         Provenance      = 6,   // what this artifact was baked from (JSON; see below)
+        DialogZones     = 7,   // where walking raises a question, and its answers
     };
 
     // File header at offset 0, fixed 64 bytes. formatVersion is a hard gate.
@@ -382,7 +383,48 @@ namespace ww::format
     // should present an unrecognised schema as opaque rather than refuse the file.
     inline constexpr uint32_t kProvenanceSchema = 1u;
 
+    // ---- DialogZones section --------------------------------------------------
+    //
+    // Boxes of tiles where walking can raise a conversation that asks a
+    // question, each with the replies the executor may pick there, in order
+    // (ww::data::DialogZone). Outside every zone the executor never picks an
+    // option. Like Provenance, this section needs no format bump: a reader that
+    // predates it skips the id, and an artifact without it has no zones.
+    //
+    // Payload layout (all offsets relative to the section start):
+    //   DialogZonesSectionHeader
+    //   DialogZoneRecord[zoneCount]
+    //   DialogAnswerRecord[answerCount]   (the zones' answers, in zone order)
+
+    struct DialogZonesSectionHeader
+    {
+        uint32_t zoneCount;
+        uint32_t answerCount;
+    };
+
+    struct DialogZoneRecord
+    {
+        int32_t  minX;         // bounding box, inclusive tile coordinates
+        int32_t  minY;
+        int32_t  maxX;
+        int32_t  maxY;
+        uint32_t answerStart;  // first of this zone's DialogAnswerRecords
+        uint16_t answerCount;
+        uint8_t  planeMin;
+        uint8_t  planeMax;
+    };
+
+    // One reply, UTF-8, zero-padded to 36 bytes: exactly the nine int32 slots
+    // of the runChainStep call that hands it to the host.
+    struct DialogAnswerRecord
+    {
+        char text[36];
+    };
+
     static_assert(sizeof(ArtifactHeader) == 64, "ArtifactHeader must be 64 bytes");
+    static_assert(sizeof(DialogZonesSectionHeader) == 8, "DialogZonesSectionHeader must be 8 bytes");
+    static_assert(sizeof(DialogZoneRecord) == 24, "DialogZoneRecord must be 24 bytes");
+    static_assert(sizeof(DialogAnswerRecord) == 36, "DialogAnswerRecord must be 36 bytes");
     static_assert(sizeof(ProvenanceSectionHeader) == 8, "ProvenanceSectionHeader must be 8 bytes");
     static_assert(sizeof(SectionEntry) == 24, "SectionEntry must be 24 bytes");
     static_assert(sizeof(CollisionSectionHeader) == 8, "CollisionSectionHeader must be 8 bytes");

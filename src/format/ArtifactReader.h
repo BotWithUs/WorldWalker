@@ -252,6 +252,18 @@ namespace ww::format
             return {noTeleList.data(), noTeleList.size()};
         }
 
+        // Where walking can raise a question, and the answers that may be
+        // picked there (DialogZones section). Empty when the artifact has none.
+        std::span<const DialogZoneRecord> dialogZones() const
+        {
+            return {dialogZoneList.data(), dialogZoneList.size()};
+        }
+
+        std::span<const DialogAnswerRecord> dialogAnswers() const
+        {
+            return {dialogAnswerList.data(), dialogAnswerList.size()};
+        }
+
         // ---- Provenance -----------------------------------------------------
         // What the artifact was baked from. Descriptive only — nothing in the
         // planner reads it, and an artifact without the section is still valid
@@ -286,6 +298,7 @@ namespace ww::format
         void decodeAltLandmarks(const SectionEntry &entry);
         void decodeTeleportAllowed(const SectionEntry &entry);
         void decodeProvenance(const SectionEntry &entry);
+        void decodeDialogZones(const SectionEntry &entry);
         std::vector<float> decompressFloatTable(const AltTableDescriptor &desc, uint64_t sectionOffset) const;
         // Rescan transitionTable and rebuild globalOriginIndices. Called
         // after any change to the transition pool (decodeTransitions,
@@ -355,6 +368,8 @@ namespace ww::format
 
         std::vector<WildernessRegion> wildernessList;
         std::vector<NoTeleZone> noTeleList;
+        std::vector<DialogZoneRecord> dialogZoneList;
+        std::vector<DialogAnswerRecord> dialogAnswerList;
         uint32_t teleportCutoff{};
 
         std::string provenanceDoc;

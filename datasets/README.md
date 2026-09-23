@@ -19,6 +19,24 @@ vanished on a clean and weren't tracked. They now live here, in the source tree.
 | `spell_teleports.json` | build + run  | baked by `wwbuild`; global-origin subset also loaded **at runtime** by `worldwalker.dll` (`loadGlobalTeleportsInto`) |
 | `item_teleports.json`  | build + run  | same as above (`lodestones` + generic item `teleports`) |
 | `teleport_chains.json` | build time   | *(optional, currently absent)* — the loader skips it if missing |
+| `dialog_zones.json`    | build time   | `wwbuild build` → baked as the DialogZones section; see below |
+
+## Dialog zones
+
+`dialog_zones.json` is an array of boxes where walking can raise a
+conversation that asks a question: `{name, min_x, min_y, max_x, max_y, plane
+(or plane_min + plane_max), answers: [text, ...]}`. While walking or waiting
+to land, the executor continues any plain chat page anywhere; the option list
+(1188) it answers **only** inside a zone, picking the first option whose text
+contains an answer, one answer per try in the listed order. Each answer is
+1..36 bytes, the size of the nine int slots it travels to the host in.
+
+A zone rather than a field on a link, because the ground is usually open: the
+Citharede Abbey road is one area on both sides of where the hunter stops you,
+so a link across it would be an intra-area edge the bake drops.
+
+Picking by text is done by the host (the `DialogueAnswer` chain step, kind 5),
+which needs the framework bridge to support it.
 
 ## Gates and routes
 

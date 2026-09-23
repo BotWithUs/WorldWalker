@@ -107,6 +107,12 @@ namespace ww::data
         //   e..h = backpack(iface, comp, option, sub_component)
         //   i    = backpack uses the COMPONENT_SPECIAL action when non-zero.
         ClickItem = 4,
+        // Pick the first option in the open option list (1188) whose text
+        // contains the answer; do nothing when none does. Never baked into a
+        // chain: the executor sends it itself, and only inside a dialog zone
+        // (data/DialogZones.h). a..i = the answer's UTF-8 bytes, four per
+        // slot, little-endian, zero-padded (format::DialogAnswerRecord).
+        DialogueAnswer = 5,
     };
 
     // One step of an execution chain, passed through to the executor verbatim.

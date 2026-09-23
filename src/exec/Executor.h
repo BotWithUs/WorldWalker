@@ -240,7 +240,22 @@ namespace ww::exec
         // Manor's walks the player through itself, and a walk clicked before
         // that starts cancels it.
         void awaitLanding(const format::TransitionRecord &tx, const WwTile &start,
-                          WwTile &ioPosition) const;
+                          WwTile &ioPosition);
+
+        // Deal with one open conversation page, if any, while the player is at
+        // `at`: answer the option list inside a dialog zone, else continue a
+        // plain chat page. Spends one of the run's dialog actions; false (and
+        // nothing done) when nothing was open or the budget is gone. Called
+        // from every walk poll and every landing wait.
+        bool handleOpenDialog(const WwTile &at);
+
+        // When the option list (1188) is open and `at` is inside a dialog zone,
+        // send the host the zone's next answer to pick (a DialogueAnswer
+        // runChainStep). Outside every zone it never picks anything.
+        bool answerOptionList(const WwTile &at);
+
+        // The first dialog zone with answers that holds `at`, or nullptr.
+        const format::DialogZoneRecord *dialogZoneAt(const WwTile &at) const;
 
         // Continue the first open plain chat page (npc, player, paired chat,
         // message or item box) with a queued DIALOGUE action through
@@ -330,6 +345,11 @@ namespace ww::exec
         // storage without per-plan allocation.
         std::vector<int32_t> varbitValues;
         std::vector<int32_t> itemValues;
+
+        // Dialog actions left in this run, and which answer of the current
+        // zone the next option-list pick sends. Both reset at run() entry.
+        int32_t dialogActionsLeft{0};
+        std::size_t answerCursor{0};
     };
 }
 

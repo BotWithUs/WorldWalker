@@ -26,7 +26,7 @@ namespace ww::data
     namespace
     {
         using json = nlohmann::json;
-        using LoaderFn = void (*)(const json &, TransitionModel &);
+        using LoaderFn = void (*)(const json &, LoadedDatasets &);
 
         bool readFileBytes(const std::string &path, std::string &out)
         {
@@ -732,6 +732,77 @@ namespace ww::data
         // rather than at each call site: it used to be an if/else repeated at
         // every one of the six calls, which is six chances for the counters and
         // the hash to disagree about which files were actually read.
+        // Adapters from the transition parsers to LoaderFn, which hands each file
+        // the whole result so a non-transition dataset has somewhere to go.
+        void loadTransportLinks(const json &j, LoadedDatasets &out)
+        {
+            parseTransportLinks(j, out.model);
+        }
+
+        void loadTeleportChains(const json &j, LoadedDatasets &out)
+        {
+            parseTeleportChains(j, out.model);
+        }
+
+        void loadSpellTeleports(const json &j, LoadedDatasets &out)
+        {
+            parseSpellTeleports(j, out.model);
+        }
+
+        void loadItemTeleports(const json &j, LoadedDatasets &out)
+        {
+            parseItemTeleportsFile(j, out.model);
+        }
+
+        uint8_t readPlane(const json &node, const char *key, int32_t fallback)
+        {
+            const int32_t plane = readOptionalInt(node, key, fallback, "dialog_zones");
+            if (plane < 0 || plane > 3)
+            {
+                throw std::runtime_error("dialog_zones: plane must be 0..3");
+            }
+            return static_cast<uint8_t>(plane);
+        }
+
+        // dialog_zones.json: an array of {name, min_x, min_y, max_x, max_y,
+        // plane | plane_min + plane_max, answers: [text, ...]}. Every answer
+        // must be non-empty and fit the 36 bytes it travels to the host in.
+        void loadDialogZones(const json &j, LoadedDatasets &out)
+        {
+            if (!j.is_array())
+            {
+                throw std::runtime_error("dialog_zones: must be an array");
+            }
+            for (const json &node : j)
+            {
+                DialogZone zone;
+                zone.name = node.value("name", std::string());
+                zone.minX = readRequiredInt(node, "min_x", "dialog_zones");
+                zone.minY = readRequiredInt(node, "min_y", "dialog_zones");
+                zone.maxX = readRequiredInt(node, "max_x", "dialog_zones");
+                zone.maxY = readRequiredInt(node, "max_y", "dialog_zones");
+                const int32_t plane = readOptionalInt(node, "plane", 0, "dialog_zones");
+                zone.planeMin = readPlane(node, "plane_min", plane);
+                zone.planeMax = readPlane(node, "plane_max", plane);
+                if (!node.contains("answers") || !node.at("answers").is_array()
+                    || node.at("answers").empty())
+                {
+                    throw std::runtime_error("dialog_zones: 'answers' must be a non-empty array");
+                }
+                for (const json &answer : node.at("answers"))
+                {
+                    const std::string text = answer.get<std::string>();
+                    if (text.empty() || text.size() > kDialogAnswerBytes)
+                    {
+                        throw std::runtime_error("dialog_zones: answer '" + text
+                                                 + "' must be 1..36 bytes");
+                    }
+                    zone.answers.push_back(text);
+                }
+                out.dialogZones.zones.push_back(std::move(zone));
+            }
+        }
+
         void loadOne(const std::string &directory, const char *filename, LoaderFn parser,
                      LoadedDatasets &result)
         {
@@ -747,7 +818,7 @@ namespace ww::data
             // here, and `result` should not be left claiming it read a file it
             // could not use.
             const json j = json::parse(text);
-            parser(j, result.model);
+            parser(j, result);
 
             fnv1a(result.datasetHash, text);
             DatasetFileInfo info;
@@ -764,10 +835,11 @@ namespace ww::data
     {
         LoadedDatasets result;
         result.datasetHash = 2166136261u;
-        loadOne(directory, "transport_links.json", &parseTransportLinks, result);
-        loadOne(directory, "teleport_chains.json", &parseTeleportChains, result);
-        loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result);
-        loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result);
+        loadOne(directory, "transport_links.json", &loadTransportLinks, result);
+        loadOne(directory, "teleport_chains.json", &loadTeleportChains, result);
+        loadOne(directory, "spell_teleports.json", &loadSpellTeleports, result);
+        loadOne(directory, "item_teleports.json", &loadItemTeleports, result);
+        loadOne(directory, "dialog_zones.json", &loadDialogZones, result);
         return result;
     }
 
@@ -778,8 +850,8 @@ namespace ww::data
         // Only the global-origin teleport datasets. transport_links /
         // teleport_chains are local transitions wired into the baked area graph
         // and cannot be supplied at runtime, so they are deliberately skipped.
-        loadOne(directory, "spell_teleports.json", &parseSpellTeleports, result);
-        loadOne(directory, "item_teleports.json", &parseItemTeleportsFile, result);
+        loadOne(directory, "spell_teleports.json", &loadSpellTeleports, result);
+        loadOne(directory, "item_teleports.json", &loadItemTeleports, result);
 
         // Defensive: keep only global-origin transitions. The two files above
         // produce global teleports today, but a non-global spell (origin_x set)

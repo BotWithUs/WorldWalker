@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 
 namespace ww::exec
@@ -105,9 +106,15 @@ namespace ww::exec
         constexpr int32_t kDialogueParam    = 0;
         constexpr int32_t kNoSubComponent   = -1;
 
-        // Chat pages continued within one landing wait. A transition that
-        // talks for longer than this is a conversation, not a warning.
-        constexpr int32_t kMaxChatContinues = 5;
+        // The option list a conversation asks its question in (1188
+        // CHOICE_V2). Answered only inside a dialog zone.
+        constexpr int32_t kOptionListInterface = 1188;
+
+        // Dialog actions (continues and answers) one run may spend, across
+        // every walk and landing. A route that keeps talking past this is a
+        // conversation the walker should not be holding, and a page that
+        // never closes must not pin the run forever.
+        constexpr int32_t kMaxDialogActions = 20;
 
         // Chebyshev distance on the same plane; INT32_MAX on plane mismatch so
         // a teleport mid-walk reads as "infinitely far" and trips the stall
@@ -188,12 +195,13 @@ namespace ww::exec
         callbacks->walkTo(callbacks->user, target);
         emit(WwEventKind::StepAdvanced, stepIndex);
 
-        const auto stepStart = std::chrono::steady_clock::now();
+        auto stepStart = std::chrono::steady_clock::now();
         WwTile lastPos{};
         callbacks->readPosition(callbacks->user, &lastPos);
         outPosition = lastPos;
         int32_t stalledPolls = 0;
         bool hasReclicked = false;
+        bool isResumePending = false;
 
         while (true)
         {
@@ -209,6 +217,22 @@ namespace ww::exec
             if (chebyshev(pos, target) <= arrivalRadius)
             {
                 return WwStatus::Arrived;
+            }
+            if (handleOpenDialog(pos))
+            {
+                // A conversation holds the player where they are: not a
+                // stall, and the walk it interrupted is clicked again once
+                // it closes.
+                stalledPolls = 0;
+                isResumePending = true;
+                stepStart = std::chrono::steady_clock::now();
+                lastPos = pos;
+                continue;
+            }
+            if (isResumePending)
+            {
+                callbacks->walkTo(callbacks->user, target);
+                isResumePending = false;
             }
 
             const int32_t prevDist = chebyshev(lastPos, target);
@@ -530,23 +554,77 @@ namespace ww::exec
         return false;
     }
 
+    bool Executor::handleOpenDialog(const WwTile &at)
+    {
+        if (dialogActionsLeft <= 0)
+        {
+            return false;
+        }
+        const bool isHandled = answerOptionList(at) || continueOpenChat();
+        if (isHandled)
+        {
+            --dialogActionsLeft;
+        }
+        return isHandled;
+    }
+
+    const format::DialogZoneRecord *Executor::dialogZoneAt(const WwTile &at) const
+    {
+        for (const format::DialogZoneRecord &zone : artifact->dialogZones())
+        {
+            const bool isInside = at.x >= zone.minX && at.x <= zone.maxX
+                               && at.y >= zone.minY && at.y <= zone.maxY
+                               && at.plane >= zone.planeMin && at.plane <= zone.planeMax;
+            if (isInside && zone.answerCount > 0)
+            {
+                return &zone;
+            }
+        }
+        return nullptr;
+    }
+
+    bool Executor::answerOptionList(const WwTile &at)
+    {
+        if (callbacks->isInterfaceOpen(callbacks->user, kOptionListInterface) == 0)
+        {
+            return false;
+        }
+        const format::DialogZoneRecord *zone = dialogZoneAt(at);
+        if (zone == nullptr)
+        {
+            return false;
+        }
+        // One answer per poll, in the zone's order: when the first matches, the
+        // list closes and the rest are never sent; when it does not, the next
+        // poll tries the next. Sending them all at once could queue two picks.
+        const std::size_t index = zone->answerStart + answerCursor % zone->answerCount;
+        ++answerCursor;
+        const format::DialogAnswerRecord &answer = artifact->dialogAnswers()[index];
+        int32_t slots[9]{};
+        static_assert(sizeof(slots) == sizeof(answer.text));
+        std::memcpy(slots, answer.text, sizeof(slots));
+        callbacks->runChainStep(callbacks->user,
+                                static_cast<int32_t>(data::ChainStepKind::DialogueAnswer),
+                                slots[0], slots[1], slots[2], slots[3], slots[4], slots[5],
+                                slots[6], slots[7], slots[8]);
+        return true;
+    }
+
     void Executor::awaitLanding(const format::TransitionRecord &tx, const WwTile &start,
-                                WwTile &ioPosition) const
+                                WwTile &ioPosition)
     {
         int32_t stillPolls = 0;
-        int32_t continues = 0;
         int32_t tick = 0;
         while (tick < kLandingMaxTicks)
         {
-            // A chat page holds the player where they are until it is
-            // continued, so it neither spends the landing budget nor counts
-            // as standing still.
-            if (continues < kMaxChatContinues && continueOpenChat())
+            // A conversation holds the player where they are until it is
+            // answered, so it neither spends the landing budget nor counts as
+            // standing still.
+            if (handleOpenDialog(ioPosition))
             {
                 // The continue is what lets the transition go ahead, so it
                 // gets the same settle as the click, and the still count
                 // starts over from it.
-                ++continues;
                 callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
                 callbacks->readPosition(callbacks->user, &ioPosition);
                 stillPolls = 0;
@@ -753,6 +831,8 @@ namespace ww::exec
     WwStatus Executor::run(WwGoal goal)
     {
         RunState st;
+        dialogActionsLeft = kMaxDialogActions;
+        answerCursor = 0;
         callbacks->readPosition(callbacks->user, &st.position);
         if (isInsideGoal(st.position, goal))
         {
