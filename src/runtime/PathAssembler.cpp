@@ -5,6 +5,7 @@
 #include "runtime/InstanceMap.h"
 #include "runtime/TeleportPolicy.h"
 #include "runtime/TileScan.h"
+#include "runtime/WorldView.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -50,6 +51,32 @@ namespace ww::runtime
         constexpr int kNearGoalSquareRadius = 1;
 
         constexpr uint32_t kNoTransitionIndex = std::numeric_limits<uint32_t>::max();
+
+        // Sets a WorldView's instance aside for a scope and puts it back on
+        // every exit, so a static-world plan made from inside an instance
+        // cannot leave the view resolving through the wrong map.
+        class InstanceSuspension
+        {
+        public:
+            explicit InstanceSuspension(WorldView &target)
+                : view(target),
+                  saved(target.instanceMap())
+            {
+                view.setInstance(nullptr);
+            }
+
+            ~InstanceSuspension()
+            {
+                view.setInstance(saved);
+            }
+
+            InstanceSuspension(const InstanceSuspension &) = delete;
+            InstanceSuspension &operator=(const InstanceSuspension &) = delete;
+
+        private:
+            WorldView &view;
+            const InstanceMap *saved;
+        };
 
         // Plane is stored as uint8_t on the wire but flows through the assembler
         // as int32_t. Reject anything outside the baked range so a malformed
@@ -525,8 +552,20 @@ namespace ww::runtime
         // skipped rather than fed coordinates it cannot describe.
         if (view->isInstanced())
         {
-            return assembleInstanceRoute(startX, startY, startPlane,
-                                         goalX, goalY, goalPlane, outPlan);
+            if (assembleInstanceRoute(startX, startY, startPlane,
+                                      goalX, goalY, goalPlane, outPlan))
+            {
+                return true;
+            }
+            // The goal is outside the instance, and an instance has no baked
+            // way out: only a teleport leaves it.
+            return assembleTeleportOut(startX, startY, startPlane, goalX, goalY, goalPlane,
+                                       capabilities, outPlan);
+        }
+        if (!view->isBakedTile(startX, startY, startPlane))
+        {
+            return assembleTeleportOut(startX, startY, startPlane, goalX, goalY, goalPlane,
+                                       capabilities, outPlan);
         }
         const int32_t startArea = view->areaAt(startX, startY, startPlane);
         if (startArea < 0)
@@ -566,6 +605,42 @@ namespace ww::runtime
             improveWithTeleports(startX, startY, startPlane, goalX, goalY, goalArea,
                                  capabilities, best, haveBest);
         }
+        if (!haveBest)
+        {
+            return false;
+        }
+        outPlan = std::move(best);
+        return true;
+    }
+
+    bool PathAssembler::assembleTeleportOut(int32_t startX, int32_t startY, int32_t startPlane,
+                                            int32_t goalX, int32_t goalY, int32_t goalPlane,
+                                            const CapabilitySnapshot *capabilities,
+                                            Plan &outPlan)
+    {
+        outPlan.steps.clear();
+        outPlan.cost = 0.0f;
+        if (!isLegalPlane(startPlane) || isInCombat(capabilities))
+        {
+            return false;
+        }
+        const InstanceSuspension suspension(*view);
+        int32_t goalArea = view->areaAt(goalX, goalY, goalPlane);
+        if (goalArea < 0
+            && !resolveGoalTile(goalX, goalY, goalPlane, true, goalX, goalY, goalArea))
+        {
+            return false;
+        }
+        buildGlobalTeleportSeeds(capabilities);
+        if (seedScratch.empty())
+        {
+            return false;
+        }
+        scanNearGoalExits(goalX, goalY, goalPlane);
+        Plan best;
+        bool haveBest = false;
+        improveWithTeleports(startX, startY, startPlane, goalX, goalY, goalArea,
+                             capabilities, best, haveBest);
         if (!haveBest)
         {
             return false;

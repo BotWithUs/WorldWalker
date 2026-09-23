@@ -191,6 +191,19 @@ namespace ww::runtime
             return (clipAt(x, y, plane) & format::kClipStandBlockedMask) == 0u;
         }
 
+        // True when (x, y) lies in a mapsquare the artifact bakes, on a legal
+        // plane. Static coordinates, ignoring any installed instance: it tells
+        // a start the walker has a map for from one it has never seen (an
+        // instance, a region the bake does not cover).
+        bool isBakedTile(int x, int y, int plane)
+        {
+            if (offWorld(x, y, plane))
+            {
+                return false;
+            }
+            return !squareWords(x >> kSquareShift, y >> kSquareShift).empty();
+        }
+
         // Area id of a world tile, or -1 when the tile is blocked / unreachable /
         // off-plane / in an unmapped square.
         //
