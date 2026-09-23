@@ -233,12 +233,21 @@ namespace ww::exec
         // the click, and a walk clicked during that move is dropped by the
         // game; the next walk must start from where the player came to rest.
         //
+        // Any plain chat page open meanwhile is continued (continueOpenChat).
+        //
         // A same-floor crossing whose player has not moved at all after this
         // is clicked once more (executeTransitionStep): a door like Draynor
         // Manor's walks the player through itself, and a walk clicked before
         // that starts cancels it.
         void awaitLanding(const format::TransitionRecord &tx, const WwTile &start,
                           WwTile &ioPosition) const;
+
+        // Continue the first open plain chat page (npc, player, paired chat,
+        // message or item box) with a queued DIALOGUE action through
+        // runChainStep; never an option list. True when one was continued.
+        // A door can raise such a page before it lets the player through
+        // (Draynor Manor), and until it is continued nothing moves.
+        bool continueOpenChat() const;
 
         // True when `at` counts as having crossed tx from `start`: on the
         // destination tile, or moved off `start` to within a tile of it.

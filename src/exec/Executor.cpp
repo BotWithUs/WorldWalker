@@ -81,6 +81,34 @@ namespace ww::exec
         // bounded, so a transition that never lands cannot loop forever.
         constexpr int32_t kMaxReroutes = 3;
 
+        // Plain chat pages a transition can raise (Draynor Manor's front door
+        // says its piece the first time): interface and its continue button.
+        // Only pages that take a continue; the option list (1188 CHOICE_V2) is
+        // deliberately absent, since the walker has no business choosing.
+        struct ChatPage
+        {
+            int32_t interfaceId;
+            int32_t continueComponent;
+        };
+        constexpr ChatPage kChatPages[] = {
+            { 1184, 15 },  // CHAT_V2_LEFT, npc chat
+            { 1191, 15 },  // CHAT_V2_RIGHT, player chat
+            { 1187, 20 },  // CHAT_V2_PAIR
+            { 1186, 8 },   // MESBOX_V2, a plain message
+            { 1189, 20 },  // OBJBOX_V2, a message with an item
+        };
+
+        // The queued continue: DIALOGUE (ActionTypes.DIALOGUE on the host),
+        // param 0, no sub component, then (interface << 16) | component. The
+        // same action the scripts' Dialogs sends.
+        constexpr int32_t kDialogueActionId = 30;
+        constexpr int32_t kDialogueParam    = 0;
+        constexpr int32_t kNoSubComponent   = -1;
+
+        // Chat pages continued within one landing wait. A transition that
+        // talks for longer than this is a conversation, not a warning.
+        constexpr int32_t kMaxChatContinues = 5;
+
         // Chebyshev distance on the same plane; INT32_MAX on plane mismatch so
         // a teleport mid-walk reads as "infinitely far" and trips the stall
         // counter immediately rather than masquerading as progress.
@@ -484,16 +512,51 @@ namespace ww::exec
             || (!isSameTile(at, start) && chebyshev(at, dest) <= kArrivalChebyshev);
     }
 
+    bool Executor::continueOpenChat() const
+    {
+        for (const ChatPage &page : kChatPages)
+        {
+            if (callbacks->isInterfaceOpen(callbacks->user, page.interfaceId) == 0)
+            {
+                continue;
+            }
+            const int32_t hash = (page.interfaceId << 16) | page.continueComponent;
+            callbacks->runChainStep(callbacks->user,
+                                    static_cast<int32_t>(data::ChainStepKind::Click),
+                                    kDialogueActionId, kDialogueParam, kNoSubComponent, hash,
+                                    0, 0, 0, 0, 0);
+            return true;
+        }
+        return false;
+    }
+
     void Executor::awaitLanding(const format::TransitionRecord &tx, const WwTile &start,
                                 WwTile &ioPosition) const
     {
         int32_t stillPolls = 0;
-        for (int32_t tick = 0; tick < kLandingMaxTicks; ++tick)
+        int32_t continues = 0;
+        int32_t tick = 0;
+        while (tick < kLandingMaxTicks)
         {
+            // A chat page holds the player where they are until it is
+            // continued, so it neither spends the landing budget nor counts
+            // as standing still.
+            if (continues < kMaxChatContinues && continueOpenChat())
+            {
+                // The continue is what lets the transition go ahead, so it
+                // gets the same settle as the click, and the still count
+                // starts over from it.
+                ++continues;
+                callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
+                callbacks->readPosition(callbacks->user, &ioPosition);
+                stillPolls = 0;
+                continue;
+            }
             if (hasLanded(tx, start, ioPosition) || stillPolls >= kLandingStillPolls)
             {
                 return;
             }
+            ++tick;
             callbacks->sleepTicks(callbacks->user, 1);
             WwTile pos{};
             callbacks->readPosition(callbacks->user, &pos);

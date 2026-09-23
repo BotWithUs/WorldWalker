@@ -110,6 +110,12 @@ namespace ww::cli
             int               pendingLandingTicks;
             int               cancelledLandings;
             int               droppedInteracts;
+            // SimulateTransition: the door raises a plain message box (1186)
+            // on its first click and lets the player through only once that
+            // page is continued. continueClicks counts the continues.
+            bool              hasEntryChat;
+            bool              isChatOpen;
+            int               continueClicks;
         };
 
         // Every callback that can surprise the harness. The class each one
@@ -229,16 +235,32 @@ namespace ww::cli
             }
         }
 
+        // The plain chat pages the executor continues, and the one the entry
+        // chat test opens (1186 MESBOX_V2, continue 1186:8).
+        constexpr std::int32_t kMessageBox = 1186;
+        constexpr std::int32_t kMessageBoxContinue = (kMessageBox << 16) | 8;
+        constexpr std::int32_t kDialogueAction = 30;
+
+        bool isChatInterface(std::int32_t interfaceId)
+        {
+            return interfaceId == 1184 || interfaceId == 1191 || interfaceId == 1187
+                || interfaceId == 1186 || interfaceId == 1189;
+        }
+
         extern "C" std::int32_t harnessIsItemWorn(void *user, std::int32_t)
         {
             recordUnexpected(static_cast<ExecHarness *>(user), HarnessCallback::IsItemWorn);
             return 0;
         }
 
-        extern "C" std::int32_t harnessIsInterfaceOpen(void *user, std::int32_t)
+        extern "C" std::int32_t harnessIsInterfaceOpen(void *user, std::int32_t interfaceId)
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->isInterfaceOpenCalls;
+            if (isChatInterface(interfaceId))
+            {
+                return (h->isChatOpen && interfaceId == kMessageBox) ? 1 : 0;
+            }
             if (h->mode == ExecHarnessMode::SimulateTransition)
             {
                 return 1;
@@ -306,6 +328,10 @@ namespace ww::cli
             {
                 --h->droppedInteracts;
             }
+            else if (h->hasEntryChat && h->continueClicks == 0)
+            {
+                h->isChatOpen = true;
+            }
             else if (h->landingDelayTicks > 0)
             {
                 h->pendingLandingTicks = h->landingDelayTicks;
@@ -319,12 +345,20 @@ namespace ww::cli
             return 1;
         }
 
-        extern "C" void harnessRunChainStep(void *user, std::int32_t, std::int32_t, std::int32_t,
+        extern "C" void harnessRunChainStep(void *user, std::int32_t, std::int32_t a,
+                                            std::int32_t, std::int32_t, std::int32_t d,
                                             std::int32_t, std::int32_t, std::int32_t,
-                                            std::int32_t, std::int32_t, std::int32_t,
-                                            std::int32_t)
+                                            std::int32_t, std::int32_t)
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
+            if (a == kDialogueAction && d == kMessageBoxContinue && h->isChatOpen)
+            {
+                // The page closes and the door starts carrying the player in.
+                ++h->continueClicks;
+                h->isChatOpen = false;
+                h->pendingLandingTicks = h->landingDelayTicks;
+                return;
+            }
             ++h->runChainStepCalls;
             if (h->mode != ExecHarnessMode::SimulateTransition)
             {
@@ -709,8 +743,9 @@ namespace ww::cli
         // after the click (Draynor Manor's front door). The next walk must not
         // be clicked before the player is through, or the game cancels the
         // walk-through; with `droppedInteracts` the first click does nothing
-        // and the door is clicked again.
-        std::size_t testWalkThroughDoor(ExecContext &ctx, int droppedInteracts)
+        // and the door is clicked again; with `hasEntryChat` the first click
+        // raises a message box the executor must continue before anything moves.
+        std::size_t testWalkThroughDoor(ExecContext &ctx, int droppedInteracts, bool hasEntryChat)
         {
             CrossAreaPick pick{};
             if (!pickCrossAreaPair(ctx.reader, ctx.view, acceptUngatedOneTileDoor, pick))
@@ -727,6 +762,7 @@ namespace ww::cli
                 exec::WwTile{ tx.destX, tx.destY, static_cast<std::int32_t>(tx.destPlane) };
             harness.landingDelayTicks = 4;
             harness.droppedInteracts  = droppedInteracts;
+            harness.hasEntryChat      = hasEntryChat;
             exec::Callbacks cb = kCallbackPrototype;
             cb.user = &harness;
 
@@ -735,15 +771,19 @@ namespace ww::cli
             const exec::WwStatus status = executor.run(goal);
 
             const int wantInteracts = 1 + droppedInteracts;
-            std::printf("  exec:   walk-through door tx%u dropped=%d status=%d (expect 0)"
-                        " interacts=%d (expect %d) cancelled=%d stucks=%d (expect 0, 0)\n",
-                        edge.transitionIndex, droppedInteracts, static_cast<int>(status),
-                        harness.interactCalls, wantInteracts, harness.cancelledLandings,
+            const int wantContinues = hasEntryChat ? 1 : 0;
+            std::printf("  exec:   walk-through door tx%u dropped=%d chat=%d status=%d (expect 0)"
+                        " interacts=%d (expect %d) continues=%d (expect %d) cancelled=%d"
+                        " stucks=%d (expect 0, 0)\n",
+                        edge.transitionIndex, droppedInteracts, hasEntryChat ? 1 : 0,
+                        static_cast<int>(status), harness.interactCalls, wantInteracts,
+                        harness.continueClicks, wantContinues, harness.cancelledLandings,
                         harness.stuckEvents);
             printCallPattern("walk-through ", harness);
             std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
             failures += harness.interactCalls == wantInteracts ? 0u : 1u;
             failures += (harness.cancelledLandings == 0 && harness.stuckEvents == 0) ? 0u : 1u;
+            failures += harness.continueClicks == wantContinues ? 0u : 1u;
             failures += harness.unexpectedActions == 0 ? 0u : 1u;
             return failures;
         }
@@ -1009,8 +1049,9 @@ namespace ww::cli
         failures += testDroppedWalkClick(ctx);
         failures += testOffCourseLanding(ctx, 1, true);
         failures += testOffCourseLanding(ctx, 99, false);
-        failures += testWalkThroughDoor(ctx, 0);
-        failures += testWalkThroughDoor(ctx, 1);
+        failures += testWalkThroughDoor(ctx, 0, false);
+        failures += testWalkThroughDoor(ctx, 1, false);
+        failures += testWalkThroughDoor(ctx, 0, true);
         failures += testFfi(ctx, artifactPath);
         return failures;
     }
