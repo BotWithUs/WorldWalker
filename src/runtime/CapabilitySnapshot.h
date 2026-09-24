@@ -47,6 +47,22 @@ namespace ww::runtime
             itemsDirty = false;
             varbitsDirty = false;
             varpsDirty = false;
+            excludedTransitions.clear();
+        }
+
+        // Refuse one transition for this query whatever its requirements say.
+        // The executor excludes a local transition whose loc the host could not
+        // find, so the re-plan routes around it instead of choosing it again.
+        void excludeTransition(uint32_t transitionIndex)
+        {
+            excludedTransitions.push_back(transitionIndex);
+        }
+
+        // Linear: a run excludes at most a handful (one per reroute).
+        bool isTransitionExcluded(uint32_t transitionIndex) const
+        {
+            return std::find(excludedTransitions.begin(), excludedTransitions.end(),
+                             transitionIndex) != excludedTransitions.end();
         }
 
         void setSkillLevel(int32_t id, int32_t level)
@@ -180,6 +196,7 @@ namespace ww::runtime
         mutable bool itemsDirty{false};
         mutable bool varbitsDirty{false};
         mutable bool varpsDirty{false};
+        std::vector<uint32_t> excludedTransitions;
     };
 
     // Convenience predicate over a Requirement run. Skill / varbit / varp gates
@@ -237,6 +254,13 @@ namespace ww::runtime
                     break;
             }
         }
+    }
+
+    // True when `snapshot` excludes transition `transitionIndex` outright. A
+    // null snapshot excludes nothing, like it gates nothing.
+    inline bool isExcluded(const CapabilitySnapshot *snapshot, uint32_t transitionIndex)
+    {
+        return snapshot != nullptr && snapshot->isTransitionExcluded(transitionIndex);
     }
 
     inline bool meetsRequirements(const CapabilitySnapshot *snapshot,

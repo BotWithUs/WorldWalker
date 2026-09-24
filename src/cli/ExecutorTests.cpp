@@ -91,6 +91,12 @@ namespace ww::cli
             // does not move the player, as the host does for a loc it cannot
             // find near the origin.
             bool              isLocMissing;
+            // Interacts aimed at one transition (its loc id from its origin
+            // tile), so a test can tell a retry of that transition from the
+            // interacts of whatever route replaced it.
+            std::int32_t      watchedObjectId;
+            exec::WwTile      watchedOrigin;
+            int               watchedInteracts;
             // transitionIndex of the last Failed event: the failing transition,
             // or -1 when the run failed somewhere other than a transition.
             int               failedTransitionIndex;
@@ -341,11 +347,16 @@ namespace ww::cli
             }
         }
 
-        extern "C" std::int32_t harnessInteract(void *user, std::int32_t, exec::WwTile,
-                                                std::int32_t)
+        extern "C" std::int32_t harnessInteract(void *user, std::int32_t objectId,
+                                                exec::WwTile origin, std::int32_t)
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->interactCalls;
+            if (objectId == h->watchedObjectId && origin.x == h->watchedOrigin.x
+                && origin.y == h->watchedOrigin.y && origin.plane == h->watchedOrigin.plane)
+            {
+                ++h->watchedInteracts;
+            }
             if (h->mode != ExecHarnessMode::SimulateTransition)
             {
                 recordUnexpected(h, HarnessCallback::Interact);
@@ -736,14 +747,16 @@ namespace ww::cli
 
         // Test 4b: the host cannot find the loc a transition names. A
         // same-floor crossing (a door already open) is skipped after one try and
-        // the run carries on past it; anything else is retried and then fails
-        // on that transition, rather than walking on into a stall and a re-plan
-        // loop. Run once per kind, with `filter` choosing which.
+        // the run carries on past it. Anything else is retried, then excluded
+        // for the rest of the run and re-planned around: it must never be tried
+        // again (the live bug was a map loc chosen, missed and chosen again on
+        // every walk). Run once per kind, with `filter` choosing which.
         //
-        // Whether the door run then ARRIVES is not this test's business: the
-        // harness player never crosses, so a plan that ends on the door drains
-        // short of the goal. What is checked is that the transition itself was
-        // not what failed it.
+        // Whether either run then ARRIVES is not this test's business: the
+        // harness player never crosses, and every other non-door loc is missing
+        // too, so a detour may fail as well. What is checked is that a door was
+        // not what failed its run, and that a missing non-door loc was tried
+        // exactly kMissingLocAttempts times and then re-planned around.
         std::size_t testMissingLoc(ExecContext &ctx, TransitionFilter filter, const char *label)
         {
             CrossAreaPick pick{};
@@ -762,6 +775,9 @@ namespace ww::cli
             harness.transitionDest =
                 exec::WwTile{ tx.destX, tx.destY, static_cast<std::int32_t>(tx.destPlane) };
             harness.isLocMissing = true;
+            harness.watchedObjectId = tx.objectId;
+            harness.watchedOrigin =
+                exec::WwTile{ tx.originX, tx.originY, static_cast<std::int32_t>(tx.originPlane) };
             exec::Callbacks cb = kCallbackPrototype;
             cb.user = &harness;
 
@@ -769,21 +785,29 @@ namespace ww::cli
             const exec::WwGoal goal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
             const exec::WwStatus status = executor.run(goal);
 
-            // A missing ladder or cave mouth must fail the run ON that
-            // transition; a skipped door must not.
             const int txIndex = static_cast<int>(edge.transitionIndex);
             const bool isFailedOnTx = status == exec::WwStatus::Failed
                                    && harness.failedTransitionIndex == txIndex;
             const int wantInteracts = isSkippable ? 1 : 3;
-            std::printf("  exec:   missing-loc %s tx%d status=%d failedOnTx=%d (expect %d)"
-                        " interacts=%d (expect %d) replans=%d (expect 0)\n",
+            std::printf("  exec:   missing-loc %s tx%d status=%d failedOnTx=%d"
+                        " interacts-on-tx=%d (expect %d) replans=%d (expect %s)\n",
                         label, txIndex, static_cast<int>(status), isFailedOnTx ? 1 : 0,
-                        isSkippable ? 0 : 1, harness.interactCalls, wantInteracts,
-                        harness.replanStartedEvents);
+                        harness.watchedInteracts, wantInteracts, harness.replanStartedEvents,
+                        isSkippable ? "0" : ">= 1");
             printCallPattern("missing-loc ", harness);
-            std::size_t failures = isFailedOnTx == !isSkippable ? 0u : 1u;
-            failures += harness.interactCalls == wantInteracts ? 0u : 1u;
-            failures += harness.replanStartedEvents == 0 ? 0u : 1u;
+            std::size_t failures = 0u;
+            if (isSkippable)
+            {
+                // A skipped door must not be what failed the run.
+                failures += isFailedOnTx ? 1u : 0u;
+                failures += harness.replanStartedEvents == 0 ? 0u : 1u;
+            }
+            else
+            {
+                failures += status != exec::WwStatus::Cancelled ? 0u : 1u;
+                failures += harness.replanStartedEvents >= 1 ? 0u : 1u;
+            }
+            failures += harness.watchedInteracts == wantInteracts ? 0u : 1u;
             failures += harness.unexpectedActions == 0 ? 0u : 1u;
             return failures;
         }

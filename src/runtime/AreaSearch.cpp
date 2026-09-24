@@ -158,6 +158,10 @@ namespace ww::runtime
         {
             return false;
         }
+        if (currentSnapshot->isTransitionExcluded(transitionIndex))
+        {
+            return false;
+        }
         const format::TransitionRecord &tx = transitions[transitionIndex];
         if (tx.requirementCount == 0u)
         {
