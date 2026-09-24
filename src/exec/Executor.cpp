@@ -432,9 +432,9 @@ namespace ww::exec
     }
 
     WwStatus Executor::executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
-                                             WwTile &outPosition, bool &outIsOffCourse)
+                                             WwTile &outPosition, StepReport &outReport)
     {
-        outIsOffCourse = false;
+        outReport = StepReport{};
         // outPosition arrives holding the live position the prior step left,
         // which is where the player clicks this transition from.
         const WwTile start = outPosition;
@@ -469,6 +469,7 @@ namespace ww::exec
             const LocInteract outcome = interactWithLoc(tx);
             if (outcome == LocInteract::Missing)
             {
+                outReport.isLocMissing = true;
                 return WwStatus::Failed;
             }
             hasIssuedAction = outcome == LocInteract::Issued;
@@ -516,7 +517,7 @@ namespace ww::exec
                 }
             }
         }
-        outIsOffCourse = didAct && isOffCourse(tx, outPosition);
+        outReport.isOffCourse = didAct && isOffCourse(tx, outPosition);
         return WwStatus::Arrived;
     }
 
@@ -704,6 +705,7 @@ namespace ww::exec
     }
 
     bool Executor::planFrom(const WwTile &start, const WwGoal &goal,
+                            std::span<const uint32_t> excludedTransitions,
                             runtime::SearchContext &context, runtime::Plan &outPlan)
     {
         // Snapshot host state into the reused runtime::CapabilitySnapshot
@@ -717,6 +719,10 @@ namespace ww::exec
         callbacks->readCapability(callbacks->user, &raw);
         copyCapabilities(raw, snapshot);
         refreshRequirementValues();
+        for (const uint32_t transitionIndex : excludedTransitions)
+        {
+            snapshot.excludeTransition(transitionIndex);
+        }
 
         // Re-derive the scene's dynamic-region grid on every (re-)plan, for the
         // same reason the capability snapshot is re-pulled: a single run can
@@ -738,7 +744,7 @@ namespace ww::exec
                                              int32_t stepIndex, RunState &io)
     {
         emit(WwEventKind::ReplanStarted, stepIndex);
-        if (!planFrom(io.position, goal, context, plan))
+        if (!planFrom(io.position, goal, io.missingLocTransitions, context, plan))
         {
             return ReplanOutcome::Failed;
         }
@@ -782,6 +788,50 @@ namespace ww::exec
         return false;
     }
 
+    void Executor::excludeTransitionsOfLoc(const format::TransitionRecord &missing,
+                                           std::vector<uint32_t> &ioExcluded) const
+    {
+        const auto txs = artifact->transitions();
+        for (std::size_t i = 0; i < txs.size(); ++i)
+        {
+            const format::TransitionRecord &tx = txs[i];
+            const bool isSameLoc = tx.objectId == missing.objectId
+                                && tx.originX == missing.originX
+                                && tx.originY == missing.originY
+                                && tx.originPlane == missing.originPlane
+                                && (tx.flags & format::kTransitionFlagGlobalOrigin) == 0;
+            if (isSameLoc)
+            {
+                ioExcluded.push_back(static_cast<uint32_t>(i));
+            }
+        }
+    }
+
+    bool Executor::rerouteAroundMissingLoc(uint32_t transitionIndex, const WwGoal &goal,
+                                           runtime::SearchContext &context, int32_t stepIndex,
+                                           RunState &io, WwStatus &outStatus)
+    {
+        const int32_t txIndex = static_cast<int32_t>(transitionIndex);
+        if (io.reroutesUsed >= kMaxReroutes)
+        {
+            outStatus = failRun(stepIndex, txIndex);
+            return false;
+        }
+        ++io.reroutesUsed;
+        excludeTransitionsOfLoc(artifact->transitions()[transitionIndex],
+                                io.missingLocTransitions);
+        callbacks->readPosition(callbacks->user, &io.position);
+        const ReplanOutcome outcome = replan(goal, context, stepIndex, io);
+        if (outcome == ReplanOutcome::Restarted)
+        {
+            return true;
+        }
+        // No route without it: the run still failed on this transition.
+        outStatus = outcome == ReplanOutcome::Arrived ? WwStatus::Arrived
+                                                      : failRun(stepIndex, txIndex);
+        return false;
+    }
+
     int32_t Executor::arrivalRadiusFor(std::size_t i, const WwGoal &goal) const
     {
         const bool isNextWalk = (i + 1 < plan.steps.size())
@@ -799,16 +849,16 @@ namespace ww::exec
     }
 
     WwStatus Executor::executeStep(std::size_t i, const WwGoal &goal, WwTile &outPosition,
-                                   bool &outIsOffCourse)
+                                   StepReport &outReport)
     {
         const runtime::Step &step = plan.steps[i];
         const int32_t stepIndex = static_cast<int32_t>(i);
-        outIsOffCourse = false;
+        outReport = StepReport{};
         if (step.kind == runtime::StepKind::Walk)
         {
             return walkOneStep(step, stepIndex, arrivalRadiusFor(i, goal), outPosition);
         }
-        return executeTransitionStep(step, stepIndex, outPosition, outIsOffCourse);
+        return executeTransitionStep(step, stepIndex, outPosition, outReport);
     }
 
     WwStatus Executor::judgeDrainedRun(const WwGoal &goal, WwTile &ioPosition)
@@ -851,7 +901,7 @@ namespace ww::exec
 
         // The plan member's vector grows once and is reused across re-plans
         // — outPlan.steps.clear() inside the assembler keeps the capacity.
-        if (!planFrom(st.position, goal, context, plan))
+        if (!planFrom(st.position, goal, st.missingLocTransitions, context, plan))
         {
             return failRun(-1, -1);
         }
@@ -873,8 +923,8 @@ namespace ww::exec
         while (i < plan.steps.size())
         {
             const int32_t stepIndex = static_cast<int32_t>(i);
-            bool isOffCourse = false;
-            const WwStatus stepResult = executeStep(i, goal, st.position, isOffCourse);
+            StepReport report{};
+            const WwStatus stepResult = executeStep(i, goal, st.position, report);
             if (stepResult == WwStatus::Cancelled)
             {
                 return WwStatus::Cancelled;
@@ -888,6 +938,17 @@ namespace ww::exec
                 // may have moved further than walkOneStep's last sample.
                 const runtime::Step &step = plan.steps[i];
                 const bool isTransition = step.kind == runtime::StepKind::Transition;
+                if (report.isLocMissing)
+                {
+                    WwStatus terminal = WwStatus::Failed;
+                    if (!rerouteAroundMissingLoc(step.transitionIndex, goal, context, stepIndex,
+                                                 st, terminal))
+                    {
+                        return terminal;
+                    }
+                    i = 0;
+                    continue;
+                }
                 if (isTransition || st.replansUsed >= kMaxReplans)
                 {
                     return failRun(stepIndex,
@@ -911,7 +972,7 @@ namespace ww::exec
                 emit(WwEventKind::Arrived);
                 return WwStatus::Arrived;
             }
-            if (isOffCourse)
+            if (report.isOffCourse)
             {
                 // The transition put the player somewhere other than its
                 // destination: a failed agility obstacle, a refused teleport.

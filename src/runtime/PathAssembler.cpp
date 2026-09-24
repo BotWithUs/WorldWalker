@@ -381,9 +381,10 @@ namespace ww::runtime
             {
                 continue;
             }
-            if (!meetsRequirements(capabilities,
-                                   reqs.subspan(tx.requirementStart, tx.requirementCount),
-                                   static_cast<data::TransitionKind>(tx.kind)))
+            if (isExcluded(capabilities, i)
+                || !meetsRequirements(capabilities,
+                                      reqs.subspan(tx.requirementStart, tx.requirementCount),
+                                      static_cast<data::TransitionKind>(tx.kind)))
             {
                 continue;
             }
@@ -462,6 +463,7 @@ namespace ww::runtime
         const std::span<const format::RequirementRecord> reqs = artifact->requirements();
         const uint64_t reqEnd = static_cast<uint64_t>(T.requirementStart) + T.requirementCount;
         if (reqEnd > reqs.size()
+            || isExcluded(capabilities, edge.transitionIndex)
             || !meetsRequirements(capabilities,
                                   reqs.subspan(T.requirementStart, T.requirementCount),
                                   static_cast<data::TransitionKind>(T.kind)))

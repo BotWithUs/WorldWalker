@@ -66,8 +66,13 @@ namespace ww::exec
     // component, option); for each Wait, sleepTicks(ticks). After a short
     // post-chain settle the live position is read out (the engine commits the
     // destination during the settle). Transition Failed is terminal — re-plan
-    // does not retry it. After an issued local transition the executor waits
-    // for the player to land (awaitLanding); one that lands off course, like a
+    // does not retry it — with one exception: a local transition whose loc
+    // the host cannot find is excluded (with every row on that loc) for the
+    // rest of the run, and the run re-plans around it on the reroute budget,
+    // so a stale row costs a detour instead of the whole walk and the plan is
+    // not rebuilt onto the same dead edge. After an issued local transition
+    // the executor waits for the player to land (awaitLanding); one that
+    // lands off course, like a
     // failed agility jump into a pit, re-plans from there on a reroute budget
     // of its own rather than the stuck-recovery budget.
     //
@@ -102,6 +107,19 @@ namespace ww::exec
             int32_t replansUsed{0};
             int32_t reroutesUsed{0};
             bool    isTeleAllowedAtLastPlan{false};
+            // Transitions whose loc was missing this run, with every other
+            // transition from that loc and origin; every (re-)plan excludes
+            // them.
+            std::vector<uint32_t> missingLocTransitions;
+        };
+
+        // What a step learned beyond its status: a Transition that landed away
+        // from its destination (isOffCourse, see isOffCourse()), or one that
+        // failed because the host could not find its loc (isLocMissing).
+        struct StepReport
+        {
+            bool isOffCourse{false};
+            bool isLocMissing{false};
         };
 
         // Outcome of one in-loop re-plan: the plan was rebuilt and the step
@@ -126,6 +144,7 @@ namespace ww::exec
         // re-plan, but its (and outPlan's) backing storage is reused across
         // calls via the Executor's members.
         bool planFrom(const WwTile &start, const WwGoal &goal,
+                      std::span<const uint32_t> excludedTransitions,
                       runtime::SearchContext &context, runtime::Plan &outPlan);
 
         // Read the live value of every varbit in planVarbitIds and every item
@@ -184,12 +203,27 @@ namespace ww::exec
         // in outStatus.
         bool isRestart(ReplanOutcome outcome, int32_t stepIndex, WwStatus &outStatus) const;
 
+        // Append to ioExcluded every local transition that starts at `missing`'s
+        // loc and origin tile. One loc can carry several rows (a map with a
+        // destination per row), and none of them works once the loc is gone.
+        void excludeTransitionsOfLoc(const format::TransitionRecord &missing,
+                                     std::vector<uint32_t> &ioExcluded) const;
+
+        // The transition at `transitionIndex` failed because its loc is
+        // missing: exclude it, and every row sharing its loc, for the rest of
+        // the run and re-plan from the live position, spending one reroute.
+        // True when a new plan exists and the cursor restarts at 0; false when
+        // the run is over, with Arrived or Failed (on that transition, event
+        // emitted) in outStatus.
+        bool rerouteAroundMissingLoc(uint32_t transitionIndex, const WwGoal &goal,
+                                     runtime::SearchContext &context, int32_t stepIndex,
+                                     RunState &io, WwStatus &outStatus);
+
         // Drive plan.steps[i]: a Walk with the arrival radius its successor
-        // demands, or a Transition. Writes the final live position.
-        // outIsOffCourse is set when a Transition step left the player away from
-        // its destination (see isOffCourse).
+        // demands, or a Transition. Writes the final live position and what
+        // the step learned (see StepReport).
         WwStatus executeStep(std::size_t i, const WwGoal &goal, WwTile &outPosition,
-                             bool &outIsOffCourse);
+                             StepReport &outReport);
 
         // Chebyshev distance at which the Walk step at index i counts as done:
         // kHandoffChebyshev when another Walk follows (the next click fires
@@ -225,7 +259,7 @@ namespace ww::exec
         // event is emitted by run() so the (stepIndex, transitionIndex) pair
         // carries through.
         WwStatus executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
-                                       WwTile &outPosition, bool &outIsOffCourse);
+                                       WwTile &outPosition, StepReport &outReport);
 
         // After an issued local transition, poll a tick at a time until the
         // player lands near tx's destination or stands still elsewhere, within

@@ -1796,7 +1796,17 @@
     "option_index": 1,
     "dest_x": 3345,
     "dest_y": 3194,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 27,
+        "level": 5
+      },
+      "varbit_at_least": {
+        "id": 46463,
+        "value": 100
+      }
+    }
   },
   {
     "name": "View",
@@ -1809,7 +1819,17 @@
     "option_index": 1,
     "dest_x": 3271,
     "dest_y": 3504,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 27,
+        "level": 20
+      },
+      "varbit_at_least": {
+        "id": 46463,
+        "value": 100
+      }
+    }
   },
   {
     "name": "View",
@@ -1822,7 +1842,17 @@
     "option_index": 1,
     "dest_x": 3697,
     "dest_y": 3206,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 27,
+        "level": 42
+      },
+      "varbit_at_least": {
+        "id": 46463,
+        "value": 100
+      }
+    }
   },
   {
     "name": "View",
@@ -1835,7 +1865,17 @@
     "option_index": 1,
     "dest_x": 1784,
     "dest_y": 1296,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 27,
+        "level": 90
+      },
+      "varbit_at_least": {
+        "id": 46468,
+        "value": 3
+      }
+    }
   },
   {
     "name": "View",
@@ -1848,7 +1888,17 @@
     "option_index": 1,
     "dest_x": 2680,
     "dest_y": 3403,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 27,
+        "level": 70
+      },
+      "varbit_at_least": {
+        "id": 46468,
+        "value": 2
+      }
+    }
   },
   {
     "name": "View",
@@ -1861,7 +1911,17 @@
     "option_index": 1,
     "dest_x": 3428,
     "dest_y": 3699,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 27,
+        "level": 73
+      },
+      "varbit_at_least": {
+        "id": 46463,
+        "value": 100
+      }
+    }
   },
   {
     "name": "View",
@@ -1874,7 +1934,17 @@
     "option_index": 1,
     "dest_x": 2409,
     "dest_y": 2824,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 27,
+        "level": 76
+      },
+      "varbit_at_least": {
+        "id": 46468,
+        "value": 2
+      }
+    }
   },
   {
     "name": "View",
@@ -1887,7 +1957,17 @@
     "option_index": 1,
     "dest_x": 5457,
     "dest_y": 2339,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 27,
+        "level": 52
+      },
+      "varbit_at_least": {
+        "id": 46463,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Climb-up",
