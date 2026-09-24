@@ -47,9 +47,9 @@ namespace
     constexpr int32_t kEdgevilleY = 3506;
 
     // The fixtures' chains, spelled out: the map opener on the minimap
-    // (1465:33), a pick on the lodestone map (1092:<component>), and the cast
+    // (1465:34), a pick on the lodestone map (1092:<component>), and the cast
     // from the Magic ability book's abilities layer (1461:1, sub = spell slot).
-    constexpr ChainStep kOpenMap{ChainStepKind::Click, kComponentAction, 1, -1, (1465 << 16) | 33};
+    constexpr ChainStep kOpenMap{ChainStepKind::Click, kComponentAction, 1, -1, (1465 << 16) | 34};
     constexpr ChainStep kOpenWait{ChainStepKind::Wait, 6};
     constexpr ChainStep kTeleportWait{ChainStepKind::Wait, 18};
     constexpr ChainStep kPickLumbridge{ChainStepKind::Click, kComponentAction, 1, -1,
@@ -73,7 +73,7 @@ namespace
     const char *const kRoutedFixture = R"({
       "lodestones": {
         "config": {
-          "open_interface": 1465, "open_component": 33,
+          "open_interface": 1465, "open_component": 34,
           "select_interface": 1092,
           "open_wait": 6, "teleport_wait": 18
         },
@@ -96,7 +96,7 @@ namespace
     const char *const kNoRoutesFixture = R"({
       "lodestones": {
         "config": {
-          "open_interface": 1465, "open_component": 33,
+          "open_interface": 1465, "open_component": 34,
           "select_interface": 1092,
           "open_wait": 6, "teleport_wait": 18
         },
@@ -112,7 +112,7 @@ namespace
     const char *const kArrayGateFixture = R"({
       "lodestones": {
         "config": {
-          "open_interface": 1465, "open_component": 33,
+          "open_interface": 1465, "open_component": 34,
           "select_interface": 1092,
           "open_wait": 6, "teleport_wait": 18
         },
@@ -131,7 +131,7 @@ namespace
     // `routes` as an object rather than an array: must throw, not be ignored.
     const char *const kRoutesNotArrayFixture = R"({
       "lodestones": {
-        "config": { "open_interface": 1465, "open_component": 33, "select_interface": 1092 },
+        "config": { "open_interface": 1465, "open_component": 34, "select_interface": 1092 },
         "destinations": [
           { "x": 3233, "y": 3222, "plane": 0, "component": 17,
             "routes": { "chain": [ { "click": [1461, 1, 1, 234] } ] } }
@@ -143,7 +143,7 @@ namespace
     // recognise, so this would otherwise be an edge that teleports nowhere.
     const char *const kRouteWithoutChainFixture = R"({
       "lodestones": {
-        "config": { "open_interface": 1465, "open_component": 33, "select_interface": 1092 },
+        "config": { "open_interface": 1465, "open_component": 34, "select_interface": 1092 },
         "destinations": [
           { "x": 3233, "y": 3222, "plane": 0, "component": 17,
             "routes": [ { "chain": [ { "clik": [1461, 1, 1, 234] } ] } ] }
@@ -155,7 +155,7 @@ namespace
     // transition ungated.
     const char *const kScalarVarbitFixture = R"({
       "lodestones": {
-        "config": { "open_interface": 1465, "open_component": 33, "select_interface": 1092 },
+        "config": { "open_interface": 1465, "open_component": 34, "select_interface": 1092 },
         "destinations": [
           { "x": 3233, "y": 3222, "plane": 0, "component": 17,
             "requirements": { "varbit": 35 } }
@@ -171,7 +171,7 @@ namespace
     const char *const kPlannerFixture = R"({
       "lodestones": {
         "config": {
-          "open_interface": 1465, "open_component": 33,
+          "open_interface": 1465, "open_component": 34,
           "select_interface": 1092,
           "open_wait": 6, "teleport_wait": 18
         },
