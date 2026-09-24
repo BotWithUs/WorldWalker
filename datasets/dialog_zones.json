@@ -1,0 +1,13 @@
+[
+  {
+    "name": "Citharede Abbey road, the Strykewyrm hunter (npc 14621 at 3388,3167) who stops you at 3391-3392,3164",
+    "min_x": 3384,
+    "min_y": 3158,
+    "max_x": 3396,
+    "max_y": 3170,
+    "plane": 0,
+    "answers": [
+      "Yes."
+    ]
+  }
+]

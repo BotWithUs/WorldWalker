@@ -9,10 +9,14 @@
 #include "runtime/AreaSearch.h"
 #include "runtime/ContextPool.h"
 #include "runtime/PathAssembler.h"
+#include "runtime/TeleportPolicy.h"
 #include "runtime/TileSearch.h"
+#include "runtime/TransitionShape.h"
 #include "runtime/WorldView.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 
@@ -79,6 +83,50 @@ namespace ww::cli
             bool              walkToUpdatesPosition;
             exec::WwEventKind lastEventKind;
             exec::WwTile      transitionDest;   // SimulateTransition: where the click lands
+            // The combat varbit is modelled, not a surprise: every plan reads
+            // it. It answers 1 (in combat) for this many reads, then 0.
+            int               inCombatReadsLeft;
+            int               combatReads;
+            // SimulateTransition: interact answers 0 ("no such loc here") and
+            // does not move the player, as the host does for a loc it cannot
+            // find near the origin.
+            bool              isLocMissing;
+            // transitionIndex of the last Failed event: the failing transition,
+            // or -1 when the run failed somewhere other than a transition.
+            int               failedTransitionIndex;
+            // Walk clicks the game drops before one lands, as it does for a
+            // click made while the player is still in a forced move.
+            int               droppedWalkClicks;
+            // SimulateTransition: this many interacts land the player on
+            // `failedLanding` instead of transitionDest, like a failed agility
+            // jump dropping them into a pit.
+            int               failedLandingsLeft;
+            exec::WwTile      failedLanding;
+            // SimulateTransition: a door that walks the player through itself.
+            // The landing commits `landingDelayTicks` ticks after the click; a
+            // walk clicked before then cancels it, as the game does, and is
+            // counted in cancelledLandings. droppedInteracts clicks do nothing.
+            int               landingDelayTicks;
+            int               pendingLandingTicks;
+            int               cancelledLandings;
+            int               droppedInteracts;
+            // SimulateTransition: the door raises a plain message box (1186)
+            // on its first click and lets the player through only once that
+            // page is continued. continueClicks counts the continues.
+            bool              hasEntryChat;
+            bool              isChatOpen;
+            int               continueClicks;
+            // The next walk click opens a message box (chatOnNextWalk) or the
+            // option list (optionListOnNextWalk) instead of moving the player;
+            // while either is open no walk moves. chatNeverCloses keeps the
+            // message box open through every continue.
+            bool              chatOnNextWalk;
+            bool              chatNeverCloses;
+            bool              optionListOnNextWalk;
+            bool              isOptionListOpen;
+            // DialogueAnswer steps the executor sent, and the last answer's text.
+            int               answerCalls;
+            char              lastAnswer[40];
         };
 
         // Every callback that can surprise the harness. The class each one
@@ -156,19 +204,32 @@ namespace ww::cli
             return 0;
         }
 
-        extern "C" void harnessReadVarbits(void *user, const std::int32_t *, size_t count,
+        extern "C" void harnessReadVarbits(void *user, const std::int32_t *ids, size_t count,
                                            std::int32_t *out)
         {
-            // The batched variant is invoked at every (re-)plan even when no
-            // requirement references a varbit (count == 0), so a zero-count call
-            // is not a surprise at all. Only flag actual reads.
-            if (count > 0)
+            // The batched variant is invoked at every (re-)plan and after every
+            // step, always carrying the combat varbit. That one is modelled;
+            // any other id is an unmodelled read answered 0.
+            ExecHarness *h = static_cast<ExecHarness *>(user);
+            bool hasOtherId = false;
+            for (size_t i = 0; i < count; ++i)
             {
-                recordUnexpected(static_cast<ExecHarness *>(user), HarnessCallback::ReadVarbits);
-                for (size_t i = 0; i < count; ++i)
+                out[i] = 0;
+                if (ids[i] != runtime::kInCombatVarbitId)
                 {
-                    out[i] = 0;
+                    hasOtherId = true;
+                    continue;
                 }
+                ++h->combatReads;
+                if (h->inCombatReadsLeft > 0)
+                {
+                    --h->inCombatReadsLeft;
+                    out[i] = 1;
+                }
+            }
+            if (hasOtherId)
+            {
+                recordUnexpected(h, HarnessCallback::ReadVarbits);
             }
         }
 
@@ -185,16 +246,40 @@ namespace ww::cli
             }
         }
 
+        // The plain chat pages the executor continues, and the one the entry
+        // chat test opens (1186 MESBOX_V2, continue 1186:8).
+        constexpr std::int32_t kMessageBox = 1186;
+        constexpr std::int32_t kMessageBoxContinue = (kMessageBox << 16) | 8;
+        constexpr std::int32_t kDialogueAction = 30;
+        constexpr std::int32_t kOptionList = 1188;
+        constexpr std::int32_t kDialogueAnswerKind =
+            static_cast<std::int32_t>(data::ChainStepKind::DialogueAnswer);
+        constexpr int kMaxDialogActionsPerRun = 20;  // the executor's per-run budget
+
+        bool isChatInterface(std::int32_t interfaceId)
+        {
+            return interfaceId == 1184 || interfaceId == 1191 || interfaceId == 1187
+                || interfaceId == 1186 || interfaceId == 1189;
+        }
+
         extern "C" std::int32_t harnessIsItemWorn(void *user, std::int32_t)
         {
             recordUnexpected(static_cast<ExecHarness *>(user), HarnessCallback::IsItemWorn);
             return 0;
         }
 
-        extern "C" std::int32_t harnessIsInterfaceOpen(void *user, std::int32_t)
+        extern "C" std::int32_t harnessIsInterfaceOpen(void *user, std::int32_t interfaceId)
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->isInterfaceOpenCalls;
+            if (isChatInterface(interfaceId))
+            {
+                return (h->isChatOpen && interfaceId == kMessageBox) ? 1 : 0;
+            }
+            if (interfaceId == kOptionList)
+            {
+                return h->isOptionListOpen ? 1 : 0;
+            }
             if (h->mode == ExecHarnessMode::SimulateTransition)
             {
                 return 1;
@@ -207,6 +292,33 @@ namespace ww::cli
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->walkToCalls;
+            if (h->isChatOpen || h->isOptionListOpen)
+            {
+                return;
+            }
+            if (h->chatOnNextWalk)
+            {
+                h->chatOnNextWalk = false;
+                h->isChatOpen = true;
+                return;
+            }
+            if (h->optionListOnNextWalk)
+            {
+                h->optionListOnNextWalk = false;
+                h->isOptionListOpen = true;
+                return;
+            }
+            if (h->pendingLandingTicks > 0)
+            {
+                h->pendingLandingTicks = 0;
+                ++h->cancelledLandings;
+                return;
+            }
+            if (h->droppedWalkClicks > 0)
+            {
+                --h->droppedWalkClicks;
+                return;
+            }
             if (h->mode == ExecHarnessMode::SimulateInstantWalk
                 || h->mode == ExecHarnessMode::SimulateTransition)
             {
@@ -238,21 +350,73 @@ namespace ww::cli
             {
                 recordUnexpected(h, HarnessCallback::Interact);
             }
+            else if (h->isLocMissing)
+            {
+                return 0;
+            }
+            else if (h->failedLandingsLeft > 0)
+            {
+                --h->failedLandingsLeft;
+                h->position = h->failedLanding;
+            }
+            else if (h->droppedInteracts > 0)
+            {
+                --h->droppedInteracts;
+            }
+            else if (h->hasEntryChat && h->continueClicks == 0)
+            {
+                h->isChatOpen = true;
+            }
+            else if (h->landingDelayTicks > 0)
+            {
+                h->pendingLandingTicks = h->landingDelayTicks;
+            }
             else
             {
                 h->position = h->transitionDest;
             }
-            // The harness always "issues" the action, so the executor settles as
-            // before — the SimulateTransition step counts depend on that wait.
+            // Otherwise the harness "issues" the action, so the executor settles
+            // as before — the SimulateTransition step counts depend on that wait.
             return 1;
         }
 
-        extern "C" void harnessRunChainStep(void *user, std::int32_t, std::int32_t, std::int32_t,
-                                            std::int32_t, std::int32_t, std::int32_t,
-                                            std::int32_t, std::int32_t, std::int32_t,
-                                            std::int32_t)
+        // A DialogueAnswer step: unpack the answer, and close the option list
+        // when it is the reply the harness's conversation wants ("Yes.").
+        void harnessAnswer(ExecHarness *h, const std::int32_t (&slots)[9])
+        {
+            ++h->answerCalls;
+            static_assert(sizeof(slots) < sizeof(h->lastAnswer));
+            std::memcpy(h->lastAnswer, slots, sizeof(slots));
+            h->lastAnswer[sizeof(slots)] = '\0';
+            if (h->isOptionListOpen && std::strcmp(h->lastAnswer, "Yes.") == 0)
+            {
+                h->isOptionListOpen = false;
+            }
+        }
+
+        extern "C" void harnessRunChainStep(void *user, std::int32_t kind, std::int32_t a,
+                                            std::int32_t b, std::int32_t c, std::int32_t d,
+                                            std::int32_t e, std::int32_t f, std::int32_t g,
+                                            std::int32_t hh, std::int32_t i)
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
+            if (kind == kDialogueAnswerKind)
+            {
+                harnessAnswer(h, { a, b, c, d, e, f, g, hh, i });
+                return;
+            }
+            if (a == kDialogueAction && d == kMessageBoxContinue && h->isChatOpen)
+            {
+                // The page closes (and a walk-through door starts carrying the
+                // player in), unless the test wants a page that never does.
+                ++h->continueClicks;
+                if (!h->chatNeverCloses)
+                {
+                    h->isChatOpen = false;
+                    h->pendingLandingTicks = h->landingDelayTicks;
+                }
+                return;
+            }
             ++h->runChainStepCalls;
             if (h->mode != ExecHarnessMode::SimulateTransition)
             {
@@ -264,10 +428,19 @@ namespace ww::cli
             }
         }
 
-        extern "C" void harnessSleepTicks(void *user, std::int32_t)
+        extern "C" void harnessSleepTicks(void *user, std::int32_t ticks)
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->sleepTicksCalls;
+            if (h->pendingLandingTicks > 0)
+            {
+                h->pendingLandingTicks -= ticks;
+                if (h->pendingLandingTicks <= 0)
+                {
+                    h->pendingLandingTicks = 0;
+                    h->position = h->transitionDest;
+                }
+            }
             if (h->mode == ExecHarnessMode::AbortOnAction)
             {
                 recordUnexpected(h, HarnessCallback::SleepTicks);
@@ -294,6 +467,10 @@ namespace ww::cli
             if (kind == exec::WwEventKind::Stuck)
             {
                 ++h->stuckEvents;
+            }
+            else if (kind == exec::WwEventKind::Failed)
+            {
+                h->failedTransitionIndex = event->transitionIndex;
             }
             else if (kind == exec::WwEventKind::ReplanStarted)
             {
@@ -346,6 +523,7 @@ namespace ww::cli
             harness.mode          = mode;
             harness.position      = exec::WwTile{ x, y, plane };
             harness.lastEventKind = exec::WwEventKind::Failed;
+            harness.failedTransitionIndex = -1;
             return harness;
         }
 
@@ -543,6 +721,410 @@ namespace ww::cli
             return failures;
         }
 
+        // Ungated local transitions a missing loc may be skipped on (doors),
+        // and ones it may not (ladders, cave mouths, long rides).
+        bool acceptUngatedDoor(const format::TransitionRecord &tx)
+        {
+            return tx.requirementCount == 0u && runtime::isSameFloorCrossing(tx);
+        }
+
+        bool acceptUngatedNonDoor(const format::TransitionRecord &tx)
+        {
+            const bool isGlobal = (tx.flags & format::kTransitionFlagGlobalOrigin) != 0;
+            return tx.requirementCount == 0u && !isGlobal && !runtime::isSameFloorCrossing(tx);
+        }
+
+        // Test 4b: the host cannot find the loc a transition names. A
+        // same-floor crossing (a door already open) is skipped after one try and
+        // the run carries on past it; anything else is retried and then fails
+        // on that transition, rather than walking on into a stall and a re-plan
+        // loop. Run once per kind, with `filter` choosing which.
+        //
+        // Whether the door run then ARRIVES is not this test's business: the
+        // harness player never crosses, so a plan that ends on the door drains
+        // short of the goal. What is checked is that the transition itself was
+        // not what failed it.
+        std::size_t testMissingLoc(ExecContext &ctx, TransitionFilter filter, const char *label)
+        {
+            CrossAreaPick pick{};
+            if (!pickCrossAreaPair(ctx.reader, ctx.view, filter, pick))
+            {
+                std::printf("  exec:   missing-loc %s skipped (no traversable cross-area edge)\n",
+                            label);
+                return 0;
+            }
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            const auto &tx   = ctx.reader.transitions()[edge.transitionIndex];
+            const bool isSkippable = runtime::isSameFloorCrossing(tx);
+
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, pick.start.x,
+                                              pick.start.y, pick.startPlane);
+            harness.transitionDest =
+                exec::WwTile{ tx.destX, tx.destY, static_cast<std::int32_t>(tx.destPlane) };
+            harness.isLocMissing = true;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            // A missing ladder or cave mouth must fail the run ON that
+            // transition; a skipped door must not.
+            const int txIndex = static_cast<int>(edge.transitionIndex);
+            const bool isFailedOnTx = status == exec::WwStatus::Failed
+                                   && harness.failedTransitionIndex == txIndex;
+            const int wantInteracts = isSkippable ? 1 : 3;
+            std::printf("  exec:   missing-loc %s tx%d status=%d failedOnTx=%d (expect %d)"
+                        " interacts=%d (expect %d) replans=%d (expect 0)\n",
+                        label, txIndex, static_cast<int>(status), isFailedOnTx ? 1 : 0,
+                        isSkippable ? 0 : 1, harness.interactCalls, wantInteracts,
+                        harness.replanStartedEvents);
+            printCallPattern("missing-loc ", harness);
+            std::size_t failures = isFailedOnTx == !isSkippable ? 0u : 1u;
+            failures += harness.interactCalls == wantInteracts ? 0u : 1u;
+            failures += harness.replanStartedEvents == 0 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // An ungated one-tile door: the click is made from a tile already
+        // within a tile of the far side.
+        bool acceptUngatedOneTileDoor(const format::TransitionRecord &tx)
+        {
+            const int hop = std::max(std::abs(tx.originX - tx.destX),
+                                     std::abs(tx.originY - tx.destY));
+            return acceptUngatedDoor(tx) && hop == 1;
+        }
+
+        // Test 4f: a door that walks the player through itself, a few ticks
+        // after the click (Draynor Manor's front door). The next walk must not
+        // be clicked before the player is through, or the game cancels the
+        // walk-through; with `droppedInteracts` the first click does nothing
+        // and the door is clicked again; with `hasEntryChat` the first click
+        // raises a message box the executor must continue before anything moves.
+        std::size_t testWalkThroughDoor(ExecContext &ctx, int droppedInteracts, bool hasEntryChat)
+        {
+            CrossAreaPick pick{};
+            if (!pickCrossAreaPair(ctx.reader, ctx.view, acceptUngatedOneTileDoor, pick))
+            {
+                std::printf("  exec:   walk-through door test skipped (no one-tile door)\n");
+                return 0;
+            }
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            const auto &tx   = ctx.reader.transitions()[edge.transitionIndex];
+
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, pick.start.x,
+                                              pick.start.y, pick.startPlane);
+            harness.transitionDest =
+                exec::WwTile{ tx.destX, tx.destY, static_cast<std::int32_t>(tx.destPlane) };
+            harness.landingDelayTicks = 4;
+            harness.droppedInteracts  = droppedInteracts;
+            harness.hasEntryChat      = hasEntryChat;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            const int wantInteracts = 1 + droppedInteracts;
+            const int wantContinues = hasEntryChat ? 1 : 0;
+            std::printf("  exec:   walk-through door tx%u dropped=%d chat=%d status=%d (expect 0)"
+                        " interacts=%d (expect %d) continues=%d (expect %d) cancelled=%d"
+                        " stucks=%d (expect 0, 0)\n",
+                        edge.transitionIndex, droppedInteracts, hasEntryChat ? 1 : 0,
+                        static_cast<int>(status), harness.interactCalls, wantInteracts,
+                        harness.continueClicks, wantContinues, harness.cancelledLandings,
+                        harness.stuckEvents);
+            printCallPattern("walk-through ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.interactCalls == wantInteracts ? 0u : 1u;
+            failures += (harness.cancelledLandings == 0 && harness.stuckEvents == 0) ? 0u : 1u;
+            failures += harness.continueClicks == wantContinues ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4g: a walk click raises a plain chat page. The walk continues
+        // it and clicks on, rather than reading the held player as a stall.
+        std::size_t testChatDuringWalk(ExecContext &ctx)
+        {
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              ctx.node.centroidX, ctx.node.centroidY, ctx.plane);
+            harness.chatOnNextWalk = true;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ ctx.farthest.x, ctx.farthest.y, ctx.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   walk-chat status=%d (expect 0) continues=%d (expect 1)"
+                        " stucks=%d replans=%d (expect 0, 0)\n",
+                        static_cast<int>(status), harness.continueClicks, harness.stuckEvents,
+                        harness.replanStartedEvents);
+            printCallPattern("walk-chat ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.continueClicks == 1 ? 0u : 1u;
+            failures += (harness.stuckEvents == 0 && harness.replanStartedEvents == 0) ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4h: a chat page that never closes. The run spends its dialog
+        // budget and no more, then fails like any other stuck walk.
+        std::size_t testChatNeverCloses(ExecContext &ctx)
+        {
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              ctx.node.centroidX, ctx.node.centroidY, ctx.plane);
+            harness.chatOnNextWalk = true;
+            harness.chatNeverCloses = true;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ ctx.farthest.x, ctx.farthest.y, ctx.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   stuck-chat status=%d (expect 1) continues=%d (expect %d)\n",
+                        static_cast<int>(status), harness.continueClicks,
+                        kMaxDialogActionsPerRun);
+            std::size_t failures = status == exec::WwStatus::Failed ? 0u : 1u;
+            failures += harness.continueClicks == kMaxDialogActionsPerRun ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // A standable tile inside the first dialog zone, and a walk goal a few
+        // tiles on in the same area; false when the artifact has no zone.
+        bool pickZoneWalk(ExecContext &ctx, runtime::TilePoint &outStart,
+                          runtime::TilePoint &outGoal, std::int32_t &outPlane,
+                          const char *&outAnswer)
+        {
+            const auto zones = ctx.reader.dialogZones();
+            if (zones.empty())
+            {
+                return false;
+            }
+            const format::DialogZoneRecord &zone = zones[0];
+            outPlane = static_cast<std::int32_t>(zone.planeMin);
+            outAnswer = ctx.reader.dialogAnswers()[zone.answerStart].text;
+            for (std::int32_t y = zone.minY; y <= zone.maxY; ++y)
+            {
+                for (std::int32_t x = zone.minX; x <= zone.maxX; ++x)
+                {
+                    const std::int32_t area = ctx.view.areaAt(x, y, outPlane);
+                    if (area < 0)
+                    {
+                        continue;
+                    }
+                    outStart = { x, y };
+                    outGoal = farthestInArea(ctx.view, x, y, outPlane, area, 6);
+                    if (outGoal.x != x || outGoal.y != y)
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Test 4i: inside a dialog zone, a walk click raises the option list.
+        // The executor sends the zone's answer and walks on once it closes.
+        std::size_t testZoneAnswer(ExecContext &ctx)
+        {
+            runtime::TilePoint start{};
+            runtime::TilePoint goal{};
+            std::int32_t plane = 0;
+            const char *answer = nullptr;
+            if (!pickZoneWalk(ctx, start, goal, plane, answer))
+            {
+                std::printf("  exec:   zone-answer test skipped (artifact has no dialog zone)\n");
+                return 0;
+            }
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk, start.x,
+                                              start.y, plane);
+            harness.optionListOnNextWalk = true;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwStatus status = executor.run(exec::WwGoal{ goal.x, goal.y, plane, 0 });
+
+            const bool isAnswerRight = std::strncmp(harness.lastAnswer, answer, 36) == 0;
+            std::printf("  exec:   zone-answer (%d,%d,p%d) status=%d (expect 0) answers=%d"
+                        " (expect 1) sent='%s' (expect '%.36s')\n",
+                        start.x, start.y, plane, static_cast<int>(status), harness.answerCalls,
+                        harness.lastAnswer, answer);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += (harness.answerCalls == 1 && isAnswerRight) ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4j: the same option list outside every dialog zone. The
+        // executor must never pick an option there.
+        std::size_t testNoZoneNeverAnswers(ExecContext &ctx)
+        {
+            for (const format::DialogZoneRecord &z : ctx.reader.dialogZones())
+            {
+                if (ctx.node.centroidX >= z.minX && ctx.node.centroidX <= z.maxX
+                    && ctx.node.centroidY >= z.minY && ctx.node.centroidY <= z.maxY)
+                {
+                    std::printf("  exec:   no-zone test skipped (start lies in a zone)\n");
+                    return 0;
+                }
+            }
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              ctx.node.centroidX, ctx.node.centroidY, ctx.plane);
+            harness.optionListOnNextWalk = true;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ ctx.farthest.x, ctx.farthest.y, ctx.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   no-zone status=%d (expect 1) answers=%d (expect 0)\n",
+                        static_cast<int>(status), harness.answerCalls);
+            std::size_t failures = status == exec::WwStatus::Failed ? 0u : 1u;
+            failures += harness.answerCalls == 0 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4d: the game drops the first walk click (the player was still in
+        // an agility obstacle's forced move). The stall re-clicks once before
+        // calling it stuck, so the walk arrives without a Stuck or a re-plan.
+        std::size_t testDroppedWalkClick(ExecContext &ctx)
+        {
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              ctx.node.centroidX, ctx.node.centroidY, ctx.plane);
+            harness.droppedWalkClicks = 1;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ ctx.farthest.x, ctx.farthest.y, ctx.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   dropped-click status=%d (expect 0=Arrived) stucks=%d replans=%d"
+                        " (expect 0, 0) walks=%d (expect >= 2)\n",
+                        static_cast<int>(status), harness.stuckEvents,
+                        harness.replanStartedEvents, harness.walkToCalls);
+            printCallPattern("dropped-click ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += (harness.stuckEvents == 0 && harness.replanStartedEvents == 0) ? 0u : 1u;
+            failures += harness.walkToCalls >= 2 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4e: a non-door transition lands the player back where they
+        // started (a failed jump into a pit) `failedLandings` times. Each is a
+        // re-plan from the live position that spends no stuck budget; one
+        // failure is recovered, endless failures end on that transition once
+        // the reroute budget is gone rather than looping.
+        std::size_t testOffCourseLanding(ExecContext &ctx, int failedLandings, bool isRecoverable)
+        {
+            CrossAreaPick pick{};
+            if (!pickCrossAreaPair(ctx.reader, ctx.view, acceptUngatedNonDoor, pick))
+            {
+                std::printf("  exec:   off-course test skipped (no traversable non-door edge)\n");
+                return 0;
+            }
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            const auto &tx   = ctx.reader.transitions()[edge.transitionIndex];
+            const exec::WwTile start{ pick.start.x, pick.start.y, pick.startPlane };
+            const exec::WwTile dest{ tx.destX, tx.destY, static_cast<std::int32_t>(tx.destPlane) };
+            const std::int32_t spread = std::max(std::abs(start.x - dest.x),
+                                                 std::abs(start.y - dest.y));
+            if (start.plane == dest.plane && spread <= runtime::kMaxSameFloorHop + 1)
+            {
+                std::printf("  exec:   off-course test skipped (tx%u lands too near its start)\n",
+                            edge.transitionIndex);
+                return 0;
+            }
+
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, start.x,
+                                              start.y, start.plane);
+            harness.transitionDest     = dest;
+            harness.failedLandingsLeft = failedLandings;
+            harness.failedLanding      = start;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            // One interact per attempt: the first plus one per reroute, and the
+            // reroute budget is 3.
+            const int wantInteracts = isRecoverable ? failedLandings + 1 : 4;
+            const int txIndex = static_cast<int>(edge.transitionIndex);
+            const bool isStatusRight = isRecoverable
+                ? status == exec::WwStatus::Arrived
+                : (status == exec::WwStatus::Failed && harness.failedTransitionIndex == txIndex);
+            std::printf("  exec:   off-course tx%d fails=%d status=%d (expect %d) interacts=%d"
+                        " (expect %d) stucks=%d (expect 0)\n",
+                        txIndex, failedLandings, static_cast<int>(status),
+                        isRecoverable ? 0 : 1, harness.interactCalls, wantInteracts,
+                        harness.stuckEvents);
+            printCallPattern("off-course ", harness);
+            std::size_t failures = isStatusRight ? 0u : 1u;
+            failures += harness.interactCalls == wantInteracts ? 0u : 1u;
+            failures += harness.stuckEvents == 0 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4c: in combat at the first plan, out of it after the first step.
+        // The walk-only goal needs no teleport, but the flip back out of combat
+        // must still re-plan once, since that is the moment teleports come
+        // back into consideration (V1 interrupted its walk the same way).
+        std::size_t testCombatEndReplan(ExecContext &ctx)
+        {
+            if (!runtime::isTeleportAllowed(ctx.reader, ctx.node.centroidX, ctx.node.centroidY,
+                                            ctx.plane))
+            {
+                std::printf("  exec:   combat test skipped (start tile is not teleport-allowed)\n");
+                return 0;
+            }
+            runtime::AreaSearch    refAreaSearch(ctx.reader);
+            runtime::TileSearch    refTileSearch(ctx.view);
+            runtime::PathAssembler refAssembler(ctx.reader, ctx.view, refAreaSearch, refTileSearch);
+            runtime::Plan refPlan;
+            if (!refAssembler.assemble(ctx.node.centroidX, ctx.node.centroidY, ctx.plane,
+                                       ctx.farthest.x, ctx.farthest.y, ctx.plane, refPlan)
+                || refPlan.steps.size() < 2)
+            {
+                std::printf("  exec:   combat test skipped (walk has fewer than two steps)\n");
+                return 0;
+            }
+
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              ctx.node.centroidX, ctx.node.centroidY, ctx.plane);
+            harness.inCombatReadsLeft = 1;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ ctx.farthest.x, ctx.farthest.y, ctx.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   combat-end status=%d (expect 0=Arrived) replans=%d (expect 1)"
+                        " combat-reads=%d (expect >= 2)\n",
+                        static_cast<int>(status), harness.replanStartedEvents,
+                        harness.combatReads);
+            printCallPattern("combat ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.replanStartedEvents == 1 ? 0u : 1u;
+            failures += harness.combatReads >= 2 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
         // Test 5: drive the same walk-only goal as Test 2 through the public C
         // ABI (ww_executor_run) instead of constructing the C++ Executor
         // directly. Validates that the artifact / pool handles, the WwCallbacks
@@ -667,6 +1249,19 @@ namespace ww::cli
         failures += testWalkLoop(ctx);
         failures += testTransition(ctx);
         failures += testReplanRecovery(ctx);
+        failures += testMissingLoc(ctx, acceptUngatedDoor, "door");
+        failures += testMissingLoc(ctx, acceptUngatedNonDoor, "non-door");
+        failures += testCombatEndReplan(ctx);
+        failures += testDroppedWalkClick(ctx);
+        failures += testOffCourseLanding(ctx, 1, true);
+        failures += testOffCourseLanding(ctx, 99, false);
+        failures += testWalkThroughDoor(ctx, 0, false);
+        failures += testWalkThroughDoor(ctx, 1, false);
+        failures += testWalkThroughDoor(ctx, 0, true);
+        failures += testChatDuringWalk(ctx);
+        failures += testChatNeverCloses(ctx);
+        failures += testZoneAnswer(ctx);
+        failures += testNoZoneNeverAnswers(ctx);
         failures += testFfi(ctx, artifactPath);
         return failures;
     }

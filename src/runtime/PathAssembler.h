@@ -85,6 +85,10 @@ namespace ww::runtime
         // overload. The snapshot is consulted only for inter-area transition
         // gating — same-area routing (pure walking) is unfiltered by design.
         //
+        // A start the walker has no map for (an instance whose goal lies outside
+        // it, or a tile in no baked square) is planned by assembleTeleportOut:
+        // a global teleport first, then the normal route from its landing.
+        //
         // When the borrowed WorldView has a dynamic region installed, everything
         // above is bypassed for assembleInstanceRoute: the baked area graph does
         // not describe an instance's terrain, so the plan is pure tile-level
@@ -98,6 +102,17 @@ namespace ww::runtime
                       const CapabilitySnapshot *capabilities, Plan &outPlan);
 
     private:
+        // Plan from a start the walker has no map for. The only way on is a
+        // global teleport, so the plan is one: every teleport the capability
+        // snapshot admits is seeded from the start, and the cheapest landing
+        // that routes to the goal wins. The start counts as teleport-allowed,
+        // since no wilderness box or no-teleport zone is known there; in combat
+        // nothing can be cast, so the plan fails. Any installed instance is set
+        // aside meanwhile: everything after the teleport is static world.
+        bool assembleTeleportOut(int32_t startX, int32_t startY, int32_t startPlane,
+                                 int32_t goalX, int32_t goalY, int32_t goalPlane,
+                                 const CapabilitySnapshot *capabilities, Plan &outPlan);
+
         // Find the closest standable tile to (originX, originY) that belongs to
         // `area`. The transition's object tile is permitted to be blocked, so the
         // player walks to an adjacent walkable tile and interacts from there. The

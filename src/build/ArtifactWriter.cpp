@@ -5,6 +5,7 @@
 #include "format/Artifact.h"
 #include "format/Zlib.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
@@ -327,6 +328,50 @@ namespace ww::build
             return section;
         }
 
+        // Dialog zones section payload: header + zone table + answer table.
+        // Stored uncompressed (a handful of boxes and short strings).
+        std::vector<uint8_t> buildDialogZonesSection(const ww::data::DialogZonesModel &model)
+        {
+            using namespace ww::format;
+            std::vector<DialogZoneRecord> zones;
+            std::vector<DialogAnswerRecord> answers;
+            for (const ww::data::DialogZone &z : model.zones)
+            {
+                DialogZoneRecord rec{};
+                rec.minX = z.minX;
+                rec.minY = z.minY;
+                rec.maxX = z.maxX;
+                rec.maxY = z.maxY;
+                rec.answerStart = static_cast<uint32_t>(answers.size());
+                rec.answerCount = static_cast<uint16_t>(z.answers.size());
+                rec.planeMin = z.planeMin;
+                rec.planeMax = z.planeMax;
+                zones.push_back(rec);
+                for (const std::string &text : z.answers)
+                {
+                    DialogAnswerRecord answer{};
+                    std::memcpy(answer.text, text.data(),
+                                std::min(text.size(), sizeof(answer.text)));
+                    answers.push_back(answer);
+                }
+            }
+            DialogZonesSectionHeader header{};
+            header.zoneCount = static_cast<uint32_t>(zones.size());
+            header.answerCount = static_cast<uint32_t>(answers.size());
+
+            std::vector<uint8_t> section;
+            appendPod(section, header);
+            for (const DialogZoneRecord &rec : zones)
+            {
+                appendPod(section, rec);
+            }
+            for (const DialogAnswerRecord &answer : answers)
+            {
+                appendPod(section, answer);
+            }
+            return section;
+        }
+
         // Provenance section payload: header + the UTF-8 JSON body, stored
         // uncompressed (under a kilobyte, and a record nobody can read without
         // running code is a worse record).
@@ -415,6 +460,7 @@ namespace ww::build
                        const AreaGraphModel &abstraction,
                        const AltLandmarksModel &altLandmarks,
                        const ww::data::TeleportZonesModel &teleportZones,
+                       const ww::data::DialogZonesModel &dialogZones,
                        const ArtifactMeta &meta)
     {
         using namespace ww::format;
@@ -436,6 +482,10 @@ namespace ww::build
         if (!teleportZones.wilderness.empty() || !teleportZones.noTele.empty())
         {
             sections.push_back({SectionId::TeleportAllowed, buildTeleportSection(teleportZones)});
+        }
+        if (!dialogZones.zones.empty())
+        {
+            sections.push_back({SectionId::DialogZones, buildDialogZonesSection(dialogZones)});
         }
         if (!meta.provenanceJson.empty())
         {

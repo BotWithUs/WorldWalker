@@ -154,6 +154,7 @@ set(worldwalker_SOURCES
 	"src/c_api/worldwalker_c.h"
 	"src/data/DatasetLoader.cpp"
 	"src/data/DatasetLoader.h"
+	"src/data/DialogZones.h"
 	"src/data/TransitionCost.h"
 	"src/data/Transitions.h"
 	"src/exec/Callbacks.h"
@@ -184,6 +185,7 @@ set(worldwalker_SOURCES
 	"src/runtime/TileScan.h"
 	"src/runtime/TileSearch.cpp"
 	"src/runtime/TileSearch.h"
+	"src/runtime/TransitionShape.h"
 	"src/runtime/WorldView.cpp"
 	"src/runtime/WorldView.h"
 )

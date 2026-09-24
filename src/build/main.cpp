@@ -219,6 +219,7 @@ namespace
                       const ww::build::AreaGraphModel &abstraction,
                       const ww::build::AltLandmarksModel &landmarks,
                       const ww::data::TeleportZonesModel &teleportZones,
+                      const ww::data::DialogZonesModel &dialogZones,
                       uint32_t cacheRevision, uint32_t datasetHash)
     {
         ww::build::ArtifactMeta meta;
@@ -227,7 +228,7 @@ namespace
         meta.provenanceJson = ww::build::renderProvenanceJson(provenance);
 
         ww::build::writeArtifact(outPath, collision, transitions, abstraction, landmarks,
-                                 teleportZones, meta);
+                                 teleportZones, dialogZones, meta);
         if (flags.writeSidecar)
         {
             ww::build::writeProvenanceSidecar(outPath + ".json", meta.provenanceJson);
@@ -276,7 +277,8 @@ namespace
                 describeBake("collision", cacheDir, flags, model);
             emitArtifact(outPath, flags, provenance, model, ww::data::TransitionModel{},
                          ww::build::AreaGraphModel{}, ww::build::AltLandmarksModel{},
-                         ww::data::TeleportZonesModel{}, deriveCacheRevision(cacheDir), 0u);
+                         ww::data::TeleportZonesModel{}, ww::data::DialogZonesModel{},
+                         deriveCacheRevision(cacheDir), 0u);
             std::printf("collision: %zu squares written to %s (%d archives skipped)\n",
                         model.squares.size(), outPath.c_str(), decoded.skippedArchives);
             reportProvenance(outPath, flags, provenance);
@@ -462,9 +464,11 @@ namespace
             provenance.teleportZones = teleportZones.wilderness.size() + teleportZones.noTele.size();
 
             emitArtifact(outPath, flags, provenance, collision, tr.transitions, abstraction,
-                         landmarks, teleportZones, deriveCacheRevision(cacheDir), tr.datasetHash);
+                         landmarks, teleportZones, datasets.dialogZones,
+                         deriveCacheRevision(cacheDir), tr.datasetHash);
 
             reportBuild(outPath, collision, tr, ag, alt, teleportZones);
+            std::printf("  dialog zones: %zu\n", datasets.dialogZones.zones.size());
             reportProvenance(outPath, flags, provenance);
             return 0;
         }

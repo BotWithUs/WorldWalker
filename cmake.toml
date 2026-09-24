@@ -131,6 +131,7 @@ headers = [
     "src/exec/*.h",
     "src/c_api/*.h",
     "src/data/DatasetLoader.h",
+    "src/data/DialogZones.h",
     "src/data/Transitions.h",
     "src/data/TransitionCost.h",
 ]

@@ -4,12 +4,14 @@
 #include "format/Artifact.h"
 #include "runtime/SearchContext.h"
 #include "runtime/TeleportPolicy.h"
+#include "runtime/TransitionShape.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <limits>
 
 namespace ww::exec
@@ -54,6 +56,66 @@ namespace ww::exec
         // without inviting tail-latency surprises.
         constexpr int32_t kMaxReplans = 3;
 
+        // Interact attempts on a loc the host reports absent before a
+        // non-door transition fails. A loc can drop out of the scene snapshot
+        // for one sample, so one miss is not proof; three, a tick apart, is.
+        constexpr int32_t kMissingLocAttempts = 3;
+
+        // Landing after an issued local transition. An agility obstacle moves
+        // the player for several ticks after the click, and the game drops a
+        // walk click issued during that forced move, so the executor waits for
+        // the player to land: near the destination, or standing still for
+        // kLandingStillPolls ticks somewhere else (a failed jump drops you in a
+        // pit), within kLandingMaxTicks.
+        constexpr int32_t kLandingMaxTicks   = 8;   // ~4.8s past the fixed settle
+        constexpr int32_t kLandingStillPolls = 3;
+
+        // How far from a transition's destination the player may end up and
+        // still count as having crossed it. A skipped open door leaves the
+        // player on the near side, at most a same-floor hop plus the stand
+        // tile away; anything farther, or on another plane, is off course.
+        constexpr int32_t kLandingSlack = runtime::kMaxSameFloorHop + 1;
+
+        // Re-plans spent on a transition that landed off course (a failed
+        // agility obstacle, a refused teleport). A budget of their own, so
+        // falling into a pit does not spend the stuck-recovery budget, and
+        // bounded, so a transition that never lands cannot loop forever.
+        constexpr int32_t kMaxReroutes = 3;
+
+        // Plain chat pages a transition can raise (Draynor Manor's front door
+        // says its piece the first time): interface and its continue button.
+        // Only pages that take a continue; the option list (1188 CHOICE_V2) is
+        // deliberately absent, since the walker has no business choosing.
+        struct ChatPage
+        {
+            int32_t interfaceId;
+            int32_t continueComponent;
+        };
+        constexpr ChatPage kChatPages[] = {
+            { 1184, 15 },  // CHAT_V2_LEFT, npc chat
+            { 1191, 15 },  // CHAT_V2_RIGHT, player chat
+            { 1187, 20 },  // CHAT_V2_PAIR
+            { 1186, 8 },   // MESBOX_V2, a plain message
+            { 1189, 20 },  // OBJBOX_V2, a message with an item
+        };
+
+        // The queued continue: DIALOGUE (ActionTypes.DIALOGUE on the host),
+        // param 0, no sub component, then (interface << 16) | component. The
+        // same action the scripts' Dialogs sends.
+        constexpr int32_t kDialogueActionId = 30;
+        constexpr int32_t kDialogueParam    = 0;
+        constexpr int32_t kNoSubComponent   = -1;
+
+        // The option list a conversation asks its question in (1188
+        // CHOICE_V2). Answered only inside a dialog zone.
+        constexpr int32_t kOptionListInterface = 1188;
+
+        // Dialog actions (continues and answers) one run may spend, across
+        // every walk and landing. A route that keeps talking past this is a
+        // conversation the walker should not be holding, and a page that
+        // never closes must not pin the run forever.
+        constexpr int32_t kMaxDialogActions = 20;
+
         // Chebyshev distance on the same plane; INT32_MAX on plane mismatch so
         // a teleport mid-walk reads as "infinitely far" and trips the stall
         // counter immediately rather than masquerading as progress.
@@ -75,19 +137,26 @@ namespace ww::exec
         : artifact(&reader),
           pool(&pool),
           callbacks(&callbacks),
-          requirementVarbitIds(reader.requirementVarbitIds()),
+          planVarbitIds(reader.requirementVarbitIds().begin(),
+                        reader.requirementVarbitIds().end()),
           requirementItemIds(reader.requirementItemIds())
     {
-        // Distinct varbit / item id lists are built once on the artifact and
-        // borrowed here, so the Executor pays no per-construction scan over
-        // the requirement pool. ww_executor_run constructs a fresh Executor on
-        // every run, so the savings matter even at one call per game tick.
+        if (std::find(planVarbitIds.begin(), planVarbitIds.end(), runtime::kInCombatVarbitId)
+            == planVarbitIds.end())
+        {
+            planVarbitIds.push_back(runtime::kInCombatVarbitId);
+        }
+        // Distinct varbit / item id lists are built once on the artifact, so
+        // the Executor pays no per-construction scan over the requirement
+        // pool; the varbit list is copied only to add the combat varbit.
+        // ww_executor_run constructs a fresh Executor on every run, so the
+        // savings matter even at one call per game tick.
         //
         // Size the batched-callback output buffers once to the (fixed) lengths
         // of the id lists. resize() fills with zero so a host that bails out
         // and writes nothing (e.g. callback threw on first id) still leaves
         // sentinel-zero values for the planner to read.
-        varbitValues.resize(requirementVarbitIds.size());
+        varbitValues.resize(planVarbitIds.size());
         itemValues.resize(requirementItemIds.size());
     }
 
@@ -126,11 +195,13 @@ namespace ww::exec
         callbacks->walkTo(callbacks->user, target);
         emit(WwEventKind::StepAdvanced, stepIndex);
 
-        const auto stepStart = std::chrono::steady_clock::now();
+        auto stepStart = std::chrono::steady_clock::now();
         WwTile lastPos{};
         callbacks->readPosition(callbacks->user, &lastPos);
         outPosition = lastPos;
         int32_t stalledPolls = 0;
+        bool hasReclicked = false;
+        bool isResumePending = false;
 
         while (true)
         {
@@ -147,6 +218,22 @@ namespace ww::exec
             {
                 return WwStatus::Arrived;
             }
+            if (handleOpenDialog(pos))
+            {
+                // A conversation holds the player where they are: not a
+                // stall, and the walk it interrupted is clicked again once
+                // it closes.
+                stalledPolls = 0;
+                isResumePending = true;
+                stepStart = std::chrono::steady_clock::now();
+                lastPos = pos;
+                continue;
+            }
+            if (isResumePending)
+            {
+                callbacks->walkTo(callbacks->user, target);
+                isResumePending = false;
+            }
 
             const int32_t prevDist = chebyshev(lastPos, target);
             const int32_t curDist  = chebyshev(pos, target);
@@ -161,7 +248,18 @@ namespace ww::exec
             const auto elapsed = std::chrono::steady_clock::now() - stepStart;
             const auto elapsedMs =
                 std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
-            if (stalledPolls >= kStalledPollsTrip || elapsedMs >= kStuckTimeoutMs)
+            const bool isStalled = stalledPolls >= kStalledPollsTrip;
+            const bool isTimedOut = elapsedMs >= kStuckTimeoutMs;
+            if (isStalled && !hasReclicked && !isTimedOut)
+            {
+                // The game drops a walk click issued while the player is still
+                // in a forced move, which reads exactly like a stall. Click once
+                // more before calling it stuck.
+                callbacks->walkTo(callbacks->user, target);
+                hasReclicked = true;
+                stalledPolls = 0;
+            }
+            else if (isStalled || isTimedOut)
             {
                 emit(WwEventKind::Stuck, stepIndex);
                 return WwStatus::Failed;
@@ -334,8 +432,12 @@ namespace ww::exec
     }
 
     WwStatus Executor::executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
-                                             WwTile &outPosition)
+                                             WwTile &outPosition, bool &outIsOffCourse)
     {
+        outIsOffCourse = false;
+        // outPosition arrives holding the live position the prior step left,
+        // which is where the player clicks this transition from.
+        const WwTile start = outPosition;
         // The terminal Failed event is emitted by run() with both stepIndex
         // and transitionIndex; failure paths here just return WwStatus::Failed
         // so the dispatch site can carry the indices through.
@@ -361,15 +463,15 @@ namespace ww::exec
             // Click the world object from the interact-tile (the prior Walk
             // step put the player there). The object tile itself may be
             // blocked; the engine resolves the click from an adjacent tile.
-            // interact returns zero when it was a no-op — the baked loc is
-            // gone from the live scene, which for a door means it is already
-            // open (open doors are a different loc id). Nothing was issued, so
-            // there is no action to settle for; we skip the post-chain wait
-            // below and the next Walk step flows straight through the doorway.
-            const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
-            hasIssuedAction =
-                callbacks->interact(callbacks->user, tx.objectId, origin,
-                                    static_cast<int32_t>(tx.optionIndex)) != 0;
+            // An open door skipped here issued nothing, so there is no action
+            // to settle for; we skip the post-chain wait below and the next
+            // Walk step flows straight through the doorway.
+            const LocInteract outcome = interactWithLoc(tx);
+            if (outcome == LocInteract::Missing)
+            {
+                return WwStatus::Failed;
+            }
+            hasIssuedAction = outcome == LocInteract::Issued;
         }
         else
         {
@@ -397,7 +499,177 @@ namespace ww::exec
             callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
         }
         callbacks->readPosition(callbacks->user, &outPosition);
+        if (!isGlobal && hasIssuedAction)
+        {
+            awaitLanding(tx, start, outPosition);
+            if (runtime::isSameFloorCrossing(tx) && isSameTile(outPosition, start))
+            {
+                // Still where the click was made: the click was dropped, or a
+                // door that walks you through (Draynor Manor) has not started.
+                // Click it once more. An open door is no longer found, so the
+                // host no-ops and the walk goes on through the doorway.
+                if (interactWithLoc(tx) == LocInteract::Issued)
+                {
+                    callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
+                    callbacks->readPosition(callbacks->user, &outPosition);
+                    awaitLanding(tx, start, outPosition);
+                }
+            }
+        }
+        outIsOffCourse = didAct && isOffCourse(tx, outPosition);
         return WwStatus::Arrived;
+    }
+
+    bool Executor::isSameTile(const WwTile &a, const WwTile &b)
+    {
+        return a.x == b.x && a.y == b.y && a.plane == b.plane;
+    }
+
+    bool Executor::hasLanded(const format::TransitionRecord &tx, const WwTile &start,
+                             const WwTile &at)
+    {
+        // Near the destination is not enough on its own: on a one-tile door
+        // the tile the click is made from is already within a tile of the far
+        // side. The player must be on the destination, or have moved to near it.
+        const WwTile dest{ tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane) };
+        return isSameTile(at, dest)
+            || (!isSameTile(at, start) && chebyshev(at, dest) <= kArrivalChebyshev);
+    }
+
+    bool Executor::continueOpenChat() const
+    {
+        for (const ChatPage &page : kChatPages)
+        {
+            if (callbacks->isInterfaceOpen(callbacks->user, page.interfaceId) == 0)
+            {
+                continue;
+            }
+            const int32_t hash = (page.interfaceId << 16) | page.continueComponent;
+            callbacks->runChainStep(callbacks->user,
+                                    static_cast<int32_t>(data::ChainStepKind::Click),
+                                    kDialogueActionId, kDialogueParam, kNoSubComponent, hash,
+                                    0, 0, 0, 0, 0);
+            return true;
+        }
+        return false;
+    }
+
+    bool Executor::handleOpenDialog(const WwTile &at)
+    {
+        if (dialogActionsLeft <= 0)
+        {
+            return false;
+        }
+        const bool isHandled = answerOptionList(at) || continueOpenChat();
+        if (isHandled)
+        {
+            --dialogActionsLeft;
+        }
+        return isHandled;
+    }
+
+    const format::DialogZoneRecord *Executor::dialogZoneAt(const WwTile &at) const
+    {
+        for (const format::DialogZoneRecord &zone : artifact->dialogZones())
+        {
+            const bool isInside = at.x >= zone.minX && at.x <= zone.maxX
+                               && at.y >= zone.minY && at.y <= zone.maxY
+                               && at.plane >= zone.planeMin && at.plane <= zone.planeMax;
+            if (isInside && zone.answerCount > 0)
+            {
+                return &zone;
+            }
+        }
+        return nullptr;
+    }
+
+    bool Executor::answerOptionList(const WwTile &at)
+    {
+        if (callbacks->isInterfaceOpen(callbacks->user, kOptionListInterface) == 0)
+        {
+            return false;
+        }
+        const format::DialogZoneRecord *zone = dialogZoneAt(at);
+        if (zone == nullptr)
+        {
+            return false;
+        }
+        // One answer per poll, in the zone's order: when the first matches, the
+        // list closes and the rest are never sent; when it does not, the next
+        // poll tries the next. Sending them all at once could queue two picks.
+        const std::size_t index = zone->answerStart + answerCursor % zone->answerCount;
+        ++answerCursor;
+        const format::DialogAnswerRecord &answer = artifact->dialogAnswers()[index];
+        int32_t slots[9]{};
+        static_assert(sizeof(slots) == sizeof(answer.text));
+        std::memcpy(slots, answer.text, sizeof(slots));
+        callbacks->runChainStep(callbacks->user,
+                                static_cast<int32_t>(data::ChainStepKind::DialogueAnswer),
+                                slots[0], slots[1], slots[2], slots[3], slots[4], slots[5],
+                                slots[6], slots[7], slots[8]);
+        return true;
+    }
+
+    void Executor::awaitLanding(const format::TransitionRecord &tx, const WwTile &start,
+                                WwTile &ioPosition)
+    {
+        int32_t stillPolls = 0;
+        int32_t tick = 0;
+        while (tick < kLandingMaxTicks)
+        {
+            // A conversation holds the player where they are until it is
+            // answered, so it neither spends the landing budget nor counts as
+            // standing still.
+            if (handleOpenDialog(ioPosition))
+            {
+                // The continue is what lets the transition go ahead, so it
+                // gets the same settle as the click, and the still count
+                // starts over from it.
+                callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
+                callbacks->readPosition(callbacks->user, &ioPosition);
+                stillPolls = 0;
+                continue;
+            }
+            if (hasLanded(tx, start, ioPosition) || stillPolls >= kLandingStillPolls)
+            {
+                return;
+            }
+            ++tick;
+            callbacks->sleepTicks(callbacks->user, 1);
+            WwTile pos{};
+            callbacks->readPosition(callbacks->user, &pos);
+            stillPolls = isSameTile(pos, ioPosition) ? stillPolls + 1 : 0;
+            ioPosition = pos;
+        }
+    }
+
+    bool Executor::isOffCourse(const format::TransitionRecord &tx, const WwTile &at)
+    {
+        const WwTile dest{ tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane) };
+        return chebyshev(at, dest) > kLandingSlack;
+    }
+
+    Executor::LocInteract Executor::interactWithLoc(const format::TransitionRecord &tx) const
+    {
+        const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
+        const bool isSkippable = runtime::isSameFloorCrossing(tx);
+        for (int32_t attempt = 0; attempt < kMissingLocAttempts; ++attempt)
+        {
+            if (attempt > 0)
+            {
+                callbacks->sleepTicks(callbacks->user, 1);
+            }
+            if (callbacks->interact(callbacks->user, tx.objectId, origin,
+                                    static_cast<int32_t>(tx.optionIndex)) != 0)
+            {
+                return LocInteract::Issued;
+            }
+            if (isSkippable)
+            {
+                return LocInteract::SkippedOpenCrossing;
+            }
+        }
+        return LocInteract::Missing;
     }
 
     void Executor::refreshRequirementValues()
@@ -407,16 +679,13 @@ namespace ww::exec
         // host-side call, which the Java bridge in turn services with at most
         // two batched RPCs instead of N synchronous ones. This was the
         // dominant cost in pre-walk latency.
-        if (!requirementVarbitIds.empty())
+        callbacks->readVarbits(callbacks->user,
+                               planVarbitIds.data(),
+                               planVarbitIds.size(),
+                               varbitValues.data());
+        for (std::size_t i = 0; i < planVarbitIds.size(); ++i)
         {
-            callbacks->readVarbits(callbacks->user,
-                                   requirementVarbitIds.data(),
-                                   requirementVarbitIds.size(),
-                                   varbitValues.data());
-            for (std::size_t i = 0; i < requirementVarbitIds.size(); ++i)
-            {
-                snapshot.setVarbit(requirementVarbitIds[i], varbitValues[i]);
-            }
+            snapshot.setVarbit(planVarbitIds[i], varbitValues[i]);
         }
         // Likewise the live count of every item a requirement references (e.g.
         // the dungeoneering cape). Without this an item-gated teleport is
@@ -468,7 +737,6 @@ namespace ww::exec
     Executor::ReplanOutcome Executor::replan(const WwGoal &goal, runtime::SearchContext &context,
                                              int32_t stepIndex, RunState &io)
     {
-        ++io.replansUsed;
         emit(WwEventKind::ReplanStarted, stepIndex);
         if (!planFrom(io.position, goal, context, plan))
         {
@@ -483,9 +751,25 @@ namespace ww::exec
             emit(WwEventKind::Arrived);
             return ReplanOutcome::Arrived;
         }
-        io.isTeleAllowedAtLastPlan = runtime::isTeleportAllowed(
-            *artifact, io.position.x, io.position.y, io.position.plane);
+        io.isTeleAllowedAtLastPlan = isTeleAllowedForPlan(io.position);
         return ReplanOutcome::Restarted;
+    }
+
+    bool Executor::isTeleAllowedForPlan(const WwTile &at) const
+    {
+        return runtime::isTeleportAllowed(*artifact, &snapshot, at.x, at.y, at.plane);
+    }
+
+    bool Executor::isTeleAllowedLive(const WwTile &at) const
+    {
+        if (!runtime::isTeleportAllowed(*artifact, at.x, at.y, at.plane))
+        {
+            return false;
+        }
+        const int32_t id = runtime::kInCombatVarbitId;
+        int32_t inCombat = 0;
+        callbacks->readVarbits(callbacks->user, &id, 1, &inCombat);
+        return inCombat != 1;
     }
 
     bool Executor::isRestart(ReplanOutcome outcome, int32_t stepIndex, WwStatus &outStatus) const
@@ -514,15 +798,17 @@ namespace ww::exec
         return kArrivalChebyshev;
     }
 
-    WwStatus Executor::executeStep(std::size_t i, const WwGoal &goal, WwTile &outPosition)
+    WwStatus Executor::executeStep(std::size_t i, const WwGoal &goal, WwTile &outPosition,
+                                   bool &outIsOffCourse)
     {
         const runtime::Step &step = plan.steps[i];
         const int32_t stepIndex = static_cast<int32_t>(i);
+        outIsOffCourse = false;
         if (step.kind == runtime::StepKind::Walk)
         {
             return walkOneStep(step, stepIndex, arrivalRadiusFor(i, goal), outPosition);
         }
-        return executeTransitionStep(step, stepIndex, outPosition);
+        return executeTransitionStep(step, stepIndex, outPosition, outIsOffCourse);
     }
 
     WwStatus Executor::judgeDrainedRun(const WwGoal &goal, WwTile &ioPosition)
@@ -545,6 +831,8 @@ namespace ww::exec
     WwStatus Executor::run(WwGoal goal)
     {
         RunState st;
+        dialogActionsLeft = kMaxDialogActions;
+        answerCursor = 0;
         callbacks->readPosition(callbacks->user, &st.position);
         if (isInsideGoal(st.position, goal))
         {
@@ -576,15 +864,17 @@ namespace ww::exec
         // post-step check can detect a false→true flip and re-plan with global
         // teleports newly considerable (ADR 0009). It is evaluated fresh per
         // step — it changes at wilderness-level (8-tile) and no-tele-box
-        // granularity, so any coarser caching detects the flip late.
-        st.isTeleAllowedAtLastPlan = runtime::isTeleportAllowed(
-            *artifact, st.position.x, st.position.y, st.position.plane);
+        // granularity, and when combat ends, so any coarser caching detects
+        // the flip late. The anchor reads the snapshot the plan itself used,
+        // so the plan and its anchor cannot disagree about combat.
+        st.isTeleAllowedAtLastPlan = isTeleAllowedForPlan(st.position);
 
         std::size_t i = 0;
         while (i < plan.steps.size())
         {
             const int32_t stepIndex = static_cast<int32_t>(i);
-            const WwStatus stepResult = executeStep(i, goal, st.position);
+            bool isOffCourse = false;
+            const WwStatus stepResult = executeStep(i, goal, st.position, isOffCourse);
             if (stepResult == WwStatus::Cancelled)
             {
                 return WwStatus::Cancelled;
@@ -604,6 +894,7 @@ namespace ww::exec
                                    isTransition ? static_cast<int32_t>(step.transitionIndex) : -1);
                 }
                 callbacks->readPosition(callbacks->user, &st.position);
+                ++st.replansUsed;
                 WwStatus terminal = WwStatus::Failed;
                 if (!isRestart(replan(goal, context, stepIndex, st), stepIndex, terminal))
                 {
@@ -620,10 +911,29 @@ namespace ww::exec
                 emit(WwEventKind::Arrived);
                 return WwStatus::Arrived;
             }
-            const bool isTeleAllowedNow = runtime::isTeleportAllowed(
-                *artifact, st.position.x, st.position.y, st.position.plane);
+            if (isOffCourse)
+            {
+                // The transition put the player somewhere other than its
+                // destination: a failed agility obstacle, a refused teleport.
+                // Plan again from where they are, on the reroute budget.
+                const int32_t txIndex = static_cast<int32_t>(plan.steps[i].transitionIndex);
+                if (st.reroutesUsed >= kMaxReroutes)
+                {
+                    return failRun(stepIndex, txIndex);
+                }
+                ++st.reroutesUsed;
+                WwStatus terminal = WwStatus::Failed;
+                if (!isRestart(replan(goal, context, stepIndex, st), stepIndex, terminal))
+                {
+                    return terminal;
+                }
+                i = 0;
+                continue;
+            }
+            const bool isTeleAllowedNow = isTeleAllowedLive(st.position);
             if (isTeleAllowedNow && !st.isTeleAllowedAtLastPlan && st.replansUsed < kMaxReplans)
             {
+                ++st.replansUsed;
                 WwStatus terminal = WwStatus::Failed;
                 if (!isRestart(replan(goal, context, stepIndex, st), stepIndex, terminal))
                 {

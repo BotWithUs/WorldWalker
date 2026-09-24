@@ -7,8 +7,10 @@
 #include "format/ArtifactReader.h"
 #include "runtime/AreaSearch.h"
 #include "runtime/CapabilitySnapshot.h"
+#include "runtime/InstanceMap.h"
 #include "runtime/PathAssembler.h"
 #include "runtime/RuntimeTeleports.h"
+#include "runtime/TeleportPolicy.h"
 #include "runtime/TileScan.h"
 #include "runtime/TileSearch.h"
 #include "runtime/WorldView.h"
@@ -457,6 +459,105 @@ namespace
         return 0;
     }
 
+    // In combat the game refuses every teleport, so the same query that casts
+    // from the book out of combat must plan neither lodestone record.
+    int expectNoTeleportInCombat(ww::runtime::PathAssembler &assembler, const PlannerQuery &q,
+                                 uint32_t routeIndex, uint32_t mapIndex)
+    {
+        ww::runtime::CapabilitySnapshot snapshot;
+        snapshot.setVarbit(kFilterVarbit, 0);
+        snapshot.setVarbit(ww::runtime::kInCombatVarbitId, 1);
+        ww::runtime::Plan plan;
+        const bool isPlanned = assembler.assemble(q.startX, q.startY, kStartPlane, q.goalX,
+                                                  q.goalY, q.goalPlane, &snapshot, plan);
+        const bool isTeleporting = planUses(plan, routeIndex) || planUses(plan, mapIndex);
+        std::printf("lodestones: planner in combat planned=%d teleports=%d (expect 0)"
+                    " cost=%.1f steps=%zu\n",
+                    isPlanned ? 1 : 0, isTeleporting ? 1 : 0, static_cast<double>(plan.cost),
+                    plan.steps.size());
+        if (isTeleporting)
+        {
+            return fail("planner: in combat still planned a lodestone");
+        }
+        return 0;
+    }
+
+    // Violet is Blue leaves the player in an instanced Yeti Town at this tile,
+    // far outside any baked square; the only way on is a teleport.
+    constexpr int32_t kOffMapX = 10338;
+    constexpr int32_t kOffMapY = 1632;
+
+    // A plan from a start the walker has no map for must lead with one of the
+    // fixture's lodestone records and end on the goal.
+    int expectTeleportOut(ww::runtime::PathAssembler &assembler, const PlannerQuery &q,
+                          int32_t startX, int32_t startY, uint32_t routeIndex,
+                          uint32_t mapIndex, const char *label)
+    {
+        ww::runtime::CapabilitySnapshot snapshot;
+        snapshot.setVarbit(kFilterVarbit, 0);
+        ww::runtime::Plan plan;
+        const bool isPlanned = assembler.assemble(startX, startY, kStartPlane, q.goalX, q.goalY,
+                                                  q.goalPlane, &snapshot, plan);
+        const int64_t lead = isPlanned ? leadTransition(plan) : -1;
+        const bool isLodestoneLead = lead == static_cast<int64_t>(routeIndex)
+                                  || lead == static_cast<int64_t>(mapIndex);
+        std::printf("lodestones: %s from (%d,%d) planned=%d lead=tx%lld (expect tx%u or tx%u)"
+                    " steps=%zu cost=%.1f\n",
+                    label, startX, startY, isPlanned ? 1 : 0, static_cast<long long>(lead),
+                    routeIndex, mapIndex, plan.steps.size(), static_cast<double>(plan.cost));
+        return (isPlanned && isLodestoneLead) ? 0 : fail(label);
+    }
+
+    // The same unmapped start in combat: nothing can be cast, so no plan.
+    int expectNoPlanOffMapInCombat(ww::runtime::PathAssembler &assembler, const PlannerQuery &q)
+    {
+        ww::runtime::CapabilitySnapshot snapshot;
+        snapshot.setVarbit(kFilterVarbit, 0);
+        snapshot.setVarbit(ww::runtime::kInCombatVarbitId, 1);
+        ww::runtime::Plan plan;
+        const bool isPlanned = assembler.assemble(kOffMapX, kOffMapY, kStartPlane, q.goalX,
+                                                  q.goalY, q.goalPlane, &snapshot, plan);
+        std::printf("lodestones: off-map in combat planned=%d steps=%zu (expect 0, 0)\n",
+                    isPlanned ? 1 : 0, plan.steps.size());
+        return (!isPlanned && plan.steps.empty())
+            ? 0 : fail("planner: an off-map start in combat still produced a plan");
+    }
+
+    // An instance whose one chunk is a copy of the Varrock start's chunk, laid
+    // at the off-map tile's mapsquare. The goal lies outside it, so the plan
+    // must teleport out, and the view must still resolve through the instance
+    // afterwards.
+    int expectTeleportOutOfInstance(ww::runtime::WorldView &view,
+                                    ww::runtime::PathAssembler &assembler, const PlannerQuery &q,
+                                    uint32_t routeIndex, uint32_t mapIndex)
+    {
+        constexpr int32_t kChunkShift = 3;
+        constexpr int32_t kChunkMask = 7;
+        constexpr int32_t kSquareShift = 6;
+        const int32_t squareX = kOffMapX >> kSquareShift;
+        const int32_t squareY = kOffMapY >> kSquareShift;
+        std::vector<int32_t> grid(4, ww::runtime::InstanceMap::kNoChunk);
+        grid[0] = ((q.startX >> kChunkShift) << 14) | ((q.startY >> kChunkShift) << 3);
+        ww::runtime::InstanceMap map;
+        map.assign(squareX, squareY, 1, 1, grid.data(), grid.size());
+        const int32_t startX = (squareX << kSquareShift) + (q.startX & kChunkMask);
+        const int32_t startY = (squareY << kSquareShift) + (q.startY & kChunkMask);
+        view.setInstance(&map);
+        int failures = 0;
+        if (!view.isStandable(startX, startY, kStartPlane))
+        {
+            failures += fail("planner: the instance start tile is not standable");
+        }
+        failures += expectTeleportOut(assembler, q, startX, startY, routeIndex, mapIndex,
+                                      "instance start");
+        if (!view.isInstanced() || view.instanceMap() != &map)
+        {
+            failures += fail("planner: planning out of an instance left the instance removed");
+        }
+        view.setInstance(nullptr);
+        return failures;
+    }
+
     // The appended route record is what the executor will run: its chain must
     // still be the book cast once encoded into the reader's pools.
     int expectAppendedCast(const ww::format::ArtifactReader &reader, uint32_t routeIndex)
@@ -514,6 +615,11 @@ namespace
         // it out of the graph.
         failures += expectLead(assembler, q, 7, mapIndex, routeIndex,
                                "planner: an unexpected filter value lost the lodestone");
+        failures += expectNoTeleportInCombat(assembler, q, routeIndex, mapIndex);
+        failures += expectTeleportOut(assembler, q, kOffMapX, kOffMapY, routeIndex, mapIndex,
+                                      "off-map start");
+        failures += expectNoPlanOffMapInCombat(assembler, q);
+        failures += expectTeleportOutOfInstance(view, assembler, q, routeIndex, mapIndex);
         return failures;
     }
 

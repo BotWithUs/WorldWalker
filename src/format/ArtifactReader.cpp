@@ -176,6 +176,9 @@ namespace ww::format
         case SectionId::Provenance:
             decodeProvenance(entry);
             break;
+        case SectionId::DialogZones:
+            decodeDialogZones(entry);
+            break;
         default:
             break;  // in-range but unmapped id — skip
         }
@@ -636,5 +639,30 @@ namespace ww::format
         provenanceDocSchema = header.schema;
         const auto *first = reinterpret_cast<const char *>(bytes.data() + bodyOffset);
         provenanceDoc.assign(first, static_cast<std::size_t>(header.jsonLength));
+    }
+
+    void ArtifactReader::decodeDialogZones(const SectionEntry &entry)
+    {
+        requireRange(entry.offset, sizeof(DialogZonesSectionHeader), bytes.size(),
+                     "dialog zones header");
+        const DialogZonesSectionHeader header = readPod<DialogZonesSectionHeader>(bytes, entry.offset);
+        uint64_t cursor = entry.offset + sizeof(DialogZonesSectionHeader);
+        const uint64_t zoneBytes = static_cast<uint64_t>(header.zoneCount) * sizeof(DialogZoneRecord);
+        requireRange(cursor, zoneBytes, bytes.size(), "dialog zones");
+        dialogZoneList = readPodArray<DialogZoneRecord>(bytes, cursor, header.zoneCount);
+        cursor += zoneBytes;
+        const uint64_t answerBytes =
+            static_cast<uint64_t>(header.answerCount) * sizeof(DialogAnswerRecord);
+        requireRange(cursor, answerBytes, bytes.size(), "dialog answers");
+        dialogAnswerList = readPodArray<DialogAnswerRecord>(bytes, cursor, header.answerCount);
+        // A zone whose answer range runs past the table would hand the executor
+        // an answer that is not there; refuse the artifact rather than guess.
+        for (const DialogZoneRecord &z : dialogZoneList)
+        {
+            if (static_cast<uint64_t>(z.answerStart) + z.answerCount > dialogAnswerList.size())
+            {
+                throw std::runtime_error("ArtifactReader: dialog zone answers out of range");
+            }
+        }
     }
 }
