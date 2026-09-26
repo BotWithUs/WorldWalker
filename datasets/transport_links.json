@@ -4006,6 +4006,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3369,
     "dest_y": 3889,
     "dest_plane": 0
@@ -6580,6 +6581,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3051,
     "dest_y": 3519,
     "dest_plane": 0
@@ -6619,6 +6621,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2995,
     "dest_y": 1617,
     "dest_plane": 0
@@ -6671,6 +6674,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2832,
     "dest_y": 5284,
     "dest_plane": 0
@@ -6710,6 +6714,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2904,
     "dest_y": 5203,
     "dest_plane": 0
@@ -6736,6 +6741,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 1106,
     "dest_y": 670,
     "dest_plane": 1
@@ -6749,6 +6755,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 1099,
     "dest_y": 666,
     "dest_plane": 1
@@ -6762,6 +6769,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 1177,
     "dest_y": 634,
     "dest_plane": 1
@@ -6775,6 +6783,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 1190,
     "dest_y": 634,
     "dest_plane": 1
@@ -6788,6 +6797,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 1184,
     "dest_y": 623,
     "dest_plane": 1
@@ -6801,6 +6811,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3700,
     "dest_y": 3418,
     "dest_plane": 0
@@ -6814,6 +6825,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 4485,
     "dest_y": 6266,
     "dest_plane": 1
@@ -6827,6 +6839,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2971,
     "dest_y": 3431,
     "dest_plane": 0
@@ -6853,6 +6866,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3277,
     "dest_y": 7053,
     "dest_plane": 1
@@ -6866,6 +6880,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3270,
     "dest_y": 6905,
     "dest_plane": 1
@@ -6879,6 +6894,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3128,
     "dest_y": 7047,
     "dest_plane": 1
@@ -6892,6 +6908,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3119,
     "dest_y": 6903,
     "dest_plane": 1
@@ -6905,6 +6922,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3200,
     "dest_y": 6961,
     "dest_plane": 1
@@ -6931,6 +6949,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2464,
     "dest_y": 6730,
     "dest_plane": 1
@@ -6944,6 +6963,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 1373,
     "dest_y": 5640,
     "dest_plane": 0
@@ -6957,6 +6977,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2094,
     "dest_y": 11352,
     "dest_plane": 0
@@ -6970,6 +6991,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3369,
     "dest_y": 3889,
     "dest_plane": 0
@@ -6983,6 +7005,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3511,
     "dest_y": 3692,
     "dest_plane": 0
@@ -6996,6 +7019,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 4316,
     "dest_y": 821,
     "dest_plane": 0
@@ -7009,6 +7033,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3565,
     "dest_y": 3314,
     "dest_plane": 0
@@ -7022,6 +7047,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3542,
     "dest_y": 3313,
     "dest_plane": 0
@@ -7035,6 +7061,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 4609,
     "dest_y": 5130,
     "dest_plane": 0
@@ -7074,6 +7101,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3051,
     "dest_y": 3519,
     "dest_plane": 0
@@ -7113,6 +7141,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2995,
     "dest_y": 1617,
     "dest_plane": 0
@@ -7165,6 +7194,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2832,
     "dest_y": 5284,
     "dest_plane": 0
@@ -7204,6 +7234,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2904,
     "dest_y": 5203,
     "dest_plane": 0
@@ -7230,6 +7261,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 1106,
     "dest_y": 670,
     "dest_plane": 1
@@ -7243,6 +7275,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 1099,
     "dest_y": 666,
     "dest_plane": 1
@@ -7256,6 +7289,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 1177,
     "dest_y": 634,
     "dest_plane": 1
@@ -7269,6 +7303,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 1190,
     "dest_y": 634,
     "dest_plane": 1
@@ -7282,6 +7317,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 1184,
     "dest_y": 623,
     "dest_plane": 1
@@ -7295,6 +7331,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3700,
     "dest_y": 3418,
     "dest_plane": 0
@@ -7308,6 +7345,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 4485,
     "dest_y": 6266,
     "dest_plane": 1
@@ -7321,6 +7359,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2971,
     "dest_y": 3431,
     "dest_plane": 0
@@ -7334,6 +7373,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3048,
     "dest_y": 6119,
     "dest_plane": 0
@@ -7347,6 +7387,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3277,
     "dest_y": 7053,
     "dest_plane": 1
@@ -7360,6 +7401,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3270,
     "dest_y": 6905,
     "dest_plane": 1
@@ -7373,6 +7415,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3128,
     "dest_y": 7047,
     "dest_plane": 1
@@ -7386,6 +7429,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3119,
     "dest_y": 6903,
     "dest_plane": 1
@@ -7399,6 +7443,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3200,
     "dest_y": 6961,
     "dest_plane": 1
@@ -7412,6 +7457,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3815,
     "dest_y": 7053,
     "dest_plane": 0
@@ -7425,6 +7471,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2464,
     "dest_y": 6730,
     "dest_plane": 1
@@ -7438,6 +7485,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 1373,
     "dest_y": 5640,
     "dest_plane": 0
@@ -7451,6 +7499,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2094,
     "dest_y": 11352,
     "dest_plane": 0
@@ -7464,6 +7513,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3369,
     "dest_y": 3889,
     "dest_plane": 0
@@ -7477,6 +7527,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3511,
     "dest_y": 3692,
     "dest_plane": 0
@@ -7490,6 +7541,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 4316,
     "dest_y": 821,
     "dest_plane": 0
@@ -9674,6 +9726,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2971,
     "dest_y": 2969,
     "dest_plane": 0
@@ -9778,6 +9831,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2971,
     "dest_y": 2969,
     "dest_plane": 0
@@ -9882,6 +9936,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2971,
     "dest_y": 2969,
     "dest_plane": 0
@@ -10103,6 +10158,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2971,
     "dest_y": 2969,
     "dest_plane": 0
@@ -10207,6 +10263,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2971,
     "dest_y": 2969,
     "dest_plane": 0
@@ -10311,6 +10368,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2971,
     "dest_y": 2969,
     "dest_plane": 0
@@ -10415,6 +10473,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2971,
     "dest_y": 2969,
     "dest_plane": 0
@@ -16759,6 +16818,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2464,
     "dest_y": 4819,
     "dest_plane": 0
@@ -19333,6 +19393,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3128,
     "dest_y": 3407,
     "dest_plane": 0
@@ -19398,6 +19459,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3051,
     "dest_y": 3444,
     "dest_plane": 0
@@ -20516,6 +20578,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2464,
     "dest_y": 9675,
     "dest_plane": 0
@@ -22245,6 +22308,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2464,
     "dest_y": 4826,
     "dest_plane": 0
@@ -29254,6 +29318,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2971,
     "dest_y": 8977,
     "dest_plane": 0
@@ -29319,6 +29384,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 3200,
     "dest_y": 6940,
     "dest_plane": 1
@@ -31113,6 +31179,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2832,
     "dest_y": 3845,
     "dest_plane": 0
@@ -32946,6 +33013,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
+    "global": true,
     "dest_x": 2832,
     "dest_y": 3844,
     "dest_plane": 0
