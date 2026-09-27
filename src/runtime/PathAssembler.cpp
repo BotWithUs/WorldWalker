@@ -102,19 +102,6 @@ namespace ww::runtime
             return true;
         }
 
-        // Octile distance in the planner's cost units (cardinal 1.0, diagonal
-        // sqrt(2)). An admissible lower bound on the tile-walk cost between two
-        // same-plane tiles — obstacles only make the real path longer — so it is
-        // safe to use to prune teleport candidates that cannot beat a known plan.
-        float octileDistance(int32_t dx, int32_t dy)
-        {
-            dx = dx < 0 ? -dx : dx;
-            dy = dy < 0 ? -dy : dy;
-            const int32_t lo = dx < dy ? dx : dy;
-            const int32_t hi = dx < dy ? dy : dx;
-            return static_cast<float>(hi - lo) + static_cast<float>(lo) * 1.41421356f;
-        }
-
         // True when a baked transition's destination is within kNearGoalRadius
         // (Chebyshev) of the goal tile on the same plane. Cross-plane edges
         // never qualify — octile distance across a plane band is meaningless,
@@ -822,7 +809,11 @@ namespace ww::runtime
                                           const CapabilitySnapshot *capabilities,
                                           std::span<const FrontierSeed> seeds, Plan &outPlan)
     {
-        if (!areaSearch->findPath(startArea, goalArea, capabilities, seeds, areaPath))
+        // Walk-aware: rank each crossing by the walk to it as well as its own
+        // cost, so a transport beside the player beats one across the area.
+        const SearchEndpoints endpoints{ startX, startY, goalX, goalY };
+        if (!areaSearch->findPath(startArea, goalArea, capabilities, seeds, &endpoints,
+                                  areaPath))
         {
             return false;
         }

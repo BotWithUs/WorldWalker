@@ -47,6 +47,16 @@ namespace ww::runtime
         uint32_t transitionIndex;
     };
 
+    // The two tiles a walk-aware search measures from: where the player stands
+    // and the goal. See the six-argument findPath.
+    struct SearchEndpoints
+    {
+        int32_t startX;
+        int32_t startY;
+        int32_t goalX;
+        int32_t goalY;
+    };
+
     // A priority-queue entry: an area keyed by its A* f-score. Namespace-scope so
     // the .cpp's heap comparator can name it.
     struct OpenEntry
@@ -94,6 +104,22 @@ namespace ww::runtime
                       const CapabilitySnapshot *capabilities,
                       std::span<const FrontierSeed> seeds, AreaPath &outPath);
 
+        // As the four-argument overload, but each edge also pays the walk to
+        // it: the octile distance from where the route stands in the edge's
+        // fromArea (the start tile, a seeded landing, or the tile the previous
+        // edge landed on) to the edge's origin, plus, for an edge into
+        // goalArea, from its destination to the goal. Without it an area that
+        // spans a whole region ranks a transport at its far end the same as
+        // one beside the player, and ties fall to the lowest transition index.
+        // The walk is a lower bound, so the ALT heuristic (built on edge cost
+        // alone) stays admissible. AreaPath.cost then includes these walks.
+        // Each area keeps the entry of its cheapest arrival, so a costlier
+        // arrival that would sit closer to the next edge is not explored.
+        bool findPath(int32_t startArea, int32_t goalArea,
+                      const CapabilitySnapshot *capabilities,
+                      std::span<const FrontierSeed> seeds, const SearchEndpoints *endpoints,
+                      AreaPath &outPath);
+
     private:
         void buildAdjacency();
         void resetScratch();
@@ -110,6 +136,13 @@ namespace ww::runtime
         void relaxFiltered(int32_t u, std::span<const format::AreaEdgeRecord> edges,
                            const AltHeuristic &h);
         void seedFrontier(std::span<const FrontierSeed> seeds, const AltHeuristic &h);
+        // Where the cheapest route found so far stands in area u: the start
+        // tile, a seeded teleport's landing, or its arrival edge's landing.
+        void entryTileOf(uint32_t u, int32_t &outX, int32_t &outY) const;
+        // The walk an edge adds from (entryX, entryY) under currentEndpoints;
+        // zero when the search is not walk-aware.
+        float approachCost(int32_t entryX, int32_t entryY,
+                           const format::AreaEdgeRecord &edge) const;
         void reconstruct(int32_t startArea, int32_t goalArea, AreaPath &outPath) const;
         bool meetsTransitionRequirements(uint32_t transitionIndex) const;
 
@@ -157,6 +190,8 @@ namespace ww::runtime
         std::vector<OpenEntry> openHeap;    // binary min-heap of the open set (scratch)
         AltHeuristic heuristic;             // landmark bound; owns its per-query goal-distance scratch
         const CapabilitySnapshot *currentSnapshot{nullptr};  // borrowed for one findPath; nullptr accepts all edges
+        const SearchEndpoints *currentEndpoints{nullptr};    // borrowed for one findPath; nullptr = edge cost only
+        int32_t currentGoalArea{-1};                         // goalArea of the findPath in flight
     };
 }
 

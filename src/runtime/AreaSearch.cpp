@@ -1,6 +1,7 @@
 #include "runtime/AreaSearch.h"
 
 #include "format/Artifact.h"
+#include "runtime/TileScan.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -86,6 +87,9 @@ namespace ww::runtime
         // current — read scratch[ua].bestCost directly without the bestCostOf
         // gate. Stale-vs-current is only ambiguous for unvisited neighbours.
         const float uCost = scratch[ua].bestCost;
+        int32_t entryX = 0;
+        int32_t entryY = 0;
+        entryTileOf(ua, entryX, entryY);
         for (uint32_t i = edgeOffset[ua]; i < edgeOffset[ua + 1u]; ++i)
         {
             const int32_t v = edges[i].toArea;
@@ -93,7 +97,7 @@ namespace ww::runtime
             {
                 continue;
             }
-            const float nd = uCost + edges[i].cost;
+            const float nd = uCost + edges[i].cost + approachCost(entryX, entryY, edges[i]);
             const uint32_t vu = static_cast<uint32_t>(v);
             if (nd >= bestCostOf(vu))
             {
@@ -115,6 +119,9 @@ namespace ww::runtime
     {
         const uint32_t ua = static_cast<uint32_t>(u);
         const float uCost = scratch[ua].bestCost;
+        int32_t entryX = 0;
+        int32_t entryY = 0;
+        entryTileOf(ua, entryX, entryY);
         for (uint32_t i = edgeOffset[ua]; i < edgeOffset[ua + 1u]; ++i)
         {
             const int32_t v = edges[i].toArea;
@@ -126,7 +133,7 @@ namespace ww::runtime
             {
                 continue;
             }
-            const float nd = uCost + edges[i].cost;
+            const float nd = uCost + edges[i].cost + approachCost(entryX, entryY, edges[i]);
             const uint32_t vu = static_cast<uint32_t>(v);
             if (nd >= bestCostOf(vu))
             {
@@ -214,20 +221,83 @@ namespace ww::runtime
             {
                 continue;
             }
+            // A landing in the goal area still has the walk to the goal ahead;
+            // anywhere else the next edge's approach charges the walk.
+            float cost = seed.cost;
+            if (currentEndpoints != nullptr && seed.destArea == currentGoalArea)
+            {
+                cost += octileDistance(tx.destX - currentEndpoints->goalX,
+                                       tx.destY - currentEndpoints->goalY);
+            }
             const uint32_t a = static_cast<uint32_t>(seed.destArea);
-            if (seed.cost >= bestCostOf(a))
+            if (cost >= bestCostOf(a))
             {
                 continue;
             }
             AreaScratch &dst = scratch[a];
-            dst.bestCost = seed.cost;
+            dst.bestCost = cost;
             dst.cameFromArea = -2;
             dst.cameFromEdge = static_cast<int32_t>(seed.transitionIndex);
             dst.settled = 0u;
             dst.epochStamp = epoch;
-            openHeap.push_back({seed.cost + h.estimate(a), seed.destArea});
+            openHeap.push_back({cost + h.estimate(a), seed.destArea});
             std::push_heap(openHeap.begin(), openHeap.end(), ByPriority{});
         }
+    }
+
+    void AreaSearch::entryTileOf(uint32_t u, int32_t &outX, int32_t &outY) const
+    {
+        if (currentEndpoints == nullptr)
+        {
+            return;
+        }
+        outX = currentEndpoints->startX;
+        outY = currentEndpoints->startY;
+        const AreaScratch &s = scratch[u];
+        if (s.cameFromArea == -1 || s.cameFromEdge < 0)
+        {
+            return;
+        }
+        // A seeded arrival records its teleport's transition index; an edge
+        // arrival records the edge, whose transition says where it landed.
+        const std::span<const format::TransitionRecord> transitions = artifact->transitions();
+        const std::span<const format::AreaEdgeRecord> edges = artifact->areaEdges();
+        uint32_t transitionIndex = static_cast<uint32_t>(s.cameFromEdge);
+        if (s.cameFromArea != -2)
+        {
+            if (transitionIndex >= edges.size())
+            {
+                return;
+            }
+            transitionIndex = edges[transitionIndex].transitionIndex;
+        }
+        if (transitionIndex < transitions.size())
+        {
+            outX = transitions[transitionIndex].destX;
+            outY = transitions[transitionIndex].destY;
+        }
+    }
+
+    float AreaSearch::approachCost(int32_t entryX, int32_t entryY,
+                                   const format::AreaEdgeRecord &edge) const
+    {
+        const std::span<const format::TransitionRecord> transitions = artifact->transitions();
+        if (currentEndpoints == nullptr || edge.transitionIndex >= transitions.size())
+        {
+            return 0.0f;
+        }
+        const format::TransitionRecord &tx = transitions[edge.transitionIndex];
+        float walk = 0.0f;
+        if ((tx.flags & format::kTransitionFlagGlobalOrigin) == 0u)
+        {
+            walk = octileDistance(tx.originX - entryX, tx.originY - entryY);
+        }
+        if (edge.toArea == currentGoalArea)
+        {
+            walk += octileDistance(tx.destX - currentEndpoints->goalX,
+                                   tx.destY - currentEndpoints->goalY);
+        }
+        return walk;
     }
 
     // Trace the predecessor chain from goal back to either startArea (normal
@@ -273,10 +343,20 @@ namespace ww::runtime
                               const CapabilitySnapshot *capabilities,
                               std::span<const FrontierSeed> seeds, AreaPath &outPath)
     {
+        return findPath(startArea, goalArea, capabilities, seeds, nullptr, outPath);
+    }
+
+    bool AreaSearch::findPath(int32_t startArea, int32_t goalArea,
+                              const CapabilitySnapshot *capabilities,
+                              std::span<const FrontierSeed> seeds,
+                              const SearchEndpoints *endpoints, AreaPath &outPath)
+    {
         outPath.steps.clear();
         outPath.cost = 0.0f;
         outPath.leadingTransition = -1;
         currentSnapshot = capabilities;
+        currentEndpoints = endpoints;
+        currentGoalArea = goalArea;
         if (!isValidArea(startArea) || !isValidArea(goalArea))
         {
             return false;
