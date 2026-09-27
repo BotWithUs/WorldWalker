@@ -168,10 +168,34 @@ namespace
         outStep["route"] = route;
     }
 
+    // What the executor clicks to start a transition: the loc's option, or,
+    // when the chain opens with ClickNpc, the NPC id range and its option. Lets
+    // a reader check a planned route against the cache's op lists.
+    void appendOrigin(const ww::format::TransitionRecord &tx,
+                      std::span<const ww::format::ChainStepRecord> chain,
+                      nlohmann::ordered_json &outStep)
+    {
+        if (tx.objectId >= 0)
+        {
+            outStep["objectId"] = tx.objectId;
+        }
+        outStep["optionIndex"] = static_cast<int32_t>(tx.optionIndex);
+        const bool opensWithNpc = tx.chainCount > 0 && tx.chainStart < chain.size()
+            && chain[tx.chainStart].kind
+                   == static_cast<uint8_t>(ww::data::ChainStepKind::ClickNpc);
+        if (opensWithNpc)
+        {
+            const ww::format::ChainStepRecord &npc = chain[tx.chainStart];
+            outStep["npc"] = { npc.f, npc.g };
+            outStep["optionIndex"] = npc.a;
+        }
+    }
+
     nlohmann::ordered_json buildJson(const Args &a, const ww::runtime::Plan &plan,
                                      ww::runtime::TileSearch &tileSearch,
                                      ww::runtime::WorldView &view,
-                                     std::span<const ww::format::TransitionRecord> transitions)
+                                     std::span<const ww::format::TransitionRecord> transitions,
+                                     std::span<const ww::format::ChainStepRecord> chain)
     {
         nlohmann::ordered_json doc;
         doc["artifact"] = a.artifactPath;
@@ -216,10 +240,7 @@ namespace
                     js["destPlane"]      = static_cast<int32_t>(tx.destPlane);
                     js["isGlobal"] =
                         (tx.flags & ww::format::kTransitionFlagGlobalOrigin) != 0;
-                    if (tx.objectId >= 0)
-                    {
-                        js["objectId"] = tx.objectId;
-                    }
+                    appendOrigin(tx, chain, js);
                     cursorX = tx.destX;
                     cursorY = tx.destY;
                     cursorP = static_cast<int32_t>(tx.destPlane);
@@ -303,7 +324,7 @@ int runPathExport(int argc, char **argv)
         }
 
         const nlohmann::ordered_json doc =
-            buildJson(args, plan, tileSearch, view, reader.transitions());
+            buildJson(args, plan, tileSearch, view, reader.transitions(), reader.chainSteps());
         const std::string payload = doc.dump(2);
         if (!writeOutput(args.outPath, payload))
         {
