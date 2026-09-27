@@ -148,6 +148,44 @@ memory:
   Wilderness obelisk (loc 65625 has no options), and three Shifting tombs rows
   whose 3x5 loc has no standable tile near its anchor.
 
+## Dig sites map
+
+The eight `View` rows click loc 116436 (`ARCH_PLANNING_MAP`, "Dig sites map"),
+whose only option is op 0 `View`, from 3328,3374 (the loc's anchor is
+3327,3373). That opens interface 667 `ARCH_SITE_MAP`, and the chain clicks the
+site's icon: `[667, 11, 1, <sub>]`, then waits 5 ticks.
+
+- **Icons.** Script 14794 builds one child of 667:11
+  (`ICON_CONTROL_LAYER`) per row of enum 14057 (dbtable 86), so the sub is
+  the enum index. Each gets op 1 `Fast travel` and op 2 `Info`; the client
+  handles only op 2 (a local popup), so op 1 is the server-side teleport.
+- **Gates.** Table 86 holds each site's Archaeology level and qualification;
+  the qualification is varbit 46468 (`ARCH_QUALIFICATION`, 2 = Assistant,
+  3 = Associate). Sites without one require the tutorial, varbit 46463 >= 100.
+  The map greys nothing out: every lock is the server's.
+
+| sub | Site | Level | Gate | Lands |
+|---|---|---|---|---|
+| 0 | Kharid-et | 5 | 46463 >= 100 | 3345,3194 |
+| 1 | Everlight | 42 | 46463 >= 100 | 3697,3206 |
+| 2 | Infernal Source | 20 | 46463 >= 100 | 3271,3504 |
+| 3 | Stormguard Citadel | 70 | 46468 >= 2 | 2680,3403 |
+| 4 | Warforge | 76 | 46468 >= 2 | 2409,2824 |
+| 5 | Orthen | 90 | 46468 >= 3 | 5457,2339 |
+| 6 | Senntisten | 60 | 46463 >= 100 | 1784,1296 |
+| 7 | Daemonheim | 73 | 46463 >= 100 | 3428,3699 |
+
+The Orthen and Senntisten rows had each other's gates (Orthen at level 52,
+Senntisten at 90 with Associate); the landing tiles were already right, so
+the gates moved. Moonrise (sub 8, level 52) has no row: its landing tile is
+not in the data.
+
+**Not verified offline:** that `View` opens 667 (it is the only dig-site map
+interface), whether the server confirms the teleport, and the landing tiles
+(each sits in its site, beside that site's entrance locs). Senntisten's
+plane is doubtful: the site's locs dump on planes 1 and 2, the row lands on 0.
+
+
 ## Charter ships
 
 A charter row starts at a Trader Crewmember (`npc`, op 0 `Charter`). Its chain
