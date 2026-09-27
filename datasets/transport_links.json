@@ -14047,7 +14047,13 @@
       {
         "wait": 6
       }
-    ]
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14079,7 +14085,13 @@
       {
         "wait": 6
       }
-    ]
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14111,7 +14123,13 @@
       {
         "wait": 6
       }
-    ]
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14144,7 +14162,13 @@
       {
         "wait": 6
       }
-    ]
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14178,10 +14202,16 @@
       }
     ],
     "requirements": {
-      "varp_at_least": {
-        "id": 2671,
-        "value": 200
-      }
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ]
     }
   },
   {
@@ -14216,6 +14246,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 9547,
         "value": 120
@@ -14254,6 +14288,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit": {
         "id": 25043,
         "value": 1
@@ -14296,6 +14334,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 33889,
         "value": 1
@@ -14332,7 +14374,13 @@
       {
         "wait": 6
       }
-    ]
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14364,7 +14412,13 @@
       {
         "wait": 6
       }
-    ]
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14396,7 +14450,13 @@
       {
         "wait": 6
       }
-    ]
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14429,7 +14489,13 @@
       {
         "wait": 6
       }
-    ]
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14463,10 +14529,16 @@
       }
     ],
     "requirements": {
-      "varp_at_least": {
-        "id": 2671,
-        "value": 200
-      }
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ]
     }
   },
   {
@@ -14501,6 +14573,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 9547,
         "value": 120
@@ -14539,6 +14615,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit": {
         "id": 25043,
         "value": 1
@@ -14581,6 +14661,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 33889,
         "value": 1
@@ -14617,7 +14701,13 @@
       {
         "wait": 6
       }
-    ]
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14649,7 +14739,13 @@
       {
         "wait": 6
       }
-    ]
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14681,7 +14777,13 @@
       {
         "wait": 6
       }
-    ]
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14713,7 +14815,13 @@
       {
         "wait": 6
       }
-    ]
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14747,10 +14855,16 @@
       }
     ],
     "requirements": {
-      "varp_at_least": {
-        "id": 2671,
-        "value": 200
-      }
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ]
     }
   },
   {
@@ -14785,6 +14899,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 9547,
         "value": 120
@@ -14823,6 +14941,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit": {
         "id": 25043,
         "value": 1
@@ -14865,6 +14987,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 33889,
         "value": 1
@@ -14903,10 +15029,16 @@
       }
     ],
     "requirements": {
-      "varp_at_least": {
-        "id": 2671,
-        "value": 200
-      }
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ]
     }
   },
   {
@@ -14941,10 +15073,16 @@
       }
     ],
     "requirements": {
-      "varp_at_least": {
-        "id": 2671,
-        "value": 200
-      }
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ]
     }
   },
   {
@@ -14979,10 +15117,16 @@
       }
     ],
     "requirements": {
-      "varp_at_least": {
-        "id": 2671,
-        "value": 200
-      }
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ]
     }
   },
   {
@@ -15017,10 +15161,16 @@
       }
     ],
     "requirements": {
-      "varp_at_least": {
-        "id": 2671,
-        "value": 200
-      }
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ]
     }
   },
   {
@@ -15056,10 +15206,16 @@
       }
     ],
     "requirements": {
-      "varp_at_least": {
-        "id": 2671,
-        "value": 200
-      }
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ]
     }
   },
   {
@@ -15094,10 +15250,16 @@
       }
     ],
     "requirements": {
-      "varp_at_least": {
-        "id": 2671,
-        "value": 200
-      },
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ],
       "varbit_at_least": {
         "id": 9547,
         "value": 120
@@ -15136,10 +15298,16 @@
       }
     ],
     "requirements": {
-      "varp_at_least": {
-        "id": 2671,
-        "value": 200
-      },
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ],
       "varbit": {
         "id": 25043,
         "value": 1
@@ -15182,10 +15350,16 @@
       }
     ],
     "requirements": {
-      "varp_at_least": {
-        "id": 2671,
-        "value": 200
-      },
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ],
       "varbit_at_least": {
         "id": 33889,
         "value": 1
@@ -15224,6 +15398,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 9547,
         "value": 120
@@ -15262,6 +15440,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 9547,
         "value": 120
@@ -15300,6 +15482,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 9547,
         "value": 120
@@ -15338,6 +15524,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 9547,
         "value": 120
@@ -15377,6 +15567,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 9547,
         "value": 120
@@ -15415,13 +15609,19 @@
       }
     ],
     "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ],
       "varbit_at_least": {
         "id": 9547,
         "value": 120
-      },
-      "varp_at_least": {
-        "id": 2671,
-        "value": 200
       }
     }
   },
@@ -15457,6 +15657,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": [
         {
           "id": 9547,
@@ -15505,6 +15709,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": [
         {
           "id": 9547,
@@ -15549,6 +15757,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit": {
         "id": 25043,
         "value": 1
@@ -15591,6 +15803,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit": {
         "id": 25043,
         "value": 1
@@ -15633,6 +15849,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit": {
         "id": 25043,
         "value": 1
@@ -15675,6 +15895,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit": {
         "id": 25043,
         "value": 1
@@ -15718,6 +15942,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit": {
         "id": 25043,
         "value": 1
@@ -15760,6 +15988,16 @@
       }
     ],
     "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ],
       "varbit": {
         "id": 25043,
         "value": 1
@@ -15767,10 +16005,6 @@
       "varbit_at_least": {
         "id": 23198,
         "value": 400
-      },
-      "varp_at_least": {
-        "id": 2671,
-        "value": 200
       }
     }
   },
@@ -15806,6 +16040,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit": {
         "id": 25043,
         "value": 1
@@ -15854,6 +16092,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit": {
         "id": 25043,
         "value": 1
@@ -15902,6 +16144,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 33889,
         "value": 1
@@ -15940,6 +16186,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 33889,
         "value": 1
@@ -15978,6 +16228,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 33889,
         "value": 1
@@ -16016,6 +16270,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 33889,
         "value": 1
@@ -16055,6 +16313,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": {
         "id": 33889,
         "value": 1
@@ -16093,13 +16355,19 @@
       }
     ],
     "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ],
       "varbit_at_least": {
         "id": 33889,
         "value": 1
-      },
-      "varp_at_least": {
-        "id": 2671,
-        "value": 200
       }
     }
   },
@@ -16135,6 +16403,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": [
         {
           "id": 33889,
@@ -16179,6 +16451,10 @@
       }
     ],
     "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
       "varbit_at_least": [
         {
           "id": 33889,
@@ -43864,6 +44140,58 @@
     "dest_x": 2466,
     "dest_y": 3491,
     "dest_plane": 0
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 69271,
+    "x": 2466,
+    "y": 3495,
+    "plane": 1,
+    "shape": 10,
+    "rotation": 2,
+    "option_index": 1,
+    "dest_x": 2466,
+    "dest_y": 3494,
+    "dest_plane": 2
+  },
+  {
+    "name": "Climb-down",
+    "object_id": 69271,
+    "x": 2466,
+    "y": 3495,
+    "plane": 1,
+    "shape": 10,
+    "rotation": 2,
+    "option_index": 2,
+    "dest_x": 2466,
+    "dest_y": 3494,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 69271,
+    "x": 2466,
+    "y": 3495,
+    "plane": 2,
+    "shape": 10,
+    "rotation": 2,
+    "option_index": 1,
+    "dest_x": 2466,
+    "dest_y": 3494,
+    "dest_plane": 3
+  },
+  {
+    "name": "Climb-down",
+    "object_id": 69271,
+    "x": 2466,
+    "y": 3495,
+    "plane": 2,
+    "shape": 10,
+    "rotation": 2,
+    "option_index": 2,
+    "dest_x": 2466,
+    "dest_y": 3494,
+    "dest_plane": 1
   },
   {
     "name": "Climb-up",

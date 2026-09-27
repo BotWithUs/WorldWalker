@@ -497,16 +497,24 @@ radius 8), waits for GLIDERMAP (interface 138), clicks the destination's
   >= 200 (One Small Favour), tgv varbit 9547 >= 120 (The Prisoner of
   Glouphrie), elfcity varbit 25043 == 1 and varbit 23198 >= 400 (Plague's
   End), elr1 varbit 33889 >= 1. A gated station is gated at both ends.
+- **The Grand Tree.** Every glider row also needs varp 2740 >= 160: The
+  Grand Tree complete (quest 269 in `quests.json`: varp 2740, 5..160). No
+  clientscript checks it (the other test in script10747, script20932, reads
+  varp 12314), so the lock is the server's. It was missing from every row
+  but the Grand Tree pilot's until 2026-09-27, when an account without the
+  quest clicked Captain Dalbur's `Glider` at Al Kharid, got no 138, and was
+  routed on to walk to the Karamja pilot instead. The host supplies varp
+  2740, so the gate is read live.
 - **Pilots.** Op indices are 0-based; `Glider` is a members-only option on
   most of them. Morphing pilots are named by their base id, as the charter
   rows name theirs.
 
 | Station (row origin) | Pilot | Glider op | Button | Gate |
 |---|---|---|---|---|
-| Grand Tree (2465,3501,3) | 3811 (morphs to 17126 at varp 2740 >= 160) | 0 | 40 | origin only: varp 2740 >= 160 (The Grand Tree) |
-| White Wolf Mountain (2850,3494,1) | 3810 Captain Bleemadge | 0 | 72 | none |
-| Al Kharid (3284,3211,0) | 3809 Captain Dalbur | 0 | 88 | none |
-| Karamja (2971,2969,0) | 3812 Captain Klemfoodle | 0 | 64 | none |
+| Grand Tree (2465,3501,3) | 3811 (morphs to 17126 at varp 2740 >= 160) | 0 | 40 | none beyond The Grand Tree |
+| White Wolf Mountain (2850,3494,1) | 3810 Captain Bleemadge | 0 | 72 | none beyond The Grand Tree |
+| Al Kharid (3284,3211,0) | 3809 Captain Dalbur | 0 | 88 | none beyond The Grand Tree |
+| Karamja (2971,2969,0) | 3812 Captain Klemfoodle | 0 | 64 | none beyond The Grand Tree |
 | Feldip Hills (2548,2969,0) | 1800 Gnormadium Avlafrim | 0 | 56 | varp 2671 >= 200 |
 | Tree Gnome Village (2496,3191,0) | 6562 (morphs to 6563 at varbit 9547 >= 120) | 2 | 48 | varbit 9547 >= 120 |
 | Prifddinas (2208,3445,1) | 20299 Captain Muggin | 0 | 96 | varbit 25043 == 1, 23198 >= 400 |
@@ -521,9 +529,17 @@ is within 8 tiles of its row's origin.
 `Charter` does), the landing tiles, the flight length, whether the host
 reports a morphing pilot by its base id (the charter question again), and the
 Crash Island glider (pilot 1407, `Travel`, op 2), which has no row: its
-flight plays as an animation on 138 with no click. Varp gates are denied live
-until the host supplies varps, so the Grand Tree and Feldip ends plan only
-once it does.
+flight plays as an animation on 138 with no click. The host does not supply
+varp 2671, so the Feldip end is denied live until it does.
+
+**The Grand Tree's ladder.** Loc 69271 on planes 1 and 2 (2466,3495) lists
+`Climb`, `Climb-up`, `Climb-down`; the bake paired it by op 0 `Climb`, which
+opens a chooser nothing answers. Four rows name op 1 up and op 2 down, and
+take its place. The fault is not this ladder's: NXTCacheLibrary gives a
+climbable one option for both directions, the first that says `climb`, and
+in the artifact live on 2026-09-27, 976 paired transitions over 30 locs
+click a bare `Climb` where the loc has a direction's own option. Only a fix
+in the pairing reaches them all.
 
 ## How they're consumed
 
