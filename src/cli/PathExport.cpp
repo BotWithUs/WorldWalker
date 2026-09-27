@@ -22,9 +22,10 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
 // `wwcli path <artifact> sx sy sp gx gy gp [--out path.json] [--teleports dir]
-//  [--ungated]`.
+//  [--ungated] [--varp id=value] [--varbit id=value] [--skill id=level]`.
 //
 // Runs the runtime PathAssembler with a maximally permissive capability
 // snapshot (so requirement-gated transitions are admitted) and emits the
@@ -34,8 +35,26 @@
 // invocation lands the same path the executor would have followed.
 // --ungated plans with an empty snapshot instead, so a gated transition that
 // wins on permissive caps can be told apart from the route beneath it.
+// --varp / --varbit / --skill (repeatable) then overwrite single entries of
+// whichever snapshot that is, so one account can be described: the permissive
+// player with `--varp 2740=0` has everything but The Grand Tree.
 namespace
 {
+    enum class CapKind : uint8_t
+    {
+        Varp,
+        Varbit,
+        Skill,
+    };
+
+    // One `--varp id=value` style entry, written over the base snapshot.
+    struct CapOverride
+    {
+        CapKind kind;
+        int32_t id;
+        int32_t value;
+    };
+
     struct Args
     {
         const char *artifactPath;
@@ -48,13 +67,15 @@ namespace
         const char *outPath;   // nullptr -> stdout
         const char *teleportDir;  // nullptr -> baked transitions only
         bool        isUngated;    // admit no requirement-bearing transition
+        std::vector<CapOverride> overrides;  // written over the base snapshot
     };
 
     void printUsage()
     {
         std::printf("usage: wwcli path <artifact.wwa> <fromX> <fromY> <fromPlane>"
                     " <toX> <toY> <toPlane> [--out path.json] [--teleports dir]"
-                    " [--ungated]\n");
+                    " [--ungated] [--varp id=value] [--varbit id=value]"
+                    " [--skill id=level]\n");
     }
 
     bool parseInt(const char *s, int32_t &out)
@@ -74,6 +95,67 @@ namespace
         }
         out = value;
         return true;
+    }
+
+    // "id=value" -> the two ints; false for anything else.
+    bool parseIdValue(const char *s, int32_t &outId, int32_t &outValue)
+    {
+        if (s == nullptr)
+        {
+            return false;
+        }
+        const std::string text{s};
+        const std::size_t eq = text.find('=');
+        if (eq == std::string::npos)
+        {
+            return false;
+        }
+        const std::string idText = text.substr(0, eq);
+        const std::string valueText = text.substr(eq + 1);
+        return parseInt(idText.c_str(), outId) && parseInt(valueText.c_str(), outValue);
+    }
+
+    // --varp / --varbit / --skill -> its kind; false for any other token.
+    bool capKindOf(const char *flag, CapKind &outKind)
+    {
+        if (std::strcmp(flag, "--varp") == 0)
+        {
+            outKind = CapKind::Varp;
+            return true;
+        }
+        if (std::strcmp(flag, "--varbit") == 0)
+        {
+            outKind = CapKind::Varbit;
+            return true;
+        }
+        if (std::strcmp(flag, "--skill") == 0)
+        {
+            outKind = CapKind::Skill;
+            return true;
+        }
+        return false;
+    }
+
+    // Later writes win in CapabilitySnapshot, so these replace whatever the
+    // base snapshot set for the same id.
+    void applyOverrides(const std::vector<CapOverride> &overrides,
+                        ww::runtime::CapabilitySnapshot &ioSnapshot)
+    {
+        for (const CapOverride &o : overrides)
+        {
+            switch (o.kind)
+            {
+                case CapKind::Varp:
+                    ioSnapshot.setVarp(o.id, o.value);
+                    break;
+                case CapKind::Varbit:
+                    ioSnapshot.setVarbit(o.id, o.value);
+                    break;
+                case CapKind::Skill:
+                    ioSnapshot.setSkillLevel(o.id, o.value);
+                    break;
+            }
+        }
     }
 
     bool parseArgs(int argc, char **argv, Args &out)
@@ -107,6 +189,18 @@ namespace
             if (std::strcmp(argv[i], "--ungated") == 0)
             {
                 out.isUngated = true;
+                continue;
+            }
+            CapKind capKind{};
+            if (capKindOf(argv[i], capKind))
+            {
+                CapOverride o{capKind, 0, 0};
+                if (i + 1 >= argc || !parseIdValue(argv[i + 1], o.id, o.value))
+                {
+                    return false;
+                }
+                out.overrides.push_back(o);
+                ++i;
                 continue;
             }
             if (std::strcmp(argv[i], "--teleports") == 0)
@@ -314,6 +408,7 @@ int runPathExport(int argc, char **argv)
         {
             ww::runtime::applyPermissiveRequirements(reader.requirements(), snapshot);
         }
+        applyOverrides(args.overrides, snapshot);
 
         ww::runtime::Plan plan;
         const bool ok =

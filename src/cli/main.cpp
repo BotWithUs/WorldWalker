@@ -1253,7 +1253,8 @@ namespace
          runAreaGridCmd},
         {"path",       7, "wwcli path <artifact.wwa> <fromX> <fromY> <fromPlane>"
                           " <toX> <toY> <toPlane> [--out path.json] [--teleports dir]"
-                          " [--ungated]",
+                          " [--ungated] [--varp id=value] [--varbit id=value]"
+                          " [--skill id=level]",
          runPathExport},
     };
 
