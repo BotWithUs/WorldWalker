@@ -43910,5 +43910,31 @@
     "dest_x": 2445,
     "dest_y": 3435,
     "dest_plane": 0
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 24352,
+    "x": 3202,
+    "y": 3497,
+    "plane": 1,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 1,
+    "dest_x": 3202,
+    "dest_y": 3496,
+    "dest_plane": 2
+  },
+  {
+    "name": "Climb-down",
+    "object_id": 135628,
+    "x": 3203,
+    "y": 3497,
+    "plane": 2,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3201,
+    "dest_y": 3496,
+    "dest_plane": 1
   }
 ]
