@@ -137,8 +137,19 @@ namespace ww::runtime
         : artifact(&reader),
           view(&view),
           areaSearch(&areaSearch),
-          tileSearch(&tileSearch)
+          tileSearch(&tileSearch),
+          isAreaLinked(reader.areaNodes().size(), 0u)
     {
+        for (const format::AreaEdgeRecord &edge : reader.areaEdges())
+        {
+            for (const int32_t area : {edge.fromArea, edge.toArea})
+            {
+                if (area >= 0 && static_cast<std::size_t>(area) < isAreaLinked.size())
+                {
+                    isAreaLinked[static_cast<std::size_t>(area)] = 1u;
+                }
+            }
+        }
     }
 
     // The origin tile (r=0) wins when it is itself standable and in-area;
@@ -164,7 +175,7 @@ namespace ww::runtime
     // the goal tile itself is blocked. Returns false when nothing standable lies
     // within kGoalSnapRadius (goal is deep in blocked terrain).
     bool PathAssembler::resolveGoalTile(int32_t goalX, int32_t goalY, int32_t plane,
-                                        bool requireArea,
+                                        bool requireArea, int32_t startArea,
                                         int32_t &outX, int32_t &outY, int32_t &outArea) const
     {
         const auto standIn = [&](int32_t x, int32_t y)
@@ -172,7 +183,20 @@ namespace ww::runtime
             return view->isStandable(x, y, plane)
                 && (!requireArea || view->areaAt(x, y, plane) >= 0);
         };
-        if (!findNearestTile(goalX, goalY, kGoalSnapRadius, false, standIn, outX, outY))
+        const auto linkedStandIn = [&](int32_t x, int32_t y)
+        {
+            if (!view->isStandable(x, y, plane))
+            {
+                return false;
+            }
+            const int32_t area = view->areaAt(x, y, plane);
+            return area >= 0
+                && (area == startArea || isAreaLinked[static_cast<std::size_t>(area)] != 0u);
+        };
+        const bool isLinkedFound = requireArea
+            && findNearestTile(goalX, goalY, kGoalSnapRadius, false, linkedStandIn, outX, outY);
+        if (!isLinkedFound
+            && !findNearestTile(goalX, goalY, kGoalSnapRadius, false, standIn, outX, outY))
         {
             return false;
         }
@@ -228,7 +252,7 @@ namespace ww::runtime
             // object footprint snaps to the nearest standable neighbour so the
             // route still lands the player against the intended spot.
             int32_t unusedArea = -1;
-            if (!resolveGoalTile(goalX, goalY, goalPlane, false, targetX, targetY, unusedArea))
+            if (!resolveGoalTile(goalX, goalY, goalPlane, false, -1, targetX, targetY, unusedArea))
             {
                 return false;
             }
@@ -605,7 +629,8 @@ namespace ww::runtime
             // The requested goal tile is blocked (wall / closed door / object
             // footprint). Snap to the nearest standable tile so the route still
             // lands the player against the intended spot instead of failing.
-            if (!resolveGoalTile(goalX, goalY, goalPlane, true, goalX, goalY, goalArea))
+            if (!resolveGoalTile(goalX, goalY, goalPlane, true, startArea, goalX, goalY,
+                                 goalArea))
             {
                 return false;
             }
@@ -656,7 +681,7 @@ namespace ww::runtime
         const InstanceSuspension suspension(*view);
         int32_t goalArea = view->areaAt(goalX, goalY, goalPlane);
         if (goalArea < 0
-            && !resolveGoalTile(goalX, goalY, goalPlane, true, goalX, goalY, goalArea))
+            && !resolveGoalTile(goalX, goalY, goalPlane, true, -1, goalX, goalY, goalArea))
         {
             return false;
         }

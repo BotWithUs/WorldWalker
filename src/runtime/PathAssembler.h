@@ -133,8 +133,16 @@ namespace ww::runtime
         // no area is unreachable by definition. Inside a dynamic region nothing
         // has a baked area, so the instance path passes false and outArea is
         // left untouched.
+        //
+        // With requireArea, a stand-in in `startArea` or in an area any baked
+        // edge touches is preferred to a nearer one in a sealed pocket: an NPC
+        // behind a bar (the Blue Moon Inn's bartender at 3226,3399) stands with
+        // the tiles beside him closed off by the counter, and snapping into
+        // them left no route at all. The nearest tile of any area is the
+        // fallback when nothing within reach is linked.
         bool resolveGoalTile(int32_t goalX, int32_t goalY, int32_t plane, bool requireArea,
-                             int32_t &outX, int32_t &outY, int32_t &outArea) const;
+                             int32_t startArea, int32_t &outX, int32_t &outY,
+                             int32_t &outArea) const;
 
         // Plan a route wholly inside a dynamic region (instance), appending Walk
         // steps to outPlan. Returns false when either endpoint is outside the
@@ -324,6 +332,7 @@ namespace ww::runtime
         std::vector<TeleCandidate> teleCandidateScratch;  // reusable scratch for goal-area teleport ranking
         std::vector<NearGoalEdge> nearGoalEdgeScratch;   // reusable scratch for near-goal baked edges (idx + fromArea + closingBound)
         bool isWildernessAvoided{false};                 // the query in flight stays out of the Wilderness
+        std::vector<uint8_t> isAreaLinked;               // per area: some baked edge starts or ends in it
     };
 }
 

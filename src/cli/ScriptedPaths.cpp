@@ -38,6 +38,8 @@
 //                      assembled with a snapshot tuned to its own requirement
 //                      run, and does not appear in the plan assembled with an
 //                      empty one.
+//   sealed_pocket_goal — a blocked goal whose nearest standable tile is in a
+//                      pocket no edge touches plans to a linked stand-in.
 namespace
 {
     enum class Outcome { Pass, Fail, Skip };
@@ -478,6 +480,130 @@ namespace
         return {"capability_gate", Outcome::Skip,
                 "no gated transition the planner routes through"};
     }
+
+    // Category 5 — sealed pocket goal. A goal tile that cannot be stood on
+    // (an NPC's spawn behind a bar) whose nearest standable tile lies in a
+    // pocket no baked edge touches, with a tile of a linked area only a little
+    // further. Snapping into the pocket leaves no route; the plan must end in
+    // the linked area. The Blue Moon Inn's bartender (3226,3399) is the live
+    // case: every walk to him failed with no route.
+    struct PocketCase
+    {
+        TilePoint goal;
+        TilePoint start;
+        int plane;
+        int pocketArea;
+    };
+
+    std::vector<bool> linkedAreas(const ww::format::ArtifactReader &reader)
+    {
+        std::vector<bool> isLinked(reader.areaNodes().size(), false);
+        for (const ww::format::AreaEdgeRecord &edge : reader.areaEdges())
+        {
+            for (const int area : {edge.fromArea, edge.toArea})
+            {
+                if (area >= 0 && static_cast<std::size_t>(area) < isLinked.size())
+                {
+                    isLinked[static_cast<std::size_t>(area)] = true;
+                }
+            }
+        }
+        return isLinked;
+    }
+
+    // Around blocked tile (x, y): the pocket must hold every standable tile at
+    // Chebyshev 1, and some linked-area tile must stand at 2..3.
+    bool isPocketGoal(ww::runtime::WorldView &view, const std::vector<bool> &isLinked,
+                      int x, int y, int plane, int pocket, TilePoint &outStart)
+    {
+        constexpr int kSnapReach = 3;
+        bool hasPocketNeighbour = false;
+        bool hasStart = false;
+        for (int r = 1; r <= kSnapReach; ++r)
+        {
+            for (int dx = -r; dx <= r; ++dx)
+            {
+                for (int dy = -r; dy <= r; ++dy)
+                {
+                    if (std::max(std::abs(dx), std::abs(dy)) != r
+                        || !view.isStandable(x + dx, y + dy, plane))
+                    {
+                        continue;
+                    }
+                    const int area = view.areaAt(x + dx, y + dy, plane);
+                    if (r == 1 && area != pocket)
+                    {
+                        return false;
+                    }
+                    hasPocketNeighbour = hasPocketNeighbour || area == pocket;
+                    if (r > 1 && !hasStart && area >= 0 && area != pocket
+                        && isLinked[static_cast<std::size_t>(area)])
+                    {
+                        outStart = { x + dx, y + dy };
+                        hasStart = true;
+                    }
+                }
+            }
+        }
+        return hasPocketNeighbour && hasStart;
+    }
+
+    bool findPocketCase(const ww::format::ArtifactReader &reader, ww::runtime::WorldView &view,
+                        PocketCase &outCase)
+    {
+        constexpr std::uint32_t kMaxPocketTiles = 16;
+        const std::vector<bool> isLinked = linkedAreas(reader);
+        const auto nodes = reader.areaNodes();
+        for (std::size_t a = 0; a < nodes.size(); ++a)
+        {
+            const ww::format::AreaNodeRecord &n = nodes[a];
+            if (isLinked[a] || n.tileCount > kMaxPocketTiles)
+            {
+                continue;
+            }
+            const int plane = static_cast<int>(n.plane);
+            for (int x = n.minX - 1; x <= n.maxX + 1; ++x)
+            {
+                for (int y = n.minY - 1; y <= n.maxY + 1; ++y)
+                {
+                    TilePoint start{};
+                    if (!view.isStandable(x, y, plane)
+                        && isPocketGoal(view, isLinked, x, y, plane, static_cast<int>(a), start))
+                    {
+                        outCase = { { x, y }, start, plane, static_cast<int>(a) };
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    CaseResult sealedPocketGoal(const ww::format::ArtifactReader &reader,
+                                ww::runtime::WorldView &view,
+                                ww::runtime::PathAssembler &assembler)
+    {
+        PocketCase pc{};
+        if (!findPocketCase(reader, view, pc))
+        {
+            return {"sealed_pocket_goal", Outcome::Skip, "no blocked tile beside a sealed pocket"};
+        }
+        ww::runtime::Plan plan;
+        if (!assembler.assemble(pc.start.x, pc.start.y, pc.plane, pc.goal.x, pc.goal.y, pc.plane,
+                                plan))
+        {
+            return {"sealed_pocket_goal", Outcome::Fail, "assemble returned false"};
+        }
+        if (!plan.steps.empty())
+        {
+            const ww::runtime::Step &last = plan.steps.back();
+            if (view.areaAt(last.targetX, last.targetY, pc.plane) == pc.pocketArea)
+            {
+                return {"sealed_pocket_goal", Outcome::Fail, "plan ends in the sealed pocket"};
+            }
+        }
+        return {"sealed_pocket_goal", Outcome::Pass, nullptr};
+    }
 }
 
 int runScriptedPaths(const char *wwaPath)
@@ -496,6 +622,7 @@ int runScriptedPaths(const char *wwaPath)
             planeChange(reader, view, assembler),
             teleportSeeded(reader, view, areaSearch, assembler),
             capabilityGate(reader, view, assembler),
+            sealedPocketGoal(reader, view, assembler),
         };
         int passed  = 0;
         int failed  = 0;
