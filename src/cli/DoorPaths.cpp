@@ -408,6 +408,54 @@ int runTxNear(const char *wwaPath, int x, int y, int radius)
     }
 }
 
+int runAreaGrid(const char *wwaPath, int x, int y, int plane, int radius)
+{
+    try
+    {
+        const ww::format::ArtifactReader reader(wwaPath);
+        ww::runtime::WorldView view(reader);
+
+        // One letter per distinct area in the window, '#' for a tile in no area.
+        std::vector<int32_t> legend;
+        std::printf("areagrid: (%d,%d,p%d) radius=%d, north up, west left\n", x, y, plane, radius);
+        for (int yy = y + radius; yy >= y - radius; --yy)
+        {
+            std::printf("areagrid: %5d ", yy);
+            for (int xx = x - radius; xx <= x + radius; ++xx)
+            {
+                const int32_t area = view.areaAt(xx, yy, plane);
+                char glyph = '#';
+                if (area >= 0)
+                {
+                    auto it = std::find(legend.begin(), legend.end(), area);
+                    if (it == legend.end())
+                    {
+                        legend.push_back(area);
+                        it = legend.end() - 1;
+                    }
+                    const auto slot = static_cast<int>(it - legend.begin());
+                    glyph = slot < 26 ? static_cast<char>('A' + slot) : '?';
+                }
+                const bool isCentre = xx == x && yy == y;
+                std::printf(isCentre ? "[%c]" : " %c ", glyph);
+            }
+            std::printf("\n");
+        }
+        std::printf("areagrid: x from %d to %d\n", x - radius, x + radius);
+        for (std::size_t i = 0; i < legend.size(); ++i)
+        {
+            std::printf("areagrid:   %c = area %d\n",
+                        i < 26 ? static_cast<char>('A' + i) : '?', legend[i]);
+        }
+        return 0;
+    }
+    catch (const std::exception &e)
+    {
+        std::printf("areagrid: failed: %s\n", e.what());
+        return 1;
+    }
+}
+
 int runDoorPaths(const char *wwaPath)
 {
     try

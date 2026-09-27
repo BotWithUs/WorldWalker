@@ -1089,6 +1089,12 @@ namespace
         return runTxNear(argv[0], std::atoi(argv[1]), std::atoi(argv[2]), std::atoi(argv[3]));
     }
 
+    int runAreaGridCmd(int, char **argv)
+    {
+        return runAreaGrid(argv[0], std::atoi(argv[1]), std::atoi(argv[2]), std::atoi(argv[3]),
+                           std::atoi(argv[4]));
+    }
+
     int runBenchCmd(int, char **argv)
     {
         return runBench(argv[0]);
@@ -1243,6 +1249,8 @@ namespace
                           " [<sx> <sy> <sp> <gx> <gy> <gp>]", runTeleports},
         {"doorprobe",  2, "wwcli doorprobe <artifact.wwa> <txIndex>", runDoorProbeCmd},
         {"txnear",     4, "wwcli txnear <artifact.wwa> <x> <y> <radius>", runTxNearCmd},
+        {"areagrid",   5, "wwcli areagrid <artifact.wwa> <x> <y> <plane> <radius>",
+         runAreaGridCmd},
         {"path",       7, "wwcli path <artifact.wwa> <fromX> <fromY> <fromPlane>"
                           " <toX> <toY> <toPlane> [--out path.json] [--teleports dir]"
                           " [--ungated]",

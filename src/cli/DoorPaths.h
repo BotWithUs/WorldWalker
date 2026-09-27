@@ -29,4 +29,9 @@ int runDoorProbe(const char *wwaPath, int txIndex);
 // position with no derived plane-change transition into it.
 int runTxNear(const char *wwaPath, int x, int y, int radius);
 
+// `wwcli areagrid <artifact.wwa> <x> <y> <plane> <radius>` — diagnostic: print
+// the area of every tile in the window, one letter per area and '#' for a tile
+// in none. Used to place a transition's origin and landing on the right floor.
+int runAreaGrid(const char *wwaPath, int x, int y, int plane, int radius);
+
 #endif  // WORLDWALKER_CLI_DOORPATHS_H

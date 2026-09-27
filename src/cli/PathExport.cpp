@@ -235,6 +235,11 @@ namespace
                 {
                     const ww::format::TransitionRecord &tx = transitions[s.transitionIndex];
                     js["transitionKind"] = transitionKindName(tx.kind);
+                    // The tile the host looks for the loc around, which is
+                    // not the step's x, y (where the player stands to click).
+                    js["originX"]        = tx.originX;
+                    js["originY"]        = tx.originY;
+                    js["originPlane"]    = static_cast<int32_t>(tx.originPlane);
                     js["destX"]          = tx.destX;
                     js["destY"]          = tx.destY;
                     js["destPlane"]      = static_cast<int32_t>(tx.destPlane);
