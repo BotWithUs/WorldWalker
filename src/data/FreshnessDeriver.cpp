@@ -4,6 +4,7 @@
 #include "build/CollisionBuilder.h"
 #include "data/CrossingStamp.h"
 #include "data/DatasetOrigins.h"
+#include "data/OpCheck.h"
 #include "data/Transitions.h"
 #include "format/Artifact.h"
 #include "format/ClipFlags.h"
@@ -179,5 +180,37 @@ namespace ww::data
             *outReport = report;
         }
         return result;
+    }
+
+    void useDirectionalClimbOps(TransitionModel &ioDerived, const OpTable &table,
+                                ClimbOpReport *outReport)
+    {
+        ClimbOpReport report;
+        for (Transition &t : ioDerived.transitions)
+        {
+            if (t.objectId <= 0 || t.originPlane == t.destPlane)
+            {
+                continue;
+            }
+            ++report.checked;
+            const bool isUp = t.destPlane > t.originPlane;
+            const int32_t option = directionalLocOp(table, t.objectId, isUp);
+            if (option < 0)
+            {
+                ++report.undirected;
+                continue;
+            }
+            if (option == static_cast<int32_t>(t.optionIndex))
+            {
+                ++report.directional;
+                continue;
+            }
+            t.optionIndex = static_cast<uint8_t>(option);
+            ++report.retargeted;
+        }
+        if (outReport != nullptr)
+        {
+            *outReport = report;
+        }
     }
 }

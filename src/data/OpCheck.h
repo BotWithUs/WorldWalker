@@ -35,9 +35,15 @@ namespace ww::data
     // the ids it can morph into. Only the facts the check needs are kept: the
     // two export files are ~60 MB of JSON, and a DOM of them would cost far more
     // than the bake itself.
+    //
+    // upOpMask / downOpMask mark the slots whose text names a climb direction
+    // (`Climb-up`, `Go up`, `Walk-down`, ...), for the vertical deriver to
+    // click instead of a bare `Climb` that opens a chooser.
     struct OpDefinition
     {
         uint8_t opMask{};
+        uint8_t upOpMask{};
+        uint8_t downOpMask{};
         std::vector<int32_t> morphs;
     };
 
@@ -65,6 +71,14 @@ namespace ww::data
     // Whether any NPC in [firstId, lastId] (or anything one morphs into) has
     // option `option`.
     OpVerdict checkNpcOp(const OpTable &table, int32_t firstId, int32_t lastId, int32_t option);
+
+    // The lowest 0-based option slot of loc `locId` whose text names the climb
+    // direction (`Climb-up` / `Climb up` / `Go-up` / `Walk-up` when `isUp`,
+    // the `-down` spellings otherwise, case-insensitive), or -1 when it has
+    // none. Only the loc's own options count, not a morph's: the slot is
+    // clicked on whatever the loc is at the time, and a morph that moves its
+    // options would make a morph's slot wrong on the base.
+    int32_t directionalLocOp(const OpTable &table, int32_t locId, bool isUp);
 
     struct OpCheckReport
     {

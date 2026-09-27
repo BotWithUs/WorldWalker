@@ -534,12 +534,42 @@ varp 2671, so the Feldip end is denied live until it does.
 
 **The Grand Tree's ladder.** Loc 69271 on planes 1 and 2 (2466,3495) lists
 `Climb`, `Climb-up`, `Climb-down`; the bake paired it by op 0 `Climb`, which
-opens a chooser nothing answers. Four rows name op 1 up and op 2 down, and
-take its place. The fault is not this ladder's: NXTCacheLibrary gives a
-climbable one option for both directions, the first that says `climb`, and
-in the artifact live on 2026-09-27, 976 paired transitions over 30 locs
-click a bare `Climb` where the loc has a direction's own option. Only a fix
-in the pairing reaches them all.
+opens a chooser nothing answers. It has no rows: the bake now derives op 1
+up and op 2 down itself (see "Climb direction" below), the same four edges
+the hand rows gave, with the same landings.
+
+## Climb direction
+
+NXTCacheLibrary gives a climbable loc one option for both directions, the
+first that says `climb`. On a loc listing `Climb`, `Climb-up`, `Climb-down`
+that is op 0 `Climb`, which opens an up/down chooser (1188, `CHOICE_V2`) the
+executor never answers, so the walk stalls at the ladder or re-plans away
+from it. In the artifact live on 2026-09-27, 972 derived transitions over 29
+locs clicked it (37212 alone, the Stairs at 4235,3933 and around, had 775).
+
+So with `--op-defs` the bake reads each loc's option text from
+`locations.json` and a derived ladder or stair clicks the option that names
+its direction: going up, the lowest slot reading `Climb-up`, `Climb up`,
+`Go-up` or `Walk-up` (any case, `-`, `_` or space); going down, the `down`
+spellings. Only the loc's own options count, not a morph's. A loc with no
+such option keeps the cache's. The bake prints the counts as `climb ops:`.
+
+- **Result:** 972 -> 0 transitions click a bare `Climb` on a loc that has
+  its direction's option. 974 transitions in the artifact changed option, all
+  `Climb` -> the direction's, except two up edges on ladder 34286
+  (2667,3694 and 4540,5934, options `Climb-down`, `Climb-up`) that the
+  cache had given `Climb-down`.
+- **Bare `Climb` alone.** 120 derived transitions over 34 locs click a loc
+  whose only option is `Climb`. All but one of their 117 origins are
+  derived one way only, so the loc has no other way to offer. The exception is the Anchor 31563 at
+  3795,9937 on plane 1, derived both down and up. If it opens a chooser, a
+  chain cannot answer it today: `DialogueAnswer` is sent by the executor only
+  inside a dialog zone, never baked into a chain, and a zone cannot tell up
+  from down. The chooser's text is the server's, so it is not in the dumps.
+- **Rows are not touched.** A dataset row names its option. Eight vertical
+  rows click an option naming the other direction (Lumbridge Castle
+  3229,3214 plane 1 -> 2 clicks 36770 `Climb-down`, the top floor's ladder;
+  4627, 1740, 40262, 18833, 6504); they are left for review.
 
 ## How they're consumed
 

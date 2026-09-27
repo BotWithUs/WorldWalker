@@ -8,6 +8,8 @@
 #  pragma warning(pop)
 #endif
 
+#include <bit>
+#include <cctype>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -35,6 +37,53 @@ namespace ww::data
         constexpr int kEntryDepth = 2;
         constexpr int kFieldDepth = 3;
         constexpr int kMorphIdsDepth = 4;
+
+        enum class ClimbWord : uint8_t
+        {
+            None,
+            Up,
+            Down,
+        };
+
+        // `Climb-up`, `Climb up`, `climb_up`, `Go-up`, `Walk-up` (any case,
+        // with anything after a separator) name the up direction; the same with
+        // `down` the down one. A bare `Climb` names neither: it opens the
+        // game's up/down chooser.
+        ClimbWord climbWordOf(std::string_view text)
+        {
+            std::string norm;
+            norm.reserve(text.size());
+            for (const char ch : text)
+            {
+                const bool isSeparator = ch == '-' || ch == '_';
+                norm.push_back(isSeparator ? ' '
+                                           : static_cast<char>(std::tolower(
+                                                 static_cast<unsigned char>(ch))));
+            }
+            constexpr std::string_view kVerbs[] = {"climb ", "go ", "walk "};
+            for (const std::string_view verb : kVerbs)
+            {
+                if (!norm.starts_with(verb))
+                {
+                    continue;
+                }
+                const std::string_view rest = std::string_view(norm).substr(verb.size());
+                const auto isWord = [&rest](std::string_view word)
+                {
+                    return rest.starts_with(word)
+                        && (rest.size() == word.size() || rest[word.size()] == ' ');
+                };
+                if (isWord("up"))
+                {
+                    return ClimbWord::Up;
+                }
+                if (isWord("down"))
+                {
+                    return ClimbWord::Down;
+                }
+            }
+            return ClimbWord::None;
+        }
 
         // SAX reader for the export. Keeps `id`, the option slots with text
         // (`actions`, plus the members-only spellings), and the positive ids
@@ -84,13 +133,13 @@ namespace ww::data
                 {
                     if (!value.empty())
                     {
-                        markOption(actionIndex);
+                        markOption(actionIndex, value);
                     }
                     ++actionIndex;
                 }
                 else if (depth == kEntryDepth && !value.empty())
                 {
-                    markOption(memberOptionSlot(entryKey));
+                    markOption(memberOptionSlot(entryKey), value);
                 }
                 return true;
             }
@@ -179,11 +228,22 @@ namespace ww::data
                 return name.back() - '1';
             }
 
-            void markOption(int32_t slot)
+            void markOption(int32_t slot, std::string_view text)
             {
-                if (slot >= 0 && slot < kOptionSlots)
+                if (slot < 0 || slot >= kOptionSlots)
                 {
-                    current.opMask = static_cast<uint8_t>(current.opMask | (1u << slot));
+                    return;
+                }
+                const uint8_t bit = static_cast<uint8_t>(1u << slot);
+                current.opMask = static_cast<uint8_t>(current.opMask | bit);
+                const ClimbWord word = climbWordOf(text);
+                if (word == ClimbWord::Up)
+                {
+                    current.upOpMask = static_cast<uint8_t>(current.upOpMask | bit);
+                }
+                else if (word == ClimbWord::Down)
+                {
+                    current.downOpMask = static_cast<uint8_t>(current.downOpMask | bit);
                 }
             }
 
@@ -349,6 +409,17 @@ namespace ww::data
     OpVerdict checkNpcOp(const OpTable &table, int32_t firstId, int32_t lastId, int32_t option)
     {
         return verdictFor(table.npcs, firstId, lastId, option);
+    }
+
+    int32_t directionalLocOp(const OpTable &table, int32_t locId, bool isUp)
+    {
+        const auto it = table.locs.find(locId);
+        if (it == table.locs.end())
+        {
+            return -1;
+        }
+        const uint8_t mask = isUp ? it->second.upOpMask : it->second.downOpMask;
+        return mask == 0u ? -1 : std::countr_zero(static_cast<unsigned>(mask));
     }
 
     TransitionModel dropInvalidOps(const TransitionModel &model, const OpTable &table,

@@ -21,6 +21,7 @@
 #include <cstring>
 #include <exception>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -319,15 +320,19 @@ namespace
         ww::data::TransitionReport finalize;
         ww::data::FreshnessReport freshness;
         ww::data::CrossingReport doors;
+        // Filled only when the bake has the op definitions (--op-defs).
+        std::optional<ww::data::ClimbOpReport> climbOps;
     };
 
     // Given the loaded datasets, derive cache-only vertical ladders/stairs and
     // doors (dataset priority), then finalize the union into the bakeable
-    // transition set.
+    // transition set. `opTable` (nullable, from --op-defs) lets each derived
+    // ladder or stair click the option for its direction.
     TransitionBuildResult assembleTransitions(const ww::build::CollisionModel &collision,
                                               const ww::build::CollisionLookup &lookup,
                                               const std::vector<ww::build::Crossing> &crossings,
-                                              const ww::data::LoadedDatasets &datasets)
+                                              const ww::data::LoadedDatasets &datasets,
+                                              const ww::data::OpTable *opTable)
     {
         TransitionBuildResult out;
         out.datasetHash = datasets.datasetHash;
@@ -336,8 +341,14 @@ namespace
         // tile (ADR 0003), so both read the same origin set.
         const ww::data::DatasetOrigins datasetOrigins =
             ww::data::collectDatasetOrigins(datasets.model);
-        const ww::data::TransitionModel derived = ww::data::deriveVerticalTransitions(
+        ww::data::TransitionModel derived = ww::data::deriveVerticalTransitions(
             collision, datasets.model, crossings, &out.freshness);
+        if (opTable != nullptr)
+        {
+            ww::data::ClimbOpReport climbOps;
+            ww::data::useDirectionalClimbOps(derived, *opTable, &climbOps);
+            out.climbOps = climbOps;
+        }
         const ww::data::TransitionModel doors =
             ww::data::deriveDoorTransitions(crossings, lookup, datasetOrigins, &out.doors);
 
@@ -398,6 +409,17 @@ namespace
                     tr.freshness.droppedDatasetConflict,
                     tr.freshness.droppedClimbMismatch,
                     tr.freshness.droppedNoOption);
+        if (tr.climbOps.has_value())
+        {
+            std::printf("  climb ops: %zu derived vertical -> %zu retargeted to their direction's "
+                        "option, %zu already on it, %zu with no directional option (cache option kept)\n",
+                        tr.climbOps->checked, tr.climbOps->retargeted, tr.climbOps->directional,
+                        tr.climbOps->undirected);
+        }
+        else
+        {
+            std::printf("  climb ops: skipped (no --op-defs); derived ladders keep the cache's one option\n");
+        }
         std::printf("  doors: %zu crossings -> +%zu directed hops (%zu suppressed by datasets, %zu blocked-origin, %zu no-option, %zu no-edge, %zu foreign-edge)\n",
                     tr.doors.doorCrossings, tr.doors.emitted,
                     tr.doors.droppedDatasetConflict,
@@ -420,16 +442,16 @@ namespace
     // rows whose origin lacks the option they click from `ioDatasets`, before
     // the cache is decoded, so a strict failure costs seconds rather than the
     // whole bake. Returns false when --strict-ops refuses the datasets.
-    bool applyOpCheck(const BuildFlags &flags, ww::data::LoadedDatasets &ioDatasets)
+    bool applyOpCheck(const BuildFlags &flags, const ww::data::OpTable *table,
+                      ww::data::LoadedDatasets &ioDatasets)
     {
-        if (flags.opDefsDir.empty())
+        if (table == nullptr)
         {
             std::printf("  op check: skipped (pass --op-defs <rs3-cs2-dumps dir> to run it)\n");
             return true;
         }
-        const ww::data::OpTable table = ww::data::loadOpTable(flags.opDefsDir);
         ww::data::OpCheckReport report;
-        ww::data::TransitionModel kept = ww::data::dropInvalidOps(ioDatasets.model, table, &report);
+        ww::data::TransitionModel kept = ww::data::dropInvalidOps(ioDatasets.model, *table, &report);
         ww::data::printOpCheckReport(report);
         if (flags.isStrictOps && report.dropped > 0)
         {
@@ -496,7 +518,15 @@ namespace
                              datasetDir.c_str());
                 return 1;
             }
-            if (!applyOpCheck(flags, datasets))
+            // Loaded once: the op check reads it now, the vertical deriver
+            // after the cache decode.
+            std::optional<ww::data::OpTable> opTable;
+            if (!flags.opDefsDir.empty())
+            {
+                opTable = ww::data::loadOpTable(flags.opDefsDir);
+            }
+            const ww::data::OpTable *opTablePtr = opTable.has_value() ? &*opTable : nullptr;
+            if (!applyOpCheck(flags, opTablePtr, datasets))
             {
                 return 1;
             }
@@ -518,7 +548,7 @@ namespace
             ww::build::CollisionLookup lookup(collision);
 
             const TransitionBuildResult tr =
-                assembleTransitions(collision, lookup, decoded.crossings, datasets);
+                assembleTransitions(collision, lookup, decoded.crossings, datasets, opTablePtr);
 
             ww::build::AreaGraphReport ag;
             const ww::build::AreaGraphModel abstraction =
