@@ -567,9 +567,26 @@ such option keeps the cache's. The bake prints the counts as `climb ops:`.
   inside a dialog zone, never baked into a chain, and a zone cannot tell up
   from down. The chooser's text is the server's, so it is not in the dumps.
 - **Rows are not touched.** A dataset row names its option. Eight vertical
-  rows click an option naming the other direction (Lumbridge Castle
-  3229,3214 plane 1 -> 2 clicks 36770 `Climb-down`, the top floor's ladder;
-  4627, 1740, 40262, 18833, 6504); they are left for review.
+  rows clicked an option naming the other direction; each was checked
+  against the locspawn scan and fixed by hand (below).
+
+### Rows whose option named the other direction (2026-09-27)
+
+| Row (loc, origin -> dest) | Loc at the origin | Now |
+|---|---|---|
+| 36770 `Climb-down`, 3229,3214,1 -> 3229,3214,2 (Lumbridge Castle) | 36769 (`Climb`, `Climb-up`, `Climb-down`); 36770 is the plane-2 ladder | Removed: the derived 36769 op 1 `Climb-up` edge from 3229,3213,1 is the same crossing |
+| 4627 `Climb-up`, 2205,4935,1 -> 2207,4938,0 (Burthorpe games room) | 4627 `Climb-up` leads out to Burthorpe; the room's down stairs are 4620 `Climb-down` at 2207,4935,1 | Removed: the derived 4620 op 0 edge lands in the same area |
+| 1740 `Climb down`, 2777,4684,1 -> 2778,4684,2 | 1740 `Climb down`, above the 2x2 staircase 1738 at 2776,4683,0; up is ladder 1750 at 2779,4684 | Lands at 2776,4682,0 (as the same tower at 2518,3430 does); the derived 1750 op 0 edge covers 1 -> 2 |
+| 40262 `Climb-up`, 2524,5832,1 -> 2525,5835,0 | 40262 climbs to plane 2 (its own row does); the jump down from this ledge is 40849 `Jump-down` at 2525,5835,1 | Clicks 40849 from its anchor 2525,5835,1, as its twin at 2529,5835 does |
+| 4627 `Climb-up`, 2206,4934,1 and 2205,4935,1 -> 2892,3567,0 | 4627, out of the games room to Burthorpe | Unchanged: right loc and option. The dest is a different region, so its plane says nothing about up or down |
+| 18833 `Climb-down`, 2812,3668,0 -> 2831,10076,2 (Troll ladder) | 18833 | Unchanged, for the same reason |
+| 6504 `Climb-up`, 2913,4953,3 -> 3233,2898,0 | 6504 | Unchanged, for the same reason |
+
+Seen while checking, left as they are: 4622 `Climb-up` at 2206,4936,0 has a
+row to Burthorpe (2893,3567,0) though it climbs to the games room's plane
+1; 40849 `Jump-down` at 2529,5835,1 has a row up to plane 2; and the 1738
+staircase at 2776,4683,0 has no up row (the deriver does not pair it, since
+1740 above it is anchored a tile away).
 
 ## How they're consumed
 

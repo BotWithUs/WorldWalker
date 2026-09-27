@@ -1335,19 +1335,6 @@
     "dest_plane": 0
   },
   {
-    "name": "Climb-down",
-    "object_id": 36770,
-    "x": 3229,
-    "y": 3214,
-    "plane": 1,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 3229,
-    "dest_y": 3214,
-    "dest_plane": 2
-  },
-  {
     "name": "Climb-up",
     "object_id": 26107,
     "x": 2748,
@@ -28169,9 +28156,9 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
-    "dest_x": 2778,
-    "dest_y": 4684,
-    "dest_plane": 2
+    "dest_x": 2776,
+    "dest_y": 4682,
+    "dest_plane": 0
   },
   {
     "name": "Interactive scenery",
@@ -30189,9 +30176,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 40262,
-    "x": 2524,
-    "y": 5832,
+    "object_id": 40849,
+    "x": 2525,
+    "y": 5835,
     "plane": 1,
     "shape": 10,
     "rotation": 0,
@@ -30588,19 +30575,6 @@
     "option_index": 0,
     "dest_x": 2893,
     "dest_y": 3567,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 4627,
-    "x": 2205,
-    "y": 4935,
-    "plane": 1,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2207,
-    "dest_y": 4938,
     "dest_plane": 0
   },
   {
