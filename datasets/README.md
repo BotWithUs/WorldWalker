@@ -148,6 +148,50 @@ memory:
   Wilderness obelisk (loc 65625 has no options), and three Shifting tombs rows
   whose 3x5 loc has no standable tile near its anchor.
 
+## Origin within a tile of the anchor
+
+The host finds a row's loc by id on the row's plane within one tile
+(Chebyshev) of the row's `x, y`, measured to the loc's own tile
+(`WorldWalkerCallbackBridge.resolveLocTile`). For a multi-tile loc that is its
+anchor, the south-west corner the map places it by, not its middle. A row
+two or more tiles from the anchor clicks nothing: the executor fails the
+transition and drops every row on that loc for the rest of the walk. Doric's
+Task II failed that way on the Burthorpe Castle stairs (origin 2901,3564,
+steps 66970 anchored at 2901,3561).
+
+The planner has the opposite need: a standable tile within one tile of the
+origin, in the area the player approaches from. A row satisfies both when its
+origin is on the anchor or beside it and one of the origin's neighbours is
+floor on the right side.
+
+Audited on 2026-09-27 against a locspawn scan of every loc with an option
+(`nxtcache-dumper --type locspawn`, 108k placements):
+
+- **Before:** 1,497 enabled loc rows, 144 with the origin 2 to 4 tiles from the
+  nearest anchor of their loc, 26 further.
+- **Moved:** 114 rows. Each origin moved to the tile within one of the anchor
+  whose standable neighbours are in the same area as the old origin's, the
+  nearest such tile to the old origin; destinations are unchanged. On a
+  vertical row the area is the one beneath the landing, the one the bake pins
+  the approach to. The spill areas that fill the empty sky on planes 1 to 3
+  (areas that span the whole map) do not count as a side. Two rows were placed
+  by hand: Rimmington's staircase down (71903) from its west side, whose east
+  end is three tiles from the anchor, and Draynor Manor's (47657) from the
+  landing's edge.
+- **Verified:** for every moved row, `wwcli path` from a tile beside the new
+  origin to its destination plans through that row, or through another row on
+  the same loc that also passes this check.
+- **Bridges:** the scan reports a loc on the plane it is stored on. On a
+  bridge tile that is one above the plane it stands on (the Taverley mill's
+  stairs 66637 are stored on plane 1 at 2890,3426 and are its ground floor),
+  so a row with no placement on its own plane is compared with the plane
+  above.
+- **Left:** 31 rows 2 to 4 tiles off and 26 further. For most of the 31 no
+  tile beside the anchor touches the approach side (among them 11 of the
+  Isafdar forest obstacles, locs 3921 to 3924), so only a host that measures
+  to the loc's footprint rather than its anchor can click them. The 26 further ones name a loc placed elsewhere
+  or a different loc id and need the same repair as the rows above.
+
 ## Dig sites map
 
 The eight `View` rows click loc 116436 (`ARCH_PLANNING_MAP`, "Dig sites map"),
