@@ -87,6 +87,8 @@ the row as it does around a missing loc. This needs a host that implements
 
 `disabled: true` keeps a row in the file but out of the bake. A row that cannot
 be executed yet is worse than no row, because the planner routes through it.
+Say why in `disabled_reason`, free text the loader ignores, so the next person
+knows what would bring the row back.
 
 A row may also carry `extra_cost`, an integer from 0 to 1000 added to the
 transition's cost in the planner's units, where a tile of walking costs about
@@ -122,6 +124,29 @@ because NXTCacheLibrary's decoder currently loses every loc and NPC morph
 table (and decodes some locs, such as ladder 5492, to defaults), and 89
 enabled rows are valid only through a morph: 50 of them are spirit-tree
 patches, which gain `Teleport` only once grown.
+
+### Rows that named the wrong loc (2026-09-27)
+
+When the op check first ran, 231 enabled rows failed it. Most named decorative
+scenery beside the real crossing (a crate, tulips, a barrel), a few named the
+right loc with the wrong option. They were repaired from the cache, not from
+memory:
+
+- **Option only.** Where the row's own loc has an option whose text is the
+  row's `name` ("Inspect", "Bottom floor", "Travel Imperial District"), the
+  row takes that option.
+- **Wrong loc.** Otherwise the row takes the loc that `nxtcache-dumper --type
+  locspawn` places within 4 tiles of its origin with a crossing option
+  (Enter, Climb-down, Cross, Squeeze-through, Jump to, ...) that fits the
+  row's direction. Where two fit, the one toward `dest` was picked by hand.
+- **Origin.** The host finds the loc within one tile of the row's `x, y`,
+  measured to the loc's anchor, and the planner needs a standable tile within
+  one tile of the origin. A repaired row's origin is moved as little as
+  possible to satisfy both.
+- **Disabled.** Rows with no such loc nearby are disabled with a
+  `disabled_reason`: crossings that start at an NPC or an item, the level-27
+  Wilderness obelisk (loc 65625 has no options), and three Shifting tombs rows
+  whose 3x5 loc has no standable tile near its anchor.
 
 ## Charter ships
 

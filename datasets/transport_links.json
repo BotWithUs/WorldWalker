@@ -1358,7 +1358,7 @@
   },
   {
     "name": "Climb-down",
-    "object_id": 25106,
+    "object_id": 25606,
     "x": 2748,
     "y": 3493,
     "plane": 1,
@@ -1384,7 +1384,7 @@
   },
   {
     "name": "Climb-down",
-    "object_id": 25106,
+    "object_id": 25606,
     "x": 2749,
     "y": 3492,
     "plane": 2,
@@ -2128,12 +2128,12 @@
   {
     "name": "Inspect",
     "object_id": 109805,
-    "x": 2222,
+    "x": 2220,
     "y": 3056,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 1,
+    "option_index": 0,
     "dest_x": 1374,
     "dest_y": 5538,
     "dest_plane": 0
@@ -2142,11 +2142,11 @@
     "name": "Inspect",
     "object_id": 109806,
     "x": 1374,
-    "y": 5538,
+    "y": 5537,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 1,
+    "option_index": 0,
     "dest_x": 2222,
     "dest_y": 3056,
     "dest_plane": 0
@@ -2362,12 +2362,12 @@
   {
     "name": "Bottom floor",
     "object_id": 79772,
-    "x": 3103,
+    "x": 3102,
     "y": 3155,
     "plane": 3,
     "shape": 10,
     "rotation": 0,
-    "option_index": 2,
+    "option_index": 1,
     "dest_x": 3102,
     "dest_y": 3155,
     "dest_plane": 0
@@ -4339,15 +4339,17 @@
   {
     "name": "Travel Imperial District",
     "object_id": 109062,
-    "x": 3150,
-    "y": 2786,
+    "x": 3147,
+    "y": 2783,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 4,
+    "option_index": 1,
     "dest_x": 3192,
     "dest_y": 2715,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "loc 109062 (3x5 Shifting tombs) has no standable tile within 2 of its anchor, where the host looks for it"
   },
   {
     "name": "Travel Ports District",
@@ -4383,7 +4385,7 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 4,
+    "option_index": 1,
     "dest_x": 3192,
     "dest_y": 2715,
     "dest_plane": 0
@@ -4405,14 +4407,16 @@
     "name": "Travel Imperial District",
     "object_id": 109065,
     "x": 3173,
-    "y": 2640,
+    "y": 2635,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 4,
+    "option_index": 1,
     "dest_x": 3192,
     "dest_y": 2715,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "loc 109065 (3x5 Shifting tombs) has no standable tile within 2 of its anchor, where the host looks for it"
   },
   {
     "name": "Travel Merchant District",
@@ -7765,7 +7769,9 @@
     "option_index": 0,
     "dest_x": 2678,
     "dest_y": 4715,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing uses an item"
   },
   {
     "name": "Misc items a -> b",
@@ -7778,7 +7784,9 @@
     "option_index": 0,
     "dest_x": 2806,
     "dest_y": 4715,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing uses an item"
   },
   {
     "name": "Misc items a -> b",
@@ -7791,7 +7799,9 @@
     "option_index": 0,
     "dest_x": 2761,
     "dest_y": 4692,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing uses an item"
   },
   {
     "name": "Misc items a -> b",
@@ -7817,7 +7827,9 @@
     "option_index": 0,
     "dest_x": 2741,
     "dest_y": 3235,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing uses an item"
   },
   {
     "name": "Misc items a -> b",
@@ -13643,7 +13655,9 @@
     "option_index": 0,
     "dest_x": 2945,
     "dest_y": 4286,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the teleport is an item"
   },
   {
     "name": "Jennica's ring",
@@ -13721,7 +13735,9 @@
     "option_index": 0,
     "dest_x": 2991,
     "dest_y": 3695,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the teleport is an item"
   },
   {
     "name": "Jennica's ring",
@@ -13747,7 +13763,9 @@
     "option_index": 0,
     "dest_x": 3232,
     "dest_y": 3736,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the teleport is an item"
   },
   {
     "name": "Jennica's ring",
@@ -14609,8 +14627,8 @@
   },
   {
     "name": "Boats",
-    "object_id": 50895,
-    "x": 3496,
+    "object_id": 6970,
+    "x": 3497,
     "y": 3378,
     "plane": 0,
     "shape": 10,
@@ -14748,7 +14766,9 @@
     "option_index": 0,
     "dest_x": 2213,
     "dest_y": 3794,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing starts at an NPC whose id and option are not in the row"
   },
   {
     "name": "Boats",
@@ -14865,7 +14885,9 @@
     "option_index": 0,
     "dest_x": 2356,
     "dest_y": 3641,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing starts at an NPC whose id and option are not in the row"
   },
   {
     "name": "Boats",
@@ -14891,7 +14913,9 @@
     "option_index": 0,
     "dest_x": 2802,
     "dest_y": 2759,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing starts at an NPC whose id and option are not in the row"
   },
   {
     "name": "Boats",
@@ -15008,7 +15032,9 @@
     "option_index": 0,
     "dest_x": 2368,
     "dest_y": 3485,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing starts at an NPC whose id and option are not in the row"
   },
   {
     "name": "Boats",
@@ -15034,7 +15060,9 @@
     "option_index": 0,
     "dest_x": 2802,
     "dest_y": 2756,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing starts at an NPC whose id and option are not in the row"
   },
   {
     "name": "Portmaster Kags",
@@ -20251,17 +20279,19 @@
     "option_index": 0,
     "dest_x": 2834,
     "dest_y": 2951,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing starts at an NPC whose id and option are not in the row"
   },
   {
     "name": "NPCs",
-    "object_id": 1184,
-    "x": 2833,
-    "y": 2955,
+    "object_id": 2265,
+    "x": 2832,
+    "y": 2953,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2776,
     "dest_y": 3214,
     "dest_plane": 0
@@ -20333,7 +20363,7 @@
   },
   {
     "name": "NPCs",
-    "object_id": 1864,
+    "object_id": 2216,
     "x": 2878,
     "y": 2950,
     "plane": 0,
@@ -20355,7 +20385,9 @@
     "option_index": 0,
     "dest_x": 3491,
     "dest_y": 3025,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing starts at an NPC whose id and option are not in the row"
   },
   {
     "name": "NPCs",
@@ -20472,7 +20504,9 @@
     "option_index": 0,
     "dest_x": 2393,
     "dest_y": 3466,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing starts at an NPC whose id and option are not in the row"
   },
   {
     "name": "NPCs",
@@ -20511,7 +20545,9 @@
     "option_index": 0,
     "dest_x": 3304,
     "dest_y": 3119,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing starts at an NPC whose id and option are not in the row"
   },
   {
     "name": "NPCs",
@@ -20524,7 +20560,9 @@
     "option_index": 0,
     "dest_x": 2880,
     "dest_y": 2952,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing starts at an NPC whose id and option are not in the row"
   },
   {
     "name": "NPCs",
@@ -20628,7 +20666,9 @@
     "option_index": 0,
     "dest_x": 2894,
     "dest_y": 2726,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc near the origin has an option; the crossing starts at an NPC whose id and option are not in the row"
   },
   {
     "name": "NPCs",
@@ -20645,9 +20685,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 2500,
-    "x": 2595,
-    "y": 3090,
+    "object_id": 2156,
+    "x": 2596,
+    "y": 3088,
     "plane": 2,
     "shape": 10,
     "rotation": 0,
@@ -20658,8 +20698,8 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 1019,
-    "x": 2588,
+    "object_id": 2157,
+    "x": 2589,
     "y": 3082,
     "plane": 2,
     "shape": 10,
@@ -20853,9 +20893,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 107976,
+    "object_id": 109364,
     "x": 3204,
-    "y": 2811,
+    "y": 2816,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -20892,16 +20932,18 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 107966,
-    "x": 3171,
-    "y": 2639,
+    "object_id": 109065,
+    "x": 3172,
+    "y": 2635,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
     "dest_x": 2078,
     "dest_y": 6923,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "loc 109065 (3x5 Shifting tombs) has no standable tile within 2 of its anchor, where the host looks for it"
   },
   {
     "name": "Interactive scenery",
@@ -21126,7 +21168,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 66874,
+    "object_id": 100255,
     "x": 3352,
     "y": 3147,
     "plane": 0,
@@ -21295,9 +21337,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 25836,
+    "object_id": 41338,
     "x": 1869,
-    "y": 4239,
+    "y": 4238,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -21412,13 +21454,13 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 45282,
+    "object_id": 118019,
     "x": 3202,
-    "y": 3167,
+    "y": 3168,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2452,
     "dest_y": 4473,
     "dest_plane": 0
@@ -21438,9 +21480,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 52564,
-    "x": 2463,
-    "y": 4435,
+    "object_id": 12045,
+    "x": 2464,
+    "y": 4434,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -21564,11 +21606,13 @@
     "option_index": 0,
     "dest_x": 1565,
     "dest_y": 4356,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Interactive scenery",
-    "object_id": 25636,
+    "object_id": 70795,
     "x": 1179,
     "y": 6355,
     "plane": 0,
@@ -21607,7 +21651,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 25636,
+    "object_id": 70797,
     "x": 1341,
     "y": 6379,
     "plane": 0,
@@ -21681,7 +21725,9 @@
     "option_index": 0,
     "dest_x": 1272,
     "dest_y": 4173,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Interactive scenery",
@@ -21828,7 +21874,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 3919,
+    "object_id": 3921,
     "x": 2219,
     "y": 3152,
     "plane": 0,
@@ -21841,9 +21887,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 3919,
+    "object_id": 3921,
     "x": 2214,
-    "y": 3156,
+    "y": 3155,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -21919,9 +21965,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 3886,
+    "object_id": 3998,
     "x": 2186,
-    "y": 3171,
+    "y": 3170,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -22036,7 +22082,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 1194,
+    "object_id": 3937,
     "x": 2301,
     "y": 3215,
     "plane": 0,
@@ -22049,7 +22095,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 1194,
+    "object_id": 3937,
     "x": 2301,
     "y": 3215,
     "plane": 0,
@@ -22075,7 +22121,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 3886,
+    "object_id": 3938,
     "x": 2301,
     "y": 3223,
     "plane": 0,
@@ -22166,9 +22212,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 76738,
-    "x": 2357,
-    "y": 3176,
+    "object_id": 20718,
+    "x": 2359,
+    "y": 3177,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -22179,8 +22225,8 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 121037,
-    "x": 3310,
+    "object_id": 26844,
+    "x": 3311,
     "y": 4818,
     "plane": 0,
     "shape": 10,
@@ -22283,9 +22329,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 1102,
-    "x": 3285,
-    "y": 3032,
+    "object_id": 2679,
+    "x": 3284,
+    "y": 3033,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -22387,7 +22433,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 6856,
+    "object_id": 6878,
     "x": 2456,
     "y": 3047,
     "plane": 0,
@@ -22435,7 +22481,9 @@
     "option_index": 0,
     "dest_x": 3493,
     "dest_y": 4832,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Interactive scenery",
@@ -22478,9 +22526,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 1390,
+    "object_id": 2460,
     "x": 2867,
-    "y": 3021,
+    "y": 3019,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -22856,8 +22904,8 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 4814,
-    "x": 2918,
+    "object_id": 12602,
+    "x": 2920,
     "y": 2721,
     "plane": 0,
     "shape": 10,
@@ -23021,7 +23069,9 @@
     "option_index": 0,
     "dest_x": 2760,
     "dest_y": 9389,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Interactive scenery",
@@ -23047,7 +23097,9 @@
     "option_index": 0,
     "dest_x": 2772,
     "dest_y": 9341,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Interactive scenery",
@@ -23337,7 +23389,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 1102,
+    "object_id": 4622,
     "x": 2206,
     "y": 4936,
     "plane": 0,
@@ -23467,9 +23519,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 346,
-    "x": 2761,
-    "y": 4678,
+    "object_id": 1530,
+    "x": 2762,
+    "y": 4677,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -23493,9 +23545,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 595,
-    "x": 2755,
-    "y": 4728,
+    "object_id": 1530,
+    "x": 2756,
+    "y": 4727,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -23636,7 +23688,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 22663,
+    "object_id": 22664,
     "x": 2705,
     "y": 5224,
     "plane": 3,
@@ -23818,9 +23870,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 25636,
-    "x": 2058,
-    "y": 6941,
+    "object_id": 109058,
+    "x": 2059,
+    "y": 6940,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -23857,9 +23909,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 25636,
-    "x": 2078,
-    "y": 6962,
+    "object_id": 109064,
+    "x": 2077,
+    "y": 6961,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -23918,7 +23970,9 @@
     "option_index": 0,
     "dest_x": 4080,
     "dest_y": 6550,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Interactive scenery",
@@ -23957,7 +24011,9 @@
     "option_index": 0,
     "dest_x": 3937,
     "dest_y": 6230,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Interactive scenery",
@@ -24117,8 +24173,8 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 25836,
-    "x": 1865,
+    "object_id": 25844,
+    "x": 1866,
     "y": 4243,
     "plane": 0,
     "shape": 10,
@@ -24325,9 +24381,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 44499,
+    "object_id": 23098,
     "x": 2270,
-    "y": 4838,
+    "y": 4837,
     "plane": 1,
     "shape": 10,
     "rotation": 0,
@@ -24347,7 +24403,9 @@
     "option_index": 0,
     "dest_x": 2652,
     "dest_y": 3365,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Interactive scenery",
@@ -24360,7 +24418,9 @@
     "option_index": 0,
     "dest_x": 5301,
     "dest_y": 2294,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Interactive scenery",
@@ -24386,7 +24446,9 @@
     "option_index": 0,
     "dest_x": 3378,
     "dest_y": 3444,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Interactive scenery",
@@ -24403,7 +24465,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 25636,
+    "object_id": 70799,
     "x": 1207,
     "y": 6506,
     "plane": 0,
@@ -24429,7 +24491,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 25636,
+    "object_id": 70796,
     "x": 1341,
     "y": 6487,
     "plane": 0,
@@ -24624,9 +24686,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 3919,
+    "object_id": 3921,
     "x": 2219,
-    "y": 3155,
+    "y": 3154,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -24637,7 +24699,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 3919,
+    "object_id": 3921,
     "x": 2214,
     "y": 3153,
     "plane": 0,
@@ -24767,7 +24829,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 3919,
+    "object_id": 3921,
     "x": 2284,
     "y": 3187,
     "plane": 0,
@@ -24832,7 +24894,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 1194,
+    "object_id": 3937,
     "x": 2301,
     "y": 3215,
     "plane": 0,
@@ -24858,7 +24920,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 3886,
+    "object_id": 3938,
     "x": 2301,
     "y": 3223,
     "plane": 0,
@@ -24871,7 +24933,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 3886,
+    "object_id": 3938,
     "x": 2301,
     "y": 3223,
     "plane": 0,
@@ -24923,8 +24985,8 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 105130,
-    "x": 2273,
+    "object_id": 3924,
+    "x": 2276,
     "y": 3262,
     "plane": 0,
     "shape": 10,
@@ -24962,8 +25024,8 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 121037,
-    "x": 3310,
+    "object_id": 26844,
+    "x": 3311,
     "y": 4818,
     "plane": 0,
     "shape": 10,
@@ -25014,7 +25076,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 62930,
+    "object_id": 2673,
     "x": 3272,
     "y": 3030,
     "plane": 0,
@@ -25053,9 +25115,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 1102,
-    "x": 3285,
-    "y": 3032,
+    "object_id": 2679,
+    "x": 3284,
+    "y": 3033,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -25118,7 +25180,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 6856,
+    "object_id": 6878,
     "x": 2456,
     "y": 3047,
     "plane": 0,
@@ -25184,9 +25246,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 38383,
+    "object_id": 2469,
     "x": 2575,
-    "y": 4848,
+    "y": 4847,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -25211,9 +25273,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 38355,
+    "object_id": 2473,
     "x": 2399,
-    "y": 4837,
+    "y": 4835,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -25315,9 +25377,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 38692,
+    "object_id": 38700,
     "x": 2813,
-    "y": 5512,
+    "y": 5510,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -25835,7 +25897,7 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 1102,
+    "object_id": 4622,
     "x": 2206,
     "y": 4936,
     "plane": 0,
@@ -25874,9 +25936,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 4651,
-    "x": 2210,
-    "y": 4946,
+    "object_id": 4620,
+    "x": 2211,
+    "y": 4943,
     "plane": 1,
     "shape": 10,
     "rotation": 0,
@@ -25913,9 +25975,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 724,
-    "x": 2776,
-    "y": 4682,
+    "object_id": 1746,
+    "x": 2778,
+    "y": 4683,
     "plane": 2,
     "shape": 10,
     "rotation": 0,
@@ -25926,9 +25988,9 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 890,
-    "x": 2759,
-    "y": 4682,
+    "object_id": 1530,
+    "x": 2760,
+    "y": 4683,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -25974,7 +26036,9 @@
     "option_index": 0,
     "dest_x": 2761,
     "dest_y": 4728,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Interactive scenery",
@@ -26837,9 +26901,9 @@
   },
   {
     "name": "Underground Pass",
-    "object_id": 91055,
-    "x": 2161,
-    "y": 4603,
+    "object_id": 3255,
+    "x": 2160,
+    "y": 4599,
     "plane": 1,
     "shape": 10,
     "rotation": 0,
@@ -26980,7 +27044,7 @@
   },
   {
     "name": "Underground Pass",
-    "object_id": 10002,
+    "object_id": 9788,
     "x": 1865,
     "y": 4641,
     "plane": 0,
@@ -26993,9 +27057,9 @@
   },
   {
     "name": "Underground Pass",
-    "object_id": 10008,
+    "object_id": 9787,
     "x": 1885,
-    "y": 4637,
+    "y": 4638,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -27578,8 +27642,8 @@
   },
   {
     "name": "Underground Pass",
-    "object_id": 91055,
-    "x": 2155,
+    "object_id": 3254,
+    "x": 2157,
     "y": 4724,
     "plane": 1,
     "shape": 10,
@@ -27773,9 +27837,9 @@
   },
   {
     "name": "Underground Pass",
-    "object_id": 91055,
+    "object_id": 3255,
     "x": 2160,
-    "y": 4596,
+    "y": 4598,
     "plane": 1,
     "shape": 10,
     "rotation": 0,
@@ -27916,7 +27980,7 @@
   },
   {
     "name": "Underground Pass",
-    "object_id": 10002,
+    "object_id": 9788,
     "x": 1865,
     "y": 4641,
     "plane": 0,
@@ -27929,9 +27993,9 @@
   },
   {
     "name": "Underground Pass",
-    "object_id": 10008,
+    "object_id": 9787,
     "x": 1885,
-    "y": 4637,
+    "y": 4638,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -27981,9 +28045,9 @@
   },
   {
     "name": "Abyss ",
-    "object_id": 7191,
+    "object_id": 7147,
     "x": 3027,
-    "y": 4852,
+    "y": 4850,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -27994,9 +28058,9 @@
   },
   {
     "name": "Abyss ",
-    "object_id": 7190,
+    "object_id": 7148,
     "x": 3037,
-    "y": 4857,
+    "y": 4854,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -28007,8 +28071,8 @@
   },
   {
     "name": "Abyss ",
-    "object_id": 7189,
-    "x": 3016,
+    "object_id": 7144,
+    "x": 3017,
     "y": 4822,
     "plane": 0,
     "shape": 10,
@@ -28020,9 +28084,9 @@
   },
   {
     "name": "Abyss ",
-    "object_id": 7189,
+    "object_id": 7153,
     "x": 3048,
-    "y": 4810,
+    "y": 4812,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -28033,9 +28097,9 @@
   },
   {
     "name": "Abyss ",
-    "object_id": 7191,
+    "object_id": 7149,
     "x": 3049,
-    "y": 4853,
+    "y": 4850,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -28450,8 +28514,8 @@
   },
   {
     "name": "Prifddinas and Max Guild interactive scenery",
-    "object_id": 3918,
-    "x": 2240,
+    "object_id": 92447,
+    "x": 2241,
     "y": 3251,
     "plane": 0,
     "shape": 10,
@@ -28463,9 +28527,9 @@
   },
   {
     "name": "Prifddinas and Max Guild interactive scenery",
-    "object_id": 3918,
+    "object_id": 92449,
     "x": 2317,
-    "y": 3328,
+    "y": 3329,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -28528,7 +28592,7 @@
   },
   {
     "name": "Temple of Light and Prifddinas Undercity (Instanced)",
-    "object_id": 31305,
+    "object_id": 46488,
     "x": 1962,
     "y": 4550,
     "plane": 0,
@@ -28541,7 +28605,7 @@
   },
   {
     "name": "Temple of Light and Prifddinas Undercity (Instanced)",
-    "object_id": 31305,
+    "object_id": 46488,
     "x": 4781,
     "y": 6428,
     "plane": 0,
@@ -28632,8 +28696,8 @@
   },
   {
     "name": "Temple of Light and Prifddinas Undercity (Instanced)",
-    "object_id": 66811,
-    "x": 4666,
+    "object_id": 91891,
+    "x": 4668,
     "y": 6485,
     "plane": 0,
     "shape": 10,
@@ -28658,7 +28722,7 @@
   },
   {
     "name": "Temple of Light and Prifddinas Undercity (Instanced)",
-    "object_id": 31305,
+    "object_id": 46488,
     "x": 1943,
     "y": 4579,
     "plane": 0,
@@ -28671,7 +28735,7 @@
   },
   {
     "name": "Temple of Light and Prifddinas Undercity (Instanced)",
-    "object_id": 31305,
+    "object_id": 46488,
     "x": 1943,
     "y": 4579,
     "plane": 0,
@@ -29238,7 +29302,9 @@
         "id": 33386,
         "value": 1
       }
-    }
+    },
+    "disabled": true,
+    "disabled_reason": "loc 65625 (the level-27 obelisk) has no options, and no loc near it has one"
   },
   {
     "name": "Wilderness obelisk (level 27 to level 18)",
@@ -29284,7 +29350,9 @@
         "id": 33386,
         "value": 1
       }
-    }
+    },
+    "disabled": true,
+    "disabled_reason": "loc 65625 (the level-27 obelisk) has no options, and no loc near it has one"
   },
   {
     "name": "Wilderness obelisk (level 27 to level 35)",
@@ -29330,7 +29398,9 @@
         "id": 33386,
         "value": 1
       }
-    }
+    },
+    "disabled": true,
+    "disabled_reason": "loc 65625 (the level-27 obelisk) has no options, and no loc near it has one"
   },
   {
     "name": "Wilderness obelisk (level 27 to level 44)",
@@ -29376,7 +29446,9 @@
         "id": 33386,
         "value": 1
       }
-    }
+    },
+    "disabled": true,
+    "disabled_reason": "loc 65625 (the level-27 obelisk) has no options, and no loc near it has one"
   },
   {
     "name": "Wilderness obelisk (level 27 to level 50)",
@@ -29422,7 +29494,9 @@
         "id": 33386,
         "value": 1
       }
-    }
+    },
+    "disabled": true,
+    "disabled_reason": "loc 65625 (the level-27 obelisk) has no options, and no loc near it has one"
   },
   {
     "name": "Wilderness obelisk (level 35 to level 13)",
@@ -30116,9 +30190,9 @@
   },
   {
     "name": "Poison Waste Islands",
-    "object_id": 3974,
-    "x": 2297,
-    "y": 3113,
+    "object_id": 91974,
+    "x": 2296,
+    "y": 3114,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -30129,7 +30203,7 @@
   },
   {
     "name": "Poison Waste Islands",
-    "object_id": 3967,
+    "object_id": 91974,
     "x": 2298,
     "y": 3103,
     "plane": 0,
@@ -30233,9 +30307,9 @@
   },
   {
     "name": "Poison Waste Islands",
-    "object_id": 3967,
-    "x": 2245,
-    "y": 3103,
+    "object_id": 91975,
+    "x": 2246,
+    "y": 3104,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -30506,9 +30580,9 @@
   },
   {
     "name": "Poison Waste Islands",
-    "object_id": 3968,
+    "object_id": 91976,
     "x": 2243,
-    "y": 3118,
+    "y": 3117,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -30532,7 +30606,7 @@
   },
   {
     "name": "Poison Waste Islands",
-    "object_id": 3971,
+    "object_id": 91975,
     "x": 2295,
     "y": 3110,
     "plane": 0,
@@ -30766,9 +30840,9 @@
   },
   {
     "name": "Poison Waste Islands",
-    "object_id": 3967,
-    "x": 2205,
-    "y": 3113,
+    "object_id": 91976,
+    "x": 2204,
+    "y": 3112,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -30792,8 +30866,8 @@
   },
   {
     "name": "Poison Waste Islands",
-    "object_id": 3973,
-    "x": 2180,
+    "object_id": 91972,
+    "x": 2181,
     "y": 3108,
     "plane": 0,
     "shape": 10,
@@ -30805,9 +30879,9 @@
   },
   {
     "name": "Poison Waste Islands",
-    "object_id": 3967,
+    "object_id": 91973,
     "x": 2197,
-    "y": 3107,
+    "y": 3106,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -31039,8 +31113,8 @@
   },
   {
     "name": "Resource Dungeons",
-    "object_id": 8729,
-    "x": 2128,
+    "object_id": 9161,
+    "x": 2126,
     "y": 5147,
     "plane": 0,
     "shape": 10,
@@ -31221,7 +31295,7 @@
   },
   {
     "name": "Resource Dungeons",
-    "object_id": 25636,
+    "object_id": 52867,
     "x": 991,
     "y": 4586,
     "plane": 0,
@@ -31234,7 +31308,7 @@
   },
   {
     "name": "Resource Dungeons",
-    "object_id": 25636,
+    "object_id": 52864,
     "x": 1040,
     "y": 4575,
     "plane": 0,
@@ -31247,7 +31321,7 @@
   },
   {
     "name": "Resource Dungeons",
-    "object_id": 25636,
+    "object_id": 52868,
     "x": 1134,
     "y": 4590,
     "plane": 0,
@@ -31260,7 +31334,7 @@
   },
   {
     "name": "Resource Dungeons",
-    "object_id": 25636,
+    "object_id": 52869,
     "x": 1186,
     "y": 4599,
     "plane": 0,
@@ -31273,7 +31347,7 @@
   },
   {
     "name": "Resource Dungeons",
-    "object_id": 121037,
+    "object_id": 52862,
     "x": 3496,
     "y": 3635,
     "plane": 0,
@@ -31286,7 +31360,7 @@
   },
   {
     "name": "Resource Dungeons",
-    "object_id": 25636,
+    "object_id": 52873,
     "x": 1256,
     "y": 4593,
     "plane": 0,
@@ -31299,7 +31373,7 @@
   },
   {
     "name": "Resource Dungeons",
-    "object_id": 25636,
+    "object_id": 52866,
     "x": 1052,
     "y": 4522,
     "plane": 0,
@@ -31325,7 +31399,7 @@
   },
   {
     "name": "Resource Dungeons",
-    "object_id": 25636,
+    "object_id": 52870,
     "x": 1395,
     "y": 4587,
     "plane": 0,
@@ -31351,7 +31425,7 @@
   },
   {
     "name": "Resource Dungeons",
-    "object_id": 25636,
+    "object_id": 52876,
     "x": 1312,
     "y": 4591,
     "plane": 0,
@@ -31377,7 +31451,7 @@
   },
   {
     "name": "Resource Dungeons",
-    "object_id": 25636,
+    "object_id": 52874,
     "x": 1238,
     "y": 4525,
     "plane": 0,
@@ -31390,7 +31464,7 @@
   },
   {
     "name": "Resource Dungeons",
-    "object_id": 25636,
+    "object_id": 52872,
     "x": 1181,
     "y": 4516,
     "plane": 0,
@@ -31429,7 +31503,7 @@
   },
   {
     "name": "Resource Dungeons",
-    "object_id": 25636,
+    "object_id": 52875,
     "x": 1296,
     "y": 4510,
     "plane": 0,
@@ -31442,7 +31516,7 @@
   },
   {
     "name": "Resource Dungeons",
-    "object_id": 25636,
+    "object_id": 67217,
     "x": 1295,
     "y": 1285,
     "plane": 0,
@@ -31520,9 +31594,9 @@
   },
   {
     "name": "Wilderness wall (action = Cross)",
-    "object_id": 65148,
-    "x": 2945,
-    "y": 3518,
+    "object_id": 65080,
+    "x": 2946,
+    "y": 3520,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -31585,9 +31659,9 @@
   },
   {
     "name": "Wilderness wall (action = Cross)",
-    "object_id": 131347,
+    "object_id": 65086,
     "x": 2956,
-    "y": 3519,
+    "y": 3520,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -31611,9 +31685,9 @@
   },
   {
     "name": "Wilderness wall (action = Cross)",
-    "object_id": 65150,
+    "object_id": 65087,
     "x": 2986,
-    "y": 3518,
+    "y": 3520,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -31637,9 +31711,9 @@
   },
   {
     "name": "Wilderness wall (action = Cross)",
-    "object_id": 27006,
-    "x": 3067,
-    "y": 3518,
+    "object_id": 65078,
+    "x": 3068,
+    "y": 3520,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -31650,9 +31724,9 @@
   },
   {
     "name": "Wilderness wall (action = Cross)",
-    "object_id": 65149,
-    "x": 3047,
-    "y": 3519,
+    "object_id": 65080,
+    "x": 3048,
+    "y": 3520,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -31676,9 +31750,9 @@
   },
   {
     "name": "Wilderness wall (action = Cross)",
-    "object_id": 26963,
+    "object_id": 65083,
     "x": 3066,
-    "y": 3518,
+    "y": 3520,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -31793,9 +31867,9 @@
   },
   {
     "name": "Wilderness wall (action = Cross)",
-    "object_id": 135623,
-    "x": 3070,
-    "y": 3518,
+    "object_id": 65084,
+    "x": 3071,
+    "y": 3520,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -32248,9 +32322,9 @@
   },
   {
     "name": "Wilderness wall (action = Cross)",
-    "object_id": 65148,
-    "x": 3272,
-    "y": 3519,
+    "object_id": 65084,
+    "x": 3273,
+    "y": 3520,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -32352,9 +32426,9 @@
   },
   {
     "name": "Wilderness wall (action = Cross)",
-    "object_id": 3795,
+    "object_id": 65080,
     "x": 2946,
-    "y": 3525,
+    "y": 3522,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -34848,7 +34922,7 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 66874,
+    "object_id": 66533,
     "x": 2876,
     "y": 3573,
     "plane": 0,
@@ -34974,7 +35048,9 @@
     "option_index": 0,
     "dest_x": 2806,
     "dest_y": 9591,
-    "dest_plane": 3
+    "dest_plane": 3,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Dungeon entrances",
@@ -35004,8 +35080,8 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 1390,
-    "x": 2948,
+    "object_id": 12328,
+    "x": 2947,
     "y": 2955,
     "plane": 0,
     "shape": 10,
@@ -35136,7 +35212,7 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 6325,
+    "object_id": 34978,
     "x": 3491,
     "y": 3088,
     "plane": 0,
@@ -35682,8 +35758,8 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 724,
-    "x": 2550,
+    "object_id": 2809,
+    "x": 2552,
     "y": 3034,
     "plane": 0,
     "shape": 10,
@@ -35734,7 +35810,7 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 2836,
+    "object_id": 2811,
     "x": 2498,
     "y": 2990,
     "plane": 0,
@@ -35747,9 +35823,9 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 1301,
-    "x": 2504,
-    "y": 3042,
+    "object_id": 2804,
+    "x": 2505,
+    "y": 3038,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -35873,7 +35949,9 @@
     "option_index": 0,
     "dest_x": 2162,
     "dest_y": 5114,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Dungeon entrances",
@@ -35886,7 +35964,9 @@
     "option_index": 0,
     "dest_x": 3682,
     "dest_y": 9961,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "the nearest loc with an option is a swamp tree (Chop down)"
   },
   {
     "name": "Dungeon entrances",
@@ -35951,7 +36031,9 @@
     "option_index": 0,
     "dest_x": 3500,
     "dest_y": 9811,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Dungeon entrances",
@@ -36059,8 +36141,8 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 5332,
-    "x": 3494,
+    "object_id": 59921,
+    "x": 3495,
     "y": 3203,
     "plane": 0,
     "shape": 10,
@@ -36250,7 +36332,9 @@
     "option_index": 0,
     "dest_x": 1267,
     "dest_y": 5935,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Dungeon entrances",
@@ -36345,9 +36429,9 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 15769,
-    "x": 3747,
-    "y": 2973,
+    "object_id": 15767,
+    "x": 3748,
+    "y": 2972,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -36371,8 +36455,8 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 61468,
-    "x": 3812,
+    "object_id": 15791,
+    "x": 3813,
     "y": 3061,
     "plane": 0,
     "shape": 10,
@@ -36436,13 +36520,13 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 63062,
+    "object_id": 56886,
     "x": 3235,
-    "y": 3067,
+    "y": 3066,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3564,
     "dest_y": 9501,
     "dest_plane": 0
@@ -36471,7 +36555,9 @@
     "option_index": 0,
     "dest_x": 3349,
     "dest_y": 9536,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Dungeon entrances",
@@ -36501,7 +36587,7 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 6325,
+    "object_id": 34978,
     "x": 3491,
     "y": 3088,
     "plane": 0,
@@ -36722,9 +36808,9 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 63060,
-    "x": 3192,
-    "y": 2928,
+    "object_id": 11046,
+    "x": 3193,
+    "y": 2926,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -36761,7 +36847,7 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 3795,
+    "object_id": 34395,
     "x": 2846,
     "y": 3687,
     "plane": 0,
@@ -36835,7 +36921,9 @@
     "option_index": 0,
     "dest_x": 2772,
     "dest_y": 10231,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Dungeon entrances",
@@ -36865,9 +36953,9 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 44105,
-    "x": 2837,
-    "y": 3852,
+    "object_id": 44208,
+    "x": 2838,
+    "y": 3854,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -36957,7 +37045,7 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 34662,
+    "object_id": 5008,
     "x": 2730,
     "y": 3712,
     "plane": 0,
@@ -37100,9 +37188,9 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 65724,
-    "x": 2206,
-    "y": 4368,
+    "object_id": 66534,
+    "x": 2207,
+    "y": 4363,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -37113,9 +37201,9 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 79154,
+    "object_id": 66533,
     "x": 2876,
-    "y": 3570,
+    "y": 3573,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -37945,8 +38033,8 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 724,
-    "x": 2550,
+    "object_id": 2809,
+    "x": 2552,
     "y": 3034,
     "plane": 0,
     "shape": 10,
@@ -37980,11 +38068,13 @@
     "option_index": 0,
     "dest_x": 2530,
     "dest_y": 9414,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 2732,
+    "object_id": 2812,
     "x": 2574,
     "y": 3030,
     "plane": 0,
@@ -38140,7 +38230,7 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 1198,
+    "object_id": 3526,
     "x": 2272,
     "y": 5334,
     "plane": 1,
@@ -38435,7 +38525,9 @@
     "option_index": 0,
     "dest_x": 3420,
     "dest_y": 9510,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Dungeon entrances",
@@ -38487,7 +38579,9 @@
     "option_index": 0,
     "dest_x": 3349,
     "dest_y": 9535,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "no loc within 4 tiles of the origin has an option that makes this crossing"
   },
   {
     "name": "Dungeon entrances",
@@ -38673,7 +38767,7 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 486,
+    "object_id": 5043,
     "x": 2839,
     "y": 3739,
     "plane": 0,
@@ -38686,7 +38780,7 @@
   },
   {
     "name": "Dungeon entrances",
-    "object_id": 486,
+    "object_id": 5043,
     "x": 2839,
     "y": 3739,
     "plane": 0,
@@ -38735,7 +38829,9 @@
     "global": true,
     "dest_x": 2832,
     "dest_y": 3844,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "the only loc near it is a floor tile trap (Lift), not this crossing"
   },
   {
     "name": "Dungeon entrances",
