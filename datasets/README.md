@@ -94,6 +94,35 @@ transition's cost in the planner's units, where a tile of walking costs about
 as a fare. A `wait` would tell the planner the same thing but make the bot
 actually stand still for it.
 
+## Op check
+
+A row's `option_index` must name an option its origin has: for a loc row, an
+option of `object_id` or of a loc it morphs into; for an `npc` row, an option
+of an NPC in `[first_id, last_id]` or of one it morphs into. A row that fails
+clicks nothing, and the planner keeps choosing it anyway. Members-only options
+count (`members_action_N` on a loc, `members_actions` on an NPC).
+
+`wwbuild` checks every enabled transport row against the loc and NPC
+definitions in a checkout of rs3-cs2-dumps (`locations.json`, `npcs.json`),
+which `bake.ps1` finds at `..\rs3-cs2-dumps` or takes from `-OpDefs`:
+
+- `wwbuild build ... --op-defs <dir>` drops the failing rows and lists them by
+  family. Without `--op-defs` the check is skipped and the bake says so.
+- `--strict-ops` (`bake.ps1 -StrictOps`) fails the bake instead.
+- `wwbuild opcheck <dataset_dir> <defs_dir>` runs the check alone in about a
+  second, with no cache, and exits 1 on any failing row. Run it on every
+  change to `transport_links.json`.
+
+An id the export does not know is kept and counted as unverified: an export
+older than the cache is no evidence that the option is missing. A row naming
+`object_id` 0 is not checked; the bake drops it as naming no loc.
+
+The definitions come from the export and not from the cache the bake reads,
+because NXTCacheLibrary's decoder currently loses every loc and NPC morph
+table (and decodes some locs, such as ladder 5492, to defaults), and 89
+enabled rows are valid only through a morph: 50 of them are spirit-tree
+patches, which gain `Teleport` only once grown.
+
 ## Charter ships
 
 A charter row starts at a Trader Crewmember (`npc`, op 0 `Charter`). Its chain

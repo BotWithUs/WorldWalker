@@ -527,6 +527,7 @@ namespace ww::data
                 }
                 Transition t;
                 t.kind = TransitionKind::Transport;
+                t.label = e.value("name", std::string{});
                 t.originX = readRequiredInt(e, "x", "transport_links");
                 t.originY = readRequiredInt(e, "y", "transport_links");
                 t.originPlane = readPlane(e, "plane", "transport_links");

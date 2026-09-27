@@ -156,6 +156,7 @@ sources = [
     # so listing it again would double-compile it. Add new src/data files here.
     "src/data/CrossingDeriver.cpp",
     "src/data/FreshnessDeriver.cpp",
+    "src/data/OpCheck.cpp",
     "src/data/TeleportZones.cpp",
     "src/data/TransitionBuilder.cpp",
 ]

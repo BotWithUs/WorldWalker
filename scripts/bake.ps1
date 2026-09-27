@@ -68,7 +68,18 @@ param(
     # takes a flag rather than happening on every scratch bake. The sidecar that
     # lands beside the artifact in build\ is gitignored like everything else
     # there; artifacts\ is the only copy git tracks.
-    [string] $ReleaseTag = ""
+    [string] $ReleaseTag = "",
+
+    # Loc and NPC definitions for the op check (a checkout of rs3-cs2-dumps:
+    # locations.json + npcs.json). Defaults to ..\rs3-cs2-dumps beside the repo.
+    # With it, the bake drops every transport row whose loc or NPC lacks the
+    # option it clicks, and prints them by family. Without it the check is
+    # skipped and says so.
+    [string] $OpDefs = "",
+
+    # Fail the bake on a row the op check would drop, instead of dropping it.
+    # For reviewing a dataset change; `wwbuild opcheck` does the same in seconds.
+    [switch] $StrictOps
 )
 
 $ErrorActionPreference = "Stop"
@@ -77,6 +88,7 @@ $RepoRoot = Split-Path -Parent $PSScriptRoot
 if (-not $CacheDir)   { $CacheDir   = Join-Path $env:ProgramData "Jagex\RuneScape" }
 if (-not $Out)        { $Out        = Join-Path $RepoRoot "build\worldwalker.wwa" }
 if (-not $DatasetDir) { $DatasetDir = Join-Path $RepoRoot "datasets" }
+if (-not $OpDefs)     { $OpDefs     = Join-Path (Split-Path -Parent $RepoRoot) "rs3-cs2-dumps" }
 
 $BuildDir = Join-Path $RepoRoot "build\Release"
 $WwBuild  = Join-Path $BuildDir "wwbuild.exe"
@@ -190,6 +202,13 @@ $bakeArgs = @("build", $CacheDir, $DatasetDir, $Out)
 if ($isLive) { $bakeArgs += "--live" }
 if ($sourceVersion)  { $bakeArgs += @("--source-version", $sourceVersion) }
 if ($datasetVersion) { $bakeArgs += @("--dataset-version", $datasetVersion) }
+$hasOpDefs = Test-Path (Join-Path $OpDefs "locations.json")
+if ($hasOpDefs) {
+    $bakeArgs += @("--op-defs", $OpDefs)
+    if ($StrictOps) { $bakeArgs += "--strict-ops" }
+} elseif ($StrictOps) {
+    Fail "-StrictOps needs the op-check definitions, and $OpDefs has no locations.json" 2
+}
 
 Write-Step "Baking $Out"
 Write-Host "    cache:    $CacheDir ($jcacheCount js5-*.jcache present)"
@@ -205,6 +224,7 @@ if ($isLive) {
 }
 Write-Host "    source:   $(if ($sourceVersion) { $sourceVersion } else { '(unrecorded)' })"
 Write-Host "    datasets: $DatasetDir @ $(if ($datasetVersion) { $datasetVersion } else { '(unrecorded)' })"
+Write-Host "    op defs:  $(if ($hasOpDefs) { $OpDefs } else { "(none at $OpDefs -- op check skipped)" })"
 
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 & $WwBuild @bakeArgs

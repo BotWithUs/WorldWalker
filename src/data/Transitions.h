@@ -2,6 +2,7 @@
 #define WORLDWALKER_DATA_TRANSITIONS_H
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 // In-memory transition model used while building the artifact. This is the
@@ -177,6 +178,10 @@ namespace ww::data
 
         std::vector<Requirement> requirements;
         std::vector<ChainStep> chain;
+
+        // The dataset row's `name` (its family, e.g. "Magic carpet network"),
+        // for bake reports only. Never baked.
+        std::string label;
     };
 
     struct TransitionModel

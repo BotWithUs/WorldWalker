@@ -8,6 +8,7 @@
 #include "data/CrossingDeriver.h"
 #include "data/DatasetLoader.h"
 #include "data/FreshnessDeriver.h"
+#include "data/OpCheck.h"
 #include "data/TeleportZones.h"
 #include "data/TransitionBuilder.h"
 #include "data/Transitions.h"
@@ -22,6 +23,7 @@
 #include <filesystem>
 #include <string>
 #include <system_error>
+#include <utility>
 
 // wwbuild — WorldWalker's offline artifact builder. Decodes the RS cache and
 // datasets into the baked artifact the runtime planner loads. `collision` bakes
@@ -39,12 +41,16 @@ namespace
         std::printf("usage:\n");
         std::printf("  wwbuild collision <cache_dir> <out.wwa> [options]\n");
         std::printf("  wwbuild build <cache_dir> <dataset_dir> <out.wwa> [options]\n");
+        std::printf("  wwbuild opcheck <dataset_dir> <defs_dir>\n");
         std::printf("options:\n");
         std::printf("  --live                      complete missing cache data from the live JS5 servers\n");
         std::printf("  --allow-missing-datasets    bake even when the dataset dir holds none of them\n");
         std::printf("  --source-version <v>        record this as the WorldWalker revision baked from\n");
         std::printf("  --dataset-version <v>       record this as the datasets/ revision baked from\n");
         std::printf("  --no-sidecar                skip writing <out.wwa>.json beside the artifact\n");
+        std::printf("  --op-defs <dir>             drop transport rows whose loc/NPC lacks the option they\n");
+        std::printf("                              click (<dir>: rs3-cs2-dumps locations.json + npcs.json)\n");
+        std::printf("  --strict-ops                with --op-defs, fail the bake on such a row instead\n");
         return 2;
     }
 
@@ -56,6 +62,10 @@ namespace
         bool isLive{false};
         bool allowMissingDatasets{false};
         bool writeSidecar{true};
+        // Where the loc/NPC definitions for the op check live; empty skips it.
+        std::string opDefsDir;
+        // Fail the bake on a row the op check would drop, rather than drop it.
+        bool isStrictOps{false};
         // Recorded verbatim into the provenance section. wwbuild does not shell
         // out to git to discover them: a build tool guessing at its own version
         // is how a wrong answer gets recorded confidently. The caller knows
@@ -93,6 +103,17 @@ namespace
             else if (std::strcmp(argv[i], "--no-sidecar") == 0)
             {
                 outFlags.writeSidecar = false;
+            }
+            else if (std::strcmp(argv[i], "--strict-ops") == 0)
+            {
+                outFlags.isStrictOps = true;
+            }
+            else if (std::strcmp(argv[i], "--op-defs") == 0)
+            {
+                if (!takeValue(argc, argv, i, "--op-defs", outFlags.opDefsDir))
+                {
+                    return false;
+                }
             }
             else if (std::strcmp(argv[i], "--source-version") == 0)
             {
@@ -395,6 +416,56 @@ namespace
                     static_cast<unsigned>(teleportZones.defaultWildernessCutoff));
     }
 
+    // The op check, when --op-defs names the definitions: drops the transport
+    // rows whose origin lacks the option they click from `ioDatasets`, before
+    // the cache is decoded, so a strict failure costs seconds rather than the
+    // whole bake. Returns false when --strict-ops refuses the datasets.
+    bool applyOpCheck(const BuildFlags &flags, ww::data::LoadedDatasets &ioDatasets)
+    {
+        if (flags.opDefsDir.empty())
+        {
+            std::printf("  op check: skipped (pass --op-defs <rs3-cs2-dumps dir> to run it)\n");
+            return true;
+        }
+        const ww::data::OpTable table = ww::data::loadOpTable(flags.opDefsDir);
+        ww::data::OpCheckReport report;
+        ww::data::TransitionModel kept = ww::data::dropInvalidOps(ioDatasets.model, table, &report);
+        ww::data::printOpCheckReport(report);
+        if (flags.isStrictOps && report.dropped > 0)
+        {
+            std::fprintf(stderr, "wwbuild build: %zu transport row(s) click an option their "
+                                 "origin lacks (--strict-ops)\n", report.dropped);
+            return false;
+        }
+        ioDatasets.model = std::move(kept);
+        return true;
+    }
+
+    // `wwbuild opcheck <dataset_dir> <defs_dir>`: the op check alone, with no
+    // cache decode, for reviewing a dataset change in seconds. Exits 1 when any
+    // enabled row clicks an option its origin lacks.
+    int runOpCheck(int argc, char **argv)
+    {
+        if (argc < 4)
+        {
+            return usage();
+        }
+        try
+        {
+            const ww::data::LoadedDatasets datasets = ww::data::loadDatasets(argv[2]);
+            const ww::data::OpTable table = ww::data::loadOpTable(argv[3]);
+            ww::data::OpCheckReport report;
+            (void)ww::data::dropInvalidOps(datasets.model, table, &report);
+            ww::data::printOpCheckReport(report);
+            return report.dropped > 0 ? 1 : 0;
+        }
+        catch (const std::exception &e)
+        {
+            std::fprintf(stderr, "wwbuild opcheck failed: %s\n", e.what());
+            return 1;
+        }
+    }
+
     int runBuild(int argc, char **argv)
     {
         if (argc < 5)
@@ -416,13 +487,17 @@ namespace
             // time (the in-tree set has no teleport_chains.json), but a directory with
             // none of them is a typo, and baking on regardless yields a valid artifact
             // that walks nowhere, so that is refused unless the caller opted in.
-            const ww::data::LoadedDatasets datasets = ww::data::loadDatasets(datasetDir);
+            ww::data::LoadedDatasets datasets = ww::data::loadDatasets(datasetDir);
             if (datasets.filesFound == 0 && !flags.allowMissingDatasets)
             {
                 std::fprintf(stderr,
                              "wwbuild build: no dataset files found under %s "
                              "(pass --allow-missing-datasets to bake without them)\n",
                              datasetDir.c_str());
+                return 1;
+            }
+            if (!applyOpCheck(flags, datasets))
+            {
                 return 1;
             }
             ww::build::CacheClient cache(cacheDir, flags.isLive);
@@ -495,6 +570,10 @@ int main(int argc, char **argv)
     if (std::strcmp(argv[1], "build") == 0)
     {
         return runBuild(argc, argv);
+    }
+    if (std::strcmp(argv[1], "opcheck") == 0)
+    {
+        return runOpCheck(argc, argv);
     }
     if (std::strcmp(argv[1], "crossings") == 0)
     {
