@@ -588,6 +588,34 @@ row to Burthorpe (2893,3567,0) though it climbs to the games room's plane
 staircase at 2776,4683,0 has no up row (the deriver does not pair it, since
 1740 above it is anchored a tile away).
 
+## Tree Gnome Stronghold east stile (2026-09-27)
+
+The two rows on loc 91457 (`GNOME_AREA_IMP_FENCE_STYLE`, "Stile", op 0
+`Climb over`, anchored at 2496,3414) cross the Stronghold's east fence
+between 2497,3414 and 2495,3414. The loc has no morph and no clientscript
+reads it, so whatever lock it has is the server's.
+
+Live on 2026-09-27 an account with neither The Grand Tree nor Tree Gnome
+Village was walked from east of the fence (2494,3437) to Blurberry's Bar.
+Each of seven tries clicked the stile, got a plain message box (1186
+`MESBOX_V2`, continued twice), and stayed east. The executor took that as a
+landing, because the far side is two tiles from the click and inside
+`kLandingSlack`, so it never excluded the stile: the next walk, to
+2484,3444, went STUCK, the re-plan chose the stile again, and the walk
+FAILED.
+
+Both rows now need varp 2661 >= 9 and varp 2740 >= 160, the spirit trees'
+gate. That is a guess bounded by the evidence, not a known requirement: the
+refusal only proves that an account without either quest is turned away,
+and the message text, which would name the requirement, is not in any dump.
+The host supplies both varps, so the gate is read live. An account without
+them enters by the main gate, loc 68983 (`GNOME_AREA_IMP_GATE`, op 0 `Open`)
+at 2459,3383, whose rows 2460,3382 <-> 2461,3385 carry no gate.
+
+**Not verified:** that the stile opens for an account with both quests. If
+one is still refused, read the message box's text and gate on what it names.
+The other two stiles on the same loc (2368,3425 and 2380,3467) have no rows.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a

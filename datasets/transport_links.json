@@ -2866,7 +2866,19 @@
     "option_index": 0,
     "dest_x": 2495,
     "dest_y": 3414,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Climb over",
@@ -2879,7 +2891,19 @@
     "option_index": 0,
     "dest_x": 2497,
     "dest_y": 3414,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Climb",
