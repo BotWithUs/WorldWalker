@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -79,7 +80,11 @@ namespace ww::exec
     // any distance slack. One that missed, like a failed agility jump into a
     // pit or a gate that turns the player away, is excluded and re-planned
     // around on a reroute budget of its own rather than the stuck-recovery
-    // budget.
+    // budget. A same-floor crossing whose loc was missing is walked on through
+    // as an open door; when the walk after it stalls with the player still on
+    // the near side, nothing was open (a gate that needs an item, a loc the
+    // host cannot see from the row's origin), and the crossing is handled as
+    // a missing loc: excluded with its loc's rows and re-planned around.
     //
     // The pool borrow is held across the loop so re-plans reuse the same
     // SearchContext without re-entering the blocking acquire path.
@@ -102,6 +107,14 @@ namespace ww::exec
         WwStatus run(WwGoal goal);
 
     private:
+        // A same-floor crossing skipped as an open door: its transition and
+        // where the player stood when it was skipped.
+        struct SkippedCrossing
+        {
+            uint32_t transitionIndex{0};
+            WwTile   from{};
+        };
+
         // What one run knows between steps: the last sampled position, how
         // much of the re-plan budget is spent, and whether global teleports
         // were allowed when last checked, by tile and by combat state (so a
@@ -116,15 +129,22 @@ namespace ww::exec
             // missing or that landed off course, with every other transition
             // from that loc and origin. Every (re-)plan excludes them.
             std::vector<uint32_t> excludedTransitions;
+            // The same-floor crossing the previous step skipped because its
+            // loc was missing, and the tile it was skipped from; only the step
+            // right after the skip consults it (see isStalledBehindSkip()).
+            std::optional<SkippedCrossing> skippedCrossing;
         };
 
         // What a step learned beyond its status: a Transition that did not put
-        // the player across it (isOffCourse, see hasMissedLanding()), or one that
-        // failed because the host could not find its loc (isLocMissing).
+        // the player across it (isOffCourse, see hasMissedLanding()), one that
+        // failed because the host could not find its loc (isLocMissing), or a
+        // same-floor crossing walked on through because its loc was missing
+        // (isCrossingSkipped).
         struct StepReport
         {
             bool isOffCourse{false};
             bool isLocMissing{false};
+            bool isCrossingSkipped{false};
         };
 
         // Outcome of one in-loop re-plan: the plan was rebuilt and the step
@@ -354,6 +374,23 @@ namespace ww::exec
         // crossing is under way, so that is not the near side.
         static bool isOnNearSide(const format::TransitionRecord &tx, const WwTile &start,
                                  const WwTile &at);
+
+        // After a same-floor crossing was skipped from `from` as an open door
+        // and the walk beyond it stalled at `at`: whether the player is still
+        // on the side they skipped it from, so the crossing was not open. By
+        // area where the baked grid can tell (`at` in `from`'s area and not
+        // the destination's), else by distance (isOnNearSide). A player who
+        // got through and stalled further on is not held back by it.
+        static bool isHeldBackBy(const format::TransitionRecord &tx, const WwTile &from,
+                                 const WwTile &at, runtime::WorldView &view);
+
+        // Whether `step`, which failed with the player at `at`, is a walk that
+        // stalled right after `skipped` was skipped, held back by it: the
+        // crossing was never open and is as missing as a loc the host cannot
+        // find. False with no skip, and for a failed Transition.
+        bool isStalledBehindSkip(const std::optional<SkippedCrossing> &skipped,
+                                 const runtime::Step &step, const WwTile &at,
+                                 runtime::WorldView &view) const;
 
         // Whether a transition that acted, clicked from `start`, did not put
         // the player across it at `at`. Off course by distance always counts

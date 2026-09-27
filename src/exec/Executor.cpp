@@ -14,6 +14,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <optional>
+#include <utility>
 
 namespace ww::exec
 {
@@ -494,6 +496,7 @@ namespace ww::exec
                 return WwStatus::Failed;
             }
             hasIssuedAction = outcome == LocInteract::Issued;
+            outReport.isCrossingSkipped = outcome == LocInteract::SkippedOpenCrossing;
         }
         else
         {
@@ -706,6 +709,37 @@ namespace ww::exec
     {
         const WwTile dest{ tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane) };
         return chebyshev(at, start) < chebyshev(at, dest);
+    }
+
+    bool Executor::isHeldBackBy(const format::TransitionRecord &tx, const WwTile &from,
+                                const WwTile &at, runtime::WorldView &view)
+    {
+        if (!view.isInstanced())
+        {
+            const int32_t fromArea = view.areaAt(from.x, from.y, from.plane);
+            const int32_t destArea =
+                view.areaAt(tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane));
+            const int32_t atArea = view.areaAt(at.x, at.y, at.plane);
+            const bool isDecidable = fromArea >= 0 && destArea >= 0 && atArea >= 0
+                                  && fromArea != destArea;
+            if (isDecidable)
+            {
+                return atArea == fromArea;
+            }
+        }
+        return isOnNearSide(tx, from, at);
+    }
+
+    bool Executor::isStalledBehindSkip(const std::optional<SkippedCrossing> &skipped,
+                                       const runtime::Step &step, const WwTile &at,
+                                       runtime::WorldView &view) const
+    {
+        if (!skipped.has_value() || step.kind != runtime::StepKind::Walk)
+        {
+            return false;
+        }
+        const format::TransitionRecord &tx = artifact->transitions()[skipped->transitionIndex];
+        return isHeldBackBy(tx, skipped->from, at, view);
     }
 
     bool Executor::hasMissedLanding(const format::TransitionRecord &tx, const WwTile &start,
@@ -1039,6 +1073,10 @@ namespace ww::exec
             const int32_t stepIndex = static_cast<int32_t>(i);
             StepReport report{};
             const WwStatus stepResult = executeStep(i, goal, context.view, st.position, report);
+            // Only the step right after a skip may blame it, so every step
+            // takes it off the run state.
+            const std::optional<SkippedCrossing> skipped =
+                std::exchange(st.skippedCrossing, std::nullopt);
             if (stepResult == WwStatus::Cancelled)
             {
                 return WwStatus::Cancelled;
@@ -1052,11 +1090,17 @@ namespace ww::exec
                 // may have moved further than walkOneStep's last sample.
                 const runtime::Step &step = plan.steps[i];
                 const bool isTransition = step.kind == runtime::StepKind::Transition;
-                if (report.isLocMissing)
+                // A walk that stalled behind a crossing skipped as an open
+                // door: nothing was open there (Shantay Pass without a pass
+                // re-planned onto the same gate until the budget ran out).
+                const bool isHeldBack =
+                    isStalledBehindSkip(skipped, step, st.position, context.view);
+                if (report.isLocMissing || isHeldBack)
                 {
+                    const uint32_t missing =
+                        isHeldBack ? skipped->transitionIndex : step.transitionIndex;
                     WwStatus terminal = WwStatus::Failed;
-                    if (!rerouteAroundMissingLoc(step.transitionIndex, goal, context, stepIndex,
-                                                 st, terminal))
+                    if (!rerouteAroundMissingLoc(missing, goal, context, stepIndex, st, terminal))
                     {
                         return terminal;
                     }
@@ -1115,6 +1159,10 @@ namespace ww::exec
                 continue;
             }
             st.isTeleAllowedAtLastPlan = isTeleAllowedNow;
+            if (report.isCrossingSkipped)
+            {
+                st.skippedCrossing = SkippedCrossing{ plan.steps[i].transitionIndex, st.position };
+            }
             ++i;
         }
         return judgeDrainedRun(goal, st.position);
