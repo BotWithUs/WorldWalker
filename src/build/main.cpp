@@ -368,9 +368,10 @@ namespace
         std::printf("build: %zu squares, %zu/%zu transitions -> %s\n",
                     collision.squares.size(), tr.finalize.kept, tr.finalize.input,
                     outPath.c_str());
-        std::printf("  dropped: dangling=%zu selfloop=%zu dup=%zu | snapped dest=%zu\n",
+        std::printf("  dropped: dangling=%zu selfloop=%zu dup=%zu no-loc=%zu | snapped dest=%zu\n",
                     tr.finalize.droppedDangling, tr.finalize.droppedSelfLoop,
-                    tr.finalize.droppedDuplicate, tr.finalize.snappedDest);
+                    tr.finalize.droppedDuplicate, tr.finalize.droppedNoLoc,
+                    tr.finalize.snappedDest);
         std::printf("  freshness: %zu vertical pairs -> +%zu derived (%zu suppressed by datasets, %zu climb-dir mismatch, %zu no-option)\n",
                     tr.freshness.pairsFound, tr.freshness.kept,
                     tr.freshness.droppedDatasetConflict,

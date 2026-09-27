@@ -16,6 +16,7 @@ namespace ww::data
         std::size_t droppedDangling{};  // an endpoint had no walkable tile within the snap radius
         std::size_t droppedSelfLoop{};  // origin == dest after snapping (degenerate edge)
         std::size_t droppedDuplicate{}; // collapsed by content-fingerprint dedup
+        std::size_t droppedNoLoc{};     // local origin naming object_id 0: nothing the host can click
         std::size_t snappedDest{};      // dest moved to a nearby walkable tile
     };
 
@@ -24,9 +25,10 @@ namespace ww::data
     // by full content fingerprint. Local-origin kinds (Transport/FairyRing/chains)
     // interact with an object, so their origin tile is kept as-is (the executor
     // clicks it) but the edge is dropped as dangling when no walkable approach tile
-    // lies within the radius, and dropped as a self-loop when its raw origin equals
-    // its dest. The collision lookup decides walkability and must cover the same
-    // cache the artifact bakes. *outReport (nullable) receives the counts.
+    // lies within the radius, dropped as a self-loop when its raw origin equals
+    // its dest, and dropped as locless when it names object_id 0. The collision
+    // lookup decides walkability and must cover the same cache the artifact
+    // bakes. *outReport (nullable) receives the counts.
     TransitionModel finalizeTransitions(const TransitionModel &raw,
                                         const ww::build::CollisionLookup &collision,
                                         TransitionReport *outReport);
