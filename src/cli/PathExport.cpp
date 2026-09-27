@@ -23,7 +23,8 @@
 #include <string>
 #include <string_view>
 
-// `wwcli path <artifact> sx sy sp gx gy gp [--out path.json] [--teleports dir]`.
+// `wwcli path <artifact> sx sy sp gx gy gp [--out path.json] [--teleports dir]
+//  [--ungated]`.
 //
 // Runs the runtime PathAssembler with a maximally permissive capability
 // snapshot (so requirement-gated transitions are admitted) and emits the
@@ -31,6 +32,8 @@
 // The snapshot is built from the artifact's own requirement pool — same
 // strategy as dumpTeleportSeeding in main.cpp's harness — so the same
 // invocation lands the same path the executor would have followed.
+// --ungated plans with an empty snapshot instead, so a gated transition that
+// wins on permissive caps can be told apart from the route beneath it.
 namespace
 {
     struct Args
@@ -44,12 +47,14 @@ namespace
         int32_t     goalPlane;
         const char *outPath;   // nullptr -> stdout
         const char *teleportDir;  // nullptr -> baked transitions only
+        bool        isUngated;    // admit no requirement-bearing transition
     };
 
     void printUsage()
     {
         std::printf("usage: wwcli path <artifact.wwa> <fromX> <fromY> <fromPlane>"
-                    " <toX> <toY> <toPlane> [--out path.json]\n");
+                    " <toX> <toY> <toPlane> [--out path.json] [--teleports dir]"
+                    " [--ungated]\n");
     }
 
     bool parseInt(const char *s, int32_t &out)
@@ -86,6 +91,7 @@ namespace
         }
         out.outPath = nullptr;
         out.teleportDir = nullptr;
+        out.isUngated = false;
         for (int i = 7; i < argc; ++i)
         {
             if (std::strcmp(argv[i], "--out") == 0)
@@ -96,6 +102,11 @@ namespace
                 }
                 out.outPath = argv[i + 1];
                 ++i;
+                continue;
+            }
+            if (std::strcmp(argv[i], "--ungated") == 0)
+            {
+                out.isUngated = true;
                 continue;
             }
             if (std::strcmp(argv[i], "--teleports") == 0)
@@ -269,8 +280,14 @@ int runPathExport(int argc, char **argv)
         ww::runtime::TileSearch   tileSearch(view);
         ww::runtime::PathAssembler assembler(reader, view, areaSearch, tileSearch);
 
+        // --ungated leaves the snapshot empty, so every requirement-bearing
+        // transition is refused: the route an account that meets none of
+        // them would be given. The default admits them all.
         ww::runtime::CapabilitySnapshot snapshot;
-        ww::runtime::applyPermissiveRequirements(reader.requirements(), snapshot);
+        if (!args.isUngated)
+        {
+            ww::runtime::applyPermissiveRequirements(reader.requirements(), snapshot);
+        }
 
         ww::runtime::Plan plan;
         const bool ok =

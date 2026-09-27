@@ -29128,42 +29128,16 @@
     "dest_plane": 0
   },
   {
-    "name": "Dungeon entrances",
+    "name": "Enter",
     "object_id": 66990,
     "x": 2879,
     "y": 3459,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
+    "rotation": 2,
     "option_index": 0,
     "dest_x": 2875,
     "dest_y": 9880,
-    "dest_plane": 0
-  },
-  {
-    "name": "Dungeon entrances",
-    "object_id": 0,
-    "x": 2809,
-    "y": 3463,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2820,
-    "dest_y": 9882,
-    "dest_plane": 0
-  },
-  {
-    "name": "Dungeon entrances",
-    "object_id": 0,
-    "x": 2875,
-    "y": 9880,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2807,
-    "dest_y": 3461,
     "dest_plane": 0
   },
   {
@@ -31406,21 +31380,21 @@
     "dest_plane": 0
   },
   {
-    "name": "Dungeon entrances",
-    "object_id": 0,
+    "name": "Climb-up",
+    "object_id": 56,
     "x": 2875,
     "y": 9880,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
+    "rotation": 1,
     "option_index": 0,
     "dest_x": 2880,
     "dest_y": 3459,
     "dest_plane": 0
   },
   {
-    "name": "Dungeon entrances",
-    "object_id": 0,
+    "name": "Climb-up",
+    "object_id": 54,
     "x": 2820,
     "y": 9882,
     "plane": 0,
@@ -31432,16 +31406,16 @@
     "dest_plane": 0
   },
   {
-    "name": "Dungeon entrances",
+    "name": "Enter",
     "object_id": 55,
     "x": 2806,
     "y": 3463,
     "plane": 0,
-    "shape": 10,
-    "rotation": 0,
+    "shape": 11,
+    "rotation": 3,
     "option_index": 0,
-    "dest_x": 2875,
-    "dest_y": 9880,
+    "dest_x": 2820,
+    "dest_y": 9882,
     "dest_plane": 0
   },
   {

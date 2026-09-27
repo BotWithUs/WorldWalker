@@ -1244,7 +1244,8 @@ namespace
         {"doorprobe",  2, "wwcli doorprobe <artifact.wwa> <txIndex>", runDoorProbeCmd},
         {"txnear",     4, "wwcli txnear <artifact.wwa> <x> <y> <radius>", runTxNearCmd},
         {"path",       7, "wwcli path <artifact.wwa> <fromX> <fromY> <fromPlane>"
-                          " <toX> <toY> <toPlane> [--out path.json] [--teleports dir]",
+                          " <toX> <toY> <toPlane> [--out path.json] [--teleports dir]"
+                          " [--ungated]",
          runPathExport},
     };
 
