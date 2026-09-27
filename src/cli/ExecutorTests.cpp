@@ -1606,6 +1606,93 @@ namespace ww::cli
             return failures;
         }
 
+        // A blocked tile within `radius` of (cx, cy) whose every standable tile
+        // within the goal-snap reach (3) lies in `area`, so wherever the
+        // planner snaps it stays in the start's area.
+        bool pickBlockedGoal(runtime::WorldView &view, std::int32_t cx, std::int32_t cy,
+                             std::int32_t plane, std::int32_t area, std::int32_t radius,
+                             runtime::TilePoint &outGoal)
+        {
+            constexpr std::int32_t kSnapReach = 3;
+            for (std::int32_t x = cx - radius; x <= cx + radius; ++x)
+            {
+                for (std::int32_t y = cy - radius; y <= cy + radius; ++y)
+                {
+                    if (view.isStandable(x, y, plane))
+                    {
+                        continue;
+                    }
+                    bool hasStandIn = false;
+                    bool isAllInArea = true;
+                    for (std::int32_t dx = -kSnapReach; dx <= kSnapReach; ++dx)
+                    {
+                        for (std::int32_t dy = -kSnapReach; dy <= kSnapReach; ++dy)
+                        {
+                            if (!view.isStandable(x + dx, y + dy, plane))
+                            {
+                                continue;
+                            }
+                            hasStandIn = true;
+                            isAllInArea = isAllInArea && view.areaAt(x + dx, y + dy, plane) == area;
+                        }
+                    }
+                    if (hasStandIn && isAllInArea)
+                    {
+                        outGoal = { x, y };
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Test 4q: the goal tile is blocked (the Rusty Anchor's bartender at
+        // 3050,3257), so the plan ends on the nearest standable tile. Reaching
+        // it is arrival; the old executor judged the drained run by the goal
+        // tile alone and returned Failed on the last step.
+        std::size_t testBlockedGoal(ExecContext &ctx)
+        {
+            // The first roomy area whose centroid is its own standable tile
+            // and has a blocked tile in reach.
+            constexpr std::uint32_t kMinTiles = 64;
+            const auto nodes = ctx.reader.areaNodes();
+            runtime::TilePoint start{};
+            runtime::TilePoint goal{};
+            std::int32_t plane = 0;
+            bool isPicked = false;
+            for (std::size_t a = 0; a < nodes.size() && !isPicked; ++a)
+            {
+                const format::AreaNodeRecord &n = nodes[a];
+                plane = static_cast<std::int32_t>(n.plane);
+                const auto area = static_cast<std::int32_t>(a);
+                start = { n.centroidX, n.centroidY };
+                isPicked = n.tileCount >= kMinTiles
+                    && ctx.view.areaAt(start.x, start.y, plane) == area
+                    && pickBlockedGoal(ctx.view, start.x, start.y, plane, area, 8, goal);
+            }
+            if (!isPicked)
+            {
+                std::printf("  exec:   blocked-goal test skipped (no blocked tile in reach)\n");
+                return 0;
+            }
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              start.x, start.y, plane);
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwStatus status = executor.run(exec::WwGoal{ goal.x, goal.y, plane, 0 });
+
+            const std::int32_t off = std::max(std::abs(harness.position.x - goal.x),
+                                              std::abs(harness.position.y - goal.y));
+            std::printf("  exec:   blocked-goal status=%d (expect 0) off=%d (expect 1..3)\n",
+                        static_cast<int>(status), off);
+            printLanding("blocked-goal", harness, goal, plane);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += (off >= 1 && off <= 3) ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
         // Test 4p: as 4o, but the absent crossing is the only way into the
         // goal's area. Once the stall shows it is not open, it is excluded and
         // nothing else reaches the goal, so the run fails on that crossing
@@ -1946,6 +2033,7 @@ namespace ww::cli
         failures += testRefusedSoleCrossing(ctx);
         failures += testAbsentCrossingWithSpare(ctx);
         failures += testAbsentSoleCrossing(ctx);
+        failures += testBlockedGoal(ctx);
         failures += testCrossingLands(ctx, isShortCrossing, "short-crossing");
         failures += testCrossingLands(ctx, isFarLandingNonDoor, "far-crossing");
         failures += testNpcOrigin(ctx, false);

@@ -1009,16 +1009,35 @@ namespace ww::exec
         return executeTransitionStep(step, stepIndex, view, outPosition, outReport);
     }
 
-    WwStatus Executor::judgeDrainedRun(const WwGoal &goal, WwTile &ioPosition)
+    bool Executor::isAtGoalStandIn(const WwGoal &goal, runtime::WorldView &view,
+                                   const WwTile &at) const
     {
-        if (!isInsideGoal(ioPosition, goal))
+        if (plan.steps.empty() || view.isStandable(goal.x, goal.y, goal.plane))
+        {
+            return false;
+        }
+        const runtime::Step &last = plan.steps.back();
+        const WwTile standIn{ last.targetX, last.targetY, static_cast<int32_t>(last.plane) };
+        const WwTile goalTile{ goal.x, goal.y, goal.plane };
+        return last.kind == runtime::StepKind::Walk && !isSameTile(standIn, goalTile)
+            && isSameTile(at, standIn);
+    }
+
+    WwStatus Executor::judgeDrainedRun(const WwGoal &goal, runtime::WorldView &view,
+                                       WwTile &ioPosition)
+    {
+        const auto isArrived = [&]()
+        {
+            return isInsideGoal(ioPosition, goal) || isAtGoalStandIn(goal, view, ioPosition);
+        };
+        if (!isArrived())
         {
             // The walk poll often samples mid-stride; give the engine one
             // tick to commit the final tile before judging.
             callbacks->sleepTicks(callbacks->user, 1);
             callbacks->readPosition(callbacks->user, &ioPosition);
         }
-        if (isInsideGoal(ioPosition, goal))
+        if (isArrived())
         {
             emit(WwEventKind::Arrived);
             return WwStatus::Arrived;
@@ -1165,7 +1184,7 @@ namespace ww::exec
             }
             ++i;
         }
-        return judgeDrainedRun(goal, st.position);
+        return judgeDrainedRun(goal, context.view, st.position);
         // lease destructor returns the context to the pool here.
     }
 }

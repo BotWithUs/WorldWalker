@@ -277,7 +277,16 @@ namespace ww::exec
         // arrival radius, which can be a tile short of the goal test. Judge
         // the live position (after one settling tick) rather than assuming
         // the drain implies arrival.
-        WwStatus judgeDrainedRun(const WwGoal &goal, WwTile &ioPosition);
+        WwStatus judgeDrainedRun(const WwGoal &goal, runtime::WorldView &view,
+                                 WwTile &ioPosition);
+
+        // The goal tile cannot be stood on (a bartender's spawn behind the
+        // counter, an object's footprint), so the planner ended the route on
+        // the nearest standable tile instead, and the player is on it. The
+        // goal test alone can never pass there: the Rusty Anchor's walk to
+        // 3050,3257 reached the stand-in 3050,3256 and was judged FAILED.
+        bool isAtGoalStandIn(const WwGoal &goal, runtime::WorldView &view,
+                             const WwTile &at) const;
 
         // Drive one Walk step to its target. Issues walkTo, then alternates
         // shouldCancel / sleepTicks / readPosition until arrival, cancellation,
