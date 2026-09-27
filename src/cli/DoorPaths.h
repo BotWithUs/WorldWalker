@@ -40,4 +40,10 @@ int runAreaGrid(const char *wwaPath, int x, int y, int plane, int radius);
 // far, so a wide upper-plane area is the fill spilling over void.
 int runAreaStats(const char *wwaPath, int minSpan);
 
+// `wwcli reachdiff <old.wwa> <new.wwa> <x> <y> <plane>` — audit: every area of
+// the old artifact reachable from the tile over its baked edges (requirements
+// ignored) that the new artifact no longer reaches from the same tile, judged
+// at one sample tile of the old area. Lists each and counts them.
+int runReachDiff(const char *oldPath, const char *newPath, int x, int y, int plane);
+
 #endif  // WORLDWALKER_CLI_DOORPATHS_H
