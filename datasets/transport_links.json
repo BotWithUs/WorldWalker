@@ -1263,7 +1263,9 @@
     "option_index": 0,
     "dest_x": 3431,
     "dest_y": 3485,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "loc 102085 (2x2 statue) is anchored at 3426,3480, 5 tiles from this origin, and no standable tile is within 2 of the anchor, so the host cannot find it; needs a host that looks for a loc by its footprint"
   },
   {
     "name": "Jump",
@@ -1276,7 +1278,9 @@
     "option_index": 0,
     "dest_x": 3421,
     "dest_y": 3479,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "loc 102085 (2x2 statue) is anchored at 3426,3480, 5 tiles from this origin, and no standable tile is within 2 of the anchor, so the host cannot find it; needs a host that looks for a loc by its footprint"
   },
   {
     "name": "Climb up",
@@ -40299,7 +40303,9 @@
     "option_index": 0,
     "dest_x": 3577,
     "dest_y": 9927,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "Clicks Grave 5168 op 0 Read, not the way in; the Memorial 5167 Push row from 3578,3527 enters the Experiment Cave."
   },
   {
     "name": "Dungeon entrances",

@@ -194,6 +194,55 @@ Audited on 2026-09-27 against a locspawn scan of every loc with an option
   them. The 26 further ones name a loc placed elsewhere or a different loc id
   and need the repair described in the section above.
 
+## Quest floors and entrances (2026-09-27)
+
+Every quest walk target on an upper floor or underground was planned from the
+nearest lodestone with `wwcli path --ungated`. The rows added for the ones
+with no route fall into three kinds, and the first two are gaps in what the
+bake derives from the cache:
+
+- **Doors the bake skips.** NXTCacheLibrary makes a wall a door only when its
+  loc has `interactType > 0` (`MapSquare.cpp`), and some doors with an `Open`
+  option carry none: 2546 and 2548 (Ardougne castle, Bravek's house), 34825,
+  21814 (Tower of Life), 25638 (Camelot), 31808 (the Clock Tower dungeon),
+  5183, 5186 and 5172 (Fenkenstrain's castle). Each crossing has a row per
+  direction with the door's own shape and rotation. Fixing the library would
+  derive these and probably others.
+- **Stairs anchored on different tiles.** The vertical deriver pairs a loc on
+  plane p with one on p + 1 only when both stand on the same tile, so a
+  staircase whose upper half is anchored a tile away has no link. Where a
+  single-tile upper stair has a `forceapproach`, its landing is on the open
+  side that gives.
+- **Entrances with no row.** Cave mouths, trapdoors and ladders into quest
+  dungeons (Goblin Cave, Hazeel's cave, the Elemental Workshop, the
+  Asgarnian Ice Dungeon, Melzar's Maze, the Experiment Cave, Paterdomus).
+
+Gates added from the quests' own vars: the Elemental Workshop stairs on
+varbit 13254 >= 1 (the book read), the Monk's Friend ladder on varbit 11094
+== 1 (the multiloc's visibility bit), the trapdoor under the Grand Tree on
+varp 2740 >= 140 (The Grand Tree's tunnel stage), Fenkenstrain's tower door
+on varbit 12891 == 1.
+
+Disabled: 2224, which clicked the Fenkenstrain grave (5168, op 0 `Read`) and
+not the Memorial beside it (5167, `Push`) that the new row uses; 95 and 96,
+the Paterdomus statue jump, whose loc 102085 is anchored 5 tiles from both
+origins with no floor within 3 of the anchor.
+
+**Not verified offline:** every landing tile (each is a standable tile beside
+the partner loc, not a capture); whether the Tower of Life door or the Tower
+guard at the Watchtower stop a player before their quest; the warning a
+player may get at the Entrana dungeon ladder (2408).
+
+Left without a route, with the reason: the Underground Pass, the Ape Atoll
+dungeon, the Dig Site caves, the stomach in Song from the Depths and the
+low-level Runespan (quest mechanics, instances, or a portal the quest clicks
+itself); Ashdale and the Death Plateau cave (reached only through gated
+rows); the Phoenix Gang chest, Alomone's chamber, Gu'Tanoth, Ana's passage
+and the Fenkenstrain mausoleum (quest doors, rafts, carts and keys); One
+Small Favour's tile at 2623,9834, which is solid rock; and the Entrana
+dungeon from Taverley (the Port Sarim boat to Entrana is a row with
+`object_id` 0).
+
 ## Dig sites map
 
 The eight `View` rows click loc 116436 (`ARCH_PLANNING_MAP`, "Dig sites map"),
