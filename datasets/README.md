@@ -61,6 +61,39 @@ do not describe, and a route that cannot complete must never be a destination's
 only candidate — the executor would fail it and re-plan onto the same edge
 forever.
 
+## NPC origins and disabled rows
+
+A `transport_links` row normally names the loc it clicks (`object_id`), and the
+host finds that loc within one tile of the row's `x, y`. A row whose origin is
+an NPC instead carries `npc: {first_id, last_id?, radius?}` and no `object_id`:
+the loader opens its chain with a `ClickNpc` step (kind 6), which the host
+resolves to the nearest NPC whose type id is in `[first_id, last_id]` within
+`radius` (default 8) of the row's tile, clicked with the row's `option_index`
+(0-based). The rest of the chain is the usual `wait_interface` / `click` steps.
+If no NPC is found, or its interface never opens, the executor routes around
+the row as it does around a missing loc. This needs a host that implements
+`ClickNpc`; one that predates it rejects the kind and fails the walk loudly.
+
+`disabled: true` keeps a row in the file but out of the bake. A row that cannot
+be executed yet is worse than no row, because the planner routes through it.
+
+The charter ship rows are disabled. Every port but Catherby named object_id 0,
+since you charter by talking to a Trader Crewmember, and none of them had a
+chain to pick the destination, so no charter could complete. What is known:
+
+- NPCs: Trader Stan 4650 and Trader Crewmember 4651..4656 all have `Charter` as
+  option 0 (cache NPC defs). Which of those stands at which port is server-side,
+  so a row should take the whole range: `"npc": {"first_id": 4650, "last_id": 4656}`.
+- Interface: 95, SAILING_TRANSPORT_WORLD_MAP. Per port it has a marker
+  (components 1..11, Menaphos 36), a name (12..22, Menaphos 37) and a GO_
+  component (23..34). Which of these takes the click that sails, and whether a
+  confirmation follows, needs a live read; the cache decode of its ops is not
+  trustworthy.
+
+To enable a port: add the `npc` block, a chain of `{"wait_interface": 95}`, the
+verified `{"click": [95, <component>, <option>, -1]}` (and any confirmation), a
+closing `{"wait": N}`, then drop `disabled`.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a

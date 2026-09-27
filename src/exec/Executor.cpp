@@ -400,6 +400,13 @@ namespace ww::exec
                 dispatchClickItem(tx, cs);
                 return WwStatus::Arrived;
             }
+            case data::ChainStepKind::ClickNpc:
+            {
+                // The host picks the live NPC (type range, plane, radius) and
+                // clicks it; the chain's WaitInterface is what notices a miss.
+                dispatchChainStep(cs);
+                return WwStatus::Arrived;
+            }
             default:
             {
                 // DialogueSelect: the host resolves the option component against
@@ -410,6 +417,17 @@ namespace ww::exec
                 return WwStatus::Arrived;
             }
         }
+    }
+
+    bool Executor::hasNpcOrigin(const format::TransitionRecord &tx) const
+    {
+        if (tx.chainCount == 0)
+        {
+            return false;
+        }
+        const auto chain = artifact->chainSteps();
+        return tx.chainStart < chain.size()
+            && chain[tx.chainStart].kind == static_cast<uint8_t>(data::ChainStepKind::ClickNpc);
     }
 
     WwStatus Executor::runChain(const format::TransitionRecord &tx) const
@@ -458,7 +476,8 @@ namespace ww::exec
         emit(WwEventKind::StepAdvanced, stepIndex, transitionIndex);
 
         bool hasIssuedAction = true;
-        if (!isGlobal)
+        const bool isNpcOrigin = hasNpcOrigin(tx);
+        if (!isGlobal && !isNpcOrigin)
         {
             // Click the world object from the interact-tile (the prior Walk
             // step put the player there). The object tile itself may be
@@ -480,6 +499,13 @@ namespace ww::exec
         }
 
         const WwStatus chainResult = runChain(tx);
+        if (chainResult == WwStatus::Failed && isNpcOrigin)
+        {
+            // The NPC was not there to click, or its interface never opened:
+            // the same dead origin a missing loc is, so route around it
+            // rather than end the run on it.
+            outReport.isLocMissing = true;
+        }
         if (chainResult != WwStatus::Arrived)
         {
             return chainResult;

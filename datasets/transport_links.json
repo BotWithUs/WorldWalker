@@ -12205,7 +12205,8 @@
     "option_index": 0,
     "dest_x": 2796,
     "dest_y": 3406,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -12218,7 +12219,8 @@
     "option_index": 0,
     "dest_x": 2954,
     "dest_y": 3158,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -12231,7 +12233,8 @@
     "option_index": 0,
     "dest_x": 3140,
     "dest_y": 2662,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -12244,7 +12247,8 @@
     "option_index": 0,
     "dest_x": 3671,
     "dest_y": 2931,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -12257,7 +12261,8 @@
     "option_index": 0,
     "dest_x": 2674,
     "dest_y": 3144,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -12270,7 +12275,8 @@
     "option_index": 0,
     "dest_x": 3702,
     "dest_y": 3503,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -12283,7 +12289,8 @@
     "option_index": 0,
     "dest_x": 3043,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -12296,7 +12303,8 @@
     "option_index": 0,
     "dest_x": 3001,
     "dest_y": 3032,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -12309,7 +12317,8 @@
     "option_index": 0,
     "dest_x": 2142,
     "dest_y": 3122,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -12322,7 +12331,8 @@
     "option_index": 0,
     "dest_x": 2623,
     "dest_y": 2857,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Catherby",
@@ -12335,7 +12345,8 @@
     "option_index": 0,
     "dest_x": 2760,
     "dest_y": 3238,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Catherby",
@@ -12348,7 +12359,8 @@
     "option_index": 0,
     "dest_x": 2954,
     "dest_y": 3158,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Catherby",
@@ -12361,7 +12373,8 @@
     "option_index": 0,
     "dest_x": 3140,
     "dest_y": 2662,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Catherby",
@@ -12374,7 +12387,8 @@
     "option_index": 0,
     "dest_x": 3671,
     "dest_y": 2931,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Catherby",
@@ -12387,7 +12401,8 @@
     "option_index": 0,
     "dest_x": 2674,
     "dest_y": 3144,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Catherby",
@@ -12400,7 +12415,8 @@
     "option_index": 0,
     "dest_x": 3702,
     "dest_y": 3503,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Catherby",
@@ -12413,7 +12429,8 @@
     "option_index": 0,
     "dest_x": 3043,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Catherby",
@@ -12426,7 +12443,8 @@
     "option_index": 0,
     "dest_x": 3001,
     "dest_y": 3032,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Catherby",
@@ -12439,7 +12457,8 @@
     "option_index": 0,
     "dest_x": 2142,
     "dest_y": 3122,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Catherby",
@@ -12452,7 +12471,8 @@
     "option_index": 0,
     "dest_x": 2623,
     "dest_y": 2857,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -12465,7 +12485,8 @@
     "option_index": 0,
     "dest_x": 2760,
     "dest_y": 3238,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -12478,7 +12499,8 @@
     "option_index": 0,
     "dest_x": 2796,
     "dest_y": 3406,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -12491,7 +12513,8 @@
     "option_index": 0,
     "dest_x": 3140,
     "dest_y": 2662,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -12504,7 +12527,8 @@
     "option_index": 0,
     "dest_x": 3671,
     "dest_y": 2931,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -12517,7 +12541,8 @@
     "option_index": 0,
     "dest_x": 2674,
     "dest_y": 3144,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -12530,7 +12555,8 @@
     "option_index": 0,
     "dest_x": 3702,
     "dest_y": 3503,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -12543,7 +12569,8 @@
     "option_index": 0,
     "dest_x": 3001,
     "dest_y": 3032,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -12556,7 +12583,8 @@
     "option_index": 0,
     "dest_x": 2142,
     "dest_y": 3122,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -12569,7 +12597,8 @@
     "option_index": 0,
     "dest_x": 2623,
     "dest_y": 2857,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Menaphos",
@@ -12582,7 +12611,8 @@
     "option_index": 0,
     "dest_x": 2760,
     "dest_y": 3238,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Menaphos",
@@ -12595,7 +12625,8 @@
     "option_index": 0,
     "dest_x": 2796,
     "dest_y": 3406,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Menaphos",
@@ -12608,7 +12639,8 @@
     "option_index": 0,
     "dest_x": 2954,
     "dest_y": 3158,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Menaphos",
@@ -12621,7 +12653,8 @@
     "option_index": 0,
     "dest_x": 3671,
     "dest_y": 2931,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Menaphos",
@@ -12634,7 +12667,8 @@
     "option_index": 0,
     "dest_x": 2674,
     "dest_y": 3144,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Menaphos",
@@ -12647,7 +12681,8 @@
     "option_index": 0,
     "dest_x": 3702,
     "dest_y": 3503,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Menaphos",
@@ -12660,7 +12695,8 @@
     "option_index": 0,
     "dest_x": 3043,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Menaphos",
@@ -12673,7 +12709,8 @@
     "option_index": 0,
     "dest_x": 3001,
     "dest_y": 3032,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Menaphos",
@@ -12686,7 +12723,8 @@
     "option_index": 0,
     "dest_x": 2142,
     "dest_y": 3122,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Menaphos",
@@ -12699,7 +12737,8 @@
     "option_index": 0,
     "dest_x": 2623,
     "dest_y": 2857,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -12712,7 +12751,8 @@
     "option_index": 0,
     "dest_x": 2760,
     "dest_y": 3238,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -12725,7 +12765,8 @@
     "option_index": 0,
     "dest_x": 2796,
     "dest_y": 3406,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -12738,7 +12779,8 @@
     "option_index": 0,
     "dest_x": 2954,
     "dest_y": 3158,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -12751,7 +12793,8 @@
     "option_index": 0,
     "dest_x": 3140,
     "dest_y": 2662,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -12764,7 +12807,8 @@
     "option_index": 0,
     "dest_x": 2674,
     "dest_y": 3144,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -12777,7 +12821,8 @@
     "option_index": 0,
     "dest_x": 3043,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -12790,7 +12835,8 @@
     "option_index": 0,
     "dest_x": 3001,
     "dest_y": 3032,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -12803,7 +12849,8 @@
     "option_index": 0,
     "dest_x": 2142,
     "dest_y": 3122,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -12816,7 +12863,8 @@
     "option_index": 0,
     "dest_x": 2623,
     "dest_y": 2857,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -12829,7 +12877,8 @@
     "option_index": 0,
     "dest_x": 2760,
     "dest_y": 3238,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -12842,7 +12891,8 @@
     "option_index": 0,
     "dest_x": 2796,
     "dest_y": 3406,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -12855,7 +12905,8 @@
     "option_index": 0,
     "dest_x": 2954,
     "dest_y": 3158,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -12868,7 +12919,8 @@
     "option_index": 0,
     "dest_x": 3140,
     "dest_y": 2662,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -12881,7 +12933,8 @@
     "option_index": 0,
     "dest_x": 3671,
     "dest_y": 2931,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -12894,7 +12947,8 @@
     "option_index": 0,
     "dest_x": 3702,
     "dest_y": 3503,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -12907,7 +12961,8 @@
     "option_index": 0,
     "dest_x": 3043,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -12920,7 +12975,8 @@
     "option_index": 0,
     "dest_x": 3001,
     "dest_y": 3032,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -12933,7 +12989,8 @@
     "option_index": 0,
     "dest_x": 2142,
     "dest_y": 3122,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -12946,7 +13003,8 @@
     "option_index": 0,
     "dest_x": 2623,
     "dest_y": 2857,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -12959,7 +13017,8 @@
     "option_index": 0,
     "dest_x": 2760,
     "dest_y": 3238,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -12972,7 +13031,8 @@
     "option_index": 0,
     "dest_x": 2796,
     "dest_y": 3406,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -12985,7 +13045,8 @@
     "option_index": 0,
     "dest_x": 2954,
     "dest_y": 3158,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -12998,7 +13059,8 @@
     "option_index": 0,
     "dest_x": 3140,
     "dest_y": 2662,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -13011,7 +13073,8 @@
     "option_index": 0,
     "dest_x": 2674,
     "dest_y": 3144,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -13024,7 +13087,8 @@
     "option_index": 0,
     "dest_x": 3043,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -13037,7 +13101,8 @@
     "option_index": 0,
     "dest_x": 2142,
     "dest_y": 3122,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -13050,7 +13115,8 @@
     "option_index": 0,
     "dest_x": 2623,
     "dest_y": 2857,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -13063,7 +13129,8 @@
     "option_index": 0,
     "dest_x": 2760,
     "dest_y": 3238,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -13076,7 +13143,8 @@
     "option_index": 0,
     "dest_x": 2796,
     "dest_y": 3406,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -13089,7 +13157,8 @@
     "option_index": 0,
     "dest_x": 3140,
     "dest_y": 2662,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -13102,7 +13171,8 @@
     "option_index": 0,
     "dest_x": 3671,
     "dest_y": 2931,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -13115,7 +13185,8 @@
     "option_index": 0,
     "dest_x": 2674,
     "dest_y": 3144,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -13128,7 +13199,8 @@
     "option_index": 0,
     "dest_x": 3702,
     "dest_y": 3503,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -13141,7 +13213,8 @@
     "option_index": 0,
     "dest_x": 3001,
     "dest_y": 3032,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -13154,7 +13227,8 @@
     "option_index": 0,
     "dest_x": 2142,
     "dest_y": 3122,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -13167,7 +13241,8 @@
     "option_index": 0,
     "dest_x": 2623,
     "dest_y": 2857,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Shipyard",
@@ -13180,7 +13255,8 @@
     "option_index": 0,
     "dest_x": 2760,
     "dest_y": 3238,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Shipyard",
@@ -13193,7 +13269,8 @@
     "option_index": 0,
     "dest_x": 2796,
     "dest_y": 3406,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Shipyard",
@@ -13206,7 +13283,8 @@
     "option_index": 0,
     "dest_x": 2954,
     "dest_y": 3158,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Shipyard",
@@ -13219,7 +13297,8 @@
     "option_index": 0,
     "dest_x": 3140,
     "dest_y": 2662,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Shipyard",
@@ -13232,7 +13311,8 @@
     "option_index": 0,
     "dest_x": 3671,
     "dest_y": 2931,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Shipyard",
@@ -13245,7 +13325,8 @@
     "option_index": 0,
     "dest_x": 2674,
     "dest_y": 3144,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Shipyard",
@@ -13258,7 +13339,8 @@
     "option_index": 0,
     "dest_x": 3702,
     "dest_y": 3503,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Shipyard",
@@ -13271,7 +13353,8 @@
     "option_index": 0,
     "dest_x": 3043,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Shipyard",
@@ -13284,7 +13367,8 @@
     "option_index": 0,
     "dest_x": 2142,
     "dest_y": 3122,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Shipyard",
@@ -13297,7 +13381,8 @@
     "option_index": 0,
     "dest_x": 2623,
     "dest_y": 2857,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -13310,7 +13395,8 @@
     "option_index": 0,
     "dest_x": 2760,
     "dest_y": 3238,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -13323,7 +13409,8 @@
     "option_index": 0,
     "dest_x": 2796,
     "dest_y": 3406,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -13336,7 +13423,8 @@
     "option_index": 0,
     "dest_x": 2954,
     "dest_y": 3158,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -13349,7 +13437,8 @@
     "option_index": 0,
     "dest_x": 3140,
     "dest_y": 2662,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -13362,7 +13451,8 @@
     "option_index": 0,
     "dest_x": 3671,
     "dest_y": 2931,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -13375,7 +13465,8 @@
     "option_index": 0,
     "dest_x": 2674,
     "dest_y": 3144,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -13388,7 +13479,8 @@
     "option_index": 0,
     "dest_x": 3702,
     "dest_y": 3503,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -13401,7 +13493,8 @@
     "option_index": 0,
     "dest_x": 3043,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -13414,7 +13507,8 @@
     "option_index": 0,
     "dest_x": 3001,
     "dest_y": 3032,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -13427,7 +13521,8 @@
     "option_index": 0,
     "dest_x": 2623,
     "dest_y": 2857,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -13440,7 +13535,8 @@
     "option_index": 0,
     "dest_x": 2760,
     "dest_y": 3238,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -13453,7 +13549,8 @@
     "option_index": 0,
     "dest_x": 2796,
     "dest_y": 3406,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -13466,7 +13563,8 @@
     "option_index": 0,
     "dest_x": 2954,
     "dest_y": 3158,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -13479,7 +13577,8 @@
     "option_index": 0,
     "dest_x": 3140,
     "dest_y": 2662,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -13492,7 +13591,8 @@
     "option_index": 0,
     "dest_x": 3671,
     "dest_y": 2931,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -13505,7 +13605,8 @@
     "option_index": 0,
     "dest_x": 2674,
     "dest_y": 3144,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -13518,7 +13619,8 @@
     "option_index": 0,
     "dest_x": 3702,
     "dest_y": 3503,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -13531,7 +13633,8 @@
     "option_index": 0,
     "dest_x": 3043,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -13544,7 +13647,8 @@
     "option_index": 0,
     "dest_x": 3001,
     "dest_y": 3032,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -13557,7 +13661,8 @@
     "option_index": 0,
     "dest_x": 2142,
     "dest_y": 3122,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Magic carpet network",

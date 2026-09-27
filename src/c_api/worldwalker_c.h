@@ -297,7 +297,12 @@ typedef int32_t (*WwInteractFn)(void *user, int32_t objectId, WwTile tile, int32
          e=special (non-zero -> COMPONENT_SPECIAL action), f=carried item id.
        When f != 0 (backpack variant) the host resolves that item's LIVE slot
        and uses it for the sub-component instead of d (the baked d is only a
-       fallback); for the worn variant f is 0 and d is used as-is. */
+       fallback); for the worn variant f is 0 and d is used as-is.
+     - ClickNpc (6): the origin of a transition with no loc. The host clicks
+       the nearest NPC whose type id is in [f, g] on plane d within Chebyshev
+       e of (b, c), with 0-based option a (NPC_OPTIONS[a + 1]), and does
+       nothing when none is found. Always a chain's first step. A host that
+       predates this kind must reject it loudly, not ignore it. */
 typedef void (*WwRunChainStepFn)(void *user, int32_t kind,
                                  int32_t a, int32_t b, int32_t c, int32_t d,
                                  int32_t e, int32_t f, int32_t g, int32_t h, int32_t i);

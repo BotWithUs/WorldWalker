@@ -185,6 +185,8 @@ namespace ww::format
         //   DialogueSelect: a=interface, b=index, c=per_page, d=next_comp, e=wait_ticks
         //   ClickItem:      a..d=worn(iface,comp,opt,sub),
         //                   e..h=backpack(iface,comp,opt,sub), i=backpack_special
+        //   ClickNpc:       a=option, b..d=search centre x,y,plane, e=radius,
+        //                   f..g=NPC type id range (inclusive)
         int32_t  a;
         int32_t  b;
         int32_t  c;

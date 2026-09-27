@@ -123,6 +123,10 @@ namespace ww::cli
             std::int32_t      brokenObjectId;
             exec::WwTile      brokenOrigin;
             int               brokenInteracts;
+            // SimulateTransition: ClickNpc steps received, and whether the NPC is
+            // absent (the click does nothing and no interface ever opens).
+            int               npcClicks;
+            bool              isNpcAbsent;
             // SimulateTransition: a door that walks the player through itself.
             // The landing commits `landingDelayTicks` ticks after the click; a
             // walk clicked before then cancels it, as the game does, and is
@@ -275,6 +279,8 @@ namespace ww::cli
         constexpr std::int32_t kOptionList = 1188;
         constexpr std::int32_t kDialogueAnswerKind =
             static_cast<std::int32_t>(data::ChainStepKind::DialogueAnswer);
+        constexpr std::int32_t kClickNpcKind =
+            static_cast<std::int32_t>(data::ChainStepKind::ClickNpc);
         constexpr int kMaxDialogActionsPerRun = 20;  // the executor's per-run budget
 
         bool isChatInterface(std::int32_t interfaceId)
@@ -303,7 +309,7 @@ namespace ww::cli
             }
             if (h->mode == ExecHarnessMode::SimulateTransition)
             {
-                return 1;
+                return h->isNpcAbsent ? 0 : 1;
             }
             recordUnexpected(h, HarnessCallback::IsInterfaceOpen);
             return 0;
@@ -490,11 +496,16 @@ namespace ww::cli
                 return;
             }
             ++h->runChainStepCalls;
+            const bool isNpcClick = kind == kClickNpcKind;
+            if (isNpcClick)
+            {
+                ++h->npcClicks;
+            }
             if (h->mode != ExecHarnessMode::SimulateTransition)
             {
                 recordUnexpected(h, HarnessCallback::RunChainStep);
             }
-            else
+            else if (!(isNpcClick && h->isNpcAbsent))
             {
                 h->position = h->transitionDest;
             }
@@ -684,8 +695,11 @@ namespace ww::cli
             const auto chain = reader.chainSteps();
             for (std::uint32_t i = 0; i < tx.chainCount; ++i)
             {
-                if (chain[tx.chainStart + i].kind
-                    == static_cast<std::uint8_t>(data::ChainStepKind::Click))
+                // Both reach the host: a Click, and the ClickNpc an NPC origin
+                // opens its chain with.
+                const std::uint8_t kind = chain[tx.chainStart + i].kind;
+                if (kind == static_cast<std::uint8_t>(data::ChainStepKind::Click)
+                    || kind == static_cast<std::uint8_t>(data::ChainStepKind::ClickNpc))
                 {
                     ++outClicks;
                 }
@@ -722,6 +736,12 @@ namespace ww::cli
                 return 0;
             }
             const bool isGlobal = (tx.flags & format::kTransitionFlagGlobalOrigin) != 0;
+            // A global teleport and an NPC origin click no loc.
+            const std::uint32_t chainAt = tx.chainStart;
+            const bool isNpcOrigin = tx.chainCount != 0u
+                && chainAt < ctx.reader.chainSteps().size()
+                && ctx.reader.chainSteps()[chainAt].kind == static_cast<std::uint8_t>(kClickNpcKind);
+            const int wantInteracts = (isGlobal || isNpcOrigin) ? 0 : 1;
             std::int32_t clickCount = 0;
             std::int32_t waitCount  = 0;
             countChain(ctx.reader, tx, clickCount, waitCount);
@@ -746,13 +766,13 @@ namespace ww::cli
                         static_cast<int>(exec::WwEventKind::Arrived));
             std::printf("  exec:   interacts=%d (expect %d) chainSteps=%d (expect %d)"
                         " ifaceOpen=%d (>= %d)\n",
-                        harness.interactCalls, isGlobal ? 0 : 1, harness.runChainStepCalls,
+                        harness.interactCalls, wantInteracts, harness.runChainStepCalls,
                         clickCount, harness.isInterfaceOpenCalls, clickCount);
             printCallPattern("", harness);
             std::size_t failures = (status == exec::WwStatus::Arrived
                                     && harness.lastEventKind == exec::WwEventKind::Arrived)
                                        ? 0u : 1u;
-            failures += (harness.interactCalls == (isGlobal ? 0 : 1)
+            failures += (harness.interactCalls == wantInteracts
                          && harness.runChainStepCalls == clickCount) ? 0u : 1u;
             failures += harness.unexpectedActions == 0 ? 0u : 1u;
             return failures;
@@ -1361,6 +1381,100 @@ namespace ww::cli
             return failures;
         }
 
+        // An ungated edge whose transition starts at an NPC (its chain opens
+        // with ClickNpc), with the pick starting on a standable tile beside the
+        // NPC's tile. Only an artifact baked with an enabled `npc` row has one.
+        bool pickNpcOrigin(const format::ArtifactReader &reader, runtime::WorldView &view,
+                           CrossAreaPick &outPick)
+        {
+            const auto edges = reader.areaEdges();
+            const auto txs   = reader.transitions();
+            const auto chain = reader.chainSteps();
+            for (std::size_t i = 0; i < edges.size(); ++i)
+            {
+                const format::AreaEdgeRecord &edge = edges[i];
+                const format::TransitionRecord &tx = txs[edge.transitionIndex];
+                const bool isNpc = tx.chainCount != 0u && tx.chainStart < chain.size()
+                    && chain[tx.chainStart].kind == static_cast<std::uint8_t>(kClickNpcKind);
+                if (!isNpc || tx.requirementCount != 0u)
+                {
+                    continue;
+                }
+                const std::int32_t plane = static_cast<std::int32_t>(tx.originPlane);
+                const auto standableInArea = [&](std::int32_t x, std::int32_t y)
+                {
+                    return view.isStandable(x, y, plane) && view.areaAt(x, y, plane) == edge.fromArea;
+                };
+                std::int32_t startX = 0;
+                std::int32_t startY = 0;
+                if (!runtime::findNearestTile(tx.originX, tx.originY,
+                                              data::kTransitionApproachRadius, true,
+                                              standableInArea, tx.originX, tx.originY,
+                                              startX, startY))
+                {
+                    continue;
+                }
+                outPick.start      = { startX, startY };
+                outPick.startPlane = plane;
+                outPick.goal       = { tx.destX, tx.destY };
+                outPick.goalPlane  = static_cast<std::int32_t>(tx.destPlane);
+                outPick.edgeIndex  = i;
+                return true;
+            }
+            return false;
+        }
+
+        // Test 4h: a transition that starts at an NPC. Present, it is crossed
+        // through its chain alone: one ClickNpc, no loc interact. Absent (no
+        // NPC, so its interface never opens), it is routed around like a
+        // missing loc rather than ending the run: clicked once, then a
+        // re-plan. Whether that re-plan finds another way is the artifact's
+        // business, not this test's.
+        std::size_t testNpcOrigin(ExecContext &ctx, bool isNpcAbsent)
+        {
+            CrossAreaPick pick{};
+            if (!pickNpcOrigin(ctx.reader, ctx.view, pick))
+            {
+                std::printf("  exec:   npc-origin test skipped (no enabled npc transition)\n");
+                return 0;
+            }
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            const auto &tx   = ctx.reader.transitions()[edge.transitionIndex];
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, pick.start.x,
+                                              pick.start.y, pick.startPlane);
+            harness.transitionDest =
+                exec::WwTile{ tx.destX, tx.destY, static_cast<std::int32_t>(tx.destPlane) };
+            harness.isNpcAbsent = isNpcAbsent;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   npc-origin tx%u absent=%d status=%d npc-clicks=%d (expect 1)"
+                        " interacts=%d (expect %s) replans=%d (expect %s)\n",
+                        edge.transitionIndex, isNpcAbsent ? 1 : 0, static_cast<int>(status),
+                        harness.npcClicks, harness.interactCalls, isNpcAbsent ? "any" : "0",
+                        harness.replanStartedEvents,
+                        isNpcAbsent ? ">= 1" : "0");
+            printCallPattern("npc-origin ", harness);
+            // Absent, the detour may click locs of its own; only the NPC
+            // transition itself must not be tried again.
+            std::size_t failures = harness.npcClicks == 1 ? 0u : 1u;
+            if (isNpcAbsent)
+            {
+                failures += harness.replanStartedEvents >= 1 ? 0u : 1u;
+            }
+            else
+            {
+                failures += harness.interactCalls == 0 ? 0u : 1u;
+                failures += status == exec::WwStatus::Arrived ? 0u : 1u;
+            }
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
         // Test 4c: in combat at the first plan, out of it after the first step.
         // The walk-only goal needs no teleport, but the flip back out of combat
         // must still re-plan once, since that is the moment teleports come
@@ -1539,6 +1653,8 @@ namespace ww::cli
         failures += testOffCourseLanding(ctx, 99, false);
         failures += testOffCourseWithSpare(ctx);
         failures += testOffCourseSoleEntry(ctx);
+        failures += testNpcOrigin(ctx, false);
+        failures += testNpcOrigin(ctx, true);
         failures += testWalkThroughDoor(ctx, 0, false);
         failures += testWalkThroughDoor(ctx, 1, false);
         failures += testWalkThroughDoor(ctx, 0, true);

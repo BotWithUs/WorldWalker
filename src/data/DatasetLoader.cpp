@@ -444,6 +444,41 @@ namespace ww::data
             }
         }
 
+        // An `npc` origin: `{first_id, last_id?, radius?}`. The transition has no
+        // loc, so its chain opens with a ClickNpc the host resolves against the
+        // live NPC list, centred on the row's tile with its option_index. A row
+        // naming both a loc and an NPC is a mistake the bake refuses: the
+        // executor would click neither reliably.
+        void parseNpcOrigin(const json &e, Transition &t)
+        {
+            if (!e.contains("npc"))
+            {
+                return;
+            }
+            const json &npc = e.at("npc");
+            if (!npc.is_object())
+            {
+                throw std::runtime_error("transport_links.npc must be an object");
+            }
+            if (t.objectId > 0)
+            {
+                throw std::runtime_error("transport_links: a row names an object_id and an npc");
+            }
+            const int firstId = readRequiredInt(npc, "first_id", "transport_links.npc");
+            const int lastId = readOptionalInt(npc, "last_id", firstId, "transport_links.npc");
+            if (lastId < firstId)
+            {
+                throw std::runtime_error("transport_links.npc: last_id below first_id");
+            }
+            constexpr int kDefaultNpcRadius = 8;
+            const int radius =
+                readOptionalInt(npc, "radius", kDefaultNpcRadius, "transport_links.npc");
+            t.objectId = -1;
+            t.chain.insert(t.chain.begin(),
+                           ChainStep{ChainStepKind::ClickNpc, t.optionIndex, t.originX,
+                                     t.originY, t.originPlane, radius, firstId, lastId});
+        }
+
         void parseTransportLinks(const json &j, TransitionModel &model)
         {
             if (!j.is_array())
@@ -452,6 +487,13 @@ namespace ww::data
             }
             for (const json &e : j)
             {
+                // Kept in the file so the facts gathered for it survive, but
+                // not baked: a link that cannot yet be executed is worse than
+                // none, since the planner would route through it.
+                if (e.value("disabled", false))
+                {
+                    continue;
+                }
                 Transition t;
                 t.kind = TransitionKind::Transport;
                 t.originX = readRequiredInt(e, "x", "transport_links");
@@ -469,6 +511,7 @@ namespace ww::data
                     readOptionalInt(e, "option_index", 0, "transport_links"));
                 parseRequirements(e, t.requirements);
                 parseChain(e, t.chain);
+                parseNpcOrigin(e, t);
                 model.transitions.push_back(std::move(t));
             }
         }

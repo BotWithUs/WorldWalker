@@ -113,6 +113,15 @@ namespace ww::data
         // (data/DialogZones.h). a..i = the answer's UTF-8 bytes, four per
         // slot, little-endian, zero-padded (format::DialogAnswerRecord).
         DialogueAnswer = 5,
+        // Click an NPC: the origin of a transition that has no loc (a charter
+        // ship's Trader Crewmember). NPC actions target a live server index,
+        // which no baked Click can carry, so the host resolves it: the
+        // nearest NPC whose type id lies in [f, g] on plane d within
+        // Chebyshev e of (b, c), clicked with option a (0-based, as a loc
+        // interact's option index). Finding none, the host does nothing; the
+        // chain's next WaitInterface then times out and the executor treats
+        // the origin as missing. Only ever a chain's first step.
+        ClickNpc = 6,
     };
 
     // One step of an execution chain, passed through to the executor verbatim.

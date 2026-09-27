@@ -328,6 +328,12 @@ namespace ww::exec
         // step result otherwise.
         WwStatus runChain(const format::TransitionRecord &tx) const;
 
+        // Whether `tx` starts at an NPC rather than a loc: its chain opens
+        // with a ClickNpc (a charter ship's crewmember). Such a transition has
+        // no loc to interact with; its chain is the whole action, and a chain
+        // that fails is its origin gone missing.
+        bool hasNpcOrigin(const format::TransitionRecord &tx) const;
+
         // Perform one chain step: the executor handles Wait / WaitInterface
         // itself and gates a COMPONENT Click on its interface being open; the
         // host-resolved kinds are forwarded. Arrived means "continue".
