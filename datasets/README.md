@@ -186,6 +186,41 @@ interface), whether the server confirms the teleport, and the landing tiles
 plane is doubtful: the site's locs dump on planes 1 and 2, the row lands on 0.
 
 
+## Balloons
+
+Each of the six stations has a 2x2 basket loc that morphs, on the station's
+unlock varbit, from rock or frame into loc 19129 `Basket` (op 0 `Fly`;
+Entrana's is 19128, op 0 `Use`). A row clicks its basket's op 0, waits for
+interface 469 `ZEP_BALLOON_MAP`, clicks the destination's button with op 1
+(each button has one op, its place name, read from the raw cache group; the
+decoded interface reads text as ops here, as it does for 95), and waits 6
+ticks. No clientscript touches 469, so any locking is the server's.
+
+| Station | Basket (anchor) | Button | Unlock gate |
+|---|---|---|---|
+| Castle Wars | 19137 (2463,3109) | 15 | varbit 12532 == 1 |
+| Grand Tree | 19139 (2481,3457) | 16 | varbit 12533 == 1 |
+| Crafting Guild | 19141 (2924,3301) | 17 | varbit 12534 == 1 |
+| Entrana | 19133 (2806,3355) | 18 | varbit 12529 >= 91 |
+| Taverley | 19135 (2928,3411) | 19 | varbit 12529 >= 200 |
+| Varrock | 19143 (3296,3481) | 20 | varbit 12535 == 1 |
+
+Varbit 12529 is Enlightened Journey (quest 315, complete at 200); the per-
+route gates are the values achievement 2119 "Around the World in Six Ways"
+and clientscript 13281 test. A row carries the gates of both its stations.
+The Varrock origin moved from 3298,3482 to 3297,3481, within a tile of its
+basket.
+
+**Not in any gate:** the log each flight burns. Operators store logs as
+charges (varbit 43747 `ZEP_CHARGES`, NPC ops `Store logs` / `Check
+charges`), so a player may fly holding none, and an `items` gate would turn
+them away. Entrana's weapon and armour ban is not expressible either.
+
+**Not verified offline:** a confirm step after the button, the flight's
+length, and the landing tiles (the dataset's, each within 4 tiles of the
+station's balloon).
+
+
 ## Charter ships
 
 A charter row starts at a Trader Crewmember (`npc`, op 0 `Charter`). Its chain

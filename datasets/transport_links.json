@@ -7974,7 +7974,7 @@
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19137,
     "x": 2463,
     "y": 3108,
     "plane": 0,
@@ -7983,11 +7983,39 @@
     "option_index": 0,
     "dest_x": 3299,
     "dest_y": 3482,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": [
+        {
+          "id": 12532,
+          "value": 1
+        },
+        {
+          "id": 12535,
+          "value": 1
+        }
+      ]
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          20,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19137,
     "x": 2463,
     "y": 3108,
     "plane": 0,
@@ -7996,11 +8024,37 @@
     "option_index": 0,
     "dest_x": 2927,
     "dest_y": 3411,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": {
+        "id": 12532,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 200
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19137,
     "x": 2463,
     "y": 3108,
     "plane": 0,
@@ -8009,11 +8063,37 @@
     "option_index": 0,
     "dest_x": 2808,
     "dest_y": 3354,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": {
+        "id": 12532,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 91
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          18,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19137,
     "x": 2463,
     "y": 3108,
     "plane": 0,
@@ -8022,11 +8102,39 @@
     "option_index": 0,
     "dest_x": 2923,
     "dest_y": 3302,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": [
+        {
+          "id": 12532,
+          "value": 1
+        },
+        {
+          "id": 12534,
+          "value": 1
+        }
+      ]
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19137,
     "x": 2463,
     "y": 3108,
     "plane": 0,
@@ -8035,11 +8143,39 @@
     "option_index": 0,
     "dest_x": 2478,
     "dest_y": 3456,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": [
+        {
+          "id": 12532,
+          "value": 1
+        },
+        {
+          "id": 12533,
+          "value": 1
+        }
+      ]
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          16,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19139,
     "x": 2481,
     "y": 3456,
     "plane": 0,
@@ -8048,11 +8184,39 @@
     "option_index": 0,
     "dest_x": 2459,
     "dest_y": 3110,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": [
+        {
+          "id": 12533,
+          "value": 1
+        },
+        {
+          "id": 12532,
+          "value": 1
+        }
+      ]
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19139,
     "x": 2481,
     "y": 3456,
     "plane": 0,
@@ -8061,11 +8225,39 @@
     "option_index": 0,
     "dest_x": 3299,
     "dest_y": 3482,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": [
+        {
+          "id": 12533,
+          "value": 1
+        },
+        {
+          "id": 12535,
+          "value": 1
+        }
+      ]
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          20,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19139,
     "x": 2481,
     "y": 3456,
     "plane": 0,
@@ -8074,11 +8266,37 @@
     "option_index": 0,
     "dest_x": 2927,
     "dest_y": 3411,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": {
+        "id": 12533,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 200
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19139,
     "x": 2481,
     "y": 3456,
     "plane": 0,
@@ -8087,11 +8305,37 @@
     "option_index": 0,
     "dest_x": 2808,
     "dest_y": 3354,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": {
+        "id": 12533,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 91
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          18,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19139,
     "x": 2481,
     "y": 3456,
     "plane": 0,
@@ -8100,11 +8344,39 @@
     "option_index": 0,
     "dest_x": 2923,
     "dest_y": 3302,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": [
+        {
+          "id": 12533,
+          "value": 1
+        },
+        {
+          "id": 12534,
+          "value": 1
+        }
+      ]
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 9519,
+    "object_id": 19133,
     "x": 2807,
     "y": 3354,
     "plane": 0,
@@ -8113,11 +8385,37 @@
     "option_index": 0,
     "dest_x": 3299,
     "dest_y": 3482,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 91
+      },
+      "varbit": {
+        "id": 12535,
+        "value": 1
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          20,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 9519,
+    "object_id": 19133,
     "x": 2807,
     "y": 3354,
     "plane": 0,
@@ -8126,11 +8424,39 @@
     "option_index": 0,
     "dest_x": 2927,
     "dest_y": 3411,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 12529,
+          "value": 91
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ]
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 9519,
+    "object_id": 19133,
     "x": 2807,
     "y": 3354,
     "plane": 0,
@@ -8139,11 +8465,37 @@
     "option_index": 0,
     "dest_x": 2459,
     "dest_y": 3110,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 91
+      },
+      "varbit": {
+        "id": 12532,
+        "value": 1
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 9519,
+    "object_id": 19133,
     "x": 2807,
     "y": 3354,
     "plane": 0,
@@ -8152,11 +8504,37 @@
     "option_index": 0,
     "dest_x": 2923,
     "dest_y": 3302,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 91
+      },
+      "varbit": {
+        "id": 12534,
+        "value": 1
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 9519,
+    "object_id": 19133,
     "x": 2807,
     "y": 3354,
     "plane": 0,
@@ -8165,76 +8543,238 @@
     "option_index": 0,
     "dest_x": 2478,
     "dest_y": 3456,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 91
+      },
+      "varbit": {
+        "id": 12533,
+        "value": 1
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          16,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
-    "x": 3298,
-    "y": 3482,
+    "object_id": 19143,
+    "x": 3297,
+    "y": 3481,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
     "dest_x": 2808,
     "dest_y": 3354,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": {
+        "id": 12535,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 91
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          18,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
-    "x": 3298,
-    "y": 3482,
+    "object_id": 19143,
+    "x": 3297,
+    "y": 3481,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
     "dest_x": 2927,
     "dest_y": 3411,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": {
+        "id": 12535,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 200
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
-    "x": 3298,
-    "y": 3482,
+    "object_id": 19143,
+    "x": 3297,
+    "y": 3481,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
     "dest_x": 2459,
     "dest_y": 3110,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": [
+        {
+          "id": 12535,
+          "value": 1
+        },
+        {
+          "id": 12532,
+          "value": 1
+        }
+      ]
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
-    "x": 3298,
-    "y": 3482,
+    "object_id": 19143,
+    "x": 3297,
+    "y": 3481,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
     "dest_x": 2923,
     "dest_y": 3302,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": [
+        {
+          "id": 12535,
+          "value": 1
+        },
+        {
+          "id": 12534,
+          "value": 1
+        }
+      ]
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
-    "x": 3298,
-    "y": 3482,
+    "object_id": 19143,
+    "x": 3297,
+    "y": 3481,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
     "dest_x": 2478,
     "dest_y": 3456,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": [
+        {
+          "id": 12535,
+          "value": 1
+        },
+        {
+          "id": 12533,
+          "value": 1
+        }
+      ]
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          16,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19135,
     "x": 2927,
     "y": 3411,
     "plane": 0,
@@ -8243,11 +8783,39 @@
     "option_index": 0,
     "dest_x": 2808,
     "dest_y": 3354,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 12529,
+          "value": 200
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ]
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          18,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19135,
     "x": 2927,
     "y": 3411,
     "plane": 0,
@@ -8256,11 +8824,37 @@
     "option_index": 0,
     "dest_x": 3299,
     "dest_y": 3482,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 200
+      },
+      "varbit": {
+        "id": 12535,
+        "value": 1
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          20,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19135,
     "x": 2927,
     "y": 3411,
     "plane": 0,
@@ -8269,11 +8863,37 @@
     "option_index": 0,
     "dest_x": 2459,
     "dest_y": 3110,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 200
+      },
+      "varbit": {
+        "id": 12532,
+        "value": 1
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19135,
     "x": 2927,
     "y": 3411,
     "plane": 0,
@@ -8282,11 +8902,37 @@
     "option_index": 0,
     "dest_x": 2923,
     "dest_y": 3302,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 200
+      },
+      "varbit": {
+        "id": 12534,
+        "value": 1
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19135,
     "x": 2927,
     "y": 3411,
     "plane": 0,
@@ -8295,11 +8941,37 @@
     "option_index": 0,
     "dest_x": 2478,
     "dest_y": 3456,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 200
+      },
+      "varbit": {
+        "id": 12533,
+        "value": 1
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          16,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19141,
     "x": 2923,
     "y": 3302,
     "plane": 0,
@@ -8308,11 +8980,37 @@
     "option_index": 0,
     "dest_x": 2927,
     "dest_y": 3411,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": {
+        "id": 12534,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 200
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19141,
     "x": 2923,
     "y": 3302,
     "plane": 0,
@@ -8321,11 +9019,37 @@
     "option_index": 0,
     "dest_x": 2808,
     "dest_y": 3354,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": {
+        "id": 12534,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 12529,
+        "value": 91
+      }
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          18,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19141,
     "x": 2923,
     "y": 3302,
     "plane": 0,
@@ -8334,11 +9058,39 @@
     "option_index": 0,
     "dest_x": 3299,
     "dest_y": 3482,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": [
+        {
+          "id": 12534,
+          "value": 1
+        },
+        {
+          "id": 12535,
+          "value": 1
+        }
+      ]
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          20,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19141,
     "x": 2923,
     "y": 3302,
     "plane": 0,
@@ -8347,11 +9099,39 @@
     "option_index": 0,
     "dest_x": 2459,
     "dest_y": 3110,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": [
+        {
+          "id": 12534,
+          "value": 1
+        },
+        {
+          "id": 12532,
+          "value": 1
+        }
+      ]
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Balloons",
-    "object_id": 0,
+    "object_id": 19141,
     "x": 2923,
     "y": 3302,
     "plane": 0,
@@ -8360,7 +9140,35 @@
     "option_index": 0,
     "dest_x": 2478,
     "dest_y": 3456,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": [
+        {
+          "id": 12534,
+          "value": 1
+        },
+        {
+          "id": 12533,
+          "value": 1
+        }
+      ]
+    },
+    "chain": [
+      {
+        "wait_interface": 469
+      },
+      {
+        "click": [
+          469,
+          16,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Spirit tree re-rooter",
