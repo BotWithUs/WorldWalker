@@ -8229,11 +8229,39 @@
     "y": 3168,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2462,
     "dest_y": 3444,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          13,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8242,11 +8270,33 @@
     "y": 3168,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2557,
     "dest_y": 3259,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8255,11 +8305,33 @@
     "y": 3168,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 3185,
-    "dest_y": 3511,
-    "dest_plane": 0
+    "rotation": 1,
+    "option_index": 1,
+    "dest_x": 3187,
+    "dest_y": 3507,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8268,11 +8340,33 @@
     "y": 3168,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2416,
     "dest_y": 2851,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8281,11 +8375,37 @@
     "y": 3168,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 3058,
     "dest_y": 3257,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          21,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 64,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8294,11 +8414,37 @@
     "y": 3168,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2613,
     "dest_y": 3855,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 66,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8307,11 +8453,37 @@
     "y": 3168,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2800,
     "dest_y": 3203,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 68,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8320,11 +8492,37 @@
     "y": 3168,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2338,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8333,11 +8531,37 @@
     "y": 3168,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2275,
     "dest_y": 3371,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25045,
+        "value": 1
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8346,271 +8570,851 @@
     "y": 3168,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2661,
     "dest_y": 3383,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 45329,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2462,
-    "y": 3444,
+    "object_id": 68973,
+    "x": 2460,
+    "y": 3447,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2542,
     "dest_y": 3169,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          0,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2462,
-    "y": 3444,
+    "object_id": 68973,
+    "x": 2460,
+    "y": 3447,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2557,
     "dest_y": 3259,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2462,
-    "y": 3444,
+    "object_id": 68973,
+    "x": 2460,
+    "y": 3447,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
-    "dest_x": 3185,
-    "dest_y": 3511,
-    "dest_plane": 0
+    "option_index": 1,
+    "dest_x": 3187,
+    "dest_y": 3507,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2462,
-    "y": 3444,
+    "object_id": 68973,
+    "x": 2460,
+    "y": 3447,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2416,
     "dest_y": 2851,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2462,
-    "y": 3444,
+    "object_id": 68973,
+    "x": 2460,
+    "y": 3447,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3058,
     "dest_y": 3257,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          21,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 64,
+        "value": 20
+      },
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2462,
-    "y": 3444,
+    "object_id": 68973,
+    "x": 2460,
+    "y": 3447,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2613,
     "dest_y": 3855,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 66,
+        "value": 20
+      },
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2462,
-    "y": 3444,
+    "object_id": 68973,
+    "x": 2460,
+    "y": 3447,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2800,
     "dest_y": 3203,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 68,
+        "value": 20
+      },
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2462,
-    "y": 3444,
+    "object_id": 68973,
+    "x": 2460,
+    "y": 3447,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2338,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2462,
-    "y": 3444,
+    "object_id": 68973,
+    "x": 2460,
+    "y": 3447,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2275,
     "dest_y": 3371,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25045,
+        "value": 1
+      },
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2462,
-    "y": 3444,
+    "object_id": 68973,
+    "x": 2460,
+    "y": 3447,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2661,
     "dest_y": 3383,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 45329,
+        "value": 20
+      },
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1189,
-    "x": 2559,
-    "y": 3261,
+    "object_id": 1317,
+    "x": 2553,
+    "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2542,
     "dest_y": 3169,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          0,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1189,
-    "x": 2559,
-    "y": 3261,
+    "object_id": 1317,
+    "x": 2553,
+    "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2462,
     "dest_y": 3444,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          13,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1189,
-    "x": 2559,
-    "y": 3261,
+    "object_id": 1317,
+    "x": 2553,
+    "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
-    "dest_x": 3185,
-    "dest_y": 3511,
-    "dest_plane": 0
+    "option_index": 1,
+    "dest_x": 3187,
+    "dest_y": 3507,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1189,
-    "x": 2559,
-    "y": 3261,
+    "object_id": 1317,
+    "x": 2553,
+    "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2416,
     "dest_y": 2851,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1189,
-    "x": 2559,
-    "y": 3261,
+    "object_id": 1317,
+    "x": 2553,
+    "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3058,
     "dest_y": 3257,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          21,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 64,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1189,
-    "x": 2559,
-    "y": 3261,
+    "object_id": 1317,
+    "x": 2553,
+    "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2613,
     "dest_y": 3855,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 66,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1189,
-    "x": 2559,
-    "y": 3261,
+    "object_id": 1317,
+    "x": 2553,
+    "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2800,
     "dest_y": 3203,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 68,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1189,
-    "x": 2559,
-    "y": 3261,
+    "object_id": 1317,
+    "x": 2553,
+    "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2338,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1189,
-    "x": 2559,
-    "y": 3261,
+    "object_id": 1317,
+    "x": 2553,
+    "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2275,
     "dest_y": 3371,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25045,
+        "value": 1
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1189,
-    "x": 2559,
-    "y": 3261,
+    "object_id": 1317,
+    "x": 2553,
+    "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2661,
     "dest_y": 3383,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 45329,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8620,10 +9424,32 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2542,
     "dest_y": 3169,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          0,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8633,10 +9459,38 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2462,
     "dest_y": 3444,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          13,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8646,10 +9500,32 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2557,
     "dest_y": 3259,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8659,10 +9535,32 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2416,
     "dest_y": 2851,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8672,10 +9570,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3058,
     "dest_y": 3257,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          21,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 64,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8685,10 +9609,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2613,
     "dest_y": 3855,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 66,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8698,10 +9648,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2800,
     "dest_y": 3203,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 68,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8711,10 +9687,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2338,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8724,10 +9726,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2275,
     "dest_y": 3371,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25045,
+        "value": 1
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
@@ -8737,920 +9765,2952 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2661,
     "dest_y": 3383,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 45329,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2416,
-    "y": 2851,
+    "object_id": 1317,
+    "x": 2417,
+    "y": 2848,
     "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "shape": 11,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2542,
     "dest_y": 3169,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          0,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2416,
-    "y": 2851,
+    "object_id": 1317,
+    "x": 2417,
+    "y": 2848,
     "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "shape": 11,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2462,
     "dest_y": 3444,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          13,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2416,
-    "y": 2851,
+    "object_id": 1317,
+    "x": 2417,
+    "y": 2848,
     "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "shape": 11,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2557,
     "dest_y": 3259,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2416,
-    "y": 2851,
+    "object_id": 1317,
+    "x": 2417,
+    "y": 2848,
     "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 3185,
-    "dest_y": 3511,
-    "dest_plane": 0
+    "shape": 11,
+    "rotation": 1,
+    "option_index": 1,
+    "dest_x": 3187,
+    "dest_y": 3507,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2416,
-    "y": 2851,
+    "object_id": 1317,
+    "x": 2417,
+    "y": 2848,
     "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "shape": 11,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 3058,
     "dest_y": 3257,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          21,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 64,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2416,
-    "y": 2851,
+    "object_id": 1317,
+    "x": 2417,
+    "y": 2848,
     "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "shape": 11,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2613,
     "dest_y": 3855,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 66,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2416,
-    "y": 2851,
+    "object_id": 1317,
+    "x": 2417,
+    "y": 2848,
     "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "shape": 11,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2800,
     "dest_y": 3203,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 68,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2416,
-    "y": 2851,
+    "object_id": 1317,
+    "x": 2417,
+    "y": 2848,
     "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "shape": 11,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2338,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2416,
-    "y": 2851,
+    "object_id": 1317,
+    "x": 2417,
+    "y": 2848,
     "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "shape": 11,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2275,
     "dest_y": 3371,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25045,
+        "value": 1
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2416,
-    "y": 2851,
+    "object_id": 1317,
+    "x": 2417,
+    "y": 2848,
     "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "shape": 11,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2661,
     "dest_y": 3383,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 45329,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 3058,
+    "object_id": 8338,
+    "x": 3059,
     "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2542,
     "dest_y": 3169,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          0,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 64,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 3058,
+    "object_id": 8338,
+    "x": 3059,
     "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2462,
     "dest_y": 3444,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          13,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 64,
+        "value": 20
+      },
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 3058,
+    "object_id": 8338,
+    "x": 3059,
     "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2557,
     "dest_y": 3259,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 64,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 3058,
+    "object_id": 8338,
+    "x": 3059,
     "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
-    "dest_x": 3185,
-    "dest_y": 3511,
-    "dest_plane": 0
+    "option_index": 1,
+    "dest_x": 3187,
+    "dest_y": 3507,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 64,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 3058,
+    "object_id": 8338,
+    "x": 3059,
     "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2416,
     "dest_y": 2851,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 64,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 3058,
+    "object_id": 8338,
+    "x": 3059,
     "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2613,
     "dest_y": 3855,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 64,
+          "value": 20
+        },
+        {
+          "id": 66,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 3058,
+    "object_id": 8338,
+    "x": 3059,
     "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2800,
     "dest_y": 3203,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 64,
+          "value": 20
+        },
+        {
+          "id": 68,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 3058,
+    "object_id": 8338,
+    "x": 3059,
     "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2338,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 64,
+        "value": 20
+      },
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 3058,
+    "object_id": 8338,
+    "x": 3059,
     "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2275,
     "dest_y": 3371,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 64,
+          "value": 20
+        },
+        {
+          "id": 25045,
+          "value": 1
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 3058,
+    "object_id": 8338,
+    "x": 3059,
     "y": 3257,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2661,
     "dest_y": 3383,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 64,
+          "value": 20
+        },
+        {
+          "id": 45329,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2613,
-    "y": 3855,
+    "object_id": 8382,
+    "x": 2612,
+    "y": 3857,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2542,
     "dest_y": 3169,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          0,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 66,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2613,
-    "y": 3855,
+    "object_id": 8382,
+    "x": 2612,
+    "y": 3857,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2462,
     "dest_y": 3444,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          13,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 66,
+        "value": 20
+      },
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2613,
-    "y": 3855,
+    "object_id": 8382,
+    "x": 2612,
+    "y": 3857,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2557,
     "dest_y": 3259,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 66,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2613,
-    "y": 3855,
+    "object_id": 8382,
+    "x": 2612,
+    "y": 3857,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
-    "dest_x": 3185,
-    "dest_y": 3511,
-    "dest_plane": 0
+    "option_index": 1,
+    "dest_x": 3187,
+    "dest_y": 3507,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 66,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2613,
-    "y": 3855,
+    "object_id": 8382,
+    "x": 2612,
+    "y": 3857,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2416,
     "dest_y": 2851,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 66,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2613,
-    "y": 3855,
+    "object_id": 8382,
+    "x": 2612,
+    "y": 3857,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3058,
     "dest_y": 3257,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          21,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 66,
+          "value": 20
+        },
+        {
+          "id": 64,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2613,
-    "y": 3855,
+    "object_id": 8382,
+    "x": 2612,
+    "y": 3857,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2800,
     "dest_y": 3203,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 66,
+          "value": 20
+        },
+        {
+          "id": 68,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2613,
-    "y": 3855,
+    "object_id": 8382,
+    "x": 2612,
+    "y": 3857,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2338,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 66,
+        "value": 20
+      },
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2613,
-    "y": 3855,
+    "object_id": 8382,
+    "x": 2612,
+    "y": 3857,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2275,
     "dest_y": 3371,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 66,
+          "value": 20
+        },
+        {
+          "id": 25045,
+          "value": 1
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2613,
-    "y": 3855,
+    "object_id": 8382,
+    "x": 2612,
+    "y": 3857,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2661,
     "dest_y": 3383,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 66,
+          "value": 20
+        },
+        {
+          "id": 45329,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1202,
-    "x": 2799,
-    "y": 3203,
+    "object_id": 8383,
+    "x": 2801,
+    "y": 3202,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2542,
     "dest_y": 3169,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          0,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 68,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1202,
-    "x": 2799,
-    "y": 3203,
+    "object_id": 8383,
+    "x": 2801,
+    "y": 3202,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2462,
     "dest_y": 3444,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          13,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 68,
+        "value": 20
+      },
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1202,
-    "x": 2799,
-    "y": 3203,
+    "object_id": 8383,
+    "x": 2801,
+    "y": 3202,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2557,
     "dest_y": 3259,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 68,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1202,
-    "x": 2799,
-    "y": 3203,
+    "object_id": 8383,
+    "x": 2801,
+    "y": 3202,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 3185,
-    "dest_y": 3511,
-    "dest_plane": 0
+    "rotation": 1,
+    "option_index": 1,
+    "dest_x": 3187,
+    "dest_y": 3507,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 68,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1202,
-    "x": 2799,
-    "y": 3203,
+    "object_id": 8383,
+    "x": 2801,
+    "y": 3202,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2416,
     "dest_y": 2851,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 68,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1202,
-    "x": 2799,
-    "y": 3203,
+    "object_id": 8383,
+    "x": 2801,
+    "y": 3202,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 3058,
     "dest_y": 3257,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          21,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 68,
+          "value": 20
+        },
+        {
+          "id": 64,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1202,
-    "x": 2799,
-    "y": 3203,
+    "object_id": 8383,
+    "x": 2801,
+    "y": 3202,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2613,
     "dest_y": 3855,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 68,
+          "value": 20
+        },
+        {
+          "id": 66,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1202,
-    "x": 2799,
-    "y": 3203,
+    "object_id": 8383,
+    "x": 2801,
+    "y": 3202,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2338,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 68,
+        "value": 20
+      },
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1202,
-    "x": 2799,
-    "y": 3203,
+    "object_id": 8383,
+    "x": 2801,
+    "y": 3202,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2275,
     "dest_y": 3371,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 68,
+          "value": 20
+        },
+        {
+          "id": 25045,
+          "value": 1
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 1202,
-    "x": 2799,
-    "y": 3203,
+    "object_id": 8383,
+    "x": 2801,
+    "y": 3202,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 1,
+    "option_index": 1,
     "dest_x": 2661,
     "dest_y": 3383,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 68,
+          "value": 20
+        },
+        {
+          "id": 45329,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
+    "object_id": 26723,
     "x": 2338,
-    "y": 3109,
+    "y": 3110,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2542,
     "dest_y": 3169,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          0,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
+    "object_id": 26723,
     "x": 2338,
-    "y": 3109,
+    "y": 3110,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2462,
     "dest_y": 3444,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          13,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
+    "object_id": 26723,
     "x": 2338,
-    "y": 3109,
+    "y": 3110,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2557,
     "dest_y": 3259,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
+    "object_id": 26723,
     "x": 2338,
-    "y": 3109,
+    "y": 3110,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
-    "dest_x": 3185,
-    "dest_y": 3511,
-    "dest_plane": 0
+    "option_index": 1,
+    "dest_x": 3187,
+    "dest_y": 3507,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
+    "object_id": 26723,
     "x": 2338,
-    "y": 3109,
+    "y": 3110,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2416,
     "dest_y": 2851,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
+    "object_id": 26723,
     "x": 2338,
-    "y": 3109,
+    "y": 3110,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 3058,
     "dest_y": 3257,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          21,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 64,
+        "value": 20
+      },
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
+    "object_id": 26723,
     "x": 2338,
-    "y": 3109,
+    "y": 3110,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2613,
     "dest_y": 3855,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 66,
+        "value": 20
+      },
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
+    "object_id": 26723,
     "x": 2338,
-    "y": 3109,
+    "y": 3110,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2800,
     "dest_y": 3203,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 68,
+        "value": 20
+      },
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
+    "object_id": 26723,
     "x": 2338,
-    "y": 3109,
+    "y": 3110,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2275,
     "dest_y": 3371,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25045,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
+    "object_id": 26723,
     "x": 2338,
-    "y": 3109,
+    "y": 3110,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 1,
     "dest_x": 2661,
     "dest_y": 3383,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 45329,
+        "value": 20
+      },
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2275,
-    "y": 3371,
+    "object_id": 92994,
+    "x": 2267,
+    "y": 3368,
     "plane": 1,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2542,
     "dest_y": 3169,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          0,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25045,
+        "value": 1
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2275,
-    "y": 3371,
+    "object_id": 92994,
+    "x": 2267,
+    "y": 3368,
     "plane": 1,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2462,
     "dest_y": 3444,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          13,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25045,
+        "value": 1
+      },
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2275,
-    "y": 3371,
+    "object_id": 92994,
+    "x": 2267,
+    "y": 3368,
     "plane": 1,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2557,
     "dest_y": 3259,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25045,
+        "value": 1
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2275,
-    "y": 3371,
+    "object_id": 92994,
+    "x": 2267,
+    "y": 3368,
     "plane": 1,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 3185,
-    "dest_y": 3511,
-    "dest_plane": 0
+    "rotation": 3,
+    "option_index": 1,
+    "dest_x": 3187,
+    "dest_y": 3507,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25045,
+        "value": 1
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2275,
-    "y": 3371,
+    "object_id": 92994,
+    "x": 2267,
+    "y": 3368,
     "plane": 1,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2416,
     "dest_y": 2851,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25045,
+        "value": 1
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2275,
-    "y": 3371,
+    "object_id": 92994,
+    "x": 2267,
+    "y": 3368,
     "plane": 1,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 3058,
     "dest_y": 3257,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          21,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 25045,
+          "value": 1
+        },
+        {
+          "id": 64,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2275,
-    "y": 3371,
+    "object_id": 92994,
+    "x": 2267,
+    "y": 3368,
     "plane": 1,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2613,
     "dest_y": 3855,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 25045,
+          "value": 1
+        },
+        {
+          "id": 66,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2275,
-    "y": 3371,
+    "object_id": 92994,
+    "x": 2267,
+    "y": 3368,
     "plane": 1,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2800,
     "dest_y": 3203,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 25045,
+          "value": 1
+        },
+        {
+          "id": 68,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2275,
-    "y": 3371,
+    "object_id": 92994,
+    "x": 2267,
+    "y": 3368,
     "plane": 1,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2338,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25045,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2275,
-    "y": 3371,
+    "object_id": 92994,
+    "x": 2267,
+    "y": 3368,
     "plane": 1,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2661,
     "dest_y": 3383,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 25045,
+          "value": 1
+        },
+        {
+          "id": 45329,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2661,
-    "y": 3383,
+    "object_id": 114572,
+    "x": 2658,
+    "y": 3382,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2542,
     "dest_y": 3169,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          0,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 45329,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2661,
-    "y": 3383,
+    "object_id": 114572,
+    "x": 2658,
+    "y": 3382,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2462,
     "dest_y": 3444,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          13,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 45329,
+        "value": 20
+      },
+      "varp_at_least": [
+        {
+          "id": 2661,
+          "value": 9
+        },
+        {
+          "id": 2740,
+          "value": 160
+        }
+      ]
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2661,
-    "y": 3383,
+    "object_id": 114572,
+    "x": 2658,
+    "y": 3382,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2557,
     "dest_y": 3259,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          15,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 45329,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2661,
-    "y": 3383,
+    "object_id": 114572,
+    "x": 2658,
+    "y": 3382,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 3185,
-    "dest_y": 3511,
-    "dest_plane": 0
+    "rotation": 3,
+    "option_index": 1,
+    "dest_x": 3187,
+    "dest_y": 3507,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          17,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 45329,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2661,
-    "y": 3383,
+    "object_id": 114572,
+    "x": 2658,
+    "y": 3382,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2416,
     "dest_y": 2851,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          19,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 45329,
+        "value": 20
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2661,
-    "y": 3383,
+    "object_id": 114572,
+    "x": 2658,
+    "y": 3382,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 3058,
     "dest_y": 3257,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          21,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 45329,
+          "value": 20
+        },
+        {
+          "id": 64,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2661,
-    "y": 3383,
+    "object_id": 114572,
+    "x": 2658,
+    "y": 3382,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2613,
     "dest_y": 3855,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 45329,
+          "value": 20
+        },
+        {
+          "id": 66,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2661,
-    "y": 3383,
+    "object_id": 114572,
+    "x": 2658,
+    "y": 3382,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2800,
     "dest_y": 3203,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 45329,
+          "value": 20
+        },
+        {
+          "id": 68,
+          "value": 20
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2661,
-    "y": 3383,
+    "object_id": 114572,
+    "x": 2658,
+    "y": 3382,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2338,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 45329,
+        "value": 20
+      },
+      "varbit_at_least": {
+        "id": 10479,
+        "value": 3
+      },
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "Spirit tree re-rooter",
-    "object_id": 0,
-    "x": 2661,
-    "y": 3383,
+    "object_id": 114572,
+    "x": 2658,
+    "y": 3382,
     "plane": 0,
     "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
+    "rotation": 3,
+    "option_index": 1,
     "dest_x": 2275,
     "dest_y": 3371,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "chain": [
+      {
+        "wait_interface": 1145
+      },
+      {
+        "click": [
+          1145,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit": [
+        {
+          "id": 45329,
+          "value": 20
+        },
+        {
+          "id": 25045,
+          "value": 1
+        }
+      ],
+      "varp_at_least": {
+        "id": 2661,
+        "value": 9
+      }
+    }
   },
   {
     "name": "One way fairy rings",
@@ -9794,7 +12854,8 @@
     "option_index": 0,
     "dest_x": 2465,
     "dest_y": 3501,
-    "dest_plane": 3
+    "dest_plane": 3,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -9807,7 +12868,8 @@
     "option_index": 0,
     "dest_x": 3321,
     "dest_y": 3430,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -9820,7 +12882,8 @@
     "option_index": 0,
     "dest_x": 3284,
     "dest_y": 3211,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -9834,7 +12897,8 @@
     "global": true,
     "dest_x": 2971,
     "dest_y": 2969,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -9847,7 +12911,8 @@
     "option_index": 0,
     "dest_x": 2549,
     "dest_y": 2971,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -9860,7 +12925,8 @@
     "option_index": 0,
     "dest_x": 2496,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -9873,7 +12939,8 @@
     "option_index": 0,
     "dest_x": 2208,
     "dest_y": 3445,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -9886,7 +12953,8 @@
     "option_index": 0,
     "dest_x": 1772,
     "dest_y": 11920,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -10108,7 +13176,8 @@
     "option_index": 0,
     "dest_x": 2465,
     "dest_y": 3501,
-    "dest_plane": 3
+    "dest_plane": 3,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -10121,7 +13190,8 @@
     "option_index": 0,
     "dest_x": 2850,
     "dest_y": 3494,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -10134,7 +13204,8 @@
     "option_index": 0,
     "dest_x": 3321,
     "dest_y": 3430,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -10147,7 +13218,8 @@
     "option_index": 0,
     "dest_x": 3284,
     "dest_y": 3211,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -10161,7 +13233,8 @@
     "global": true,
     "dest_x": 2971,
     "dest_y": 2969,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -10174,7 +13247,8 @@
     "option_index": 0,
     "dest_x": 2496,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -10187,7 +13261,8 @@
     "option_index": 0,
     "dest_x": 2208,
     "dest_y": 3445,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",
@@ -10200,7 +13275,8 @@
     "option_index": 0,
     "dest_x": 1772,
     "dest_y": 11920,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true
   },
   {
     "name": "Gnome gliders",

@@ -115,9 +115,11 @@ namespace ww::runtime
         // documented dataset convention), and VarbitAtLeast is the minimum-value
         // form for the varbits that count up rather than flag — a task-set
         // reward state, a reputation total — where an exact gate would deny the
-        // very accounts that are furthest past it. An unknown kind byte is
-        // rejected conservatively: a malformed artifact must not silently pass a
-        // gate, and a reader older than the kind denies the edge and walks.
+        // very accounts that are furthest past it. VarpAtLeast is the same for a
+        // varp, which is where most older quests keep their progress. An
+        // unknown kind byte is rejected conservatively: a malformed artifact
+        // must not silently pass a gate, and a reader older than the kind
+        // denies the edge and walks.
         bool meets(const format::RequirementRecord &req) const
         {
             switch (static_cast<data::RequirementKind>(req.kind))
@@ -132,6 +134,8 @@ namespace ww::runtime
                     return varp(req.id) == req.amount;
                 case data::RequirementKind::VarbitAtLeast:
                     return varbit(req.id) >= req.amount;
+                case data::RequirementKind::VarpAtLeast:
+                    return varp(req.id) >= req.amount;
             }
             return false;
         }
@@ -250,6 +254,12 @@ namespace ww::runtime
                     if (outSnapshot.varbit(r.id) < r.amount)
                     {
                         outSnapshot.setVarbit(r.id, r.amount);
+                    }
+                    break;
+                case data::RequirementKind::VarpAtLeast:
+                    if (outSnapshot.varp(r.id) < r.amount)
+                    {
+                        outSnapshot.setVarp(r.id, r.amount);
                     }
                     break;
             }

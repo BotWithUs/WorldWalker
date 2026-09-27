@@ -328,6 +328,12 @@ namespace
                 // by the empty snapshot and so are excluded here.
                 return true;
             }
+            if ((kind == ww::data::RequirementKind::VarbitAtLeast
+                 || kind == ww::data::RequirementKind::VarpAtLeast)
+                && r.amount > 0)
+            {
+                return true;
+            }
         }
         return false;
     }

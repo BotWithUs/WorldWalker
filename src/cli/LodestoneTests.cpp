@@ -130,6 +130,45 @@ namespace
       }
     })";
 
+    // The minimum-value gates: `varbit_at_least` in its array spelling (the
+    // second entry leaves `value` out, which means 1) and `varp_at_least` as
+    // one object. The ids are the spirit tree ones, but the loader gives them
+    // no meaning.
+    const char *const kAtLeastGateFixture = R"({
+      "lodestones": {
+        "config": {
+          "open_interface": 1465, "open_component": 34,
+          "select_interface": 1092,
+          "open_wait": 6, "teleport_wait": 18
+        },
+        "destinations": [
+          { "name": "Lumbridge", "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "varbit": { "id": 35, "value": 1 } },
+            "routes": [
+              { "requirements": {
+                  "varbit_at_least": [ { "id": 10479, "value": 3 }, { "id": 14042 } ],
+                  "varp_at_least": { "id": 2661, "value": 9 } },
+                "chain": [ { "click": [1461, 1, 1, 234] }, { "wait": 18 } ] }
+            ] }
+        ]
+      }
+    })";
+
+    constexpr Requirement kPoisonWasteTree{RequirementKind::VarbitAtLeast, 10479, 3};
+    constexpr Requirement kFirstResortDone{RequirementKind::VarbitAtLeast, 14042, 1};
+    constexpr Requirement kTreeGnomeVillage{RequirementKind::VarpAtLeast, 2661, 9};
+
+    // A scalar where a minimum-value gate belongs: must throw.
+    const char *const kScalarVarpAtLeastFixture = R"({
+      "lodestones": {
+        "config": { "open_interface": 1465, "open_component": 34, "select_interface": 1092 },
+        "destinations": [
+          { "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "varp_at_least": 2661 } }
+        ]
+      }
+    })";
+
     // `routes` as an object rather than an array: must throw, not be ignored.
     const char *const kRoutesNotArrayFixture = R"({
       "lodestones": {
@@ -383,6 +422,45 @@ namespace
         return expectLodestone("array gate: Lumbridge book", txs[0], kLumbridgeX, kLumbridgeY,
                                {kLumbridgeUnlocked, kSpellsShown, kCombinedBook},
                                {kCastLumbridge, kTeleportWait});
+    }
+
+    // A varp holding `value` against the Tree Gnome Village gate, which asks
+    // for at least 9.
+    bool meetsTreeGnomeVillage(int32_t value)
+    {
+        ww::runtime::CapabilitySnapshot snapshot;
+        snapshot.setVarp(kTreeGnomeVillage.id, value);
+        const ww::format::RequirementRecord gate{
+            static_cast<uint8_t>(kTreeGnomeVillage.kind), {}, kTreeGnomeVillage.id,
+            kTreeGnomeVillage.amount};
+        return snapshot.meets(gate);
+    }
+
+    // The minimum-value gates load in order, after the destination's own,
+    // and a varp gate passes at and above its value but not below it.
+    int checkAtLeastGates(const std::filesystem::path &dir)
+    {
+        const ww::data::LoadedDatasets loaded = loadFixture(dir, kAtLeastGateFixture);
+        const std::vector<Transition> &txs = loaded.model.transitions;
+        std::printf("lodestones: at-least fixture -> %zu transitions (expect 2)\n", txs.size());
+        if (txs.size() != 2)
+        {
+            return fail("at-least gate: expected a book route and a map");
+        }
+        int failures = expectLodestone(
+            "at-least gate: Lumbridge book", txs[0], kLumbridgeX, kLumbridgeY,
+            {kLumbridgeUnlocked, kPoisonWasteTree, kFirstResortDone, kTreeGnomeVillage},
+            {kCastLumbridge, kTeleportWait});
+        const bool isBelowDenied = !meetsTreeGnomeVillage(8);
+        const bool isAtAdmitted = meetsTreeGnomeVillage(9);
+        const bool isAboveAdmitted = meetsTreeGnomeVillage(12);
+        std::printf("lodestones: varp_at_least 9 vs 8/9/12 -> %d/%d/%d (expect 0/1/1)\n",
+                    isBelowDenied ? 0 : 1, isAtAdmitted ? 1 : 0, isAboveAdmitted ? 1 : 0);
+        if (!isBelowDenied || !isAtAdmitted || !isAboveAdmitted)
+        {
+            failures += fail("at-least gate: varp_at_least is not a minimum");
+        }
+        return failures;
     }
 
     // Staging happens outside the try: writeText throws too, and a read-only
@@ -649,10 +727,13 @@ namespace
             int failures = checkRoutedDestination(dir);
             failures += checkNoRoutesIsMapOnly(dir);
             failures += checkArrayVarGate(dir);
+            failures += checkAtLeastGates(dir);
             failures += expectLoadThrows(dir, "routes as an object", kRoutesNotArrayFixture);
             failures += expectLoadThrows(dir, "a route with no recognised step",
                                          kRouteWithoutChainFixture);
             failures += expectLoadThrows(dir, "a scalar varbit gate", kScalarVarbitFixture);
+            failures += expectLoadThrows(dir, "a scalar varp_at_least gate",
+                                         kScalarVarpAtLeastFixture);
             return failures;
         }
         catch (const std::exception &e)

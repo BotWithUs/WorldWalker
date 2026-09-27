@@ -74,6 +74,11 @@ namespace ww::data
         Varbit        = 2,  // amount = required value, matched exactly
         Varp          = 3,  // amount = required value, matched exactly
         VarbitAtLeast = 4,  // amount = minimum value
+        // amount = minimum value. Quest progress that the game keeps only in a
+        // varp (Tree Gnome Village, Cabin Fever, Regicide) has no varbit to
+        // gate on. The executor reads varps solely from the host's
+        // readCapability, so a host that supplies none denies these gates.
+        VarpAtLeast   = 5,
     };
 
     // One structured predicate filtered against a per-query capability snapshot.

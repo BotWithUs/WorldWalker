@@ -189,45 +189,67 @@ namespace ww::data
         // chain / runtime teleport JSON, so it is part of the wire contract).
         constexpr int kComponentActionId = 57;
 
-        // One `{id, value}` var gate, appended as `kind`.
-        void pushVarRequirement(const json &v, RequirementKind kind, const char *context,
+        // One var gate kind: its dataset key, the kind it becomes, and the
+        // value an entry that omits `value` asks for (0 for an exact match,
+        // 1 for a minimum, so a bare `{id}` means "set" either way).
+        struct VarGateKey
+        {
+            const char *key;
+            RequirementKind kind;
+            int defaultValue;
+            const char *context;
+        };
+
+        // One `{id, value}` var gate, appended as `gate.kind`.
+        void pushVarRequirement(const json &v, const VarGateKey &gate,
                                 std::vector<Requirement> &out)
         {
-            out.push_back({kind, readRequiredInt(v, "id", context),
-                           readOptionalInt(v, "value", 0, context)});
+            out.push_back({gate.kind, readRequiredInt(v, "id", gate.context),
+                           readOptionalInt(v, "value", gate.defaultValue, gate.context)});
         }
 
-        // `varbit` / `varp` is either one `{id, value}` object or an array of
+        // Every var gate is either one `{id, value}` object or an array of
         // them, the way `items` has always been an array. The array spelling is
         // what lets one entry demand more than one var — an unlock *and* a
-        // setting, say — without the parser knowing what those vars mean. Both
-        // spellings produce the same flat Requirement list, so nothing
-        // downstream can tell them apart.
-        void readVarRequirements(const json &req, const char *key, RequirementKind kind,
-                                 const char *context, std::vector<Requirement> &out)
+        // setting, say, or the unlocks at both ends of a route — without the
+        // parser knowing what those vars mean. Both spellings produce the same
+        // flat Requirement list, so nothing downstream can tell them apart.
+        void readVarRequirements(const json &req, const VarGateKey &gate,
+                                 std::vector<Requirement> &out)
         {
-            if (!req.contains(key))
+            if (!req.contains(gate.key))
             {
                 return;
             }
-            const json &node = req.at(key);
+            const json &node = req.at(gate.key);
             if (node.is_object())
             {
-                pushVarRequirement(node, kind, context, out);
+                pushVarRequirement(node, gate, out);
                 return;
             }
             // Anything else is a typo (`"varbit": 50990`) that used to be
             // dropped in silence, leaving the transition ungated.
             if (!node.is_array())
             {
-                throw std::runtime_error(std::string(context)
+                throw std::runtime_error(std::string(gate.context)
                                          + ": must be an object or an array of objects");
             }
             for (const json &v : node)
             {
-                pushVarRequirement(v, kind, context, out);
+                pushVarRequirement(v, gate, out);
             }
         }
+
+        // `varbit_at_least` used to be read only when it was an object, so an
+        // array of them was dropped and the row baked ungated; it now shares
+        // the object-or-array reader with the rest.
+        constexpr VarGateKey kVarGateKeys[] = {
+            {"varbit", RequirementKind::Varbit, 0, "requirements.varbit"},
+            {"varbit_at_least", RequirementKind::VarbitAtLeast, 1,
+             "requirements.varbit_at_least"},
+            {"varp", RequirementKind::Varp, 0, "requirements.varp"},
+            {"varp_at_least", RequirementKind::VarpAtLeast, 1, "requirements.varp_at_least"},
+        };
 
         void parseRequirements(const json &node, std::vector<Requirement> &out)
         {
@@ -245,7 +267,7 @@ namespace ww::data
             {
                 throw std::runtime_error(
                     "requirements must be an object of gate kinds "
-                    "(skill / varbit / varbit_at_least / varp / items)");
+                    "(skill / varbit / varbit_at_least / varp / varp_at_least / items)");
             }
             // `id` is required on every gate: a requirement without one is
             // meaningless, and the silent -1 default used to flow through to
@@ -258,16 +280,10 @@ namespace ww::data
                                readRequiredInt(s, "id", "requirements.skill"),
                                readOptionalInt(s, "level", 0, "requirements.skill")});
             }
-            readVarRequirements(req, "varbit", RequirementKind::Varbit, "requirements.varbit",
-                                out);
-            if (req.contains("varbit_at_least") && req.at("varbit_at_least").is_object())
+            for (const VarGateKey &gate : kVarGateKeys)
             {
-                const json &v = req.at("varbit_at_least");
-                out.push_back({RequirementKind::VarbitAtLeast,
-                               readRequiredInt(v, "id", "requirements.varbit_at_least"),
-                               readOptionalInt(v, "value", 1, "requirements.varbit_at_least")});
+                readVarRequirements(req, gate, out);
             }
-            readVarRequirements(req, "varp", RequirementKind::Varp, "requirements.varp", out);
             if (req.contains("items") && req.at("items").is_array())
             {
                 for (const json &it : req.at("items"))

@@ -24,7 +24,8 @@
 //     Needs nothing.
 //   * schema:   `requirements.varbit` in both its spellings — one object and
 //     an array — and that a scalar there throws rather than silently leaving
-//     the transition ungated.
+//     the transition ungated. The minimum-value gates `varbit_at_least` and
+//     `varp_at_least` likewise, and that a varp gate is a minimum.
 //   * planner:  a fixture appended onto a real artifact through
 //     loadGlobalTeleportsInto, then one query planned at three filter values:
 //     0 must lead with the cast, 1 must lead with the map, and an
