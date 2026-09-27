@@ -719,6 +719,16 @@ namespace ww::runtime
         if (startArea == goalArea)
         {
             ok = appendWalkSegment(startX, startY, goalX, goalY, startPlane, startArea, outPlan);
+            // A ride across the area (a magic carpet between two desert
+            // stations) can beat the walk; the walk-aware search weighs it.
+            Plan ride;
+            const bool isRide = areaSearch->hasIntraAreaEdges(startArea)
+                && assembleAreaRoute(startX, startY, startPlane, startArea, goalX, goalY,
+                                     goalArea, capabilities, {}, ride);
+            if (isRide)
+            {
+                keepIfCheaper(ride, outPlan, ok);
+            }
         }
         else
         {

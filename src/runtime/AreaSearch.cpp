@@ -36,8 +36,9 @@ namespace ww::runtime
         // the initial values of the other fields are irrelevant — only the
         // epoch stamp itself must start at zero so the first query
         // (epoch == 1) sees every entry as stale. Zero-init the whole row
-        // for cleanliness.
-        scratch.assign(areaCount, AreaScratch{});
+        // for cleanliness. One entry per area, per same-area edge, and one
+        // for the goal.
+        scratch.assign(static_cast<std::size_t>(goalNode) + 1u, AreaScratch{});
     }
 
     // Counting sort of the fromArea-sorted edge list into CSR offsets: edges are
@@ -57,6 +58,82 @@ namespace ww::runtime
         for (uint32_t a = 0; a < areaCount; ++a)
         {
             edgeOffset[a + 1u] += edgeOffset[a];
+        }
+        intraSlot.assign(edges.size(), -1);
+        hasIntraEdge.assign(areaCount, 0u);
+        for (std::size_t i = 0; i < edges.size(); ++i)
+        {
+            if (edges[i].fromArea == edges[i].toArea && isValidArea(edges[i].fromArea))
+            {
+                intraSlot[i] = static_cast<int32_t>(intraEdge.size());
+                intraEdge.push_back(static_cast<uint32_t>(i));
+                hasIntraEdge[static_cast<uint32_t>(edges[i].fromArea)] = 1u;
+            }
+        }
+        goalNode = areaCount + static_cast<uint32_t>(intraEdge.size());
+    }
+
+    bool AreaSearch::hasIntraAreaEdges(int32_t area) const
+    {
+        return isValidArea(area) && hasIntraEdge[static_cast<uint32_t>(area)] != 0u;
+    }
+
+    uint32_t AreaSearch::areaOfNode(uint32_t node) const
+    {
+        if (node < areaCount)
+        {
+            return node;
+        }
+        const std::span<const format::AreaEdgeRecord> edges = artifact->areaEdges();
+        return static_cast<uint32_t>(edges[intraEdge[node - areaCount]].fromArea);
+    }
+
+    void AreaSearch::offer(uint32_t v, float cost, int32_t fromNode, int32_t via, float estimate)
+    {
+        if (cost >= bestCostOf(v))
+        {
+            return;
+        }
+        AreaScratch &dst = scratch[v];
+        dst.bestCost = cost;
+        dst.cameFromArea = fromNode;
+        dst.cameFromEdge = via;
+        dst.settled = 0u;
+        dst.epochStamp = epoch;
+        openHeap.push_back({cost + estimate, static_cast<int32_t>(v)});
+        std::push_heap(openHeap.begin(), openHeap.end(), ByPriority{});
+    }
+
+    void AreaSearch::relaxWalkAware(uint32_t u, std::span<const format::AreaEdgeRecord> edges,
+                                    const AltHeuristic &h, bool isFiltering)
+    {
+        const uint32_t uArea = areaOfNode(u);
+        const bool isInGoalArea = static_cast<int32_t>(uArea) == currentGoalArea;
+        const float uCost = scratch[u].bestCost;
+        int32_t entryX = 0;
+        int32_t entryY = 0;
+        entryTileOf(u, entryX, entryY);
+        for (uint32_t i = edgeOffset[uArea]; i < edgeOffset[uArea + 1u]; ++i)
+        {
+            const format::AreaEdgeRecord &edge = edges[i];
+            const int32_t slot = intraSlot[i];
+            // Inside goalArea the route has arrived; it goes on only to ride
+            // across the area, never out of it and back in.
+            if (!isValidArea(edge.toArea) || (isInGoalArea && slot < 0)
+                || (isFiltering && !isTransitionAdmitted(edge.transitionIndex)))
+            {
+                continue;
+            }
+            const float nd = uCost + edge.cost + approachCost(entryX, entryY, edge);
+            const uint32_t v = slot < 0 ? static_cast<uint32_t>(edge.toArea)
+                                        : areaCount + static_cast<uint32_t>(slot);
+            const float estimate = h.estimate(static_cast<uint32_t>(edge.toArea));
+            offer(v, nd, static_cast<int32_t>(u), static_cast<int32_t>(i), estimate);
+            if (edge.toArea == currentGoalArea)
+            {
+                offer(goalNode, nd + walkToGoal(edge.transitionIndex), static_cast<int32_t>(u),
+                      static_cast<int32_t>(i), 0.0f);
+            }
         }
     }
 
@@ -94,7 +171,7 @@ namespace ww::runtime
         for (uint32_t i = edgeOffset[ua]; i < edgeOffset[ua + 1u]; ++i)
         {
             const int32_t v = edges[i].toArea;
-            if (!isValidArea(v))
+            if (!isValidArea(v) || v == u)
             {
                 continue;
             }
@@ -126,7 +203,7 @@ namespace ww::runtime
         for (uint32_t i = edgeOffset[ua]; i < edgeOffset[ua + 1u]; ++i)
         {
             const int32_t v = edges[i].toArea;
-            if (!isValidArea(v))
+            if (!isValidArea(v) || v == u)
             {
                 continue;
             }
@@ -237,27 +314,16 @@ namespace ww::runtime
             {
                 continue;
             }
-            // A landing in the goal area still has the walk to the goal ahead;
-            // anywhere else the next edge's approach charges the walk.
-            float cost = seed.cost;
+            // A landing in the goal area still has the walk to the goal ahead:
+            // walk-aware, that is the goal node's offer; anywhere else the
+            // next edge's approach charges the walk.
+            const uint32_t a = static_cast<uint32_t>(seed.destArea);
+            const auto via = static_cast<int32_t>(seed.transitionIndex);
+            offer(a, seed.cost, -2, via, h.estimate(a));
             if (currentEndpoints != nullptr && seed.destArea == currentGoalArea)
             {
-                cost += octileDistance(tx.destX - currentEndpoints->goalX,
-                                       tx.destY - currentEndpoints->goalY);
+                offer(goalNode, seed.cost + walkToGoal(seed.transitionIndex), -2, via, 0.0f);
             }
-            const uint32_t a = static_cast<uint32_t>(seed.destArea);
-            if (cost >= bestCostOf(a))
-            {
-                continue;
-            }
-            AreaScratch &dst = scratch[a];
-            dst.bestCost = cost;
-            dst.cameFromArea = -2;
-            dst.cameFromEdge = static_cast<int32_t>(seed.transitionIndex);
-            dst.settled = 0u;
-            dst.epochStamp = epoch;
-            openHeap.push_back({cost + h.estimate(a), seed.destArea});
-            std::push_heap(openHeap.begin(), openHeap.end(), ByPriority{});
         }
     }
 
@@ -303,17 +369,23 @@ namespace ww::runtime
             return 0.0f;
         }
         const format::TransitionRecord &tx = transitions[edge.transitionIndex];
-        float walk = 0.0f;
-        if ((tx.flags & format::kTransitionFlagGlobalOrigin) == 0u)
+        if ((tx.flags & format::kTransitionFlagGlobalOrigin) != 0u)
         {
-            walk = octileDistance(tx.originX - entryX, tx.originY - entryY);
+            return 0.0f;
         }
-        if (edge.toArea == currentGoalArea)
+        return octileDistance(tx.originX - entryX, tx.originY - entryY);
+    }
+
+    float AreaSearch::walkToGoal(uint32_t transitionIndex) const
+    {
+        const std::span<const format::TransitionRecord> transitions = artifact->transitions();
+        if (currentEndpoints == nullptr || transitionIndex >= transitions.size())
         {
-            walk += octileDistance(tx.destX - currentEndpoints->goalX,
-                                   tx.destY - currentEndpoints->goalY);
+            return 0.0f;
         }
-        return walk;
+        const format::TransitionRecord &tx = transitions[transitionIndex];
+        return octileDistance(tx.destX - currentEndpoints->goalX,
+                              tx.destY - currentEndpoints->goalY);
     }
 
     // Trace the predecessor chain from goal back to either startArea (normal
@@ -342,6 +414,76 @@ namespace ww::runtime
         }
         outPath.steps.push_back({startArea, -1});
         std::reverse(outPath.steps.begin(), outPath.steps.end());
+    }
+
+    // As reconstruct, from the goal node. Its predecessor is the node the
+    // last edge left (or -1: the start is in goalArea and the route walks,
+    // or -2: a seeded teleport lands in goalArea), and a same-area edge's node
+    // reports its area, so a ride shows as two steps in one area.
+    void AreaSearch::reconstructGoal(int32_t startArea, AreaPath &outPath) const
+    {
+        const AreaScratch &goal = scratch[goalNode];
+        outPath.cost = goal.bestCost;
+        if (goal.cameFromArea == -1)
+        {
+            outPath.steps.push_back({startArea, -1});
+            return;
+        }
+        if (goal.cameFromArea == -2)
+        {
+            outPath.leadingTransition = goal.cameFromEdge;
+            outPath.steps.push_back({currentGoalArea, -1});
+            return;
+        }
+        outPath.steps.push_back({currentGoalArea, goal.cameFromEdge});
+        int32_t node = goal.cameFromArea;
+        while (node != startArea)
+        {
+            const AreaScratch &s = scratch[static_cast<uint32_t>(node)];
+            const auto area = static_cast<int32_t>(areaOfNode(static_cast<uint32_t>(node)));
+            if (s.cameFromArea == -2)
+            {
+                outPath.leadingTransition = s.cameFromEdge;
+                outPath.steps.push_back({area, -1});
+                std::reverse(outPath.steps.begin(), outPath.steps.end());
+                return;
+            }
+            outPath.steps.push_back({area, s.cameFromEdge});
+            node = s.cameFromArea;
+        }
+        outPath.steps.push_back({startArea, -1});
+        std::reverse(outPath.steps.begin(), outPath.steps.end());
+    }
+
+    bool AreaSearch::runWalkAware(int32_t startArea,
+                                  std::span<const format::AreaEdgeRecord> edges,
+                                  AreaPath &outPath)
+    {
+        if (startArea == currentGoalArea)
+        {
+            offer(goalNode, octileDistance(currentEndpoints->startX - currentEndpoints->goalX,
+                                           currentEndpoints->startY - currentEndpoints->goalY),
+                  -1, -1, 0.0f);
+        }
+        const bool isFiltering = currentSnapshot != nullptr || isCurrentWildernessAvoided;
+        while (!openHeap.empty())
+        {
+            std::pop_heap(openHeap.begin(), openHeap.end(), ByPriority{});
+            const auto u = static_cast<uint32_t>(openHeap.back().area);
+            openHeap.pop_back();
+            if (isSettled(u))
+            {
+                continue;
+            }
+            scratch[u].settled = 1u;
+            if (u == goalNode)
+            {
+                reconstructGoal(startArea, outPath);
+                return true;
+            }
+            relaxWalkAware(u, edges, heuristic, isFiltering);
+        }
+        return false;
     }
 
     bool AreaSearch::findPath(int32_t startArea, int32_t goalArea, AreaPath &outPath)
@@ -379,7 +521,8 @@ namespace ww::runtime
         {
             return false;
         }
-        if (startArea == goalArea)
+        const bool isWalkAware = endpoints != nullptr;
+        if (startArea == goalArea && !(isWalkAware && hasIntraAreaEdges(startArea)))
         {
             outPath.steps.push_back({startArea, -1});
             return true;
@@ -398,6 +541,10 @@ namespace ww::runtime
         startSlot.epochStamp = epoch;
         openHeap.push_back({heuristic.estimate(startU), startArea});
         seedFrontier(seeds, heuristic);
+        if (isWalkAware)
+        {
+            return runWalkAware(startArea, edges, outPath);
+        }
         // Specialise the inner loop on the null-snapshot case so an
         // unfiltered query (bench, same-area baseline) skips the per-edge
         // requirement check entirely. relax{Open,Filtered} are otherwise

@@ -665,9 +665,14 @@ sends a player into the desert has to give them a pass.
 
 **Magic carpets.** The Shantay carpet (3306,3109) is south of the gate, and
 every carpet station is in the same area of the baked grid as the desert
-around it (area 4217). The bake drops a transition whose two ends share an
-area (`intra-only`), so no carpet ride is ever planned inside the desert.
-With a pass, the route goes through the gate and walks the 330 tiles.
+around it. The bake used to drop every transition whose two ends share an
+area, so no carpet ride was ever planned inside the desert. It now keeps one
+whose landing is more than 32 tiles from its origin (`kMinIntraAreaHopTiles`,
+131 edges, `intra-kept` in the bake log), and the walk-aware area search
+gives each such edge a node of its own, so a route can ride and ride on.
+Shorter same-area hops are still dropped. With a pass and no teleports,
+3303,3117 to the Agility Pyramid mine (3323,2875) now takes the gate and the
+Shantay carpet to South Pollnivneach, cost 171.5, where it walked 337.6.
 
 **The executor.** A same-floor crossing whose loc is missing is still skipped
 as an open door. If the walk right after the skip stalls with the player on

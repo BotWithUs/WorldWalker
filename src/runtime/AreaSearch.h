@@ -86,6 +86,10 @@ namespace ww::runtime
         AreaSearch(AreaSearch &&) = default;
         AreaSearch &operator=(AreaSearch &&) = default;
 
+        // Whether some baked edge starts and ends in `area`, far enough apart
+        // for the bake to keep it. Only then can a same-area query beat a walk.
+        bool hasIntraAreaEdges(int32_t area) const;
+
         // Least-cost area route from startArea to goalArea. Returns false (and
         // leaves outPath.steps empty) when either id is out of range or no route
         // exists; a start == goal query yields a single-step path at cost 0.
@@ -120,6 +124,17 @@ namespace ww::runtime
         // transition starts or lands in the Wilderness (touchesWilderness).
         // Dropping edges only lengthens true paths, so the ALT bound stays
         // admissible (ADR 0009).
+        //
+        // Only this overload takes an edge whose two ends share an area (a
+        // magic carpet between two desert stations): the walk it saves is the
+        // whole point of it, and the other overloads do not price walks. Each
+        // such edge gets a search node of its own, "in its area, standing at
+        // its landing", so a route can ride on from there. Reaching the goal
+        // is a node of its own too: every arrival in goalArea (and the start,
+        // when it is in goalArea) offers it at its cost plus the octile walk
+        // to the goal, and the search ends when it is popped. Inside goalArea
+        // a route goes on only by such same-area edges, so a query whose goal
+        // lies in a huge area does not explore everything that area touches.
         bool findPath(int32_t startArea, int32_t goalArea,
                       const CapabilitySnapshot *capabilities,
                       std::span<const FrontierSeed> seeds, const SearchEndpoints *endpoints,
@@ -142,13 +157,30 @@ namespace ww::runtime
         void relaxFiltered(int32_t u, std::span<const format::AreaEdgeRecord> edges,
                            const AltHeuristic &h);
         void seedFrontier(std::span<const FrontierSeed> seeds, const AltHeuristic &h);
+        // The walk-aware relaxation: same-area edges lead to their own nodes,
+        // and every edge into goalArea also offers the goal node.
+        void relaxWalkAware(uint32_t u, std::span<const format::AreaEdgeRecord> edges,
+                            const AltHeuristic &h, bool isFiltering);
+        // Lower node v's cost to `cost`, arriving from node `fromNode` by edge
+        // (or seed transition, when fromNode is -2) `via`.
+        void offer(uint32_t v, float cost, int32_t fromNode, int32_t via, float estimate);
+        // The area a search node stands in: itself for an area node, the
+        // edge's area for a same-area edge's node.
+        uint32_t areaOfNode(uint32_t node) const;
+        // Walk-aware search from the prepared start: the loop that ends on
+        // popping the goal node.
+        bool runWalkAware(int32_t startArea, std::span<const format::AreaEdgeRecord> edges,
+                          AreaPath &outPath);
+        void reconstructGoal(int32_t startArea, AreaPath &outPath) const;
         // Where the cheapest route found so far stands in area u: the start
         // tile, a seeded teleport's landing, or its arrival edge's landing.
         void entryTileOf(uint32_t u, int32_t &outX, int32_t &outY) const;
-        // The walk an edge adds from (entryX, entryY) under currentEndpoints;
-        // zero when the search is not walk-aware.
+        // The walk an edge adds from (entryX, entryY) to its origin under
+        // currentEndpoints; zero when the search is not walk-aware.
         float approachCost(int32_t entryX, int32_t entryY,
                            const format::AreaEdgeRecord &edge) const;
+        // The octile walk from a transition's landing to the goal tile.
+        float walkToGoal(uint32_t transitionIndex) const;
         void reconstruct(int32_t startArea, int32_t goalArea, AreaPath &outPath) const;
         bool meetsTransitionRequirements(uint32_t transitionIndex) const;
         // meetsTransitionRequirements plus the query's Wilderness rule.
@@ -193,6 +225,10 @@ namespace ww::runtime
         const format::ArtifactReader *artifact;
         uint32_t areaCount;
         std::vector<uint32_t> edgeOffset;   // CSR: area a's edges are [edgeOffset[a], edgeOffset[a+1])
+        std::vector<int32_t> intraSlot;     // per edge: its same-area node's slot, -1 for a crossing
+        std::vector<uint32_t> intraEdge;    // per slot: the same-area edge (node areaCount + slot)
+        std::vector<uint8_t> hasIntraEdge;  // per area: some same-area edge starts there
+        uint32_t goalNode{0};               // areaCount + intraEdge.size()
         std::vector<AreaScratch> scratch;   // per-area packed scratch (live iff epochStamp == epoch)
         uint32_t epoch{0};                  // bumped each findPath; entries with epochStamp != epoch read as "unset"
         std::vector<OpenEntry> openHeap;    // binary min-heap of the open set (scratch)

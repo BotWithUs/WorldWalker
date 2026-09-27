@@ -40,6 +40,8 @@
 //                      empty one.
 //   sealed_pocket_goal — a blocked goal whose nearest standable tile is in a
 //                      pocket no edge touches plans to a linked stand-in.
+//   intra_area_ride  — the longest same-area edge is ridden, not walked, from
+//                      beside its origin to its landing.
 namespace
 {
     enum class Outcome { Pass, Fail, Skip };
@@ -604,6 +606,68 @@ namespace
         }
         return {"sealed_pocket_goal", Outcome::Pass, nullptr};
     }
+
+    // Category 6 — a ride inside one area. The longest requirement-free edge
+    // whose two ends share an area (a magic carpet between two desert
+    // stations): planned from beside its origin to its landing, the route
+    // must take a transition rather than walk the whole area. Before the bake
+    // kept such edges and the search could weigh them, a same-area query was
+    // always a walk.
+    CaseResult intraAreaRide(const ww::format::ArtifactReader &reader,
+                             ww::runtime::WorldView &view,
+                             ww::runtime::PathAssembler &assembler)
+    {
+        const auto txs = reader.transitions();
+        const ww::format::AreaEdgeRecord *best = nullptr;
+        std::int32_t bestSpan = 0;
+        for (const ww::format::AreaEdgeRecord &edge : reader.areaEdges())
+        {
+            if (edge.fromArea != edge.toArea || edge.transitionIndex >= txs.size())
+            {
+                continue;
+            }
+            const ww::format::TransitionRecord &tx = txs[edge.transitionIndex];
+            const std::int32_t span = std::max(std::abs(tx.destX - tx.originX),
+                                               std::abs(tx.destY - tx.originY));
+            if (tx.requirementCount == 0u && span > bestSpan)
+            {
+                best = &edge;
+                bestSpan = span;
+            }
+        }
+        if (best == nullptr)
+        {
+            return {"intra_area_ride", Outcome::Skip, "no same-area edge in the artifact"};
+        }
+        const ww::format::TransitionRecord &tx = txs[best->transitionIndex];
+        const int plane = static_cast<int>(tx.originPlane);
+        const auto standableInArea = [&](std::int32_t x, std::int32_t y)
+        {
+            return view.isStandable(x, y, plane) && view.areaAt(x, y, plane) == best->fromArea;
+        };
+        std::int32_t startX = 0;
+        std::int32_t startY = 0;
+        if (!ww::runtime::findNearestTile(tx.originX, tx.originY,
+                                          ww::data::kTransitionApproachRadius, true,
+                                          standableInArea, tx.originX, tx.originY,
+                                          startX, startY))
+        {
+            return {"intra_area_ride", Outcome::Skip, "no standable tile beside the ride"};
+        }
+        ww::runtime::Plan plan;
+        if (!assembler.assemble(startX, startY, plane, tx.destX, tx.destY, plane, plan))
+        {
+            return {"intra_area_ride", Outcome::Fail, "assemble returned false"};
+        }
+        for (const ww::runtime::Step &s : plan.steps)
+        {
+            if (s.kind == ww::runtime::StepKind::Transition)
+            {
+                return {"intra_area_ride", Outcome::Pass, nullptr};
+            }
+        }
+        return {"intra_area_ride", Outcome::Fail, "walked the area instead of riding"};
+    }
 }
 
 int runScriptedPaths(const char *wwaPath)
@@ -623,6 +687,7 @@ int runScriptedPaths(const char *wwaPath)
             teleportSeeded(reader, view, areaSearch, assembler),
             capabilityGate(reader, view, assembler),
             sealedPocketGoal(reader, view, assembler),
+            intraAreaRide(reader, view, assembler),
         };
         int passed  = 0;
         int failed  = 0;
