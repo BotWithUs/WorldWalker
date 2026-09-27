@@ -604,6 +604,16 @@ landing, because the far side is two tiles from the click and inside
 2484,3444, went STUCK, the re-plan chose the stile again, and the walk
 FAILED.
 
+The executor now also judges a local transition's landing by area: if the
+player is not in the area of the baked grid that holds the transition's
+destination (still in the one they clicked from, say), the transition missed
+however near the far side is. It is excluded and re-planned around after one
+attempt, the same as a transition that lands off course by distance
+(`Executor::hasMissedLanding`). A crossing whose two sides share an area, or
+whose tiles the grid cannot place, falls back to which side of the crossing
+the player stands on. So a refused crossing no longer depends on its row
+being gated to be routed around; the gate below still saves the wasted click.
+
 Both rows now need varp 2661 >= 9 and varp 2740 >= 160, the spirit trees'
 gate. That is a guess bounded by the evidence, not a known requirement: the
 refusal only proves that an account without either quest is turned away,

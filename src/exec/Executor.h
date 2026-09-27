@@ -22,6 +22,7 @@ namespace ww::runtime
 {
     struct Step;
     struct SearchContext;
+    class WorldView;
 }
 
 namespace ww::exec
@@ -71,10 +72,14 @@ namespace ww::exec
     // rest of the run, and the run re-plans around it on the reroute budget,
     // so a stale row costs a detour instead of the whole walk and the plan is
     // not rebuilt onto the same dead edge. After an issued local transition
-    // the executor waits for the player to land (awaitLanding); one that
-    // lands off course, like a
-    // failed agility jump into a pit, re-plans from there on a reroute budget
-    // of its own rather than the stuck-recovery budget.
+    // the executor waits for the player to land (awaitLanding) and then judges
+    // the landing (hasMissedLanding): by distance to the destination, and for
+    // a local transition also by which area of the baked grid the player
+    // stands in, since a refused stile two tiles wide leaves the player within
+    // any distance slack. One that missed, like a failed agility jump into a
+    // pit or a gate that turns the player away, is excluded and re-planned
+    // around on a reroute budget of its own rather than the stuck-recovery
+    // budget.
     //
     // The pool borrow is held across the loop so re-plans reuse the same
     // SearchContext without re-entering the blocking acquire path.
@@ -113,8 +118,8 @@ namespace ww::exec
             std::vector<uint32_t> excludedTransitions;
         };
 
-        // What a step learned beyond its status: a Transition that landed away
-        // from its destination (isOffCourse, see isOffCourse()), or one that
+        // What a step learned beyond its status: a Transition that did not put
+        // the player across it (isOffCourse, see hasMissedLanding()), or one that
         // failed because the host could not find its loc (isLocMissing).
         struct StepReport
         {
@@ -234,9 +239,10 @@ namespace ww::exec
 
         // Drive plan.steps[i]: a Walk with the arrival radius its successor
         // demands, or a Transition. Writes the final live position and what
-        // the step learned (see StepReport).
-        WwStatus executeStep(std::size_t i, const WwGoal &goal, WwTile &outPosition,
-                             StepReport &outReport);
+        // the step learned (see StepReport). `view` is the run's context view,
+        // which a Transition's landing is judged against.
+        WwStatus executeStep(std::size_t i, const WwGoal &goal, runtime::WorldView &view,
+                             WwTile &outPosition, StepReport &outReport);
 
         // Chebyshev distance at which the Walk step at index i counts as done:
         // kHandoffChebyshev when another Walk follows (the next click fires
@@ -272,7 +278,8 @@ namespace ww::exec
         // event is emitted by run() so the (stepIndex, transitionIndex) pair
         // carries through.
         WwStatus executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
-                                       WwTile &outPosition, StepReport &outReport);
+                                       runtime::WorldView &view, WwTile &outPosition,
+                                       StepReport &outReport);
 
         // After an issued local transition, poll a tick at a time until the
         // player lands near tx's destination or stands still elsewhere, within
@@ -322,6 +329,44 @@ namespace ww::exec
         // for the transition to have been crossed: the player fell, or the
         // teleport was refused. A skipped open door stays within the slack.
         static bool isOffCourse(const format::TransitionRecord &tx, const WwTile &at);
+
+        // What the baked area grid says about a local transition clicked from
+        // `start` that left the player at `at`: Crossed when `at` is in the
+        // destination's area, Refused when it is in any other area (the one
+        // the click was made from, or a third the rest of the plan does not
+        // walk). Unknown when the grid cannot tell: inside a dynamic region,
+        // when start and destination share an area, or when one of the three
+        // tiles is in no area (the player standing on the loc's own tile
+        // mid-climb).
+        enum class AreaVerdict
+        {
+            Crossed,
+            Refused,
+            Unknown,
+        };
+        static AreaVerdict judgeLandingArea(const format::TransitionRecord &tx,
+                                            const WwTile &start, const WwTile &at,
+                                            runtime::WorldView &view);
+
+        // True when a same-floor crossing clicked from `start` left the player
+        // at `at` still strictly nearer `start` than the destination: on the
+        // near side of the loc. On the loc's own tile (equidistant) the
+        // crossing is under way, so that is not the near side.
+        static bool isOnNearSide(const format::TransitionRecord &tx, const WwTile &start,
+                                 const WwTile &at);
+
+        // Whether a transition that acted, clicked from `start`, did not put
+        // the player across it at `at`. Off course by distance always counts
+        // (isOffCourse); a global teleport is judged by nothing else. A local
+        // transition is also judged by area (judgeLandingArea), because a
+        // stile or gate that refuses the player leaves them within the
+        // distance slack of a destination two tiles away, and without this
+        // the run walked on into the wall until the stuck budget ran out.
+        // Where the area grid cannot tell, a same-floor crossing falls back to
+        // which side of it the player is on (isOnNearSide). This only ever
+        // adds misses to the distance test; it never excuses one.
+        static bool hasMissedLanding(const format::TransitionRecord &tx, const WwTile &start,
+                                     const WwTile &at, runtime::WorldView &view);
 
         // Run every chain step of `tx` in order with a cancel poll between
         // steps. Arrived when the whole chain ran; the first non-Arrived

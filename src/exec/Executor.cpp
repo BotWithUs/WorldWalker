@@ -5,6 +5,7 @@
 #include "runtime/SearchContext.h"
 #include "runtime/TeleportPolicy.h"
 #include "runtime/TransitionShape.h"
+#include "runtime/WorldView.h"
 
 #include <algorithm>
 #include <chrono>
@@ -450,7 +451,8 @@ namespace ww::exec
     }
 
     WwStatus Executor::executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
-                                             WwTile &outPosition, StepReport &outReport)
+                                             runtime::WorldView &view, WwTile &outPosition,
+                                             StepReport &outReport)
     {
         outReport = StepReport{};
         // outPosition arrives holding the live position the prior step left,
@@ -543,7 +545,7 @@ namespace ww::exec
                 }
             }
         }
-        outReport.isOffCourse = didAct && isOffCourse(tx, outPosition);
+        outReport.isOffCourse = didAct && hasMissedLanding(tx, start, outPosition, view);
         return WwStatus::Arrived;
     }
 
@@ -674,6 +676,55 @@ namespace ww::exec
     {
         const WwTile dest{ tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane) };
         return chebyshev(at, dest) > kLandingSlack;
+    }
+
+    Executor::AreaVerdict Executor::judgeLandingArea(const format::TransitionRecord &tx,
+                                                     const WwTile &start, const WwTile &at,
+                                                     runtime::WorldView &view)
+    {
+        // The area grid is the static world's; inside an instance it answers
+        // for unrelated ground (WorldView::areaAt), so it has no say there.
+        if (view.isInstanced())
+        {
+            return AreaVerdict::Unknown;
+        }
+        const int32_t startArea = view.areaAt(start.x, start.y, start.plane);
+        const int32_t destArea =
+            view.areaAt(tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane));
+        const int32_t atArea = view.areaAt(at.x, at.y, at.plane);
+        const bool isDecidable = startArea >= 0 && destArea >= 0 && atArea >= 0
+                              && startArea != destArea;
+        if (!isDecidable)
+        {
+            return AreaVerdict::Unknown;
+        }
+        return atArea == destArea ? AreaVerdict::Crossed : AreaVerdict::Refused;
+    }
+
+    bool Executor::isOnNearSide(const format::TransitionRecord &tx, const WwTile &start,
+                                const WwTile &at)
+    {
+        const WwTile dest{ tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane) };
+        return chebyshev(at, start) < chebyshev(at, dest);
+    }
+
+    bool Executor::hasMissedLanding(const format::TransitionRecord &tx, const WwTile &start,
+                                    const WwTile &at, runtime::WorldView &view)
+    {
+        if (isOffCourse(tx, at))
+        {
+            return true;
+        }
+        if ((tx.flags & format::kTransitionFlagGlobalOrigin) != 0)
+        {
+            return false;
+        }
+        const AreaVerdict verdict = judgeLandingArea(tx, start, at, view);
+        if (verdict != AreaVerdict::Unknown)
+        {
+            return verdict == AreaVerdict::Refused;
+        }
+        return runtime::isSameFloorCrossing(tx) && isOnNearSide(tx, start, at);
     }
 
     Executor::LocInteract Executor::interactWithLoc(const format::TransitionRecord &tx) const
@@ -911,8 +962,8 @@ namespace ww::exec
         return kArrivalChebyshev;
     }
 
-    WwStatus Executor::executeStep(std::size_t i, const WwGoal &goal, WwTile &outPosition,
-                                   StepReport &outReport)
+    WwStatus Executor::executeStep(std::size_t i, const WwGoal &goal, runtime::WorldView &view,
+                                   WwTile &outPosition, StepReport &outReport)
     {
         const runtime::Step &step = plan.steps[i];
         const int32_t stepIndex = static_cast<int32_t>(i);
@@ -921,7 +972,7 @@ namespace ww::exec
         {
             return walkOneStep(step, stepIndex, arrivalRadiusFor(i, goal), outPosition);
         }
-        return executeTransitionStep(step, stepIndex, outPosition, outReport);
+        return executeTransitionStep(step, stepIndex, view, outPosition, outReport);
     }
 
     WwStatus Executor::judgeDrainedRun(const WwGoal &goal, WwTile &ioPosition)
@@ -987,7 +1038,7 @@ namespace ww::exec
         {
             const int32_t stepIndex = static_cast<int32_t>(i);
             StepReport report{};
-            const WwStatus stepResult = executeStep(i, goal, st.position, report);
+            const WwStatus stepResult = executeStep(i, goal, context.view, st.position, report);
             if (stepResult == WwStatus::Cancelled)
             {
                 return WwStatus::Cancelled;
@@ -1037,10 +1088,11 @@ namespace ww::exec
             }
             if (report.isOffCourse)
             {
-                // The transition put the player somewhere other than its
-                // destination: a failed agility obstacle, a refused teleport.
-                // Plan again from where they are, around it where possible,
-                // on the reroute budget.
+                // The transition did not put the player across it: a failed
+                // agility obstacle, a refused teleport, a stile or gate that
+                // turned them back into the area they clicked from. Plan
+                // again from where they are, around it where possible, on the
+                // reroute budget.
                 WwStatus terminal = WwStatus::Failed;
                 if (!rerouteAroundOffCourse(plan.steps[i].transitionIndex, goal, context,
                                             stepIndex, st, terminal))

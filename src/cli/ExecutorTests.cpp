@@ -123,6 +123,11 @@ namespace ww::cli
             std::int32_t      brokenObjectId;
             exec::WwTile      brokenOrigin;
             int               brokenInteracts;
+            // When set, a walk click moves the player only within the area of
+            // the baked grid they stand in, as walls do: a walk into the next
+            // area stalls. Without it the harness walk passes through any wall,
+            // so a refused crossing followed by a walk would still arrive.
+            runtime::WorldView *areaWalls;
             // SimulateTransition: ClickNpc steps received, and whether the NPC is
             // absent (the click does nothing and no interface ever opens).
             // npcOriginClicks counts only those searching from npcOrigin, the
@@ -319,6 +324,14 @@ namespace ww::cli
             return 0;
         }
 
+        // Whether a walk from `from` may reach `to` under areaWalls: both in
+        // the same area of the baked grid.
+        bool isSameArea(runtime::WorldView &view, const exec::WwTile &from, const exec::WwTile &to)
+        {
+            const std::int32_t fromArea = view.areaAt(from.x, from.y, from.plane);
+            return fromArea >= 0 && fromArea == view.areaAt(to.x, to.y, to.plane);
+        }
+
         extern "C" void harnessWalkTo(void *user, exec::WwTile target)
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
@@ -348,6 +361,10 @@ namespace ww::cli
             if (h->droppedWalkClicks > 0)
             {
                 --h->droppedWalkClicks;
+                return;
+            }
+            if (h->areaWalls != nullptr && !isSameArea(*h->areaWalls, h->position, target))
+            {
                 return;
             }
             if (h->mode == ExecHarnessMode::SimulateInstantWalk
@@ -1214,17 +1231,17 @@ namespace ww::cli
         }
 
         // Two edges between the same pair of areas through different locs, both
-        // isFarLandingNonDoor: a route with a spare. The pick starts on the
+        // accepted by `filter`: a route with a spare. The pick starts on the
         // first edge's interact tile and ends on its destination.
         bool pickParallelPair(const format::ArtifactReader &reader, runtime::WorldView &view,
-                              CrossAreaPick &outPick)
+                              TransitionFilter filter, CrossAreaPick &outPick)
         {
             const auto edges = reader.areaEdges();
             const auto txs   = reader.transitions();
             for (std::size_t i = 0; i < edges.size(); ++i)
             {
                 const format::TransitionRecord &a = txs[edges[i].transitionIndex];
-                if (!isFarLandingNonDoor(a))
+                if (!filter(a))
                 {
                     continue;
                 }
@@ -1233,7 +1250,7 @@ namespace ww::cli
                     const format::TransitionRecord &b = txs[edges[j].transitionIndex];
                     const bool isSpare = edges[j].fromArea == edges[i].fromArea
                                       && edges[j].toArea == edges[i].toArea
-                                      && isFarLandingNonDoor(b) && !isSameLocRow(a, b);
+                                      && filter(b) && !isSameLocRow(a, b);
                     if (!isSpare)
                     {
                         continue;
@@ -1272,7 +1289,7 @@ namespace ww::cli
         std::size_t testOffCourseWithSpare(ExecContext &ctx)
         {
             CrossAreaPick pick{};
-            if (!pickParallelPair(ctx.reader, ctx.view, pick))
+            if (!pickParallelPair(ctx.reader, ctx.view, isFarLandingNonDoor, pick))
             {
                 std::printf("  exec:   off-course spare test skipped (no parallel edge pair)\n");
                 return 0;
@@ -1302,12 +1319,12 @@ namespace ww::cli
             return failures;
         }
 
-        // An isFarLandingNonDoor edge that is the only edge into its area. Areas
+        // An edge `filter` accepts that is the only edge into its area. Areas
         // are walk-connected components, so nothing but that edge reaches it
         // (the harness snapshot admits no global teleport): once it is ruled
         // out the planner has no route.
         bool pickSoleEntry(const format::ArtifactReader &reader, runtime::WorldView &view,
-                           CrossAreaPick &outPick)
+                           TransitionFilter filter, CrossAreaPick &outPick)
         {
             const auto edges = reader.areaEdges();
             const auto txs   = reader.transitions();
@@ -1326,7 +1343,7 @@ namespace ww::cli
                 const bool isSole = static_cast<std::size_t>(edge.toArea) < entries.size()
                                  && entries[static_cast<std::size_t>(edge.toArea)] == 1u
                                  && edge.fromArea != edge.toArea;
-                if (!isSole || !isFarLandingNonDoor(tx))
+                if (!isSole || !filter(tx))
                 {
                     continue;
                 }
@@ -1360,7 +1377,7 @@ namespace ww::cli
         std::size_t testOffCourseSoleEntry(ExecContext &ctx)
         {
             CrossAreaPick pick{};
-            if (!pickSoleEntry(ctx.reader, ctx.view, pick))
+            if (!pickSoleEntry(ctx.reader, ctx.view, isFarLandingNonDoor, pick))
             {
                 std::printf("  exec:   off-course sole-entry test skipped (no such edge)\n");
                 return 0;
@@ -1385,6 +1402,148 @@ namespace ww::cli
             std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
             failures += harness.brokenInteracts == 2 ? 0u : 1u;
             failures += harness.interactCalls == 2 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // A crossing the refusal tests can watch: an ungated same-floor crossing
+        // (stile, gate, door) with a loc and no chain, so the landing is decided
+        // at the interact. Its two sides lie within the executor's distance
+        // slack of each other, so distance alone cannot tell a refusal.
+        bool isShortCrossing(const format::TransitionRecord &tx)
+        {
+            return acceptUngatedDoor(tx) && tx.objectId > 0 && tx.chainCount == 0u;
+        }
+
+        // Whether the loc the harness latched as broken is a same-floor
+        // crossing, so a refusal test knows the planner clicked the kind of
+        // crossing it meant to refuse and not some detour.
+        bool isBrokenLocShort(const ExecHarness &h)
+        {
+            for (const format::TransitionRecord &tx : h.landingRecords)
+            {
+                const exec::WwTile origin{ tx.originX, tx.originY,
+                                           static_cast<std::int32_t>(tx.originPlane) };
+                if (tx.objectId == h.brokenObjectId && isSameTile(origin, h.brokenOrigin))
+                {
+                    return runtime::isSameFloorCrossing(tx);
+                }
+            }
+            return false;
+        }
+
+        // Runs one walk from `pick` with every interact landing on its row's
+        // destination except the first loc clicked, which refuses the player
+        // `refusals` times (they stay where they clicked), and walls that keep
+        // each walk inside its area.
+        exec::WwStatus runRefusalWalk(ExecContext &ctx, const CrossAreaPick &pick, int refusals,
+                                      ExecHarness &outHarness)
+        {
+            outHarness = makeHarness(ExecHarnessMode::SimulateTransition, pick.start.x,
+                                     pick.start.y, pick.startPlane);
+            outHarness.landingRecords     = ctx.reader.transitions();
+            outHarness.brokenLandingsLeft = refusals;
+            outHarness.areaWalls          = &ctx.view;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &outHarness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            return executor.run(exec::WwGoal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 });
+        }
+
+        // Test 4k: the live Tree Gnome Stronghold stile. A crossing two tiles
+        // wide refuses the player, who stays within the distance slack of its
+        // far side; another crossing joins the same two areas. The player is
+        // still in the area they clicked from, so the crossing is excluded
+        // after its one attempt (the click and the same-floor re-click) and
+        // the run goes round by the spare. The old executor judged by
+        // distance, walked on into the wall and spent its stuck budget.
+        std::size_t testRefusedCrossingWithSpare(ExecContext &ctx)
+        {
+            CrossAreaPick pick{};
+            if (!pickParallelPair(ctx.reader, ctx.view, isShortCrossing, pick))
+            {
+                std::printf("  exec:   refused-crossing spare test skipped (no parallel pair)\n");
+                return 0;
+            }
+            ExecHarness harness{};
+            const exec::WwStatus status = runRefusalWalk(ctx, pick, 99, harness);
+
+            const bool isShort = isBrokenLocShort(harness);
+            std::printf("  exec:   refused-crossing spare edge%zu status=%d (expect 0) broken-loc=%d"
+                        " short=%d (expect 1) clicks=%d (expect 2) interacts=%d (expect 3)"
+                        " stucks=%d (expect 0) replans=%d (expect >= 1)\n",
+                        pick.edgeIndex, static_cast<int>(status), harness.brokenObjectId,
+                        isShort ? 1 : 0, harness.brokenInteracts, harness.interactCalls,
+                        harness.stuckEvents, harness.replanStartedEvents);
+            printCallPattern("refused-crossing spare ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += isShort ? 0u : 1u;
+            failures += harness.brokenInteracts == 2 ? 0u : 1u;
+            failures += harness.interactCalls == 3 ? 0u : 1u;
+            failures += harness.stuckEvents == 0 ? 0u : 1u;
+            failures += harness.replanStartedEvents >= 1 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4l: the only crossing into an area refuses the player every
+        // time. Each refusal is a reroute (ruled out, nothing else reaches the
+        // goal, put back, tried again) and never a walk into the wall, so the
+        // run fails on the crossing once the reroute budget is spent: four
+        // attempts of two clicks, no Stuck.
+        std::size_t testRefusedSoleCrossing(ExecContext &ctx)
+        {
+            CrossAreaPick pick{};
+            if (!pickSoleEntry(ctx.reader, ctx.view, isShortCrossing, pick))
+            {
+                std::printf("  exec:   refused-crossing sole test skipped (no such edge)\n");
+                return 0;
+            }
+            ExecHarness harness{};
+            const exec::WwStatus status = runRefusalWalk(ctx, pick, 99, harness);
+
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            std::printf("  exec:   refused-crossing sole tx%u status=%d (expect 1) failedOn=tx%d"
+                        " clicks=%d (expect 8) interacts=%d (expect 8) stucks=%d (expect 0)\n",
+                        edge.transitionIndex, static_cast<int>(status),
+                        harness.failedTransitionIndex, harness.brokenInteracts,
+                        harness.interactCalls, harness.stuckEvents);
+            printCallPattern("refused-crossing sole ", harness);
+            std::size_t failures = status == exec::WwStatus::Failed ? 0u : 1u;
+            failures += harness.failedTransitionIndex >= 0 ? 0u : 1u;
+            failures += harness.brokenInteracts == 8 ? 0u : 1u;
+            failures += harness.interactCalls == 8 ? 0u : 1u;
+            failures += harness.stuckEvents == 0 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Tests 4m and 4n: a crossing that lets the player through still
+        // counts as landed under the area judgement, short (`filter` =
+        // isShortCrossing, the two sides within the distance slack) or long
+        // (isFarLandingNonDoor, a ladder or ride). One click, no reroute, no
+        // Stuck, arrived.
+        std::size_t testCrossingLands(ExecContext &ctx, TransitionFilter filter, const char *label)
+        {
+            CrossAreaPick pick{};
+            if (!pickCrossAreaPair(ctx.reader, ctx.view, filter, pick))
+            {
+                std::printf("  exec:   %s landing test skipped (no such edge)\n", label);
+                return 0;
+            }
+            ExecHarness harness{};
+            const exec::WwStatus status = runRefusalWalk(ctx, pick, 0, harness);
+
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            std::printf("  exec:   %s landing tx%u status=%d (expect 0) interacts=%d (expect 1)"
+                        " replans=%d stucks=%d (expect 0, 0)\n",
+                        label, edge.transitionIndex, static_cast<int>(status),
+                        harness.interactCalls, harness.replanStartedEvents, harness.stuckEvents);
+            printCallPattern("landing ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.interactCalls == 1 ? 0u : 1u;
+            failures += (harness.replanStartedEvents == 0 && harness.stuckEvents == 0) ? 0u : 1u;
             failures += harness.unexpectedActions == 0 ? 0u : 1u;
             return failures;
         }
@@ -1665,6 +1824,10 @@ namespace ww::cli
         failures += testOffCourseLanding(ctx, 99, false);
         failures += testOffCourseWithSpare(ctx);
         failures += testOffCourseSoleEntry(ctx);
+        failures += testRefusedCrossingWithSpare(ctx);
+        failures += testRefusedSoleCrossing(ctx);
+        failures += testCrossingLands(ctx, isShortCrossing, "short-crossing");
+        failures += testCrossingLands(ctx, isFarLandingNonDoor, "far-crossing");
         failures += testNpcOrigin(ctx, false);
         failures += testNpcOrigin(ctx, true);
         failures += testWalkThroughDoor(ctx, 0, false);
