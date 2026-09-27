@@ -33616,5 +33616,57 @@
     "shape": 10,
     "x": 2998,
     "y": 3931
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 11729,
+    "x": 2960,
+    "y": 3338,
+    "plane": 1,
+    "shape": 10,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 2959,
+    "dest_y": 3339,
+    "dest_plane": 2
+  },
+  {
+    "name": "Climb-down",
+    "object_id": 11731,
+    "x": 2960,
+    "y": 3339,
+    "plane": 2,
+    "shape": 10,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 2959,
+    "dest_y": 3339,
+    "dest_plane": 1
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 100174,
+    "x": 2957,
+    "y": 3338,
+    "plane": 2,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2959,
+    "dest_y": 3339,
+    "dest_plane": 3
+  },
+  {
+    "name": "Climb-down",
+    "object_id": 11731,
+    "x": 2958,
+    "y": 3338,
+    "plane": 3,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2956,
+    "dest_y": 3338,
+    "dest_plane": 2
   }
 ]
