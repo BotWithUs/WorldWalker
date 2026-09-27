@@ -25,7 +25,8 @@
 #include <vector>
 
 // `wwcli path <artifact> sx sy sp gx gy gp [--out path.json] [--teleports dir]
-//  [--ungated] [--varp id=value] [--varbit id=value] [--skill id=level]`.
+//  [--ungated] [--varp id=value] [--varbit id=value] [--skill id=level]
+//  [--item id=count]`.
 //
 // Runs the runtime PathAssembler with a maximally permissive capability
 // snapshot (so requirement-gated transitions are admitted) and emits the
@@ -35,9 +36,10 @@
 // invocation lands the same path the executor would have followed.
 // --ungated plans with an empty snapshot instead, so a gated transition that
 // wins on permissive caps can be told apart from the route beneath it.
-// --varp / --varbit / --skill (repeatable) then overwrite single entries of
-// whichever snapshot that is, so one account can be described: the permissive
-// player with `--varp 2740=0` has everything but The Grand Tree.
+// --varp / --varbit / --skill / --item (repeatable) then overwrite single
+// entries of whichever snapshot that is, so one account can be described: the
+// permissive player with `--varp 2740=0` has everything but The Grand Tree, and
+// with `--item 1854=0` holds no Shantay pass.
 namespace
 {
     enum class CapKind : uint8_t
@@ -45,6 +47,7 @@ namespace
         Varp,
         Varbit,
         Skill,
+        Item,
     };
 
     // One `--varp id=value` style entry, written over the base snapshot.
@@ -75,7 +78,7 @@ namespace
         std::printf("usage: wwcli path <artifact.wwa> <fromX> <fromY> <fromPlane>"
                     " <toX> <toY> <toPlane> [--out path.json] [--teleports dir]"
                     " [--ungated] [--varp id=value] [--varbit id=value]"
-                    " [--skill id=level]\n");
+                    " [--skill id=level] [--item id=count]\n");
     }
 
     bool parseInt(const char *s, int32_t &out)
@@ -115,7 +118,7 @@ namespace
         return parseInt(idText.c_str(), outId) && parseInt(valueText.c_str(), outValue);
     }
 
-    // --varp / --varbit / --skill -> its kind; false for any other token.
+    // --varp / --varbit / --skill / --item -> its kind; false for any other token.
     bool capKindOf(const char *flag, CapKind &outKind)
     {
         if (std::strcmp(flag, "--varp") == 0)
@@ -131,6 +134,11 @@ namespace
         if (std::strcmp(flag, "--skill") == 0)
         {
             outKind = CapKind::Skill;
+            return true;
+        }
+        if (std::strcmp(flag, "--item") == 0)
+        {
+            outKind = CapKind::Item;
             return true;
         }
         return false;
@@ -153,6 +161,9 @@ namespace
                     break;
                 case CapKind::Skill:
                     ioSnapshot.setSkillLevel(o.id, o.value);
+                    break;
+                case CapKind::Item:
+                    ioSnapshot.setItemCount(o.id, o.value);
                     break;
             }
         }
