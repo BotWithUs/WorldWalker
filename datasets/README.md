@@ -350,16 +350,46 @@ achievement 120 is derived from the quest itself.
 
 ## Gnome gliders
 
-The 16 glider rows that name a loc are disabled. Loc 187 (Gnome glider) and
-5814 (Landing light) have no ops in the cache, since you fly a glider by
-talking to its gnome pilot, so they could never execute. The other 48 rows
-name 0. To bring gliders back, give them an `npc` origin and a GLIDERMAP
-(interface 138) chain, gated as script10747 gates the buttons:
+You fly a glider by its pilot, not the glider: loc 187 (Gnome glider) and 5814
+(Landing light) have no options. Every glider row starts at the pilot (`npc`,
+radius 8), waits for GLIDERMAP (interface 138), clicks the destination's
+`<SITE>_BUTTON_ACTIVE_LAYER` with op 1, and waits 6 ticks.
 
-- ogre: varp 2671 >= 200 (One Small Favour)
-- tgv: varbit 9547 >= 120
-- elfcity: varbit 25043 == 1 and varbit 23198 >= 400
-- elr1: varbit 33889 >= 1
+- **Buttons.** Read from the raw cache group: each ACTIVE_LAYER has exactly
+  one op, `Select`, encoded as the charter map's `Ok` is, and
+  clientscript 10748 binds op 1 to exactly these. The `<SITE>_GO` / `_BACK`
+  components are flight animations with no ops (script10747 plays them).
+- **Gates.** script10747 hides a button when its gate fails: ogre varp 2671
+  >= 200 (One Small Favour), tgv varbit 9547 >= 120 (The Prisoner of
+  Glouphrie), elfcity varbit 25043 == 1 and varbit 23198 >= 400 (Plague's
+  End), elr1 varbit 33889 >= 1. A gated station is gated at both ends.
+- **Pilots.** Op indices are 0-based; `Glider` is a members-only option on
+  most of them. Morphing pilots are named by their base id, as the charter
+  rows name theirs.
+
+| Station (row origin) | Pilot | Glider op | Button | Gate |
+|---|---|---|---|---|
+| Grand Tree (2465,3501,3) | 3811 (morphs to 17126 at varp 2740 >= 160) | 0 | 40 | origin only: varp 2740 >= 160 (The Grand Tree) |
+| White Wolf Mountain (2850,3494,1) | 3810 Captain Bleemadge | 0 | 72 | none |
+| Al Kharid (3284,3211,0) | 3809 Captain Dalbur | 0 | 88 | none |
+| Karamja (2971,2969,0) | 3812 Captain Klemfoodle | 0 | 64 | none |
+| Feldip Hills (2548,2969,0) | 1800 Gnormadium Avlafrim | 0 | 56 | varp 2671 >= 200 |
+| Tree Gnome Village (2496,3191,0) | 6562 (morphs to 6563 at varbit 9547 >= 120) | 2 | 48 | varbit 9547 >= 120 |
+| Prifddinas (2208,3445,1) | 20299 Captain Muggin | 0 | 96 | varbit 25043 == 1, 23198 >= 400 |
+| Tuai Leit (1772,11920,0) | 23528 (morphs to 23529 at varbit 33889 == 1) | 0 | 104 | varbit 33889 >= 1 |
+| Digsite (lands 3321,3430,0) | - | - | 80 | none; arrival only (its pilot 5249 has no Glider op) |
+
+Pilot spawns come from `rs3-cache-toolkit/data/npc_spawns.toml`; every pilot
+is within 8 tiles of its row's origin.
+
+**Not verified offline:** that `Glider` opens 138 without a conversation first
+(no clientscript opens it; a dedicated op suggests a direct open, as
+`Charter` does), the landing tiles, the flight length, whether the host
+reports a morphing pilot by its base id (the charter question again), and the
+Crash Island glider (pilot 1407, `Travel`, op 2), which has no row: its
+flight plays as an animation on 138 with no click. Varp gates are denied live
+until the host supplies varps, so the Grand Tree and Feldip ends plan only
+once it does.
 
 ## How they're consumed
 

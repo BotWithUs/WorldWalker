@@ -13697,7 +13697,32 @@
     "option_index": 0,
     "dest_x": 2850,
     "dest_y": 3494,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "npc": {
+      "first_id": 3811
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          72,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -13710,7 +13735,32 @@
     "option_index": 0,
     "dest_x": 3321,
     "dest_y": 3430,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3811
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          80,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -13723,7 +13773,32 @@
     "option_index": 0,
     "dest_x": 3284,
     "dest_y": 3211,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3811
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          88,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -13737,7 +13812,32 @@
     "global": true,
     "dest_x": 2971,
     "dest_y": 2969,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3811
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          64,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -13750,7 +13850,38 @@
     "option_index": 0,
     "dest_x": 2549,
     "dest_y": 2971,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3811
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          56,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2740,
+          "value": 160
+        },
+        {
+          "id": 2671,
+          "value": 200
+        }
+      ]
+    }
   },
   {
     "name": "Gnome gliders",
@@ -13763,7 +13894,36 @@
     "option_index": 0,
     "dest_x": 2496,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3811
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          48,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
+      "varbit_at_least": {
+        "id": 9547,
+        "value": 120
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -13776,7 +13936,40 @@
     "option_index": 0,
     "dest_x": 2208,
     "dest_y": 3445,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "npc": {
+      "first_id": 3811
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          96,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 23198,
+        "value": 400
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -13789,11 +13982,40 @@
     "option_index": 0,
     "dest_x": 1772,
     "dest_y": 11920,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3811
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          104,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2740,
+        "value": 160
+      },
+      "varbit_at_least": {
+        "id": 33889,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Gnome gliders",
-    "object_id": 187,
+    "object_id": 0,
     "x": 2850,
     "y": 3494,
     "plane": 1,
@@ -13803,11 +14025,29 @@
     "dest_x": 2465,
     "dest_y": 3501,
     "dest_plane": 3,
-    "disabled": true
+    "npc": {
+      "first_id": 3810
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          40,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Gnome gliders",
-    "object_id": 187,
+    "object_id": 0,
     "x": 2850,
     "y": 3494,
     "plane": 1,
@@ -13817,11 +14057,29 @@
     "dest_x": 3321,
     "dest_y": 3430,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 3810
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          80,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Gnome gliders",
-    "object_id": 187,
+    "object_id": 0,
     "x": 2850,
     "y": 3494,
     "plane": 1,
@@ -13831,11 +14089,29 @@
     "dest_x": 3284,
     "dest_y": 3211,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 3810
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          88,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Gnome gliders",
-    "object_id": 187,
+    "object_id": 0,
     "x": 2850,
     "y": 3494,
     "plane": 1,
@@ -13846,11 +14122,29 @@
     "dest_x": 2971,
     "dest_y": 2969,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 3810
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          64,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Gnome gliders",
-    "object_id": 187,
+    "object_id": 0,
     "x": 2850,
     "y": 3494,
     "plane": 1,
@@ -13860,11 +14154,35 @@
     "dest_x": 2549,
     "dest_y": 2971,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 3810
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          56,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2671,
+        "value": 200
+      }
+    }
   },
   {
     "name": "Gnome gliders",
-    "object_id": 187,
+    "object_id": 0,
     "x": 2850,
     "y": 3494,
     "plane": 1,
@@ -13874,11 +14192,35 @@
     "dest_x": 2496,
     "dest_y": 3191,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 3810
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          48,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9547,
+        "value": 120
+      }
+    }
   },
   {
     "name": "Gnome gliders",
-    "object_id": 187,
+    "object_id": 0,
     "x": 2850,
     "y": 3494,
     "plane": 1,
@@ -13888,11 +14230,39 @@
     "dest_x": 2208,
     "dest_y": 3445,
     "dest_plane": 1,
-    "disabled": true
+    "npc": {
+      "first_id": 3810
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          96,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 23198,
+        "value": 400
+      }
+    }
   },
   {
     "name": "Gnome gliders",
-    "object_id": 187,
+    "object_id": 0,
     "x": 2850,
     "y": 3494,
     "plane": 1,
@@ -13902,7 +14272,31 @@
     "dest_x": 1772,
     "dest_y": 11920,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 3810
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          104,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33889,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -13915,7 +14309,26 @@
     "option_index": 0,
     "dest_x": 2465,
     "dest_y": 3501,
-    "dest_plane": 3
+    "dest_plane": 3,
+    "npc": {
+      "first_id": 3809
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          40,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Gnome gliders",
@@ -13928,7 +14341,26 @@
     "option_index": 0,
     "dest_x": 2850,
     "dest_y": 3494,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "npc": {
+      "first_id": 3809
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          72,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Gnome gliders",
@@ -13941,7 +14373,26 @@
     "option_index": 0,
     "dest_x": 3321,
     "dest_y": 3430,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3809
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          80,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Gnome gliders",
@@ -13955,7 +14406,26 @@
     "global": true,
     "dest_x": 2971,
     "dest_y": 2969,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3809
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          64,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Gnome gliders",
@@ -13968,7 +14438,32 @@
     "option_index": 0,
     "dest_x": 2549,
     "dest_y": 2971,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3809
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          56,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2671,
+        "value": 200
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -13981,7 +14476,32 @@
     "option_index": 0,
     "dest_x": 2496,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3809
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          48,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9547,
+        "value": 120
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -13994,7 +14514,36 @@
     "option_index": 0,
     "dest_x": 2208,
     "dest_y": 3445,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "npc": {
+      "first_id": 3809
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          96,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 23198,
+        "value": 400
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14007,7 +14556,32 @@
     "option_index": 0,
     "dest_x": 1772,
     "dest_y": 11920,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3809
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          104,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33889,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14020,7 +14594,26 @@
     "option_index": 0,
     "dest_x": 2465,
     "dest_y": 3501,
-    "dest_plane": 3
+    "dest_plane": 3,
+    "npc": {
+      "first_id": 3812
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          40,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Gnome gliders",
@@ -14033,7 +14626,26 @@
     "option_index": 0,
     "dest_x": 2850,
     "dest_y": 3494,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "npc": {
+      "first_id": 3812
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          72,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Gnome gliders",
@@ -14046,7 +14658,26 @@
     "option_index": 0,
     "dest_x": 3321,
     "dest_y": 3430,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3812
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          80,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Gnome gliders",
@@ -14059,7 +14690,26 @@
     "option_index": 0,
     "dest_x": 3284,
     "dest_y": 3211,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3812
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          88,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Gnome gliders",
@@ -14072,7 +14722,32 @@
     "option_index": 0,
     "dest_x": 2549,
     "dest_y": 2971,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3812
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          56,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2671,
+        "value": 200
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14085,7 +14760,32 @@
     "option_index": 0,
     "dest_x": 2496,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3812
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          48,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9547,
+        "value": 120
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14098,7 +14798,36 @@
     "option_index": 0,
     "dest_x": 2208,
     "dest_y": 3445,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "npc": {
+      "first_id": 3812
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          96,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 23198,
+        "value": 400
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14111,11 +14840,36 @@
     "option_index": 0,
     "dest_x": 1772,
     "dest_y": 11920,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3812
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          104,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33889,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Gnome gliders",
-    "object_id": 5814,
+    "object_id": 0,
     "x": 2548,
     "y": 2969,
     "plane": 0,
@@ -14125,11 +14879,35 @@
     "dest_x": 2465,
     "dest_y": 3501,
     "dest_plane": 3,
-    "disabled": true
+    "npc": {
+      "first_id": 1800
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          40,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2671,
+        "value": 200
+      }
+    }
   },
   {
     "name": "Gnome gliders",
-    "object_id": 5814,
+    "object_id": 0,
     "x": 2548,
     "y": 2969,
     "plane": 0,
@@ -14139,11 +14917,35 @@
     "dest_x": 2850,
     "dest_y": 3494,
     "dest_plane": 1,
-    "disabled": true
+    "npc": {
+      "first_id": 1800
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          72,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2671,
+        "value": 200
+      }
+    }
   },
   {
     "name": "Gnome gliders",
-    "object_id": 5814,
+    "object_id": 0,
     "x": 2548,
     "y": 2969,
     "plane": 0,
@@ -14153,11 +14955,35 @@
     "dest_x": 3321,
     "dest_y": 3430,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 1800
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          80,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2671,
+        "value": 200
+      }
+    }
   },
   {
     "name": "Gnome gliders",
-    "object_id": 5814,
+    "object_id": 0,
     "x": 2548,
     "y": 2969,
     "plane": 0,
@@ -14167,11 +14993,35 @@
     "dest_x": 3284,
     "dest_y": 3211,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 1800
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          88,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2671,
+        "value": 200
+      }
+    }
   },
   {
     "name": "Gnome gliders",
-    "object_id": 5814,
+    "object_id": 0,
     "x": 2548,
     "y": 2969,
     "plane": 0,
@@ -14182,11 +15032,35 @@
     "dest_x": 2971,
     "dest_y": 2969,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 1800
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          64,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2671,
+        "value": 200
+      }
+    }
   },
   {
     "name": "Gnome gliders",
-    "object_id": 5814,
+    "object_id": 0,
     "x": 2548,
     "y": 2969,
     "plane": 0,
@@ -14196,11 +15070,39 @@
     "dest_x": 2496,
     "dest_y": 3191,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 1800
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          48,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2671,
+        "value": 200
+      },
+      "varbit_at_least": {
+        "id": 9547,
+        "value": 120
+      }
+    }
   },
   {
     "name": "Gnome gliders",
-    "object_id": 5814,
+    "object_id": 0,
     "x": 2548,
     "y": 2969,
     "plane": 0,
@@ -14210,11 +15112,43 @@
     "dest_x": 2208,
     "dest_y": 3445,
     "dest_plane": 1,
-    "disabled": true
+    "npc": {
+      "first_id": 1800
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          96,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2671,
+        "value": 200
+      },
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 23198,
+        "value": 400
+      }
+    }
   },
   {
     "name": "Gnome gliders",
-    "object_id": 5814,
+    "object_id": 0,
     "x": 2548,
     "y": 2969,
     "plane": 0,
@@ -14224,7 +15158,35 @@
     "dest_x": 1772,
     "dest_y": 11920,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 1800
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          104,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2671,
+        "value": 200
+      },
+      "varbit_at_least": {
+        "id": 33889,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14234,10 +15196,35 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 2465,
     "dest_y": 3501,
-    "dest_plane": 3
+    "dest_plane": 3,
+    "npc": {
+      "first_id": 6562
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          40,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9547,
+        "value": 120
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14247,10 +15234,35 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 2850,
     "dest_y": 3494,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "npc": {
+      "first_id": 6562
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          72,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9547,
+        "value": 120
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14260,10 +15272,35 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3321,
     "dest_y": 3430,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 6562
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          80,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9547,
+        "value": 120
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14273,10 +15310,35 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3284,
     "dest_y": 3211,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 6562
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          88,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9547,
+        "value": 120
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14286,11 +15348,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "global": true,
     "dest_x": 2971,
     "dest_y": 2969,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 6562
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          64,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9547,
+        "value": 120
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14300,10 +15387,39 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 2549,
     "dest_y": 2971,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 6562
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          56,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9547,
+        "value": 120
+      },
+      "varp_at_least": {
+        "id": 2671,
+        "value": 200
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14313,10 +15429,45 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 2208,
     "dest_y": 3445,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "npc": {
+      "first_id": 6562
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          96,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 9547,
+          "value": 120
+        },
+        {
+          "id": 23198,
+          "value": 400
+        }
+      ],
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14326,10 +15477,41 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 1772,
     "dest_y": 11920,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 6562
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          104,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 9547,
+          "value": 120
+        },
+        {
+          "id": 33889,
+          "value": 1
+        }
+      ]
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14342,7 +15524,36 @@
     "option_index": 0,
     "dest_x": 2465,
     "dest_y": 3501,
-    "dest_plane": 3
+    "dest_plane": 3,
+    "npc": {
+      "first_id": 20299
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          40,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 23198,
+        "value": 400
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14355,7 +15566,36 @@
     "option_index": 0,
     "dest_x": 2850,
     "dest_y": 3494,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "npc": {
+      "first_id": 20299
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          72,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 23198,
+        "value": 400
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14368,7 +15608,36 @@
     "option_index": 0,
     "dest_x": 3321,
     "dest_y": 3430,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 20299
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          80,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 23198,
+        "value": 400
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14381,7 +15650,36 @@
     "option_index": 0,
     "dest_x": 3284,
     "dest_y": 3211,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 20299
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          88,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 23198,
+        "value": 400
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14395,7 +15693,36 @@
     "global": true,
     "dest_x": 2971,
     "dest_y": 2969,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 20299
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          64,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 23198,
+        "value": 400
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14408,7 +15735,40 @@
     "option_index": 0,
     "dest_x": 2549,
     "dest_y": 2971,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 20299
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          56,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 23198,
+        "value": 400
+      },
+      "varp_at_least": {
+        "id": 2671,
+        "value": 200
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14421,7 +15781,42 @@
     "option_index": 0,
     "dest_x": 2496,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 20299
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          48,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      },
+      "varbit_at_least": [
+        {
+          "id": 23198,
+          "value": 400
+        },
+        {
+          "id": 9547,
+          "value": 120
+        }
+      ]
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14434,7 +15829,42 @@
     "option_index": 0,
     "dest_x": 1772,
     "dest_y": 11920,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 20299
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          104,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      },
+      "varbit_at_least": [
+        {
+          "id": 23198,
+          "value": 400
+        },
+        {
+          "id": 33889,
+          "value": 1
+        }
+      ]
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14447,7 +15877,32 @@
     "option_index": 0,
     "dest_x": 2465,
     "dest_y": 3501,
-    "dest_plane": 3
+    "dest_plane": 3,
+    "npc": {
+      "first_id": 23528
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          40,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33889,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14460,7 +15915,32 @@
     "option_index": 0,
     "dest_x": 2850,
     "dest_y": 3494,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "npc": {
+      "first_id": 23528
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          72,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33889,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14473,7 +15953,32 @@
     "option_index": 0,
     "dest_x": 3321,
     "dest_y": 3430,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 23528
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          80,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33889,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14486,7 +15991,32 @@
     "option_index": 0,
     "dest_x": 3284,
     "dest_y": 3211,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 23528
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          88,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33889,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14500,7 +16030,32 @@
     "global": true,
     "dest_x": 2971,
     "dest_y": 2969,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 23528
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          64,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33889,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14513,7 +16068,36 @@
     "option_index": 0,
     "dest_x": 2549,
     "dest_y": 2971,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 23528
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          56,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 33889,
+        "value": 1
+      },
+      "varp_at_least": {
+        "id": 2671,
+        "value": 200
+      }
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14526,7 +16110,38 @@
     "option_index": 0,
     "dest_x": 2496,
     "dest_y": 3191,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 23528
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          48,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 33889,
+          "value": 1
+        },
+        {
+          "id": 9547,
+          "value": 120
+        }
+      ]
+    }
   },
   {
     "name": "Gnome gliders",
@@ -14539,7 +16154,42 @@
     "option_index": 0,
     "dest_x": 2208,
     "dest_y": 3445,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "npc": {
+      "first_id": 23528
+    },
+    "chain": [
+      {
+        "wait_interface": 138
+      },
+      {
+        "click": [
+          138,
+          96,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 33889,
+          "value": 1
+        },
+        {
+          "id": 23198,
+          "value": 400
+        }
+      ],
+      "varbit": {
+        "id": 25043,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Jennica's ring",
