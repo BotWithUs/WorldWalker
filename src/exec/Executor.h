@@ -107,10 +107,10 @@ namespace ww::exec
             int32_t replansUsed{0};
             int32_t reroutesUsed{0};
             bool    isTeleAllowedAtLastPlan{false};
-            // Transitions whose loc was missing this run, with every other
-            // transition from that loc and origin; every (re-)plan excludes
-            // them.
-            std::vector<uint32_t> missingLocTransitions;
+            // Transitions ruled out for the rest of this run: one whose loc was
+            // missing or that landed off course, with every other transition
+            // from that loc and origin. Every (re-)plan excludes them.
+            std::vector<uint32_t> excludedTransitions;
         };
 
         // What a step learned beyond its status: a Transition that landed away
@@ -218,6 +218,19 @@ namespace ww::exec
         bool rerouteAroundMissingLoc(uint32_t transitionIndex, const WwGoal &goal,
                                      runtime::SearchContext &context, int32_t stepIndex,
                                      RunState &io, WwStatus &outStatus);
+
+        // The transition at `transitionIndex` landed the player away from its
+        // destination (a map whose destination was never picked, a refused
+        // teleport, a failed agility jump). Spend one reroute, exclude it (and
+        // its loc's other rows, when it has a loc) and re-plan from the live
+        // position, so a transport that never lands is not chosen again. When
+        // nothing else reaches the goal, the exclusion is dropped and the same
+        // transition is planned again: a failable shortcut to an island is
+        // still worth a retry, and the reroute budget still bounds it.
+        // Returns as rerouteAroundMissingLoc does.
+        bool rerouteAroundOffCourse(uint32_t transitionIndex, const WwGoal &goal,
+                                    runtime::SearchContext &context, int32_t stepIndex,
+                                    RunState &io, WwStatus &outStatus);
 
         // Drive plan.steps[i]: a Walk with the arrival radius its successor
         // demands, or a Transition. Writes the final live position and what

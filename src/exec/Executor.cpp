@@ -744,7 +744,7 @@ namespace ww::exec
                                              int32_t stepIndex, RunState &io)
     {
         emit(WwEventKind::ReplanStarted, stepIndex);
-        if (!planFrom(io.position, goal, io.missingLocTransitions, context, plan))
+        if (!planFrom(io.position, goal, io.excludedTransitions, context, plan))
         {
             return ReplanOutcome::Failed;
         }
@@ -819,7 +819,7 @@ namespace ww::exec
         }
         ++io.reroutesUsed;
         excludeTransitionsOfLoc(artifact->transitions()[transitionIndex],
-                                io.missingLocTransitions);
+                                io.excludedTransitions);
         callbacks->readPosition(callbacks->user, &io.position);
         const ReplanOutcome outcome = replan(goal, context, stepIndex, io);
         if (outcome == ReplanOutcome::Restarted)
@@ -830,6 +830,43 @@ namespace ww::exec
         outStatus = outcome == ReplanOutcome::Arrived ? WwStatus::Arrived
                                                       : failRun(stepIndex, txIndex);
         return false;
+    }
+
+    bool Executor::rerouteAroundOffCourse(uint32_t transitionIndex, const WwGoal &goal,
+                                          runtime::SearchContext &context, int32_t stepIndex,
+                                          RunState &io, WwStatus &outStatus)
+    {
+        if (io.reroutesUsed >= kMaxReroutes)
+        {
+            outStatus = failRun(stepIndex, static_cast<int32_t>(transitionIndex));
+            return false;
+        }
+        ++io.reroutesUsed;
+        // Without the exclusion the planner, asked the same question from
+        // the same place, picks the same transition again, so a transport
+        // that never lands was chosen, missed and chosen again until the
+        // budget ran out. A global transition has no loc, so only its own
+        // row is ruled out.
+        const std::size_t keptCount = io.excludedTransitions.size();
+        const format::TransitionRecord &tx = artifact->transitions()[transitionIndex];
+        if ((tx.flags & format::kTransitionFlagGlobalOrigin) != 0)
+        {
+            io.excludedTransitions.push_back(transitionIndex);
+        }
+        else
+        {
+            excludeTransitionsOfLoc(tx, io.excludedTransitions);
+        }
+        ReplanOutcome outcome = replan(goal, context, stepIndex, io);
+        if (outcome == ReplanOutcome::Failed)
+        {
+            // Nothing else reaches the goal. Put the rows back rather than
+            // fail a run a second try might finish (a failed jump on the only
+            // way across); the list returns to exactly what it held before.
+            io.excludedTransitions.resize(keptCount);
+            outcome = replan(goal, context, stepIndex, io);
+        }
+        return isRestart(outcome, stepIndex, outStatus);
     }
 
     int32_t Executor::arrivalRadiusFor(std::size_t i, const WwGoal &goal) const
@@ -901,7 +938,7 @@ namespace ww::exec
 
         // The plan member's vector grows once and is reused across re-plans
         // — outPlan.steps.clear() inside the assembler keeps the capacity.
-        if (!planFrom(st.position, goal, st.missingLocTransitions, context, plan))
+        if (!planFrom(st.position, goal, st.excludedTransitions, context, plan))
         {
             return failRun(-1, -1);
         }
@@ -976,15 +1013,11 @@ namespace ww::exec
             {
                 // The transition put the player somewhere other than its
                 // destination: a failed agility obstacle, a refused teleport.
-                // Plan again from where they are, on the reroute budget.
-                const int32_t txIndex = static_cast<int32_t>(plan.steps[i].transitionIndex);
-                if (st.reroutesUsed >= kMaxReroutes)
-                {
-                    return failRun(stepIndex, txIndex);
-                }
-                ++st.reroutesUsed;
+                // Plan again from where they are, around it where possible,
+                // on the reroute budget.
                 WwStatus terminal = WwStatus::Failed;
-                if (!isRestart(replan(goal, context, stepIndex, st), stepIndex, terminal))
+                if (!rerouteAroundOffCourse(plan.steps[i].transitionIndex, goal, context,
+                                            stepIndex, st, terminal))
                 {
                     return terminal;
                 }
