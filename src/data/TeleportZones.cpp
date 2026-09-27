@@ -2,46 +2,83 @@
 
 namespace ww::data
 {
+    namespace
+    {
+        // Surface Wilderness: all planes (it has multi-storey structures). Level
+        // 1 at y 3520, rising 1 per 8 tiles north to ~level 56 at the far north.
+        // Every surface box shares this gradient, so splitting the area into
+        // boxes moves no tile's level.
+        WildernessRegion surfaceBox(int32_t minX, int32_t minY, int32_t maxX, int32_t maxY)
+        {
+            WildernessRegion box{};
+            box.minX = minX;
+            box.minY = minY;
+            box.maxX = maxX;
+            box.maxY = maxY;
+            box.baseY = 3520;
+            box.baseLevel = 1;
+            box.stepY = 8;
+            box.planeMin = 0;
+            box.planeMax = 3;
+            return box;
+        }
+
+        // Underground Wilderness: the surface band shifted by +6400, plane 0,
+        // same gradient.
+        WildernessRegion undergroundBox(int32_t minX, int32_t minY, int32_t maxX, int32_t maxY)
+        {
+            WildernessRegion box{};
+            box.minX = minX;
+            box.minY = minY;
+            box.maxX = maxX;
+            box.maxY = maxY;
+            box.baseY = 9920;
+            box.baseLevel = 1;
+            box.stepY = 8;
+            box.planeMin = 0;
+            box.planeMax = 0;
+            return box;
+        }
+    }
+
     TeleportZonesModel buildTeleportZones()
     {
         TeleportZonesModel model;
         model.defaultWildernessCutoff = 20;
 
-        // Surface Wilderness: x 2944..3392, y 3521..3967, all planes (it has
-        // multi-storey structures). Level 1 at the southern edge, rising 1 per 8
-        // tiles north to ~level 56 at the far north.
+        // The planner keeps a walk whose start and goal are outside these boxes
+        // out of them entirely, so they have to be the Wilderness and not a
+        // rectangle around it. Walkable ground a player reaches from the
+        // mainland without crossing the wall is not Wilderness; the extents
+        // below come from the bake's walk-connected areas.
         //
-        // The box starts on the Wilderness wall's own row (the ditch locs sit at
-        // y 3521, the far side lands on 3523), not on 3520: row 3520 is the
-        // mainland's side of the wall, walkable from Edgeville without crossing
-        // anything. The planner keeps general walks out of this box, so a box
-        // that took in 3520 would wall off the mainland's own edge. baseY stays
-        // 3520, so no tile changes level and the teleport rule is unchanged.
-        WildernessRegion surface{};
-        surface.minX = 2944;
-        surface.minY = 3521;
-        surface.maxX = 3392;
-        surface.maxY = 3967;
-        surface.baseY = 3520;
-        surface.baseLevel = 1;
-        surface.stepY = 8;
-        surface.planeMin = 0;
-        surface.planeMax = 3;
-        model.wilderness.push_back(surface);
+        // South edge: y 3521, the wall's own row (the ditch locs sit on 3521,
+        // the far side lands on 3523). Row 3520 is the mainland side of the
+        // wall, walkable from Edgeville.
+        //
+        // Fort Forinthry: the 2023 fort took the south-east corner out of the
+        // Wilderness. The mainland area walks from Varrock into x >= 3276..3303
+        // up to y 3575, plus a north-east spur at x >= 3359 up to y 3588, while
+        // the Wilderness area wraps it at x <= 3281 to the west and x <= 3358
+        // across the north. The fort is carved out as three rectangles that
+        // hold no Wilderness tile: x 3282..3391 y 3521..3534, x 3278..3391 y
+        // 3535..3569, x 3359..3391 y 3570..3588. The few fort tiles left
+        // outside them, along the jagged north wall, stay in the Wilderness,
+        // which only keeps a walk off them.
+        model.wilderness.push_back(surfaceBox(2944, 3521, 3281, 3534));
+        model.wilderness.push_back(surfaceBox(2944, 3535, 3277, 3569));
+        model.wilderness.push_back(surfaceBox(2944, 3570, 3358, 3588));
+        model.wilderness.push_back(surfaceBox(3392, 3521, 3392, 3588));
+        model.wilderness.push_back(surfaceBox(2944, 3589, 3392, 3967));
 
-        // Underground Wilderness (dungeons below the surface band): same x, the y
-        // band shifted by +6400, plane 0. Same level gradient.
-        WildernessRegion underground{};
-        underground.minX = 2944;
-        underground.minY = 9920;
-        underground.maxX = 3392;
-        underground.maxY = 10367;
-        underground.baseY = 9920;
-        underground.baseLevel = 1;
-        underground.stepY = 8;
-        underground.planeMin = 0;
-        underground.planeMax = 0;
-        model.wilderness.push_back(underground);
+        // Underground: the Wilderness dungeons all sit at x <= 3134: the
+        // Edgeville dungeon's north half, the Forinthry dungeon, the Lava Maze
+        // dungeon (KBD lever 3069,10250) and the deep dungeon down to the
+        // agility pit (3005,10363). East of them, War's Retreat (3294,10127) is
+        // a safe boss hub that the old x..3392 box counted as level 27. In the
+        // Edgeville dungeon the Wilderness starts at the gate (locs 29319 and
+        // 29320, 3131..3132, 9917 -> 9918), so the box starts on 9918.
+        model.wilderness.push_back(undergroundBox(2944, 9918, 3135, 10367));
 
         // No-teleport zones: curated boxes where teleporting is blocked outright.
         // Left empty until exact coordinates are verified against an authoritative
