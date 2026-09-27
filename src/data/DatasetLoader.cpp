@@ -495,6 +495,21 @@ namespace ww::data
                                      t.originY, t.originPlane, radius, firstId, lastId});
         }
 
+        // `extra_cost`: an optional surcharge in the planner's units (a tile
+        // of walking is about 1). Bounded so a typo cannot hide a row behind
+        // a cost no route would ever pay, or make it free.
+        float readExtraCost(const json &e)
+        {
+            constexpr int kMaxExtraCost = 1000;
+            const int extra = readOptionalInt(e, "extra_cost", 0, "transport_links");
+            if (extra < 0 || extra > kMaxExtraCost)
+            {
+                throw std::runtime_error("transport_links: extra_cost out of range [0, "
+                                         + std::to_string(kMaxExtraCost) + "]");
+            }
+            return static_cast<float>(extra);
+        }
+
         void parseTransportLinks(const json &j, TransitionModel &model)
         {
             if (!j.is_array())
@@ -525,6 +540,7 @@ namespace ww::data
                     readOptionalInt(e, "rotation", 0, "transport_links"));
                 t.optionIndex = static_cast<uint8_t>(
                     readOptionalInt(e, "option_index", 0, "transport_links"));
+                t.extraCost = readExtraCost(e);
                 parseRequirements(e, t.requirements);
                 parseChain(e, t.chain);
                 parseNpcOrigin(e, t);

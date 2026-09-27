@@ -9,5 +9,104 @@
     "answers": [
       "Yes."
     ]
+  },
+  {
+    "name": "Charter ship - Brimhaven: the charter fare confirmation, if the server asks one (unverified, see README)",
+    "min_x": 2752,
+    "min_y": 3230,
+    "max_x": 2768,
+    "max_y": 3246,
+    "plane": 0,
+    "answers": [
+      "Yes"
+    ]
+  },
+  {
+    "name": "Charter ship - Catherby: the charter fare confirmation, if the server asks one (unverified, see README)",
+    "min_x": 2789,
+    "min_y": 3400,
+    "max_x": 2805,
+    "max_y": 3416,
+    "plane": 0,
+    "answers": [
+      "Yes"
+    ]
+  },
+  {
+    "name": "Charter ship - Karamja (Musa Point): the charter fare confirmation, if the server asks one (unverified, see README)",
+    "min_x": 2946,
+    "min_y": 3150,
+    "max_x": 2962,
+    "max_y": 3166,
+    "plane": 0,
+    "answers": [
+      "Yes"
+    ]
+  },
+  {
+    "name": "Charter ship - Menaphos: the charter fare confirmation, if the server asks one (unverified, see README)",
+    "min_x": 3132,
+    "min_y": 2654,
+    "max_x": 3148,
+    "max_y": 2670,
+    "plane": 0,
+    "answers": [
+      "Yes"
+    ]
+  },
+  {
+    "name": "Charter ship - Mos Le'Harmless: the charter fare confirmation, if the server asks one (unverified, see README)",
+    "min_x": 3663,
+    "min_y": 2923,
+    "max_x": 3679,
+    "max_y": 2939,
+    "plane": 0,
+    "answers": [
+      "Yes"
+    ]
+  },
+  {
+    "name": "Charter ship - Port Khazard: the charter fare confirmation, if the server asks one (unverified, see README)",
+    "min_x": 2666,
+    "min_y": 3136,
+    "max_x": 2682,
+    "max_y": 3152,
+    "plane": 0,
+    "answers": [
+      "Yes"
+    ]
+  },
+  {
+    "name": "Charter ship - Port Sarim: the charter fare confirmation, if the server asks one (unverified, see README)",
+    "min_x": 3035,
+    "min_y": 3183,
+    "max_x": 3051,
+    "max_y": 3199,
+    "plane": 0,
+    "answers": [
+      "Yes"
+    ]
+  },
+  {
+    "name": "Charter ship - Port Tyras: the charter fare confirmation, if the server asks one (unverified, see README)",
+    "min_x": 2134,
+    "min_y": 3114,
+    "max_x": 2150,
+    "max_y": 3130,
+    "plane": 0,
+    "answers": [
+      "Yes"
+    ]
+  },
+  {
+    "name": "Charter ship - Oo'glog: the charter fare confirmation, if the server asks one (unverified, see README)",
+    "min_x": 2615,
+    "min_y": 2849,
+    "max_x": 2631,
+    "max_y": 2865,
+    "plane": 0,
+    "answers": [
+      "Yes"
+    ]
   }
 ]

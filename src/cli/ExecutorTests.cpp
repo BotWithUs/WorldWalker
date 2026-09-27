@@ -125,8 +125,12 @@ namespace ww::cli
             int               brokenInteracts;
             // SimulateTransition: ClickNpc steps received, and whether the NPC is
             // absent (the click does nothing and no interface ever opens).
+            // npcOriginClicks counts only those searching from npcOrigin, the
+            // transition under test, since a detour may start at another NPC.
             int               npcClicks;
             bool              isNpcAbsent;
+            exec::WwTile      npcOrigin;
+            int               npcOriginClicks;
             // SimulateTransition: a door that walks the player through itself.
             // The landing commits `landingDelayTicks` ticks after the click; a
             // walk clicked before then cancels it, as the game does, and is
@@ -500,6 +504,10 @@ namespace ww::cli
             if (isNpcClick)
             {
                 ++h->npcClicks;
+                // ClickNpc carries its search centre in b..d.
+                const bool isAtOrigin =
+                    b == h->npcOrigin.x && c == h->npcOrigin.y && d == h->npcOrigin.plane;
+                h->npcOriginClicks += isAtOrigin ? 1 : 0;
             }
             if (h->mode != ExecHarnessMode::SimulateTransition)
             {
@@ -1445,6 +1453,8 @@ namespace ww::cli
             harness.transitionDest =
                 exec::WwTile{ tx.destX, tx.destY, static_cast<std::int32_t>(tx.destPlane) };
             harness.isNpcAbsent = isNpcAbsent;
+            harness.npcOrigin =
+                exec::WwTile{ tx.originX, tx.originY, static_cast<std::int32_t>(tx.originPlane) };
             exec::Callbacks cb = kCallbackPrototype;
             cb.user = &harness;
 
@@ -1452,22 +1462,24 @@ namespace ww::cli
             const exec::WwGoal goal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
             const exec::WwStatus status = executor.run(goal);
 
-            std::printf("  exec:   npc-origin tx%u absent=%d status=%d npc-clicks=%d (expect 1)"
-                        " interacts=%d (expect %s) replans=%d (expect %s)\n",
+            std::printf("  exec:   npc-origin tx%u absent=%d status=%d npc-clicks=%d here=%d"
+                        " (expect %s, 1 here) interacts=%d (expect %s) replans=%d (expect %s)\n",
                         edge.transitionIndex, isNpcAbsent ? 1 : 0, static_cast<int>(status),
-                        harness.npcClicks, harness.interactCalls, isNpcAbsent ? "any" : "0",
-                        harness.replanStartedEvents,
-                        isNpcAbsent ? ">= 1" : "0");
+                        harness.npcClicks, harness.npcOriginClicks, isNpcAbsent ? ">= 1" : "1",
+                        harness.interactCalls, isNpcAbsent ? "any" : "0",
+                        harness.replanStartedEvents, isNpcAbsent ? ">= 1" : "0");
             printCallPattern("npc-origin ", harness);
-            // Absent, the detour may click locs of its own; only the NPC
-            // transition itself must not be tried again.
-            std::size_t failures = harness.npcClicks == 1 ? 0u : 1u;
+            // Absent, the detour may click locs and other NPCs of its own (every
+            // NPC is absent here, so another port's charter fails the same
+            // way); only this transition's NPC must not be tried again.
+            std::size_t failures = harness.npcOriginClicks == 1 ? 0u : 1u;
             if (isNpcAbsent)
             {
                 failures += harness.replanStartedEvents >= 1 ? 0u : 1u;
             }
             else
             {
+                failures += harness.npcClicks == 1 ? 0u : 1u;
                 failures += harness.interactCalls == 0 ? 0u : 1u;
                 failures += status == exec::WwStatus::Arrived ? 0u : 1u;
             }

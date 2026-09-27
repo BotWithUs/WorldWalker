@@ -167,8 +167,13 @@ namespace ww::data
         uint8_t optionIndex{};
         char code[4]{};  // fairy-ring code (e.g. "aip"), null-padded; empty otherwise
 
-        float cost{};        // tick cost (chain waits + per-kind default)
+        float cost{};        // tick cost (chain waits + per-kind default + extraCost)
         float costQuick{-1.0f};  // reserved: quick-teleport cost, -1 when n/a
+        // A dataset surcharge on top of the time a transition takes: what it
+        // costs the player that no wait expresses, such as a charter's fare.
+        // A chain wait would say the same to the planner but make the bot
+        // actually stand still for it.
+        float extraCost{};
 
         std::vector<Requirement> requirements;
         std::vector<ChainStep> chain;

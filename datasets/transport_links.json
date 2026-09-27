@@ -15282,7 +15282,27 @@
     "dest_x": 2796,
     "dest_y": 3406,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -15296,7 +15316,27 @@
     "dest_x": 2954,
     "dest_y": 3158,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -15310,7 +15350,33 @@
     "dest_x": 3140,
     "dest_y": 2662,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -15324,7 +15390,33 @@
     "dest_x": 3671,
     "dest_y": 2931,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          31,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      }
+    }
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -15338,7 +15430,27 @@
     "dest_x": 2674,
     "dest_y": 3144,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -15352,6 +15464,27 @@
     "dest_x": 3702,
     "dest_y": 3503,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          24,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -15366,7 +15499,27 @@
     "dest_x": 3043,
     "dest_y": 3191,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          30,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -15380,6 +15533,27 @@
     "dest_x": 3001,
     "dest_y": 3032,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          26,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -15394,7 +15568,33 @@
     "dest_x": 2142,
     "dest_y": 3122,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -15408,11 +15608,37 @@
     "dest_x": 2623,
     "dest_y": 2857,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          33,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Catherby",
-    "object_id": 103771,
+    "object_id": 0,
     "x": 2797,
     "y": 3408,
     "plane": 0,
@@ -15422,11 +15648,31 @@
     "dest_x": 2760,
     "dest_y": 3238,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Catherby",
-    "object_id": 103771,
+    "object_id": 0,
     "x": 2797,
     "y": 3408,
     "plane": 0,
@@ -15436,11 +15682,31 @@
     "dest_x": 2954,
     "dest_y": 3158,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Catherby",
-    "object_id": 103771,
+    "object_id": 0,
     "x": 2797,
     "y": 3408,
     "plane": 0,
@@ -15450,11 +15716,37 @@
     "dest_x": 3140,
     "dest_y": 2662,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Charter ship - Catherby",
-    "object_id": 103771,
+    "object_id": 0,
     "x": 2797,
     "y": 3408,
     "plane": 0,
@@ -15464,11 +15756,37 @@
     "dest_x": 3671,
     "dest_y": 2931,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          31,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      }
+    }
   },
   {
     "name": "Charter ship - Catherby",
-    "object_id": 103771,
+    "object_id": 0,
     "x": 2797,
     "y": 3408,
     "plane": 0,
@@ -15478,11 +15796,31 @@
     "dest_x": 2674,
     "dest_y": 3144,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Catherby",
-    "object_id": 103771,
+    "object_id": 0,
     "x": 2797,
     "y": 3408,
     "plane": 0,
@@ -15492,11 +15830,32 @@
     "dest_x": 3702,
     "dest_y": 3503,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          24,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
     "name": "Charter ship - Catherby",
-    "object_id": 103771,
+    "object_id": 0,
     "x": 2797,
     "y": 3408,
     "plane": 0,
@@ -15506,11 +15865,31 @@
     "dest_x": 3043,
     "dest_y": 3191,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          30,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Catherby",
-    "object_id": 103771,
+    "object_id": 0,
     "x": 2797,
     "y": 3408,
     "plane": 0,
@@ -15520,11 +15899,32 @@
     "dest_x": 3001,
     "dest_y": 3032,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          26,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
     "name": "Charter ship - Catherby",
-    "object_id": 103771,
+    "object_id": 0,
     "x": 2797,
     "y": 3408,
     "plane": 0,
@@ -15534,11 +15934,37 @@
     "dest_x": 2142,
     "dest_y": 3122,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Charter ship - Catherby",
-    "object_id": 103771,
+    "object_id": 0,
     "x": 2797,
     "y": 3408,
     "plane": 0,
@@ -15548,7 +15974,33 @@
     "dest_x": 2623,
     "dest_y": 2857,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          33,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -15562,7 +16014,26 @@
     "dest_x": 2760,
     "dest_y": 3238,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 22692
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -15576,7 +16047,26 @@
     "dest_x": 2796,
     "dest_y": 3406,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 22692
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -15590,7 +16080,32 @@
     "dest_x": 3140,
     "dest_y": 2662,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 22692
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -15604,7 +16119,32 @@
     "dest_x": 3671,
     "dest_y": 2931,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 22692
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          31,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      }
+    }
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -15618,7 +16158,26 @@
     "dest_x": 2674,
     "dest_y": 3144,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 22692
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -15632,6 +16191,26 @@
     "dest_x": 3702,
     "dest_y": 3503,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 22692
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          24,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -15646,6 +16225,26 @@
     "dest_x": 3001,
     "dest_y": 3032,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 22692
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          26,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -15660,7 +16259,32 @@
     "dest_x": 2142,
     "dest_y": 3122,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 22692
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -15674,7 +16298,32 @@
     "dest_x": 2623,
     "dest_y": 2857,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 22692
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          33,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Menaphos",
@@ -15688,7 +16337,33 @@
     "dest_x": 2760,
     "dest_y": 3238,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 24730,
+      "last_id": 24731
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Charter ship - Menaphos",
@@ -15702,7 +16377,33 @@
     "dest_x": 2796,
     "dest_y": 3406,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 24730,
+      "last_id": 24731
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Charter ship - Menaphos",
@@ -15716,7 +16417,33 @@
     "dest_x": 2954,
     "dest_y": 3158,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 24730,
+      "last_id": 24731
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Charter ship - Menaphos",
@@ -15730,7 +16457,37 @@
     "dest_x": 3671,
     "dest_y": 2931,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 24730,
+      "last_id": 24731
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          31,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      },
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      }
+    }
   },
   {
     "name": "Charter ship - Menaphos",
@@ -15744,7 +16501,33 @@
     "dest_x": 2674,
     "dest_y": 3144,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 24730,
+      "last_id": 24731
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Charter ship - Menaphos",
@@ -15758,6 +16541,33 @@
     "dest_x": 3702,
     "dest_y": 3503,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 24730,
+      "last_id": 24731
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          24,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    },
     "disabled": true
   },
   {
@@ -15772,7 +16582,33 @@
     "dest_x": 3043,
     "dest_y": 3191,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 24730,
+      "last_id": 24731
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          30,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Charter ship - Menaphos",
@@ -15786,6 +16622,33 @@
     "dest_x": 3001,
     "dest_y": 3032,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 24730,
+      "last_id": 24731
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          26,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    },
     "disabled": true
   },
   {
@@ -15800,7 +16663,37 @@
     "dest_x": 2142,
     "dest_y": 3122,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 24730,
+      "last_id": 24731
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      },
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Charter ship - Menaphos",
@@ -15814,7 +16707,37 @@
     "dest_x": 2623,
     "dest_y": 2857,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 24730,
+      "last_id": 24731
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          33,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      },
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -15828,7 +16751,33 @@
     "dest_x": 2760,
     "dest_y": 3238,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      }
+    }
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -15842,7 +16791,33 @@
     "dest_x": 2796,
     "dest_y": 3406,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      }
+    }
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -15856,7 +16831,33 @@
     "dest_x": 2954,
     "dest_y": 3158,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      }
+    }
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -15870,7 +16871,37 @@
     "dest_x": 3140,
     "dest_y": 2662,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      },
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -15884,7 +16915,33 @@
     "dest_x": 2674,
     "dest_y": 3144,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      }
+    }
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -15898,7 +16955,33 @@
     "dest_x": 3043,
     "dest_y": 3191,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          30,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      }
+    }
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -15912,6 +16995,33 @@
     "dest_x": 3001,
     "dest_y": 3032,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          26,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      }
+    },
     "disabled": true
   },
   {
@@ -15926,7 +17036,39 @@
     "dest_x": 2142,
     "dest_y": 3122,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2326,
+          "value": 140
+        },
+        {
+          "id": 2102,
+          "value": 15
+        }
+      ]
+    }
   },
   {
     "name": "Charter ship - Mos Le'Harmless",
@@ -15940,7 +17082,37 @@
     "dest_x": 2623,
     "dest_y": 2857,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          33,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      },
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -15954,7 +17126,27 @@
     "dest_x": 2760,
     "dest_y": 3238,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -15968,7 +17160,27 @@
     "dest_x": 2796,
     "dest_y": 3406,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -15982,7 +17194,27 @@
     "dest_x": 2954,
     "dest_y": 3158,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -15996,7 +17228,33 @@
     "dest_x": 3140,
     "dest_y": 2662,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -16010,7 +17268,33 @@
     "dest_x": 3671,
     "dest_y": 2931,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          31,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      }
+    }
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -16024,6 +17308,27 @@
     "dest_x": 3702,
     "dest_y": 3503,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          24,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16038,7 +17343,27 @@
     "dest_x": 3043,
     "dest_y": 3191,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          30,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -16052,6 +17377,27 @@
     "dest_x": 3001,
     "dest_y": 3032,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          26,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16066,7 +17412,33 @@
     "dest_x": 2142,
     "dest_y": 3122,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -16080,7 +17452,33 @@
     "dest_x": 2623,
     "dest_y": 2857,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          33,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -16094,6 +17492,27 @@
     "dest_x": 2760,
     "dest_y": 3238,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16108,6 +17527,27 @@
     "dest_x": 2796,
     "dest_y": 3406,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16122,6 +17562,27 @@
     "dest_x": 2954,
     "dest_y": 3158,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16136,6 +17597,33 @@
     "dest_x": 3140,
     "dest_y": 2662,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    },
     "disabled": true
   },
   {
@@ -16150,6 +17638,27 @@
     "dest_x": 2674,
     "dest_y": 3144,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16164,6 +17673,27 @@
     "dest_x": 3043,
     "dest_y": 3191,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          30,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16178,6 +17708,33 @@
     "dest_x": 2142,
     "dest_y": 3122,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    },
     "disabled": true
   },
   {
@@ -16192,6 +17749,33 @@
     "dest_x": 2623,
     "dest_y": 2857,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          33,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    },
     "disabled": true
   },
   {
@@ -16206,7 +17790,27 @@
     "dest_x": 2760,
     "dest_y": 3238,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -16220,7 +17824,27 @@
     "dest_x": 2796,
     "dest_y": 3406,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -16234,7 +17858,33 @@
     "dest_x": 3140,
     "dest_y": 2662,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -16248,7 +17898,33 @@
     "dest_x": 3671,
     "dest_y": 2931,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          31,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      }
+    }
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -16262,7 +17938,27 @@
     "dest_x": 2674,
     "dest_y": 3144,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -16276,6 +17972,27 @@
     "dest_x": 3702,
     "dest_y": 3503,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          24,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16290,6 +18007,27 @@
     "dest_x": 3001,
     "dest_y": 3032,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          26,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16304,7 +18042,33 @@
     "dest_x": 2142,
     "dest_y": 3122,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -16318,7 +18082,33 @@
     "dest_x": 2623,
     "dest_y": 2857,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          33,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Shipyard",
@@ -16332,6 +18122,27 @@
     "dest_x": 2760,
     "dest_y": 3238,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16346,6 +18157,27 @@
     "dest_x": 2796,
     "dest_y": 3406,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16360,6 +18192,27 @@
     "dest_x": 2954,
     "dest_y": 3158,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16374,6 +18227,33 @@
     "dest_x": 3140,
     "dest_y": 2662,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    },
     "disabled": true
   },
   {
@@ -16388,6 +18268,33 @@
     "dest_x": 3671,
     "dest_y": 2931,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          31,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      }
+    },
     "disabled": true
   },
   {
@@ -16402,6 +18309,27 @@
     "dest_x": 2674,
     "dest_y": 3144,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16416,6 +18344,27 @@
     "dest_x": 3702,
     "dest_y": 3503,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          24,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16430,6 +18379,27 @@
     "dest_x": 3043,
     "dest_y": 3191,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          30,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
     "disabled": true
   },
   {
@@ -16444,6 +18414,33 @@
     "dest_x": 2142,
     "dest_y": 3122,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    },
     "disabled": true
   },
   {
@@ -16458,6 +18455,33 @@
     "dest_x": 2623,
     "dest_y": 2857,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          33,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    },
     "disabled": true
   },
   {
@@ -16472,7 +18496,33 @@
     "dest_x": 2760,
     "dest_y": 3238,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -16486,7 +18536,33 @@
     "dest_x": 2796,
     "dest_y": 3406,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -16500,7 +18576,33 @@
     "dest_x": 2954,
     "dest_y": 3158,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -16514,7 +18616,37 @@
     "dest_x": 3140,
     "dest_y": 2662,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      },
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -16528,7 +18660,39 @@
     "dest_x": 3671,
     "dest_y": 2931,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          31,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": [
+        {
+          "id": 2102,
+          "value": 15
+        },
+        {
+          "id": 2326,
+          "value": 140
+        }
+      ]
+    }
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -16542,7 +18706,33 @@
     "dest_x": 2674,
     "dest_y": 3144,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -16556,6 +18746,33 @@
     "dest_x": 3702,
     "dest_y": 3503,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          24,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    },
     "disabled": true
   },
   {
@@ -16570,7 +18787,33 @@
     "dest_x": 3043,
     "dest_y": 3191,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          30,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -16584,6 +18827,33 @@
     "dest_x": 3001,
     "dest_y": 3032,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          26,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    },
     "disabled": true
   },
   {
@@ -16598,7 +18868,37 @@
     "dest_x": 2623,
     "dest_y": 2857,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 4650,
+      "last_id": 4656
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          33,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      },
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -16612,7 +18912,32 @@
     "dest_x": 2760,
     "dest_y": 3238,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 7065
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -16626,7 +18951,32 @@
     "dest_x": 2796,
     "dest_y": 3406,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 7065
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          25,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -16640,7 +18990,32 @@
     "dest_x": 2954,
     "dest_y": 3158,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 7065
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          27,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -16654,7 +19029,36 @@
     "dest_x": 3140,
     "dest_y": 2662,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 7065
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          34,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -16668,7 +19072,36 @@
     "dest_x": 3671,
     "dest_y": 2931,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 7065
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          31,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      },
+      "varp_at_least": {
+        "id": 2326,
+        "value": 140
+      }
+    }
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -16682,7 +19115,32 @@
     "dest_x": 2674,
     "dest_y": 3144,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 7065
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          29,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -16696,6 +19154,32 @@
     "dest_x": 3702,
     "dest_y": 3503,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 7065
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          24,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    },
     "disabled": true
   },
   {
@@ -16710,7 +19194,32 @@
     "dest_x": 3043,
     "dest_y": 3191,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 7065
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          30,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -16724,6 +19233,32 @@
     "dest_x": 3001,
     "dest_y": 3032,
     "dest_plane": 0,
+    "npc": {
+      "first_id": 7065
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          26,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      }
+    },
     "disabled": true
   },
   {
@@ -16738,7 +19273,36 @@
     "dest_x": 2142,
     "dest_y": 3122,
     "dest_plane": 0,
-    "disabled": true
+    "npc": {
+      "first_id": 7065
+    },
+    "chain": [
+      {
+        "wait_interface": 95
+      },
+      {
+        "click": [
+          95,
+          23,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "extra_cost": 80,
+    "requirements": {
+      "varbit": {
+        "id": 14042,
+        "value": 1
+      },
+      "varp_at_least": {
+        "id": 2102,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Magic carpet network",

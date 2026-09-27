@@ -88,22 +88,88 @@ the row as it does around a missing loc. This needs a host that implements
 `disabled: true` keeps a row in the file but out of the bake. A row that cannot
 be executed yet is worse than no row, because the planner routes through it.
 
-The charter ship rows are disabled. Every port but Catherby named object_id 0,
-since you charter by talking to a Trader Crewmember, and none of them had a
-chain to pick the destination, so no charter could complete. What is known:
+A row may also carry `extra_cost`, an integer from 0 to 1000 added to the
+transition's cost in the planner's units, where a tile of walking costs about
+1. It is for what a transition costs the player that no wait expresses, such
+as a fare. A `wait` would tell the planner the same thing but make the bot
+actually stand still for it.
 
-- NPCs: Trader Stan 4650 and Trader Crewmember 4651..4656 all have `Charter` as
-  option 0 (cache NPC defs). Which of those stands at which port is server-side,
-  so a row should take the whole range: `"npc": {"first_id": 4650, "last_id": 4656}`.
-- Interface: 95, SAILING_TRANSPORT_WORLD_MAP. Per port it has a marker
-  (components 1..11, Menaphos 36), a name (12..22, Menaphos 37) and a GO_
-  component (23..34). Which of these takes the click that sails, and whether a
-  confirmation follows, needs a live read; the cache decode of its ops is not
-  trustworthy.
+## Charter ships
 
-To enable a port: add the `npc` block, a chain of `{"wait_interface": 95}`, the
-verified `{"click": [95, <component>, <option>, -1]}` (and any confirmation), a
-closing `{"wait": N}`, then drop `disabled`.
+A charter row starts at a Trader Crewmember (`npc`, op 0 `Charter`). Its chain
+waits for SAILING_TRANSPORT_WORLD_MAP (interface 95), clicks the destination's
+GO_ layer with op 1, then waits 6 ticks. Each row carries `extra_cost: 80`:
+fares run from hundreds to a few thousand coins, and 80 keeps a free lodestone
+ahead even from the charter dock. From Port Sarim's dock, Catherby is 89 by
+charter and 73 by lodestone.
+
+**Interface 95.** Component names come from gameval `component.json`. The ops
+were read from the raw cache group (`js5-3.jcache`, group 95); the decoded
+interface dump reads text as ops and is not reliable for this interface.
+
+- Each `GO_<port>` layer carries one op, `Ok`, and no script beyond a hover
+  model swap (script67). Its marker (a model) and name (text) sit inside it and
+  have no ops of their own, so the click belongs to the GO_ layer:
+  `[95, <GO>, 1, -1]`.
+- No clientscript builds or reads interface 95, so it has no client-side lock.
+- Comp 35 is `CLOSE_BUTTON`.
+
+| Port | Marker | Name | GO_ (click) | Crew NPC (spawn) | Gate at either end |
+|---|---|---|---|---|---|
+| Port Tyras | 1 | 12 | 23 | 4654 (2145,3122) | Regicide: varp 2102 >= 15 |
+| Port Phasmatys | 2 | 13 | 24 | 4652 (3701,3503) | **disabled**: lock unknown |
+| Catherby | 3 | 14 | 25 | 4656 (2794,3407) | none |
+| Shipyard | 4 | 15 | 26 | 4654 (3001,3034) | **disabled**: lock unknown |
+| Karamja (Musa Point) | 5 | 16 | 27 | 22692 (2954,3156) | none |
+| Brimhaven | 6 | 17 | 28 | 4651 (2760,3239) | none |
+| Port Khazard | 7 | 18 | 29 | 4654 (2675,3144) | none |
+| Port Sarim | 8 | 19 | 30 | 4653 (3042,3190), Stan 4650 (3033,3190) | none |
+| Mos Le'Harmless | 9 | 20 | 31 | 4655 (3672,2930) | Cabin Fever: varp 2326 >= 140 |
+| Crandor | 10 | 21 | 32 | - | no rows |
+| Oo'glog | 11 | 22 | 33 | 7065 (2621,2857) | As a First Resort: varbit 14042 == 1 |
+| Menaphos | 36 | 37 | 34 | 24731 (3143,2662) | The Jack of Spades: varbit 36140 >= 100 |
+
+**NPCs.** From `npcs.json` in the cs2 dump:
+
+- Trader Stan 4650 and Trader Crewmember 4651..4656 and 24730..24731 all list
+  `Charter` at op 0. 22697 (Talk to only) is not a charter NPC.
+- Oo'glog's crew is multinpc 7065, `ids [-1, 4654, 0]` on varbit 14042
+  (`afr_complete`), so it only exists once As a First Resort is complete.
+- Musa Point's crew is multinpc 22692, `ids [4655, 0]` on varbit 31276.
+- Spawns come from `rs3-cache-toolkit/data/npc_spawns.toml`. Every row's
+  origin is within 3 tiles of its crew.
+
+Rows take the whole 4650..4656 range at the seven ordinary ports. Oo'glog and
+Musa Point take their multinpc id, on the strength of the framework's
+`Npc.typeId()` being the base type id. If the host reports the morphed id
+(4654 / 4655) instead, those two ports find no NPC and are routed around.
+
+**Gates.** From quest reward text in `quests.json`:
+
+- Regicide: "Charter ship access to Port Tyras".
+- Cabin Fever: "Access to Mos Le'Harmless". Also struct text: "You can take a
+  charter ship to Mos Le'Harmless from Port Sarim's docks after completing
+  Cabin Fever".
+- As a First Resort: "Ability to travel to Oo'glog using charter ships".
+- The Jack of Spades: "Access to Menaphos".
+
+A gate applies at both ends of a trip. Cabin Fever and Regicide live only in
+varps, so the live bot takes neither port until the host supplies those
+varps. Nothing in the data says what locks Port Phasmatys or the Shipyard, so
+every row touching them stays disabled.
+
+**Not verified offline.** Three things need a live read:
+
+- **Confirm step.** Whether a fare confirmation follows the click. Varbit
+  36902 `sailing_dontaskagain` exists and no clientscript reads it, which
+  suggests the server asks. As a hedge, `dialog_zones.json` gives each
+  enabled port's dock a zone that answers an option list containing `Yes`.
+  If the prompt is not an option list, or says something else, the charter
+  lands off course and is routed around.
+- **Voyage length.** The executor waits 6 ticks, then up to 8 for the
+  landing, and gives up after 3 still ticks.
+- **Landing tiles.** They are the dataset's own; neither the cache nor the
+  client scripts give them.
 
 ## Spirit trees
 
