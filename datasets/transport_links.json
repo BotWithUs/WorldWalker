@@ -5316,8 +5316,8 @@
   {
     "name": "Climb-down",
     "object_id": 40059,
-    "x": 3026,
-    "y": 3250,
+    "x": 3024,
+    "y": 3249,
     "plane": 1,
     "shape": 10,
     "rotation": 0,
@@ -5823,8 +5823,8 @@
   {
     "name": "Climb-up",
     "object_id": 2347,
-    "x": 3086,
-    "y": 3262,
+    "x": 3085,
+    "y": 3261,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -5901,7 +5901,7 @@
   {
     "name": "Climb-up",
     "object_id": 45483,
-    "x": 3232,
+    "x": 3231,
     "y": 3205,
     "plane": 0,
     "shape": 10,

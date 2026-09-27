@@ -169,15 +169,15 @@ Audited on 2026-09-27 against a locspawn scan of every loc with an option
 
 - **Before:** 1,497 enabled loc rows, 144 with the origin 2 to 4 tiles from the
   nearest anchor of their loc, 26 further.
-- **Moved:** 114 rows. Each origin moved to the tile within one of the anchor
+- **Moved:** 117 rows. Each origin moved to the tile within one of the anchor
   whose standable neighbours are in the same area as the old origin's, the
   nearest such tile to the old origin; destinations are unchanged. On a
   vertical row the area is the one beneath the landing, the one the bake pins
   the approach to. The spill areas that fill the empty sky on planes 1 to 3
-  (areas that span the whole map) do not count as a side. Two rows were placed
-  by hand: Rimmington's staircase down (71903) from its west side, whose east
-  end is three tiles from the anchor, and Draynor Manor's (47657) from the
-  landing's edge.
+  (areas that span the whole map) do not count as a side. Five stair rows
+  whose old origin touched both a room and the ground outside it were placed
+  by hand, on the room's side: Rimmington (71903), Draynor Manor (47657),
+  Draynor (2347), Lumbridge (45483) and Port Sarim (40059).
 - **Verified:** for every moved row, `wwcli path` from a tile beside the new
   origin to its destination plans through that row, or through another row on
   the same loc that also passes this check.
@@ -186,11 +186,13 @@ Audited on 2026-09-27 against a locspawn scan of every loc with an option
   stairs 66637 are stored on plane 1 at 2890,3426 and are its ground floor),
   so a row with no placement on its own plane is compared with the plane
   above.
-- **Left:** 31 rows 2 to 4 tiles off and 26 further. For most of the 31 no
+- **Left:** 28 rows 2 to 4 tiles off and 26 further. For most of the 28 no
   tile beside the anchor touches the approach side (among them 11 of the
-  Isafdar forest obstacles, locs 3921 to 3924), so only a host that measures
-  to the loc's footprint rather than its anchor can click them. The 26 further ones name a loc placed elsewhere
-  or a different loc id and need the same repair as the rows above.
+  Isafdar forest obstacles, locs 3921 to 3924, and the Ardougne house stairs
+  34498, whose only tiles beside the anchor are outside the house), so only a
+  host that measures to the loc's footprint rather than its anchor can click
+  them. The 26 further ones name a loc placed elsewhere or a different loc id
+  and need the repair described in the section above.
 
 ## Dig sites map
 
