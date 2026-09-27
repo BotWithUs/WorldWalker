@@ -237,6 +237,41 @@ namespace ww::runtime
                                  TileSearch::kAnyArea, outPlan);
     }
 
+    void PathAssembler::decideWilderness(bool isStartInside, int32_t goalX, int32_t goalY,
+                                         int32_t goalPlane)
+    {
+        isWildernessAvoided = !isStartInside && !isInWilderness(*artifact, goalX, goalY, goalPlane);
+    }
+
+    bool PathAssembler::isTransitionAvoided(uint32_t transitionIndex) const
+    {
+        const std::span<const format::TransitionRecord> transitions = artifact->transitions();
+        return isWildernessAvoided && transitionIndex < transitions.size()
+            && touchesWilderness(*artifact, transitions[transitionIndex]);
+    }
+
+    std::span<const format::WildernessRegion> PathAssembler::wildernessFenceFor(int32_t area) const
+    {
+        const std::span<const format::AreaNodeRecord> nodes = artifact->areaNodes();
+        if (!isWildernessAvoided || area < 0 || static_cast<std::size_t>(area) >= nodes.size())
+        {
+            return {};
+        }
+        const format::AreaNodeRecord &node = nodes[static_cast<std::size_t>(area)];
+        const std::span<const format::WildernessRegion> wild = artifact->wildernessRegions();
+        for (const format::WildernessRegion &w : wild)
+        {
+            const bool isOverlapping = node.plane >= w.planeMin && node.plane <= w.planeMax
+                && node.minX <= w.maxX && node.maxX >= w.minX
+                && node.minY <= w.maxY && node.maxY >= w.minY;
+            if (isOverlapping)
+            {
+                return wild;
+            }
+        }
+        return {};
+    }
+
     bool PathAssembler::appendWalkSegment(int32_t fromX, int32_t fromY, int32_t toX, int32_t toY,
                                           int32_t plane, int32_t area, Plan &outPlan)
     {
@@ -244,7 +279,8 @@ namespace ww::runtime
         {
             return false;
         }
-        if (!tileSearch->findPath(fromX, fromY, toX, toY, plane, area, tilePath))
+        if (!tileSearch->findPath(fromX, fromY, toX, toY, plane, area,
+                                  wildernessFenceFor(area), tilePath))
         {
             return false;
         }
@@ -368,7 +404,7 @@ namespace ww::runtime
             {
                 continue;
             }
-            if (isExcluded(capabilities, i)
+            if (isExcluded(capabilities, i) || isTransitionAvoided(i)
                 || !meetsRequirements(capabilities,
                                       reqs.subspan(tx.requirementStart, tx.requirementCount),
                                       static_cast<data::TransitionKind>(tx.kind)))
@@ -451,6 +487,7 @@ namespace ww::runtime
         const uint64_t reqEnd = static_cast<uint64_t>(T.requirementStart) + T.requirementCount;
         if (reqEnd > reqs.size()
             || isExcluded(capabilities, edge.transitionIndex)
+            || isTransitionAvoided(edge.transitionIndex)
             || !meetsRequirements(capabilities,
                                   reqs.subspan(T.requirementStart, T.requirementCount),
                                   static_cast<data::TransitionKind>(T.kind)))
@@ -531,6 +568,7 @@ namespace ww::runtime
     {
         outPlan.steps.clear();
         outPlan.cost = 0.0f;
+        isWildernessAvoided = false;
         if (!isLegalPlane(startPlane) || !isLegalPlane(goalPlane))
         {
             return false;
@@ -572,6 +610,8 @@ namespace ww::runtime
                 return false;
             }
         }
+        decideWilderness(isInWilderness(*artifact, startX, startY, startPlane),
+                         goalX, goalY, goalPlane);
 
         // Teleport seeds feed both the inter-area backbone search and the
         // goal-area landing optimisation, so build them once up front. In
@@ -620,6 +660,8 @@ namespace ww::runtime
         {
             return false;
         }
+        // The start is an instance or unbaked ground, never a Wilderness box.
+        decideWilderness(false, goalX, goalY, goalPlane);
         buildGlobalTeleportSeeds(capabilities);
         if (seedScratch.empty())
         {
@@ -813,7 +855,7 @@ namespace ww::runtime
         // cost, so a transport beside the player beats one across the area.
         const SearchEndpoints endpoints{ startX, startY, goalX, goalY };
         if (!areaSearch->findPath(startArea, goalArea, capabilities, seeds, &endpoints,
-                                  areaPath))
+                                  isWildernessAvoided, areaPath))
         {
             return false;
         }

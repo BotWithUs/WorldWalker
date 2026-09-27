@@ -115,10 +115,15 @@ namespace ww::runtime
         // alone) stays admissible. AreaPath.cost then includes these walks.
         // Each area keeps the entry of its cheapest arrival, so a costlier
         // arrival that would sit closer to the next edge is not explored.
+        //
+        // isWildernessAvoided additionally refuses every edge and seed whose
+        // transition starts or lands in the Wilderness (touchesWilderness).
+        // Dropping edges only lengthens true paths, so the ALT bound stays
+        // admissible (ADR 0009).
         bool findPath(int32_t startArea, int32_t goalArea,
                       const CapabilitySnapshot *capabilities,
                       std::span<const FrontierSeed> seeds, const SearchEndpoints *endpoints,
-                      AreaPath &outPath);
+                      bool isWildernessAvoided, AreaPath &outPath);
 
     private:
         void buildAdjacency();
@@ -128,9 +133,10 @@ namespace ww::runtime
         // (No name-hiding warning under /W4 /WX.)
         //
         // Two specialisations of relax — the unfiltered variant skips the
-        // per-edge meetsTransitionRequirements check entirely, removing a
+        // per-edge isTransitionAdmitted check entirely, removing a
         // predictable branch from the inner loop on the bench path
-        // (ww_query without a CapabilitySnapshot, the same-area baseline).
+        // (ww_query without a CapabilitySnapshot and with the Wilderness
+        // allowed, the same-area baseline).
         void relaxOpen(int32_t u, std::span<const format::AreaEdgeRecord> edges,
                        const AltHeuristic &h);
         void relaxFiltered(int32_t u, std::span<const format::AreaEdgeRecord> edges,
@@ -145,6 +151,8 @@ namespace ww::runtime
                            const format::AreaEdgeRecord &edge) const;
         void reconstruct(int32_t startArea, int32_t goalArea, AreaPath &outPath) const;
         bool meetsTransitionRequirements(uint32_t transitionIndex) const;
+        // meetsTransitionRequirements plus the query's Wilderness rule.
+        bool isTransitionAdmitted(uint32_t transitionIndex) const;
 
         bool isValidArea(int32_t area) const
         {
@@ -192,6 +200,7 @@ namespace ww::runtime
         const CapabilitySnapshot *currentSnapshot{nullptr};  // borrowed for one findPath; nullptr accepts all edges
         const SearchEndpoints *currentEndpoints{nullptr};    // borrowed for one findPath; nullptr = edge cost only
         int32_t currentGoalArea{-1};                         // goalArea of the findPath in flight
+        bool isCurrentWildernessAvoided{false};              // the findPath in flight refuses the Wilderness
     };
 }
 

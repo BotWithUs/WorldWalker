@@ -7,12 +7,19 @@ namespace ww::data
         TeleportZonesModel model;
         model.defaultWildernessCutoff = 20;
 
-        // Surface Wilderness: x 2944..3392, y 3520..3967, all planes (it has
+        // Surface Wilderness: x 2944..3392, y 3521..3967, all planes (it has
         // multi-storey structures). Level 1 at the southern edge, rising 1 per 8
         // tiles north to ~level 56 at the far north.
+        //
+        // The box starts on the Wilderness wall's own row (the ditch locs sit at
+        // y 3521, the far side lands on 3523), not on 3520: row 3520 is the
+        // mainland's side of the wall, walkable from Edgeville without crossing
+        // anything. The planner keeps general walks out of this box, so a box
+        // that took in 3520 would wall off the mainland's own edge. baseY stays
+        // 3520, so no tile changes level and the teleport rule is unchanged.
         WildernessRegion surface{};
         surface.minX = 2944;
-        surface.minY = 3520;
+        surface.minY = 3521;
         surface.maxX = 3392;
         surface.maxY = 3967;
         surface.baseY = 3520;

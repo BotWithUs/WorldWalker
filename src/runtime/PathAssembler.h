@@ -143,6 +143,28 @@ namespace ww::runtime
                                    int32_t goalX, int32_t goalY, int32_t goalPlane,
                                    Plan &outPlan);
 
+        // The query's Wilderness rule, set by decideWilderness. A walk whose
+        // start and goal both lie outside the Wilderness never enters it (PvP,
+        // high-level monsters, item loss): every crossing that starts or lands
+        // there is refused, as is every teleport landing there, and each walk
+        // is fenced off its tiles. A start or goal inside lifts the rule, and
+        // the route then enters only where its costs take it.
+        //
+        // Decided once per assemble from the query's own endpoints, never from
+        // a sub-route's: a teleport landing is a sub-route start, and deciding
+        // there would let a landing inside the Wilderness unlock it.
+        void decideWilderness(bool isStartInside, int32_t goalX, int32_t goalY,
+                              int32_t goalPlane);
+
+        // True when the rule is on and the transition starts or lands in the
+        // Wilderness.
+        bool isTransitionAvoided(uint32_t transitionIndex) const;
+
+        // The boxes a walk inside `area` must not step into: empty when the
+        // rule is off, or when the area's bounding box misses every box, so
+        // most walks pay nothing for it.
+        std::span<const format::WildernessRegion> wildernessFenceFor(int32_t area) const;
+
         // Refine (fromX, fromY) -> (toX, toY) inside `area` and append chunked
         // WALK steps to outPlan. Each step's target advances at most kWalkChunkTiles
         // along the refined path; the final step always lands on the end tile.
@@ -301,6 +323,7 @@ namespace ww::runtime
         std::vector<FrontierSeed> seedScratch;   // reusable scratch for global-teleport frontier seeds
         std::vector<TeleCandidate> teleCandidateScratch;  // reusable scratch for goal-area teleport ranking
         std::vector<NearGoalEdge> nearGoalEdgeScratch;   // reusable scratch for near-goal baked edges (idx + fromArea + closingBound)
+        bool isWildernessAvoided{false};                 // the query in flight stays out of the Wilderness
     };
 }
 

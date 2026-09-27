@@ -1,6 +1,7 @@
 #include "runtime/TileSearch.h"
 
 #include "format/ClipFlags.h"
+#include "runtime/TeleportPolicy.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -110,7 +111,7 @@ namespace ww::runtime
         {
             return false;
         }
-        return true;
+        return currentFence.empty() || !isInWilderness(currentFence, outNx, outNy, plane);
     }
 
     void TileSearch::enqueueNeighbor(int32_t curIndex, float curG, int32_t nx, int32_t ny,
@@ -208,6 +209,14 @@ namespace ww::runtime
     bool TileSearch::findPath(int32_t startX, int32_t startY, int32_t goalX, int32_t goalY,
                               int32_t plane, int32_t areaConstraint, TilePath &outPath)
     {
+        return findPath(startX, startY, goalX, goalY, plane, areaConstraint, {}, outPath);
+    }
+
+    bool TileSearch::findPath(int32_t startX, int32_t startY, int32_t goalX, int32_t goalY,
+                              int32_t plane, int32_t areaConstraint,
+                              std::span<const format::WildernessRegion> fence, TilePath &outPath)
+    {
+        currentFence = fence;
         outPath.tiles.clear();
         outPath.cost = 0.0f;
         if (!acceptsEndpoints(startX, startY, goalX, goalY, plane, areaConstraint))

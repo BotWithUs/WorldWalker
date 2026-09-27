@@ -1,10 +1,12 @@
 #ifndef WORLDWALKER_RUNTIME_TILESEARCH_H
 #define WORLDWALKER_RUNTIME_TILESEARCH_H
 
+#include "format/Artifact.h"
 #include "runtime/WorldView.h"
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace ww::runtime
@@ -71,6 +73,15 @@ namespace ww::runtime
         bool findPath(int32_t startX, int32_t startY, int32_t goalX, int32_t goalY,
                       int32_t plane, int32_t areaConstraint, TilePath &outPath);
 
+        // As above, but never steps onto a tile inside any of the fence boxes:
+        // a walk that must stay out of the Wilderness. An area can reach
+        // across a box edge with no transition in the way (the mainland walks
+        // north of the wall east of Varrock), so refusing the crossings alone
+        // does not keep a walk out. An empty fence is the plain search.
+        bool findPath(int32_t startX, int32_t startY, int32_t goalX, int32_t goalY,
+                      int32_t plane, int32_t areaConstraint,
+                      std::span<const format::WildernessRegion> fence, TilePath &outPath);
+
     private:
         struct Node
         {
@@ -116,6 +127,7 @@ namespace ww::runtime
         // the current value for this findPath; isTileClosed / markTileClosed
         // on WorldView use it as the comparison key.
         uint32_t visitedEpoch{0};
+        std::span<const format::WildernessRegion> currentFence;  // borrowed for one findPath
     };
 }
 

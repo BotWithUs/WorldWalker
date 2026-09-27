@@ -70,6 +70,47 @@ namespace ww::runtime
                                  x, y, plane);
     }
 
+    // Whether (x, y, plane) lies inside any Wilderness region, at any level.
+    // The routing side of the same boxes the teleport rule reads: a walk whose
+    // start and goal are both outside them never enters them (PvP, high-level
+    // monsters, item loss), see PathAssembler::isWildernessAvoided.
+    inline bool isInWilderness(std::span<const format::WildernessRegion> wild,
+                               int32_t x, int32_t y, int32_t plane)
+    {
+        for (const format::WildernessRegion &w : wild)
+        {
+            if (plane >= w.planeMin && plane <= w.planeMax
+                && x >= w.minX && x <= w.maxX && y >= w.minY && y <= w.maxY)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    inline bool isInWilderness(const format::ArtifactReader &reader,
+                               int32_t x, int32_t y, int32_t plane)
+    {
+        return isInWilderness(reader.wildernessRegions(), x, y, plane);
+    }
+
+    // Whether taking the transition puts the player in the Wilderness or starts
+    // there: its landing or its origin lies in a region. A global teleport is
+    // cast wherever the player stands, so only its landing counts. Levers,
+    // obelisks, the ditch and any transport added later are all caught by
+    // geometry alone, so no dataset row has to remember to flag itself.
+    inline bool touchesWilderness(const format::ArtifactReader &reader,
+                                  const format::TransitionRecord &tx)
+    {
+        const std::span<const format::WildernessRegion> wild = reader.wildernessRegions();
+        if (isInWilderness(wild, tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane)))
+        {
+            return true;
+        }
+        return (tx.flags & format::kTransitionFlagGlobalOrigin) == 0u
+            && isInWilderness(wild, tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane));
+    }
+
     // COMBATV2_PLAYER_IS_IN_COMBAT (varp 689 bit 4): 1 while the player is in
     // combat. The game refuses lodestones and spell and item teleports then,
     // so a plan that casts one stalls on the spot. V1 navigation resolved with

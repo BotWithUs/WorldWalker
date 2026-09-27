@@ -1,6 +1,7 @@
 #include "runtime/AreaSearch.h"
 
 #include "format/Artifact.h"
+#include "runtime/TeleportPolicy.h"
 #include "runtime/TileScan.h"
 
 #include <algorithm>
@@ -129,7 +130,7 @@ namespace ww::runtime
             {
                 continue;
             }
-            if (!meetsTransitionRequirements(edges[i].transitionIndex))
+            if (!isTransitionAdmitted(edges[i].transitionIndex))
             {
                 continue;
             }
@@ -185,6 +186,21 @@ namespace ww::runtime
                                  static_cast<data::TransitionKind>(tx.kind));
     }
 
+    bool AreaSearch::isTransitionAdmitted(uint32_t transitionIndex) const
+    {
+        if (!meetsTransitionRequirements(transitionIndex))
+        {
+            return false;
+        }
+        if (!isCurrentWildernessAvoided)
+        {
+            return true;
+        }
+        const std::span<const format::TransitionRecord> transitions = artifact->transitions();
+        return transitionIndex < transitions.size()
+            && !touchesWilderness(*artifact, transitions[transitionIndex]);
+    }
+
     // Push every valid FrontierSeed onto the open heap as an alternative entry
     // to startArea: arrive in destArea at seed.cost (with cameFromArea sentinel
     // -2 marking "via teleport" and cameFromEdge holding the seed's transition
@@ -217,7 +233,7 @@ namespace ww::runtime
             {
                 continue;
             }
-            if (!meetsTransitionRequirements(seed.transitionIndex))
+            if (!isTransitionAdmitted(seed.transitionIndex))
             {
                 continue;
             }
@@ -343,13 +359,14 @@ namespace ww::runtime
                               const CapabilitySnapshot *capabilities,
                               std::span<const FrontierSeed> seeds, AreaPath &outPath)
     {
-        return findPath(startArea, goalArea, capabilities, seeds, nullptr, outPath);
+        return findPath(startArea, goalArea, capabilities, seeds, nullptr, false, outPath);
     }
 
     bool AreaSearch::findPath(int32_t startArea, int32_t goalArea,
                               const CapabilitySnapshot *capabilities,
                               std::span<const FrontierSeed> seeds,
-                              const SearchEndpoints *endpoints, AreaPath &outPath)
+                              const SearchEndpoints *endpoints, bool isWildernessAvoided,
+                              AreaPath &outPath)
     {
         outPath.steps.clear();
         outPath.cost = 0.0f;
@@ -357,6 +374,7 @@ namespace ww::runtime
         currentSnapshot = capabilities;
         currentEndpoints = endpoints;
         currentGoalArea = goalArea;
+        isCurrentWildernessAvoided = isWildernessAvoided;
         if (!isValidArea(startArea) || !isValidArea(goalArea))
         {
             return false;
@@ -384,7 +402,7 @@ namespace ww::runtime
         // unfiltered query (bench, same-area baseline) skips the per-edge
         // requirement check entirely. relax{Open,Filtered} are otherwise
         // byte-for-byte identical, so tie-breaking is preserved.
-        const bool unfiltered = (currentSnapshot == nullptr);
+        const bool unfiltered = currentSnapshot == nullptr && !isCurrentWildernessAvoided;
         while (!openHeap.empty())
         {
             std::pop_heap(openHeap.begin(), openHeap.end(), ByPriority{});
