@@ -1095,6 +1095,12 @@ namespace
                            std::atoi(argv[4]));
     }
 
+    int runAreaStatsCmd(int argc, char **argv)
+    {
+        constexpr int kDefaultMinSpan = 256;
+        return runAreaStats(argv[0], argc >= 2 ? std::atoi(argv[1]) : kDefaultMinSpan);
+    }
+
     int runBenchCmd(int, char **argv)
     {
         return runBench(argv[0]);
@@ -1251,6 +1257,7 @@ namespace
         {"txnear",     4, "wwcli txnear <artifact.wwa> <x> <y> <radius>", runTxNearCmd},
         {"areagrid",   5, "wwcli areagrid <artifact.wwa> <x> <y> <plane> <radius>",
          runAreaGridCmd},
+        {"areastats",  1, "wwcli areastats <artifact.wwa> [<minSpan>]", runAreaStatsCmd},
         {"path",       7, "wwcli path <artifact.wwa> <fromX> <fromY> <fromPlane>"
                           " <toX> <toY> <toPlane> [--out path.json] [--teleports dir]"
                           " [--ungated] [--varp id=value] [--varbit id=value]"

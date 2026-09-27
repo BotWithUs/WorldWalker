@@ -5,6 +5,7 @@
 #include "build/CollisionBuilder.h"
 #include "build/CollisionLookup.h"
 #include "build/Provenance.h"
+#include "build/TerrainFloor.h"
 #include "data/CrossingDeriver.h"
 #include "data/DatasetLoader.h"
 #include "data/FreshnessDeriver.h"
@@ -13,6 +14,7 @@
 #include "data/TransitionBuilder.h"
 #include "data/Transitions.h"
 
+#include <cctype>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -574,6 +576,10 @@ namespace
                          deriveCacheRevision(cacheDir), tr.datasetHash);
 
             reportBuild(outPath, collision, tr, ag, alt, teleportZones);
+            const ww::build::VoidFenceReport &fence = decoded.voidFence;
+            std::printf("  void fence: %zu unpainted upper-plane stretches blocked (%zu tiles),"
+                        " %zu pockets kept (largest %zu tiles)\n",
+                        fence.voids, fence.tilesBlocked, fence.pockets, fence.largestPocket);
             std::printf("  dialog zones: %zu\n", datasets.dialogZones.zones.size());
             reportProvenance(outPath, flags, provenance);
             return 0;
@@ -585,6 +591,75 @@ namespace
         }
     }
 
+    char floorGlyph(const ww::build::SquareTerrain &terrain, int plane, int x, int y)
+    {
+        const std::size_t tile = static_cast<std::size_t>(plane) * 4096u
+                               + static_cast<std::size_t>(x) * 64u + static_cast<std::size_t>(y);
+        const bool hasOverlay = terrain.overlayIds[tile] > 0;
+        const bool hasUnderlay = terrain.underlayIds[tile] > 0;
+        if (hasOverlay && hasUnderlay)
+        {
+            return 'b';
+        }
+        if (hasOverlay)
+        {
+            return 'o';
+        }
+        if (hasUnderlay)
+        {
+            return 'u';
+        }
+        const int rule = terrain.renderRules[tile];
+        if (rule != 0)
+        {
+            return rule < 16 ? "0123456789ABCDEF"[rule] : '+';
+        }
+        return terrain.streamFlags[tile] == 0 ? '.' : '-';
+    }
+
+    // `wwbuild floor <cache_dir> <sqx> <sqy> <plane>`: diagnostic. Prints one
+    // square's terrain on one plane, north up: 'o' overlay, 'u' underlay, 'b'
+    // both; an unpainted tile shows its render-rule byte in hex ('+' above
+    // 15), '-' when the stream holds only other data for it, '.' when nothing.
+    // A painted tile of a bridge column is upper-cased.
+    int runFloor(int argc, char **argv)
+    {
+        if (argc < 6)
+        {
+            std::fprintf(stderr, "usage: wwbuild floor <cache_dir> <sqx> <sqy> <plane>\n");
+            return 2;
+        }
+        try
+        {
+            ww::build::CacheClient cache(argv[2], false);
+            ww::build::SquareTerrain terrain;
+            const int plane = std::atoi(argv[5]) & 3;
+            const bool isPresent =
+                ww::build::readSquareTerrain(cache, std::atoi(argv[3]), std::atoi(argv[4]), terrain);
+            std::printf("floor: square (%s,%s) p%d present=%d\n", argv[3], argv[4], plane,
+                        isPresent ? 1 : 0);
+            for (int y = 63; y >= 0; --y)
+            {
+                std::printf("floor: %2d ", y);
+                for (int x = 0; x < 64; ++x)
+                {
+                    const std::size_t column = 4096u + static_cast<std::size_t>(x) * 64u
+                                             + static_cast<std::size_t>(y);
+                    const bool isBridge =
+                        (terrain.renderRules[column] & ww::build::kRenderRuleBridge) != 0;
+                    const char glyph = floorGlyph(terrain, plane, x, y);
+                    std::printf("%c", isBridge ? static_cast<char>(std::toupper(glyph)) : glyph);
+                }
+                std::printf("\n");
+            }
+            return 0;
+        }
+        catch (const std::exception &e)
+        {
+            std::fprintf(stderr, "floor: failed: %s\n", e.what());
+            return 1;
+        }
+    }
 }
 
 int main(int argc, char **argv)
@@ -632,6 +707,10 @@ int main(int argc, char **argv)
             std::fprintf(stderr, "crossings: failed: %s\n", e.what());
             return 1;
         }
+    }
+    if (std::strcmp(argv[1], "floor") == 0)
+    {
+        return runFloor(argc, argv);
     }
     std::fprintf(stderr, "unknown command: %s\n", argv[1]);
     return usage();

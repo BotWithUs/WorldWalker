@@ -456,6 +456,51 @@ int runAreaGrid(const char *wwaPath, int x, int y, int plane, int radius)
     }
 }
 
+int runAreaStats(const char *wwaPath, int minSpan)
+{
+    try
+    {
+        const ww::format::ArtifactReader reader(wwaPath);
+        const std::span<const ww::format::AreaNodeRecord> nodes = reader.areaNodes();
+        constexpr int kPlanes = ww::format::kClipPlanes;
+        std::size_t areas[kPlanes]{};
+        std::size_t wide[kPlanes]{};
+        uint64_t wideTiles[kPlanes]{};
+        for (std::size_t i = 0; i < nodes.size(); ++i)
+        {
+            const ww::format::AreaNodeRecord &node = nodes[i];
+            const int plane = std::min<int>(node.plane, kPlanes - 1);
+            ++areas[plane];
+            const int spanX = node.maxX - node.minX + 1;
+            const int spanY = node.maxY - node.minY + 1;
+            if (std::max(spanX, spanY) <= minSpan)
+            {
+                continue;
+            }
+            ++wide[plane];
+            wideTiles[plane] += node.tileCount;
+            if (plane > 0)
+            {
+                std::printf("areastats: wide area %zu p%d tiles=%u box=(%d,%d)-(%d,%d)"
+                            " span=%dx%d\n", i, plane, node.tileCount, node.minX, node.minY,
+                            node.maxX, node.maxY, spanX, spanY);
+            }
+        }
+        for (int plane = 0; plane < kPlanes; ++plane)
+        {
+            std::printf("areastats: p%d areas=%zu spanning>%d=%zu (%llu tiles)\n", plane,
+                        areas[plane], minSpan, wide[plane],
+                        static_cast<unsigned long long>(wideTiles[plane]));
+        }
+        return 0;
+    }
+    catch (const std::exception &e)
+    {
+        std::printf("areastats: failed: %s\n", e.what());
+        return 1;
+    }
+}
+
 int runDoorPaths(const char *wwaPath)
 {
     try

@@ -241,7 +241,9 @@ namespace ww::build
         // intended outcome: the mask cannot tell open ground from void, since
         // both are all-zero words, so it must not be used as a walkability
         // rule here or in CollisionLookup. Do not "fix" this by blocking
-        // mask-clear planes; it would blockade genuinely open terrain.
+        // mask-clear planes; it would blockade genuinely open terrain. The
+        // void above open ground is told apart by its terrain instead, and
+        // blocked before this runs (fenceUnpaintedVoid, build/TerrainFloor.h).
         void labelAreas(const CollisionModel &collision, const CollisionLookup &lookup,
                         AreaMap &map, std::vector<AreaNode> &outNodes)
         {

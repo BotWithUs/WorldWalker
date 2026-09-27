@@ -34,4 +34,10 @@ int runTxNear(const char *wwaPath, int x, int y, int radius);
 // in none. Used to place a transition's origin and landing on the right floor.
 int runAreaGrid(const char *wwaPath, int x, int y, int plane, int radius);
 
+// `wwcli areastats <artifact.wwa> [<minSpan>]` — audit: per plane, how many
+// areas there are and how many span more than minSpan tiles (default 256) on
+// either axis, listing each such area above plane 0. No real floor spans that
+// far, so a wide upper-plane area is the fill spilling over void.
+int runAreaStats(const char *wwaPath, int minSpan);
+
 #endif  // WORLDWALKER_CLI_DOORPATHS_H

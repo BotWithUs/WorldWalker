@@ -655,13 +655,13 @@ Both origins are within a tile of the anchor. The pass is a toll for going
 into the desert. Leaving is believed to be free, but that is from memory of
 the game and was not checked live, so the northbound row carries no gate.
 
-**Without a pass.** The only way in is the plane-1 spill area. `wwcli path
-3303 3117 0 3323 2875 0 --item 1854=0` climbs the Lumbridge house stairs
-(45481, 3194,3253), crosses the empty sky on plane 1, and comes down
-Pollnivneach's stairs (108803, 3353,2958). This route is not real. It is the
-known spill of the area fill into all-open upper planes. With it, a walk
-fails after a detour rather than at the gate. Until the spill is fenced,
-the task that sends a player into the desert has to give them a pass.
+**Without a pass.** `wwcli path 3303 3117 0 3323 2875 0 --ungated --item
+1854=0` used to climb the Lumbridge house stairs (45481, 3194,3253), cross
+the empty sky on plane 1, and come down Pollnivneach's stairs (108803,
+3353,2958), cost 752.4. That route was never real; the bake now fences the
+upper-plane void (see "Upper-plane void" below) and the same query has no
+route. Without a pass or a teleport there is no way in, so the task that
+sends a player into the desert has to give them a pass.
 
 **Magic carpets.** The Shantay carpet (3306,3109) is south of the gate, and
 every carpet station is in the same area of the baked grid as the desert
@@ -679,6 +679,54 @@ tests 4o and 4p cover this.
 **Not verified offline:** that 76546 is clicked from 3303,3117. The
 clickzone 12774 is the fallback if it is not. Also unverified: whether the
 first trip through raises a warning the executor has no dialog zone for.
+
+## Upper-plane void (2026-09-27)
+
+A bake change, not a dataset one, recorded here because it decides which
+rows can land anywhere.
+
+**The fault.** NXTCacheLibrary's clip leaves a tile with no floor under it
+all-zero, the same word as open ground. On planes 1..3 that is most of the
+world, so the area fill joined every upper floor with an open edge into one
+area per plane: 17.7 million tiles on plane 1, spanning 6016x7232. Any two
+buildings whose upper floors touched it were one walk apart, which is how
+the Shantay no-pass route crossed the sky.
+
+**The fence.** wwbuild reads each square's terrain file itself (index 5,
+file 3, through `nxt_read_file_raw`) and keeps which tiles are painted (an
+overlay or an underlay). Then, on planes 1..3, it floods the standable tiles
+with no paint within one tile, the way the area fill joins tiles (walls
+respected, across squares). A stretch of more than 4096 such tiles is void
+and is blocked; a smaller one is kept. Paint alone would not do: part of the
+City of Um's plane-1 street (around 1150..1165, 1826..1832) is unpainted
+ground walled in by blocked terrain, and the rock crossings at 3430,4261 and
+3434,4261 land a tile off the painted floor. `wwbuild floor <cache> <sqx>
+<sqy> <plane>` prints a square's paint; `wwcli areastats <wwa>` lists the
+upper-plane areas spanning more than 256 tiles.
+
+| | before | after |
+|---|---|---|
+| upper-plane areas spanning > 256 tiles | 45 | 11 |
+| tiles in them | 91.5 M | 0.27 M |
+| largest upper-plane area | 19.4 M tiles | 57,875 tiles |
+| transitions | 13668 | 13597 |
+
+The 11 left are painted template regions (whole squares painted on an upper
+plane), not joins between places. 71 transitions are gone: 52 landed in the
+sky, and 19 start from a plane-1 tile that was only ever joined to the sky
+(derived climbs whose top has no painted floor, Stronghold of Security
+ladders, and two at Jatizso, 2363,3799). If one of those is a real open-air
+platform floored by a loc, it needs a live check and a hand row.
+
+Over the 1854 quest walks (two starts, every quest target), 36 routes
+changed and all 36 lost a route that crossed the sky: 17 Ape Atoll targets
+reached from the Gnome Stronghold's plane 2, and 3405,4283,1 from Port
+Phasmatys. No route got dearer or cheaper.
+
+**The proper fix** belongs in NXTCacheLibrary: `maps::MapSquare`'s
+`decodeMapTerrain` already walks this stream and drops the underlay id, so
+it could hand over a per-tile floor bit (or set a clip bit for an unfloored
+upper-plane tile) and WorldWalker would stop decoding the terrain itself.
 
 ## How they're consumed
 

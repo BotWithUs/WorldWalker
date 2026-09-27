@@ -3,6 +3,7 @@
 
 #include "build/CacheClient.h"
 
+#include <cstddef>
 #include <vector>
 
 namespace ww::build
@@ -14,6 +15,15 @@ namespace ww::build
     struct CollisionModel
     {
         std::vector<SquareClip> squares;
+    };
+
+    // What fenceUnpaintedVoid (build/TerrainFloor.h) blocked.
+    struct VoidFenceReport
+    {
+        std::size_t pockets{};          // unpainted stretches kept walkable
+        std::size_t largestPocket{};    // tiles in the largest kept stretch
+        std::size_t voids{};            // stretches blocked as void
+        std::size_t tilesBlocked{};
     };
 
     // Everything one pass over the map index yields. `crossings` holds the
@@ -30,10 +40,16 @@ namespace ww::build
         // archive id outside the addressable grid, or a square vanishing
         // between enumeration and read.
         int skippedArchives{};
+        // The upper-plane void the bake blocked on top of the producer's
+        // clip (see fenceUnpaintedVoid).
+        VoidFenceReport voidFence;
     };
 
     // Enumerate index-5 map archives and decode each square's clip and
-    // crossings in one pass.
+    // crossings in one pass, then block the upper-plane void. The producer's
+    // clip leaves a tile with no floor all-zero, the same word as open ground,
+    // so without the fence the area fill ran across the sky: one plane-1 area
+    // spanned 6016x7232 tiles and joined Lumbridge's stairs to Pollnivneach's.
     CollisionBuildResult buildCollisionModel(const CacheClient &cache);
 }
 
