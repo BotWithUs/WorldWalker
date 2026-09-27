@@ -626,6 +626,60 @@ at 2459,3383, whose rows 2460,3382 <-> 2461,3385 carry no gate.
 one is still refused, read the message box's text and gate on what it names.
 The other two stiles on the same loc (2368,3425 and 2380,3467) have no rows.
 
+## Shantay Pass (2026-09-27)
+
+Live on 2026-09-27, Boric's Task II walked from 3303,3117 (north of the
+pass) to the Agility Pyramid mine at 3323,2875 and failed every time. The
+host logged `interact: loc 76546 absent at (3304,3118,0); assuming already
+open/removed, skipping`, the next walk south went STUCK, and the re-plan
+chose the same row, four times per walk.
+
+**The loc.** 76546 is `DESERT2012_PERIMETER_WALL_SHANTAY_GATE` ("Shantay
+Pass", ops `Go-through` / `Look-at`, 2x5), anchored at 3302,3116 with
+rotation 1 (locspawn scan). The southbound row's origin, 3304,3118, is two
+tiles from that anchor, so the host never found it. Because the row is a
+same-floor crossing, the executor took the miss for an open door and walked
+on into the wall. The gate has two lanes, x 3303 and x 3305, with a wall
+between y 3117 and 3116. Each lane also has a `SHANTAY_PASS_CLICKZONE` (loc
+12774, `Go-through`) anchored at 3303,3116 and 3305,3116. The rows keep
+76546, the loc the upstream export recorded.
+
+**The rows now:**
+
+| Row | Origin | Dest | Gate |
+|---|---|---|---|
+| south, into the desert | 3303,3117 (was 3304,3118) | 3304,3115 | holds a Shantay pass, item 1854 |
+| north, out of the desert | 3303,3115 | 3303,3118 (was 3304,3118, a blocked tile) | none |
+
+Both origins are within a tile of the anchor. The pass is a toll for going
+into the desert. Leaving is believed to be free, but that is from memory of
+the game and was not checked live, so the northbound row carries no gate.
+
+**Without a pass.** The only way in is the plane-1 spill area. `wwcli path
+3303 3117 0 3323 2875 0 --item 1854=0` climbs the Lumbridge house stairs
+(45481, 3194,3253), crosses the empty sky on plane 1, and comes down
+Pollnivneach's stairs (108803, 3353,2958). This route is not real. It is the
+known spill of the area fill into all-open upper planes. With it, a walk
+fails after a detour rather than at the gate. Until the spill is fenced,
+the task that sends a player into the desert has to give them a pass.
+
+**Magic carpets.** The Shantay carpet (3306,3109) is south of the gate, and
+every carpet station is in the same area of the baked grid as the desert
+around it (area 4217). The bake drops a transition whose two ends share an
+area (`intra-only`), so no carpet ride is ever planned inside the desert.
+With a pass, the route goes through the gate and walks the 330 tiles.
+
+**The executor.** A same-floor crossing whose loc is missing is still skipped
+as an open door. If the walk right after the skip stalls with the player on
+the side they skipped from, the crossing is now excluded with its loc's rows,
+the same as a missing ladder, and the run re-plans around it. Before, it
+re-planned onto the same crossing until the stuck budget ran out. Harness
+tests 4o and 4p cover this.
+
+**Not verified offline:** that 76546 is clicked from 3303,3117. The
+clickzone 12774 is the fallback if it is not. Also unverified: whether the
+first trip through raises a warning the executor has no dialog zone for.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a

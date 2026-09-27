@@ -1086,15 +1086,23 @@
   {
     "name": "Go-through",
     "object_id": 76546,
-    "x": 3304,
-    "y": 3118,
+    "x": 3303,
+    "y": 3117,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
     "dest_x": 3304,
     "dest_y": 3115,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "items": [
+        {
+          "id": 1854,
+          "count": 1
+        }
+      ]
+    }
   },
   {
     "name": "Go-through",
@@ -1105,7 +1113,7 @@
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
-    "dest_x": 3304,
+    "dest_x": 3303,
     "dest_y": 3118,
     "dest_plane": 0
   },
