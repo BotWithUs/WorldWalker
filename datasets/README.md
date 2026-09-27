@@ -221,6 +221,45 @@ length, and the landing tiles (the dataset's, each within 4 tiles of the
 station's balloon).
 
 
+## Magic carpets
+
+A carpet row starts at the station's Rug merchant (`npc`, op 2 `Travel`),
+waits for interface 1928 `MAGIC_CARPET`, clicks the destination's
+`*_BUTTON_ACTIVE_LAYER` with op 1, and waits 6 ticks. Each button has one op,
+`Select`, in the raw cache group (the decoded interface misreads it), and
+clientscript 2403 binds op 1 to exactly these nine; it is the only script that
+touches 1928, so any locking is the server's. The fare is coins (varp 7638
+`magic_carpet_cost`); its amount is not in the data, so the rows carry no
+`extra_cost`.
+
+| Station (row origin) | Button | Gate |
+|---|---|---|
+| Shantay Pass (3306,3109) | 28 | none |
+| North Pollnivneach (3348,3000) | 60 | none |
+| South Pollnivneach (3353,2940) | 68 | none |
+| Nardah (3402,2918) | 76 | none |
+| Bedabin Camp (3181,3048) | 44 | none |
+| Uzer (3466,3112) | 52 | The Golem, varbit 13639 >= 10 |
+| Monkey Colony (3229,2988) | 36 | Do No Evil, varbit 9324 >= 315 |
+| Menaphos (3244,2820) | 84 | The Jack of Spades, varbit 36140 >= 100 |
+| Sophanem (3322,2823) | 92 | Icthlarin's Little Helper, varbit 10987 >= 26 |
+
+Gates are from quest reward text ("Magic carpet route to the ruins of Uzer",
+"New magic carpet station at the monkey colony", "Access to the city of
+Sophanem", "Access to Menaphos") and apply at both ends.
+
+**NPCs.** Rug merchants 2291..2300 all list `Travel` at op 2, directly or
+through a morph: 2295 becomes 2296 on varbit 13639 (The Golem, so Uzer's),
+2297 and 2299 become 2298 and 2300 on varbit 10979. Eight stations take the
+whole range. The Monkey Colony takes 13238, spawned at 3226,2984. Merchant
+3020 is outside the range and could not be placed; widening to it would
+take in some 340 unrelated NPCs.
+
+**Not verified offline:** which merchant stands at each station other than
+the Monkey Colony, whether the server asks for a fare confirmation, the
+flight's length, and the landing tiles (the dataset's).
+
+
 ## Charter ships
 
 A charter row starts at a Trader Crewmember (`npc`, op 0 `Charter`). Its chain

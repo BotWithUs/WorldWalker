@@ -21926,10 +21926,30 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3350,
     "dest_y": 3002,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          60,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
@@ -21939,10 +21959,30 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3353,
     "dest_y": 2940,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          68,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
@@ -21952,10 +21992,30 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3403,
     "dest_y": 2918,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          76,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
@@ -21965,10 +22025,30 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3181,
     "dest_y": 3046,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          44,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
@@ -21978,10 +22058,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3468,
     "dest_y": 3113,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          52,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 13639,
+        "value": 10
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -21991,10 +22097,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3229,
     "dest_y": 2988,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          36,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9324,
+        "value": 315
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22004,10 +22136,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3246,
     "dest_y": 2822,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          84,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22017,114 +22175,324 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3322,
     "dest_y": 2823,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          92,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10987,
+        "value": 26
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3348,
     "y": 3000,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3306,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3348,
     "y": 3000,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3353,
     "dest_y": 2940,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          68,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3348,
     "y": 3000,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3403,
     "dest_y": 2918,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          76,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3348,
     "y": 3000,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3181,
     "dest_y": 3046,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          44,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3348,
     "y": 3000,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3468,
     "dest_y": 3113,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          52,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 13639,
+        "value": 10
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3348,
     "y": 3000,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3229,
     "dest_y": 2988,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          36,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9324,
+        "value": 315
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3348,
     "y": 3000,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3246,
     "dest_y": 2822,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          84,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3348,
     "y": 3000,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3322,
     "dest_y": 2823,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          92,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10987,
+        "value": 26
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22134,10 +22502,30 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3306,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
@@ -22147,10 +22535,30 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3350,
     "dest_y": 3002,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          60,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
@@ -22160,10 +22568,30 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3403,
     "dest_y": 2918,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          76,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
@@ -22173,10 +22601,30 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3181,
     "dest_y": 3046,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          44,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
@@ -22186,10 +22634,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3468,
     "dest_y": 3113,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          52,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 13639,
+        "value": 10
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22199,10 +22673,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3229,
     "dest_y": 2988,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          36,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9324,
+        "value": 315
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22212,10 +22712,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3246,
     "dest_y": 2822,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          84,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22225,322 +22751,942 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3322,
     "dest_y": 2823,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          92,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10987,
+        "value": 26
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7393,
+    "object_id": 0,
     "x": 3402,
     "y": 2918,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3306,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7393,
+    "object_id": 0,
     "x": 3402,
     "y": 2918,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3350,
     "dest_y": 3002,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          60,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7393,
+    "object_id": 0,
     "x": 3402,
     "y": 2918,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3353,
     "dest_y": 2940,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          68,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7393,
+    "object_id": 0,
     "x": 3402,
     "y": 2918,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3181,
     "dest_y": 3046,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          44,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7393,
+    "object_id": 0,
     "x": 3402,
     "y": 2918,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3468,
     "dest_y": 3113,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          52,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 13639,
+        "value": 10
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7393,
+    "object_id": 0,
     "x": 3402,
     "y": 2918,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3229,
     "dest_y": 2988,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          36,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9324,
+        "value": 315
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7393,
+    "object_id": 0,
     "x": 3402,
     "y": 2918,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3246,
     "dest_y": 2822,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          84,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7393,
+    "object_id": 0,
     "x": 3402,
     "y": 2918,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3322,
     "dest_y": 2823,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          92,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10987,
+        "value": 26
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 62938,
+    "object_id": 0,
     "x": 3181,
     "y": 3048,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3306,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
-    "object_id": 62938,
+    "object_id": 0,
     "x": 3181,
     "y": 3048,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3350,
     "dest_y": 3002,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          60,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
-    "object_id": 62938,
+    "object_id": 0,
     "x": 3181,
     "y": 3048,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3353,
     "dest_y": 2940,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          68,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
-    "object_id": 62938,
+    "object_id": 0,
     "x": 3181,
     "y": 3048,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3403,
     "dest_y": 2918,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          76,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ]
   },
   {
     "name": "Magic carpet network",
-    "object_id": 62938,
+    "object_id": 0,
     "x": 3181,
     "y": 3048,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3468,
     "dest_y": 3113,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          52,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 13639,
+        "value": 10
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 62938,
+    "object_id": 0,
     "x": 3181,
     "y": 3048,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3229,
     "dest_y": 2988,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          36,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9324,
+        "value": 315
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 62938,
+    "object_id": 0,
     "x": 3181,
     "y": 3048,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3246,
     "dest_y": 2822,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          84,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 62938,
+    "object_id": 0,
     "x": 3181,
     "y": 3048,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3322,
     "dest_y": 2823,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          92,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10987,
+        "value": 26
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3466,
     "y": 3112,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3306,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 13639,
+        "value": 10
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3466,
     "y": 3112,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3350,
     "dest_y": 3002,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          60,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 13639,
+        "value": 10
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3466,
     "y": 3112,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3353,
     "dest_y": 2940,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          68,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 13639,
+        "value": 10
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3466,
     "y": 3112,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3403,
     "dest_y": 2918,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          76,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 13639,
+        "value": 10
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3466,
     "y": 3112,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3181,
     "dest_y": 3046,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          44,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 13639,
+        "value": 10
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3466,
     "y": 3112,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3229,
     "dest_y": 2988,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          36,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 13639,
+          "value": 10
+        },
+        {
+          "id": 9324,
+          "value": 315
+        }
+      ]
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3466,
     "y": 3112,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3246,
     "dest_y": 2822,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          84,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 13639,
+          "value": 10
+        },
+        {
+          "id": 36140,
+          "value": 100
+        }
+      ]
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 366,
+    "object_id": 0,
     "x": 3466,
     "y": 3112,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3322,
     "dest_y": 2823,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          92,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 13639,
+          "value": 10
+        },
+        {
+          "id": 10987,
+          "value": 26
+        }
+      ]
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22550,10 +23696,35 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3306,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 13238
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9324,
+        "value": 315
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22563,10 +23734,35 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3350,
     "dest_y": 3002,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 13238
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          60,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9324,
+        "value": 315
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22576,10 +23772,35 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3353,
     "dest_y": 2940,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 13238
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          68,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9324,
+        "value": 315
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22589,10 +23810,35 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3403,
     "dest_y": 2918,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 13238
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          76,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9324,
+        "value": 315
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22602,10 +23848,35 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3181,
     "dest_y": 3046,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 13238
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          44,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9324,
+        "value": 315
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22615,10 +23886,41 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3468,
     "dest_y": 3113,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 13238
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          52,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 9324,
+          "value": 315
+        },
+        {
+          "id": 13639,
+          "value": 10
+        }
+      ]
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22628,10 +23930,41 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3246,
     "dest_y": 2822,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 13238
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          84,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 9324,
+          "value": 315
+        },
+        {
+          "id": 36140,
+          "value": 100
+        }
+      ]
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22641,114 +23974,371 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3322,
     "dest_y": 2823,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 13238
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          92,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 9324,
+          "value": 315
+        },
+        {
+          "id": 10987,
+          "value": 26
+        }
+      ]
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7391,
+    "object_id": 0,
     "x": 3244,
     "y": 2820,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3306,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7391,
+    "object_id": 0,
     "x": 3244,
     "y": 2820,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3350,
     "dest_y": 3002,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          60,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7391,
+    "object_id": 0,
     "x": 3244,
     "y": 2820,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3353,
     "dest_y": 2940,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          68,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7391,
+    "object_id": 0,
     "x": 3244,
     "y": 2820,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3403,
     "dest_y": 2918,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          76,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7391,
+    "object_id": 0,
     "x": 3244,
     "y": 2820,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3181,
     "dest_y": 3046,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          44,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 36140,
+        "value": 100
+      }
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7391,
+    "object_id": 0,
     "x": 3244,
     "y": 2820,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3468,
     "dest_y": 3113,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          52,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 36140,
+          "value": 100
+        },
+        {
+          "id": 13639,
+          "value": 10
+        }
+      ]
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7391,
+    "object_id": 0,
     "x": 3244,
     "y": 2820,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3229,
     "dest_y": 2988,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          36,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 36140,
+          "value": 100
+        },
+        {
+          "id": 9324,
+          "value": 315
+        }
+      ]
+    }
   },
   {
     "name": "Magic carpet network",
-    "object_id": 7391,
+    "object_id": 0,
     "x": 3244,
     "y": 2820,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3322,
     "dest_y": 2823,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          92,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 36140,
+          "value": 100
+        },
+        {
+          "id": 10987,
+          "value": 26
+        }
+      ]
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22758,10 +24348,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3306,
     "dest_y": 3109,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          28,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10987,
+        "value": 26
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22771,10 +24387,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3350,
     "dest_y": 3002,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          60,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10987,
+        "value": 26
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22784,10 +24426,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3353,
     "dest_y": 2940,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          68,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10987,
+        "value": 26
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22797,10 +24465,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3403,
     "dest_y": 2918,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          76,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10987,
+        "value": 26
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22810,10 +24504,36 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3181,
     "dest_y": 3046,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          44,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 10987,
+        "value": 26
+      }
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22823,10 +24543,42 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3468,
     "dest_y": 3113,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          52,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 10987,
+          "value": 26
+        },
+        {
+          "id": 13639,
+          "value": 10
+        }
+      ]
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22836,10 +24588,42 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3229,
     "dest_y": 2988,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          36,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 10987,
+          "value": 26
+        },
+        {
+          "id": 9324,
+          "value": 315
+        }
+      ]
+    }
   },
   {
     "name": "Magic carpet network",
@@ -22849,10 +24633,42 @@
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 3246,
     "dest_y": 2822,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 2291,
+      "last_id": 2300
+    },
+    "chain": [
+      {
+        "wait_interface": 1928
+      },
+      {
+        "click": [
+          1928,
+          84,
+          1,
+          -1
+        ]
+      },
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 10987,
+          "value": 26
+        },
+        {
+          "id": 36140,
+          "value": 100
+        }
+      ]
+    }
   },
   {
     "name": "NPCs",
