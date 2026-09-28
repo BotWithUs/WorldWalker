@@ -1732,6 +1732,47 @@ namespace ww::cli
             return failures;
         }
 
+        // Test 4r: the goal tile can be stood on but sits in a sealed pocket.
+        // East Ardougne's north bank: the walk to the bank targeted the
+        // banker's tile 2614,3330 behind the booth row, which no baked edge
+        // reaches, and failed with no route eight times (live 2026-09-29). The
+        // plan must end across the booth on 2614,3332, where the player banks,
+        // not on 2614,3329 behind the bank's south wall, and standing there is
+        // arrival. A fixed fixture on purpose: the rule is what is under test,
+        // so the case is not re-derived by it.
+        std::size_t testPocketGoal(ExecContext &ctx)
+        {
+            constexpr std::int32_t kPlane = 0;
+            const runtime::TilePoint start{ 2614, 3334 };
+            const runtime::TilePoint goal{ 2614, 3330 };
+            const runtime::TilePoint expected{ 2614, 3332 };
+            const std::int32_t startArea = ctx.view.areaAt(start.x, start.y, kPlane);
+            const std::int32_t goalArea = ctx.view.areaAt(goal.x, goal.y, kPlane);
+            if (startArea < 0 || goalArea < 0 || startArea == goalArea
+                || ctx.view.areaAt(expected.x, expected.y, kPlane) != startArea)
+            {
+                std::printf("  exec:   pocket-goal test skipped (East Ardougne bank not baked"
+                            " as a pocket)\n");
+                return 0;
+            }
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              start.x, start.y, kPlane);
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwStatus status = executor.run(exec::WwGoal{ goal.x, goal.y, kPlane, 0 });
+
+            const bool isOnExpected = harness.position.x == expected.x
+                && harness.position.y == expected.y && harness.position.plane == kPlane;
+            std::printf("  exec:   pocket-goal status=%d (expect 0) at=(%d,%d) (expect %d,%d)\n",
+                        static_cast<int>(status), harness.position.x, harness.position.y,
+                        expected.x, expected.y);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += isOnExpected ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
         // Test 4p: as 4o, but the absent crossing is the only way into the
         // goal's area. Once the stall shows it is not open, it is excluded and
         // nothing else reaches the goal, so the run fails on that crossing
@@ -2074,6 +2115,7 @@ namespace ww::cli
         failures += testAbsentCrossingWithSpare(ctx);
         failures += testAbsentSoleCrossing(ctx);
         failures += testBlockedGoal(ctx);
+        failures += testPocketGoal(ctx);
         failures += testCrossingLands(ctx, isShortCrossing, "short-crossing");
         failures += testCrossingLands(ctx, isFarLandingNonDoor, "far-crossing");
         failures += testNpcOrigin(ctx, false);

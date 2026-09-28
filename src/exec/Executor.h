@@ -284,7 +284,9 @@ namespace ww::exec
         // counter, an object's footprint), so the planner ended the route on
         // the nearest standable tile instead, and the player is on it. The
         // goal test alone can never pass there: the Rusty Anchor's walk to
-        // 3050,3257 reached the stand-in 3050,3256 and was judged FAILED.
+        // 3050,3257 reached the stand-in 3050,3256 and was judged FAILED. The
+        // same holds for a standable goal in a sealed pocket (East Ardougne's
+        // banker tile 2614,3330), which the planner moves across the booth.
         bool isAtGoalStandIn(const WwGoal &goal, runtime::WorldView &view,
                              const WwTile &at) const;
 

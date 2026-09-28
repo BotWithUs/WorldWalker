@@ -144,6 +144,31 @@ namespace ww::runtime
                              int32_t startArea, int32_t &outX, int32_t &outY,
                              int32_t &outArea) const;
 
+        // Standable, in a baked area, and that area is the start's or one some
+        // baked edge touches, so a route can get there.
+        bool isLinkedStandIn(int32_t x, int32_t y, int32_t plane, int32_t startArea) const;
+
+        // `area` is not the start's and no baked edge touches it: nothing can
+        // route into it.
+        bool isSealedPocket(int32_t area, int32_t startArea) const;
+
+        // A goal that can be stood on but sits in a sealed pocket is moved, like
+        // a blocked goal, to a linked stand-in within kGoalSnapRadius. East
+        // Ardougne's north bank goal 2614,3330 is the banker's tile behind the
+        // booth row: standable, walled in, and every walk to it FAILED with no
+        // route (live 2026-09-29). The stand-in is found by reachOutOfPocket, so
+        // it is 2614,3332 across the booth, not 2614,3329 behind the south wall.
+        // When nothing linked is in reach the goal is left as it is and the
+        // query fails as it did before.
+        void snapOutOfPocket(int32_t plane, int32_t startArea, int32_t &ioX, int32_t &ioY,
+                             int32_t &ioArea) const;
+
+        // The nearest linked stand-in reachable from the goal by cardinal steps
+        // that cross no wall edge but may pass over object-filled tiles (booths,
+        // counters), within kGoalSnapRadius. False, outputs untouched, when none.
+        bool reachOutOfPocket(int32_t goalX, int32_t goalY, int32_t plane, int32_t startArea,
+                              int32_t &outX, int32_t &outY) const;
+
         // Plan a route wholly inside a dynamic region (instance), appending Walk
         // steps to outPlan. Returns false when either endpoint is outside the
         // descriptor grid, the planes differ, or no walkable route exists.

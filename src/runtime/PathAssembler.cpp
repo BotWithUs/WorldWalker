@@ -2,12 +2,14 @@
 
 #include "data/Transitions.h"
 #include "format/Artifact.h"
+#include "format/ClipFlags.h"
 #include "runtime/InstanceMap.h"
 #include "runtime/TeleportPolicy.h"
 #include "runtime/TileScan.h"
 #include "runtime/WorldView.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -31,6 +33,28 @@ namespace ww::runtime
         // tile so the route lands the player as near the requested spot as the
         // collision allows. 3 reaches across a 2-wide object plus its wall ring.
         constexpr int32_t kGoalSnapRadius = 3;
+
+        // One cardinal step of the reach out of a sealed pocket, with the wall
+        // bit checked on the source tile and the opposite bit on the target (a
+        // step is walled off when either endpoint carries its bit; ClipFlags.h).
+        struct ReachStep
+        {
+            int32_t dx;
+            int32_t dy;
+            uint32_t fromWall;
+            uint32_t toWall;
+        };
+
+        constexpr ReachStep kReachSteps[4] = {
+            {0, 1, format::CLIP_WALL_N, format::CLIP_WALL_S},
+            {1, 0, format::CLIP_WALL_E, format::CLIP_WALL_W},
+            {0, -1, format::CLIP_WALL_S, format::CLIP_WALL_N},
+            {-1, 0, format::CLIP_WALL_W, format::CLIP_WALL_E},
+        };
+
+        // Side of the square box the reach explores: kGoalSnapRadius each way.
+        constexpr int32_t kReachSide = 2 * kGoalSnapRadius + 1;
+        constexpr std::size_t kReachTiles = static_cast<std::size_t>(kReachSide * kReachSide);
 
         // Chebyshev radius from a baked transition's destination tile to the
         // goal tile (same plane only) below which the transition counts as a
@@ -185,13 +209,7 @@ namespace ww::runtime
         };
         const auto linkedStandIn = [&](int32_t x, int32_t y)
         {
-            if (!view->isStandable(x, y, plane))
-            {
-                return false;
-            }
-            const int32_t area = view->areaAt(x, y, plane);
-            return area >= 0
-                && (area == startArea || isAreaLinked[static_cast<std::size_t>(area)] != 0u);
+            return isLinkedStandIn(x, y, plane, startArea);
         };
         const bool isLinkedFound = requireArea
             && findNearestTile(goalX, goalY, kGoalSnapRadius, false, linkedStandIn, outX, outY);
@@ -205,6 +223,90 @@ namespace ww::runtime
             outArea = view->areaAt(outX, outY, plane);
         }
         return true;
+    }
+
+    bool PathAssembler::isLinkedStandIn(int32_t x, int32_t y, int32_t plane,
+                                        int32_t startArea) const
+    {
+        if (!view->isStandable(x, y, plane))
+        {
+            return false;
+        }
+        const int32_t area = view->areaAt(x, y, plane);
+        return area >= 0
+            && (area == startArea || isAreaLinked[static_cast<std::size_t>(area)] != 0u);
+    }
+
+    bool PathAssembler::isSealedPocket(int32_t area, int32_t startArea) const
+    {
+        return area >= 0 && area != startArea
+            && static_cast<std::size_t>(area) < isAreaLinked.size()
+            && isAreaLinked[static_cast<std::size_t>(area)] == 0u;
+    }
+
+    // Breadth-first over the box of kGoalSnapRadius around the goal, one
+    // cardinal step at a time. A step may enter a tile an object fills (a bank
+    // booth, a counter) but never cross a wall edge, so the first linked
+    // stand-in reached is on the side the goal is served from, not behind a
+    // wall that happens to be just as near.
+    bool PathAssembler::reachOutOfPocket(int32_t goalX, int32_t goalY, int32_t plane,
+                                         int32_t startArea, int32_t &outX, int32_t &outY) const
+    {
+        std::array<uint8_t, kReachTiles> isSeen{};
+        std::array<std::pair<int32_t, int32_t>, kReachTiles> queue{};
+        const auto slot = [&](int32_t x, int32_t y)
+        {
+            return static_cast<std::size_t>((x - goalX + kGoalSnapRadius) * kReachSide
+                                            + (y - goalY + kGoalSnapRadius));
+        };
+        std::size_t head = 0;
+        std::size_t tail = 0;
+        queue[tail++] = {goalX, goalY};
+        isSeen[slot(goalX, goalY)] = 1u;
+        while (head < tail)
+        {
+            const auto [x, y] = queue[head++];
+            if (isLinkedStandIn(x, y, plane, startArea))
+            {
+                outX = x;
+                outY = y;
+                return true;
+            }
+            const uint32_t fromClip = view->clipAt(x, y, plane);
+            for (const ReachStep &step : kReachSteps)
+            {
+                const int32_t nx = x + step.dx;
+                const int32_t ny = y + step.dy;
+                if (std::abs(nx - goalX) > kGoalSnapRadius
+                    || std::abs(ny - goalY) > kGoalSnapRadius || isSeen[slot(nx, ny)] != 0u)
+                {
+                    continue;
+                }
+                if ((fromClip & step.fromWall) != 0u
+                    || (view->clipAt(nx, ny, plane) & step.toWall) != 0u)
+                {
+                    continue;
+                }
+                isSeen[slot(nx, ny)] = 1u;
+                queue[tail++] = {nx, ny};
+            }
+        }
+        return false;
+    }
+
+    void PathAssembler::snapOutOfPocket(int32_t plane, int32_t startArea, int32_t &ioX,
+                                        int32_t &ioY, int32_t &ioArea) const
+    {
+        int32_t x = ioX;
+        int32_t y = ioY;
+        if (!isSealedPocket(ioArea, startArea)
+            || !reachOutOfPocket(ioX, ioY, plane, startArea, x, y))
+        {
+            return;
+        }
+        ioX = x;
+        ioY = y;
+        ioArea = view->areaAt(x, y, plane);
     }
 
     // Plan a route wholly inside a dynamic region (instance).
@@ -635,6 +737,10 @@ namespace ww::runtime
                 return false;
             }
         }
+        else
+        {
+            snapOutOfPocket(goalPlane, startArea, goalX, goalY, goalArea);
+        }
         decideWilderness(isInWilderness(*artifact, startX, startY, startPlane),
                          goalX, goalY, goalPlane);
 
@@ -680,8 +786,11 @@ namespace ww::runtime
         }
         const InstanceSuspension suspension(*view);
         int32_t goalArea = view->areaAt(goalX, goalY, goalPlane);
-        if (goalArea < 0
-            && !resolveGoalTile(goalX, goalY, goalPlane, true, -1, goalX, goalY, goalArea))
+        if (goalArea >= 0)
+        {
+            snapOutOfPocket(goalPlane, -1, goalX, goalY, goalArea);
+        }
+        else if (!resolveGoalTile(goalX, goalY, goalPlane, true, -1, goalX, goalY, goalArea))
         {
             return false;
         }

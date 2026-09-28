@@ -1033,15 +1033,24 @@ namespace ww::exec
     bool Executor::isAtGoalStandIn(const WwGoal &goal, runtime::WorldView &view,
                                    const WwTile &at) const
     {
-        if (plan.steps.empty() || view.isStandable(goal.x, goal.y, goal.plane))
+        if (plan.steps.empty())
         {
             return false;
         }
         const runtime::Step &last = plan.steps.back();
         const WwTile standIn{ last.targetX, last.targetY, static_cast<int32_t>(last.plane) };
         const WwTile goalTile{ goal.x, goal.y, goal.plane };
-        return last.kind == runtime::StepKind::Walk && !isSameTile(standIn, goalTile)
-            && isSameTile(at, standIn);
+        if (last.kind != runtime::StepKind::Walk || isSameTile(standIn, goalTile)
+            || !isSameTile(at, standIn))
+        {
+            return false;
+        }
+        // The planner ends a walk off the goal tile only when it snapped the
+        // goal: the tile is blocked, or it sits in a sealed pocket (a banker
+        // behind the booths) whose area the stand-in is not in.
+        return !view.isStandable(goal.x, goal.y, goal.plane)
+            || view.areaAt(goal.x, goal.y, goal.plane)
+                   != view.areaAt(standIn.x, standIn.y, standIn.plane);
     }
 
     WwStatus Executor::judgeDrainedRun(const WwGoal &goal, runtime::WorldView &view,
