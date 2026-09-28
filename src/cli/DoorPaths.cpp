@@ -408,6 +408,208 @@ int runTxNear(const char *wwaPath, int x, int y, int radius)
     }
 }
 
+int runAreaGrid(const char *wwaPath, int x, int y, int plane, int radius)
+{
+    try
+    {
+        const ww::format::ArtifactReader reader(wwaPath);
+        ww::runtime::WorldView view(reader);
+
+        // One letter per distinct area in the window, '#' for a tile in no area.
+        std::vector<int32_t> legend;
+        std::printf("areagrid: (%d,%d,p%d) radius=%d, north up, west left\n", x, y, plane, radius);
+        for (int yy = y + radius; yy >= y - radius; --yy)
+        {
+            std::printf("areagrid: %5d ", yy);
+            for (int xx = x - radius; xx <= x + radius; ++xx)
+            {
+                const int32_t area = view.areaAt(xx, yy, plane);
+                char glyph = '#';
+                if (area >= 0)
+                {
+                    auto it = std::find(legend.begin(), legend.end(), area);
+                    if (it == legend.end())
+                    {
+                        legend.push_back(area);
+                        it = legend.end() - 1;
+                    }
+                    const auto slot = static_cast<int>(it - legend.begin());
+                    glyph = slot < 26 ? static_cast<char>('A' + slot) : '?';
+                }
+                const bool isCentre = xx == x && yy == y;
+                std::printf(isCentre ? "[%c]" : " %c ", glyph);
+            }
+            std::printf("\n");
+        }
+        std::printf("areagrid: x from %d to %d\n", x - radius, x + radius);
+        for (std::size_t i = 0; i < legend.size(); ++i)
+        {
+            std::printf("areagrid:   %c = area %d\n",
+                        i < 26 ? static_cast<char>('A' + i) : '?', legend[i]);
+        }
+        return 0;
+    }
+    catch (const std::exception &e)
+    {
+        std::printf("areagrid: failed: %s\n", e.what());
+        return 1;
+    }
+}
+
+int runAreaStats(const char *wwaPath, int minSpan)
+{
+    try
+    {
+        const ww::format::ArtifactReader reader(wwaPath);
+        const std::span<const ww::format::AreaNodeRecord> nodes = reader.areaNodes();
+        constexpr int kPlanes = ww::format::kClipPlanes;
+        std::size_t areas[kPlanes]{};
+        std::size_t wide[kPlanes]{};
+        uint64_t wideTiles[kPlanes]{};
+        for (std::size_t i = 0; i < nodes.size(); ++i)
+        {
+            const ww::format::AreaNodeRecord &node = nodes[i];
+            const int plane = std::min<int>(node.plane, kPlanes - 1);
+            ++areas[plane];
+            const int spanX = node.maxX - node.minX + 1;
+            const int spanY = node.maxY - node.minY + 1;
+            if (std::max(spanX, spanY) <= minSpan)
+            {
+                continue;
+            }
+            ++wide[plane];
+            wideTiles[plane] += node.tileCount;
+            if (plane > 0)
+            {
+                std::printf("areastats: wide area %zu p%d tiles=%u box=(%d,%d)-(%d,%d)"
+                            " span=%dx%d\n", i, plane, node.tileCount, node.minX, node.minY,
+                            node.maxX, node.maxY, spanX, spanY);
+            }
+        }
+        for (int plane = 0; plane < kPlanes; ++plane)
+        {
+            std::printf("areastats: p%d areas=%zu spanning>%d=%zu (%llu tiles)\n", plane,
+                        areas[plane], minSpan, wide[plane],
+                        static_cast<unsigned long long>(wideTiles[plane]));
+        }
+        return 0;
+    }
+    catch (const std::exception &e)
+    {
+        std::printf("areastats: failed: %s\n", e.what());
+        return 1;
+    }
+}
+
+namespace
+{
+    // Areas reachable from `start` over every baked area edge, requirements
+    // ignored (the most permissive account).
+    std::vector<bool> reachableAreas(const ww::format::ArtifactReader &reader, int32_t start)
+    {
+        const std::span<const ww::format::AreaEdgeRecord> edges = reader.areaEdges();
+        const std::size_t count = reader.areaNodes().size();
+        std::vector<std::vector<int32_t>> next(count);
+        for (const ww::format::AreaEdgeRecord &edge : edges)
+        {
+            const bool isValid = edge.fromArea >= 0 && edge.toArea >= 0
+                && static_cast<std::size_t>(edge.fromArea) < count
+                && static_cast<std::size_t>(edge.toArea) < count;
+            if (isValid)
+            {
+                next[static_cast<std::size_t>(edge.fromArea)].push_back(edge.toArea);
+            }
+        }
+        std::vector<bool> isReached(count, false);
+        if (start < 0 || static_cast<std::size_t>(start) >= count)
+        {
+            return isReached;
+        }
+        std::vector<int32_t> stack{start};
+        isReached[static_cast<std::size_t>(start)] = true;
+        while (!stack.empty())
+        {
+            const int32_t area = stack.back();
+            stack.pop_back();
+            for (int32_t to : next[static_cast<std::size_t>(area)])
+            {
+                if (!isReached[static_cast<std::size_t>(to)])
+                {
+                    isReached[static_cast<std::size_t>(to)] = true;
+                    stack.push_back(to);
+                }
+            }
+        }
+        return isReached;
+    }
+
+    // Some tile of `area`, found by scanning its bounding box; false if none.
+    bool sampleTile(ww::runtime::WorldView &view, const ww::format::AreaNodeRecord &node,
+                    int32_t area, int32_t &outX, int32_t &outY)
+    {
+        for (int32_t x = node.minX; x <= node.maxX; ++x)
+        {
+            for (int32_t y = node.minY; y <= node.maxY; ++y)
+            {
+                if (view.areaAt(x, y, node.plane) == area)
+                {
+                    outX = x;
+                    outY = y;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+}
+
+int runReachDiff(const char *oldPath, const char *newPath, int x, int y, int plane)
+{
+    try
+    {
+        const ww::format::ArtifactReader oldReader(oldPath);
+        const ww::format::ArtifactReader newReader(newPath);
+        ww::runtime::WorldView oldView(oldReader);
+        ww::runtime::WorldView newView(newReader);
+        const std::vector<bool> oldReached = reachableAreas(oldReader, oldView.areaAt(x, y, plane));
+        const std::vector<bool> newReached = reachableAreas(newReader, newView.areaAt(x, y, plane));
+        const std::span<const ww::format::AreaNodeRecord> nodes = oldReader.areaNodes();
+        std::size_t reached = 0;
+        std::size_t lost = 0;
+        uint64_t lostTiles = 0;
+        for (std::size_t a = 0; a < nodes.size(); ++a)
+        {
+            int32_t sx = 0;
+            int32_t sy = 0;
+            const auto area = static_cast<int32_t>(a);
+            if (!oldReached[a] || !sampleTile(oldView, nodes[a], area, sx, sy))
+            {
+                continue;
+            }
+            ++reached;
+            const int32_t now = newView.areaAt(sx, sy, nodes[a].plane);
+            if (now >= 0 && newReached[static_cast<std::size_t>(now)])
+            {
+                continue;
+            }
+            ++lost;
+            lostTiles += nodes[a].tileCount;
+            std::printf("reachdiff: lost area %zu p%u tiles=%u sample=(%d,%d) now=%s\n", a,
+                        nodes[a].plane, nodes[a].tileCount, sx, sy,
+                        now < 0 ? "no area" : "unreached");
+        }
+        std::printf("reachdiff: from (%d,%d,p%d): %zu areas reached before, %zu of them"
+                    " unreached now (%llu tiles)\n", x, y, plane, reached, lost,
+                    static_cast<unsigned long long>(lostTiles));
+        return 0;
+    }
+    catch (const std::exception &e)
+    {
+        std::printf("reachdiff: failed: %s\n", e.what());
+        return 1;
+    }
+}
+
 int runDoorPaths(const char *wwaPath)
 {
     try

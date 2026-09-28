@@ -99,6 +99,12 @@ namespace ww::build
         bool mapSquareClipAndCrossings(int squareX, int squareY, SquareClip &outClip,
                                        std::vector<Crossing> &outCrossings) const;
 
+        // Read one file of a cache group as stored (decompressed, not decoded)
+        // into outBytes. Returns false when the group or the file is absent;
+        // throws std::runtime_error on any other failure.
+        bool readFile(int indexId, int archiveId, int fileId,
+                      std::vector<uint8_t> &outBytes) const;
+
     private:
         nxt_cache *handle;
     };

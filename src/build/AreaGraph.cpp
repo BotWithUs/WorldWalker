@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdlib>
 #include <cstdint>
 #include <set>
 #include <unordered_map>
@@ -241,7 +242,9 @@ namespace ww::build
         // intended outcome: the mask cannot tell open ground from void, since
         // both are all-zero words, so it must not be used as a walkability
         // rule here or in CollisionLookup. Do not "fix" this by blocking
-        // mask-clear planes; it would blockade genuinely open terrain.
+        // mask-clear planes; it would blockade genuinely open terrain. The
+        // void above open ground is told apart by its terrain instead, and
+        // blocked before this runs (fenceUnpaintedVoid, build/TerrainFloor.h).
         void labelAreas(const CollisionModel &collision, const CollisionLookup &lookup,
                         AreaMap &map, std::vector<AreaNode> &outNodes)
         {
@@ -312,23 +315,34 @@ namespace ww::build
             return areas;
         }
 
+        bool isLongHop(const Transition &t)
+        {
+            const int32_t span = std::max(std::abs(t.destX - t.originX),
+                                          std::abs(t.destY - t.originY));
+            return t.originPlane == t.destPlane && span > kMinIntraAreaHopTiles;
+        }
+
         bool emitEdges(const std::set<int32_t> &fromAreas, int32_t destArea,
-                       std::size_t transitionIndex, float cost,
+                       std::size_t transitionIndex, const Transition &t,
                        std::vector<AreaEdge> &outEdges, AreaGraphReport &report)
         {
             bool emitted = false;
             for (int32_t fromArea : fromAreas)
             {
-                if (fromArea == destArea)
+                if (fromArea == destArea && !isLongHop(t))
                 {
                     ++report.intraAreaSkipped;
                     continue;
+                }
+                if (fromArea == destArea)
+                {
+                    ++report.intraAreaKept;
                 }
                 AreaEdge edge;
                 edge.fromArea = fromArea;
                 edge.toArea = destArea;
                 edge.transitionIndex = static_cast<uint32_t>(transitionIndex);
-                edge.cost = cost;
+                edge.cost = t.cost;
                 outEdges.push_back(edge);
                 emitted = true;
             }
@@ -389,7 +403,7 @@ namespace ww::build
                     }
                 }
 
-                if (emitEdges(fromAreas, destArea, i, t.cost, outEdges, report))
+                if (emitEdges(fromAreas, destArea, i, t, outEdges, report))
                 {
                     ++report.resolvedTransitions;
                 }

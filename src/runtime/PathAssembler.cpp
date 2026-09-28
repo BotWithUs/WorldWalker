@@ -102,19 +102,6 @@ namespace ww::runtime
             return true;
         }
 
-        // Octile distance in the planner's cost units (cardinal 1.0, diagonal
-        // sqrt(2)). An admissible lower bound on the tile-walk cost between two
-        // same-plane tiles — obstacles only make the real path longer — so it is
-        // safe to use to prune teleport candidates that cannot beat a known plan.
-        float octileDistance(int32_t dx, int32_t dy)
-        {
-            dx = dx < 0 ? -dx : dx;
-            dy = dy < 0 ? -dy : dy;
-            const int32_t lo = dx < dy ? dx : dy;
-            const int32_t hi = dx < dy ? dy : dx;
-            return static_cast<float>(hi - lo) + static_cast<float>(lo) * 1.41421356f;
-        }
-
         // True when a baked transition's destination is within kNearGoalRadius
         // (Chebyshev) of the goal tile on the same plane. Cross-plane edges
         // never qualify — octile distance across a plane band is meaningless,
@@ -150,8 +137,19 @@ namespace ww::runtime
         : artifact(&reader),
           view(&view),
           areaSearch(&areaSearch),
-          tileSearch(&tileSearch)
+          tileSearch(&tileSearch),
+          isAreaLinked(reader.areaNodes().size(), 0u)
     {
+        for (const format::AreaEdgeRecord &edge : reader.areaEdges())
+        {
+            for (const int32_t area : {edge.fromArea, edge.toArea})
+            {
+                if (area >= 0 && static_cast<std::size_t>(area) < isAreaLinked.size())
+                {
+                    isAreaLinked[static_cast<std::size_t>(area)] = 1u;
+                }
+            }
+        }
     }
 
     // The origin tile (r=0) wins when it is itself standable and in-area;
@@ -177,7 +175,7 @@ namespace ww::runtime
     // the goal tile itself is blocked. Returns false when nothing standable lies
     // within kGoalSnapRadius (goal is deep in blocked terrain).
     bool PathAssembler::resolveGoalTile(int32_t goalX, int32_t goalY, int32_t plane,
-                                        bool requireArea,
+                                        bool requireArea, int32_t startArea,
                                         int32_t &outX, int32_t &outY, int32_t &outArea) const
     {
         const auto standIn = [&](int32_t x, int32_t y)
@@ -185,7 +183,20 @@ namespace ww::runtime
             return view->isStandable(x, y, plane)
                 && (!requireArea || view->areaAt(x, y, plane) >= 0);
         };
-        if (!findNearestTile(goalX, goalY, kGoalSnapRadius, false, standIn, outX, outY))
+        const auto linkedStandIn = [&](int32_t x, int32_t y)
+        {
+            if (!view->isStandable(x, y, plane))
+            {
+                return false;
+            }
+            const int32_t area = view->areaAt(x, y, plane);
+            return area >= 0
+                && (area == startArea || isAreaLinked[static_cast<std::size_t>(area)] != 0u);
+        };
+        const bool isLinkedFound = requireArea
+            && findNearestTile(goalX, goalY, kGoalSnapRadius, false, linkedStandIn, outX, outY);
+        if (!isLinkedFound
+            && !findNearestTile(goalX, goalY, kGoalSnapRadius, false, standIn, outX, outY))
         {
             return false;
         }
@@ -241,13 +252,48 @@ namespace ww::runtime
             // object footprint snaps to the nearest standable neighbour so the
             // route still lands the player against the intended spot.
             int32_t unusedArea = -1;
-            if (!resolveGoalTile(goalX, goalY, goalPlane, false, targetX, targetY, unusedArea))
+            if (!resolveGoalTile(goalX, goalY, goalPlane, false, -1, targetX, targetY, unusedArea))
             {
                 return false;
             }
         }
         return appendWalkSegment(startX, startY, targetX, targetY, startPlane,
                                  TileSearch::kAnyArea, outPlan);
+    }
+
+    void PathAssembler::decideWilderness(bool isStartInside, int32_t goalX, int32_t goalY,
+                                         int32_t goalPlane)
+    {
+        isWildernessAvoided = !isStartInside && !isInWilderness(*artifact, goalX, goalY, goalPlane);
+    }
+
+    bool PathAssembler::isTransitionAvoided(uint32_t transitionIndex) const
+    {
+        const std::span<const format::TransitionRecord> transitions = artifact->transitions();
+        return isWildernessAvoided && transitionIndex < transitions.size()
+            && touchesWilderness(*artifact, transitions[transitionIndex]);
+    }
+
+    std::span<const format::WildernessRegion> PathAssembler::wildernessFenceFor(int32_t area) const
+    {
+        const std::span<const format::AreaNodeRecord> nodes = artifact->areaNodes();
+        if (!isWildernessAvoided || area < 0 || static_cast<std::size_t>(area) >= nodes.size())
+        {
+            return {};
+        }
+        const format::AreaNodeRecord &node = nodes[static_cast<std::size_t>(area)];
+        const std::span<const format::WildernessRegion> wild = artifact->wildernessRegions();
+        for (const format::WildernessRegion &w : wild)
+        {
+            const bool isOverlapping = node.plane >= w.planeMin && node.plane <= w.planeMax
+                && node.minX <= w.maxX && node.maxX >= w.minX
+                && node.minY <= w.maxY && node.maxY >= w.minY;
+            if (isOverlapping)
+            {
+                return wild;
+            }
+        }
+        return {};
     }
 
     bool PathAssembler::appendWalkSegment(int32_t fromX, int32_t fromY, int32_t toX, int32_t toY,
@@ -257,7 +303,8 @@ namespace ww::runtime
         {
             return false;
         }
-        if (!tileSearch->findPath(fromX, fromY, toX, toY, plane, area, tilePath))
+        if (!tileSearch->findPath(fromX, fromY, toX, toY, plane, area,
+                                  wildernessFenceFor(area), tilePath))
         {
             return false;
         }
@@ -381,7 +428,7 @@ namespace ww::runtime
             {
                 continue;
             }
-            if (isExcluded(capabilities, i)
+            if (isExcluded(capabilities, i) || isTransitionAvoided(i)
                 || !meetsRequirements(capabilities,
                                       reqs.subspan(tx.requirementStart, tx.requirementCount),
                                       static_cast<data::TransitionKind>(tx.kind)))
@@ -464,6 +511,7 @@ namespace ww::runtime
         const uint64_t reqEnd = static_cast<uint64_t>(T.requirementStart) + T.requirementCount;
         if (reqEnd > reqs.size()
             || isExcluded(capabilities, edge.transitionIndex)
+            || isTransitionAvoided(edge.transitionIndex)
             || !meetsRequirements(capabilities,
                                   reqs.subspan(T.requirementStart, T.requirementCount),
                                   static_cast<data::TransitionKind>(T.kind)))
@@ -544,6 +592,7 @@ namespace ww::runtime
     {
         outPlan.steps.clear();
         outPlan.cost = 0.0f;
+        isWildernessAvoided = false;
         if (!isLegalPlane(startPlane) || !isLegalPlane(goalPlane))
         {
             return false;
@@ -580,11 +629,14 @@ namespace ww::runtime
             // The requested goal tile is blocked (wall / closed door / object
             // footprint). Snap to the nearest standable tile so the route still
             // lands the player against the intended spot instead of failing.
-            if (!resolveGoalTile(goalX, goalY, goalPlane, true, goalX, goalY, goalArea))
+            if (!resolveGoalTile(goalX, goalY, goalPlane, true, startArea, goalX, goalY,
+                                 goalArea))
             {
                 return false;
             }
         }
+        decideWilderness(isInWilderness(*artifact, startX, startY, startPlane),
+                         goalX, goalY, goalPlane);
 
         // Teleport seeds feed both the inter-area backbone search and the
         // goal-area landing optimisation, so build them once up front. In
@@ -629,10 +681,12 @@ namespace ww::runtime
         const InstanceSuspension suspension(*view);
         int32_t goalArea = view->areaAt(goalX, goalY, goalPlane);
         if (goalArea < 0
-            && !resolveGoalTile(goalX, goalY, goalPlane, true, goalX, goalY, goalArea))
+            && !resolveGoalTile(goalX, goalY, goalPlane, true, -1, goalX, goalY, goalArea))
         {
             return false;
         }
+        // The start is an instance or unbaked ground, never a Wilderness box.
+        decideWilderness(false, goalX, goalY, goalPlane);
         buildGlobalTeleportSeeds(capabilities);
         if (seedScratch.empty())
         {
@@ -665,6 +719,16 @@ namespace ww::runtime
         if (startArea == goalArea)
         {
             ok = appendWalkSegment(startX, startY, goalX, goalY, startPlane, startArea, outPlan);
+            // A ride across the area (a magic carpet between two desert
+            // stations) can beat the walk; the walk-aware search weighs it.
+            Plan ride;
+            const bool isRide = areaSearch->hasIntraAreaEdges(startArea)
+                && assembleAreaRoute(startX, startY, startPlane, startArea, goalX, goalY,
+                                     goalArea, capabilities, {}, ride);
+            if (isRide)
+            {
+                keepIfCheaper(ride, outPlan, ok);
+            }
         }
         else
         {
@@ -822,7 +886,11 @@ namespace ww::runtime
                                           const CapabilitySnapshot *capabilities,
                                           std::span<const FrontierSeed> seeds, Plan &outPlan)
     {
-        if (!areaSearch->findPath(startArea, goalArea, capabilities, seeds, areaPath))
+        // Walk-aware: rank each crossing by the walk to it as well as its own
+        // cost, so a transport beside the player beats one across the area.
+        const SearchEndpoints endpoints{ startX, startY, goalX, goalY };
+        if (!areaSearch->findPath(startArea, goalArea, capabilities, seeds, &endpoints,
+                                  isWildernessAvoided, areaPath))
         {
             return false;
         }

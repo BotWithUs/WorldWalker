@@ -5,13 +5,16 @@
 #include "build/CollisionBuilder.h"
 #include "build/CollisionLookup.h"
 #include "build/Provenance.h"
+#include "build/TerrainFloor.h"
 #include "data/CrossingDeriver.h"
 #include "data/DatasetLoader.h"
 #include "data/FreshnessDeriver.h"
+#include "data/OpCheck.h"
 #include "data/TeleportZones.h"
 #include "data/TransitionBuilder.h"
 #include "data/Transitions.h"
 
+#include <cctype>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -20,8 +23,10 @@
 #include <cstring>
 #include <exception>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <system_error>
+#include <utility>
 
 // wwbuild — WorldWalker's offline artifact builder. Decodes the RS cache and
 // datasets into the baked artifact the runtime planner loads. `collision` bakes
@@ -39,12 +44,16 @@ namespace
         std::printf("usage:\n");
         std::printf("  wwbuild collision <cache_dir> <out.wwa> [options]\n");
         std::printf("  wwbuild build <cache_dir> <dataset_dir> <out.wwa> [options]\n");
+        std::printf("  wwbuild opcheck <dataset_dir> <defs_dir>\n");
         std::printf("options:\n");
         std::printf("  --live                      complete missing cache data from the live JS5 servers\n");
         std::printf("  --allow-missing-datasets    bake even when the dataset dir holds none of them\n");
         std::printf("  --source-version <v>        record this as the WorldWalker revision baked from\n");
         std::printf("  --dataset-version <v>       record this as the datasets/ revision baked from\n");
         std::printf("  --no-sidecar                skip writing <out.wwa>.json beside the artifact\n");
+        std::printf("  --op-defs <dir>             drop transport rows whose loc/NPC lacks the option they\n");
+        std::printf("                              click (<dir>: rs3-cs2-dumps locations.json + npcs.json)\n");
+        std::printf("  --strict-ops                with --op-defs, fail the bake on such a row instead\n");
         return 2;
     }
 
@@ -56,6 +65,10 @@ namespace
         bool isLive{false};
         bool allowMissingDatasets{false};
         bool writeSidecar{true};
+        // Where the loc/NPC definitions for the op check live; empty skips it.
+        std::string opDefsDir;
+        // Fail the bake on a row the op check would drop, rather than drop it.
+        bool isStrictOps{false};
         // Recorded verbatim into the provenance section. wwbuild does not shell
         // out to git to discover them: a build tool guessing at its own version
         // is how a wrong answer gets recorded confidently. The caller knows
@@ -93,6 +106,17 @@ namespace
             else if (std::strcmp(argv[i], "--no-sidecar") == 0)
             {
                 outFlags.writeSidecar = false;
+            }
+            else if (std::strcmp(argv[i], "--strict-ops") == 0)
+            {
+                outFlags.isStrictOps = true;
+            }
+            else if (std::strcmp(argv[i], "--op-defs") == 0)
+            {
+                if (!takeValue(argc, argv, i, "--op-defs", outFlags.opDefsDir))
+                {
+                    return false;
+                }
             }
             else if (std::strcmp(argv[i], "--source-version") == 0)
             {
@@ -298,15 +322,19 @@ namespace
         ww::data::TransitionReport finalize;
         ww::data::FreshnessReport freshness;
         ww::data::CrossingReport doors;
+        // Filled only when the bake has the op definitions (--op-defs).
+        std::optional<ww::data::ClimbOpReport> climbOps;
     };
 
     // Given the loaded datasets, derive cache-only vertical ladders/stairs and
     // doors (dataset priority), then finalize the union into the bakeable
-    // transition set.
+    // transition set. `opTable` (nullable, from --op-defs) lets each derived
+    // ladder or stair click the option for its direction.
     TransitionBuildResult assembleTransitions(const ww::build::CollisionModel &collision,
                                               const ww::build::CollisionLookup &lookup,
                                               const std::vector<ww::build::Crossing> &crossings,
-                                              const ww::data::LoadedDatasets &datasets)
+                                              const ww::data::LoadedDatasets &datasets,
+                                              const ww::data::OpTable *opTable)
     {
         TransitionBuildResult out;
         out.datasetHash = datasets.datasetHash;
@@ -315,8 +343,14 @@ namespace
         // tile (ADR 0003), so both read the same origin set.
         const ww::data::DatasetOrigins datasetOrigins =
             ww::data::collectDatasetOrigins(datasets.model);
-        const ww::data::TransitionModel derived = ww::data::deriveVerticalTransitions(
+        ww::data::TransitionModel derived = ww::data::deriveVerticalTransitions(
             collision, datasets.model, crossings, &out.freshness);
+        if (opTable != nullptr)
+        {
+            ww::data::ClimbOpReport climbOps;
+            ww::data::useDirectionalClimbOps(derived, *opTable, &climbOps);
+            out.climbOps = climbOps;
+        }
         const ww::data::TransitionModel doors =
             ww::data::deriveDoorTransitions(crossings, lookup, datasetOrigins, &out.doors);
 
@@ -368,14 +402,26 @@ namespace
         std::printf("build: %zu squares, %zu/%zu transitions -> %s\n",
                     collision.squares.size(), tr.finalize.kept, tr.finalize.input,
                     outPath.c_str());
-        std::printf("  dropped: dangling=%zu selfloop=%zu dup=%zu | snapped dest=%zu\n",
+        std::printf("  dropped: dangling=%zu selfloop=%zu dup=%zu no-loc=%zu | snapped dest=%zu\n",
                     tr.finalize.droppedDangling, tr.finalize.droppedSelfLoop,
-                    tr.finalize.droppedDuplicate, tr.finalize.snappedDest);
+                    tr.finalize.droppedDuplicate, tr.finalize.droppedNoLoc,
+                    tr.finalize.snappedDest);
         std::printf("  freshness: %zu vertical pairs -> +%zu derived (%zu suppressed by datasets, %zu climb-dir mismatch, %zu no-option)\n",
                     tr.freshness.pairsFound, tr.freshness.kept,
                     tr.freshness.droppedDatasetConflict,
                     tr.freshness.droppedClimbMismatch,
                     tr.freshness.droppedNoOption);
+        if (tr.climbOps.has_value())
+        {
+            std::printf("  climb ops: %zu derived vertical -> %zu retargeted to their direction's "
+                        "option, %zu already on it, %zu with no directional option (cache option kept)\n",
+                        tr.climbOps->checked, tr.climbOps->retargeted, tr.climbOps->directional,
+                        tr.climbOps->undirected);
+        }
+        else
+        {
+            std::printf("  climb ops: skipped (no --op-defs); derived ladders keep the cache's one option\n");
+        }
         std::printf("  doors: %zu crossings -> +%zu directed hops (%zu suppressed by datasets, %zu blocked-origin, %zu no-option, %zu no-edge, %zu foreign-edge)\n",
                     tr.doors.doorCrossings, tr.doors.emitted,
                     tr.doors.droppedDatasetConflict,
@@ -384,14 +430,64 @@ namespace
         std::printf("  areas: %zu nodes, %zu edges, %zu grids (largest %zu tiles)\n",
                     ag.areaCount, ag.edgeCount, ag.gridCount, ag.largestArea);
         std::printf("  adjacency: %zu transitions linked | unresolved origin=%zu dest=%zu | "
-                    "intra-only=%zu intra-edges=%zu global=%zu\n",
+                    "intra-only=%zu intra-edges=%zu intra-kept=%zu global=%zu\n",
                     ag.resolvedTransitions, ag.unresolvedOrigin, ag.unresolvedDest,
-                    ag.intraAreaOnly, ag.intraAreaSkipped, ag.globalSkipped);
+                    ag.intraAreaOnly, ag.intraAreaSkipped, ag.intraAreaKept, ag.globalSkipped);
         std::printf("  landmarks: %zu chosen from %zu candidate areas | reachable entries=%zu\n",
                     alt.landmarkCount, alt.candidateAreas, alt.reachablePairs);
         std::printf("  teleport zones: %zu wilderness regions, %zu no-tele zones (cutoff=%u)\n",
                     teleportZones.wilderness.size(), teleportZones.noTele.size(),
                     static_cast<unsigned>(teleportZones.defaultWildernessCutoff));
+    }
+
+    // The op check, when --op-defs names the definitions: drops the transport
+    // rows whose origin lacks the option they click from `ioDatasets`, before
+    // the cache is decoded, so a strict failure costs seconds rather than the
+    // whole bake. Returns false when --strict-ops refuses the datasets.
+    bool applyOpCheck(const BuildFlags &flags, const ww::data::OpTable *table,
+                      ww::data::LoadedDatasets &ioDatasets)
+    {
+        if (table == nullptr)
+        {
+            std::printf("  op check: skipped (pass --op-defs <rs3-cs2-dumps dir> to run it)\n");
+            return true;
+        }
+        ww::data::OpCheckReport report;
+        ww::data::TransitionModel kept = ww::data::dropInvalidOps(ioDatasets.model, *table, &report);
+        ww::data::printOpCheckReport(report);
+        if (flags.isStrictOps && report.dropped > 0)
+        {
+            std::fprintf(stderr, "wwbuild build: %zu transport row(s) click an option their "
+                                 "origin lacks (--strict-ops)\n", report.dropped);
+            return false;
+        }
+        ioDatasets.model = std::move(kept);
+        return true;
+    }
+
+    // `wwbuild opcheck <dataset_dir> <defs_dir>`: the op check alone, with no
+    // cache decode, for reviewing a dataset change in seconds. Exits 1 when any
+    // enabled row clicks an option its origin lacks.
+    int runOpCheck(int argc, char **argv)
+    {
+        if (argc < 4)
+        {
+            return usage();
+        }
+        try
+        {
+            const ww::data::LoadedDatasets datasets = ww::data::loadDatasets(argv[2]);
+            const ww::data::OpTable table = ww::data::loadOpTable(argv[3]);
+            ww::data::OpCheckReport report;
+            (void)ww::data::dropInvalidOps(datasets.model, table, &report);
+            ww::data::printOpCheckReport(report);
+            return report.dropped > 0 ? 1 : 0;
+        }
+        catch (const std::exception &e)
+        {
+            std::fprintf(stderr, "wwbuild opcheck failed: %s\n", e.what());
+            return 1;
+        }
     }
 
     int runBuild(int argc, char **argv)
@@ -415,13 +511,25 @@ namespace
             // time (the in-tree set has no teleport_chains.json), but a directory with
             // none of them is a typo, and baking on regardless yields a valid artifact
             // that walks nowhere, so that is refused unless the caller opted in.
-            const ww::data::LoadedDatasets datasets = ww::data::loadDatasets(datasetDir);
+            ww::data::LoadedDatasets datasets = ww::data::loadDatasets(datasetDir);
             if (datasets.filesFound == 0 && !flags.allowMissingDatasets)
             {
                 std::fprintf(stderr,
                              "wwbuild build: no dataset files found under %s "
                              "(pass --allow-missing-datasets to bake without them)\n",
                              datasetDir.c_str());
+                return 1;
+            }
+            // Loaded once: the op check reads it now, the vertical deriver
+            // after the cache decode.
+            std::optional<ww::data::OpTable> opTable;
+            if (!flags.opDefsDir.empty())
+            {
+                opTable = ww::data::loadOpTable(flags.opDefsDir);
+            }
+            const ww::data::OpTable *opTablePtr = opTable.has_value() ? &*opTable : nullptr;
+            if (!applyOpCheck(flags, opTablePtr, datasets))
+            {
                 return 1;
             }
             ww::build::CacheClient cache(cacheDir, flags.isLive);
@@ -442,7 +550,7 @@ namespace
             ww::build::CollisionLookup lookup(collision);
 
             const TransitionBuildResult tr =
-                assembleTransitions(collision, lookup, decoded.crossings, datasets);
+                assembleTransitions(collision, lookup, decoded.crossings, datasets, opTablePtr);
 
             ww::build::AreaGraphReport ag;
             const ww::build::AreaGraphModel abstraction =
@@ -468,6 +576,10 @@ namespace
                          deriveCacheRevision(cacheDir), tr.datasetHash);
 
             reportBuild(outPath, collision, tr, ag, alt, teleportZones);
+            const ww::build::VoidFenceReport &fence = decoded.voidFence;
+            std::printf("  void fence: %zu unpainted upper-plane stretches blocked (%zu tiles),"
+                        " %zu pockets kept (largest %zu tiles)\n",
+                        fence.voids, fence.tilesBlocked, fence.pockets, fence.largestPocket);
             std::printf("  dialog zones: %zu\n", datasets.dialogZones.zones.size());
             reportProvenance(outPath, flags, provenance);
             return 0;
@@ -479,6 +591,75 @@ namespace
         }
     }
 
+    char floorGlyph(const ww::build::SquareTerrain &terrain, int plane, int x, int y)
+    {
+        const std::size_t tile = static_cast<std::size_t>(plane) * 4096u
+                               + static_cast<std::size_t>(x) * 64u + static_cast<std::size_t>(y);
+        const bool hasOverlay = terrain.overlayIds[tile] > 0;
+        const bool hasUnderlay = terrain.underlayIds[tile] > 0;
+        if (hasOverlay && hasUnderlay)
+        {
+            return 'b';
+        }
+        if (hasOverlay)
+        {
+            return 'o';
+        }
+        if (hasUnderlay)
+        {
+            return 'u';
+        }
+        const int rule = terrain.renderRules[tile];
+        if (rule != 0)
+        {
+            return rule < 16 ? "0123456789ABCDEF"[rule] : '+';
+        }
+        return terrain.streamFlags[tile] == 0 ? '.' : '-';
+    }
+
+    // `wwbuild floor <cache_dir> <sqx> <sqy> <plane>`: diagnostic. Prints one
+    // square's terrain on one plane, north up: 'o' overlay, 'u' underlay, 'b'
+    // both; an unpainted tile shows its render-rule byte in hex ('+' above
+    // 15), '-' when the stream holds only other data for it, '.' when nothing.
+    // A painted tile of a bridge column is upper-cased.
+    int runFloor(int argc, char **argv)
+    {
+        if (argc < 6)
+        {
+            std::fprintf(stderr, "usage: wwbuild floor <cache_dir> <sqx> <sqy> <plane>\n");
+            return 2;
+        }
+        try
+        {
+            ww::build::CacheClient cache(argv[2], false);
+            ww::build::SquareTerrain terrain;
+            const int plane = std::atoi(argv[5]) & 3;
+            const bool isPresent =
+                ww::build::readSquareTerrain(cache, std::atoi(argv[3]), std::atoi(argv[4]), terrain);
+            std::printf("floor: square (%s,%s) p%d present=%d\n", argv[3], argv[4], plane,
+                        isPresent ? 1 : 0);
+            for (int y = 63; y >= 0; --y)
+            {
+                std::printf("floor: %2d ", y);
+                for (int x = 0; x < 64; ++x)
+                {
+                    const std::size_t column = 4096u + static_cast<std::size_t>(x) * 64u
+                                             + static_cast<std::size_t>(y);
+                    const bool isBridge =
+                        (terrain.renderRules[column] & ww::build::kRenderRuleBridge) != 0;
+                    const char glyph = floorGlyph(terrain, plane, x, y);
+                    std::printf("%c", isBridge ? static_cast<char>(std::toupper(glyph)) : glyph);
+                }
+                std::printf("\n");
+            }
+            return 0;
+        }
+        catch (const std::exception &e)
+        {
+            std::fprintf(stderr, "floor: failed: %s\n", e.what());
+            return 1;
+        }
+    }
 }
 
 int main(int argc, char **argv)
@@ -494,6 +675,10 @@ int main(int argc, char **argv)
     if (std::strcmp(argv[1], "build") == 0)
     {
         return runBuild(argc, argv);
+    }
+    if (std::strcmp(argv[1], "opcheck") == 0)
+    {
+        return runOpCheck(argc, argv);
     }
     if (std::strcmp(argv[1], "crossings") == 0)
     {
@@ -522,6 +707,10 @@ int main(int argc, char **argv)
             std::fprintf(stderr, "crossings: failed: %s\n", e.what());
             return 1;
         }
+    }
+    if (std::strcmp(argv[1], "floor") == 0)
+    {
+        return runFloor(argc, argv);
     }
     std::fprintf(stderr, "unknown command: %s\n", argv[1]);
     return usage();

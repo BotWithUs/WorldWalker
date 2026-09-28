@@ -3,6 +3,7 @@
 
 #include "build/CacheClient.h"
 #include "build/CollisionBuilder.h"
+#include "data/OpCheck.h"
 #include "data/Transitions.h"
 
 #include <cstddef>
@@ -40,6 +41,25 @@ namespace ww::data
                                               const TransitionModel &datasets,
                                               const std::vector<ww::build::Crossing> &crossings,
                                               FreshnessReport *outReport);
+
+    // Counts from useDirectionalClimbOps, for build-log visibility.
+    struct ClimbOpReport
+    {
+        std::size_t checked{};     // derived vertical transitions naming a loc
+        std::size_t retargeted{};  // now click the loc's option for their direction
+        std::size_t directional{}; // already clicked it
+        std::size_t undirected{};  // the loc has no option for the direction; option kept
+    };
+
+    // The cache gives a climbable loc one option for both directions, the
+    // first that says climb. On a loc listing `Climb`, `Climb-up`,
+    // `Climb-down` that is `Climb`, which opens the game's up/down chooser,
+    // and nothing answers it: the walk stalls at the ladder. So every derived
+    // vertical transition in `ioDerived` whose loc has an option naming its
+    // direction (directionalLocOp) clicks that option instead. The rest keep
+    // the cache's option. *outReport (nullable) receives the counts.
+    void useDirectionalClimbOps(TransitionModel &ioDerived, const OpTable &table,
+                                ClimbOpReport *outReport);
 }
 
 #endif  // WORLDWALKER_DATA_FRESHNESSDERIVER_H

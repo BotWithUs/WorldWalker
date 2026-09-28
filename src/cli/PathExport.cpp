@@ -22,8 +22,11 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <vector>
 
-// `wwcli path <artifact> sx sy sp gx gy gp [--out path.json] [--teleports dir]`.
+// `wwcli path <artifact> sx sy sp gx gy gp [--out path.json] [--teleports dir]
+//  [--ungated] [--varp id=value] [--varbit id=value] [--skill id=level]
+//  [--item id=count]`.
 //
 // Runs the runtime PathAssembler with a maximally permissive capability
 // snapshot (so requirement-gated transitions are admitted) and emits the
@@ -31,8 +34,30 @@
 // The snapshot is built from the artifact's own requirement pool — same
 // strategy as dumpTeleportSeeding in main.cpp's harness — so the same
 // invocation lands the same path the executor would have followed.
+// --ungated plans with an empty snapshot instead, so a gated transition that
+// wins on permissive caps can be told apart from the route beneath it.
+// --varp / --varbit / --skill / --item (repeatable) then overwrite single
+// entries of whichever snapshot that is, so one account can be described: the
+// permissive player with `--varp 2740=0` has everything but The Grand Tree, and
+// with `--item 1854=0` holds no Shantay pass.
 namespace
 {
+    enum class CapKind : uint8_t
+    {
+        Varp,
+        Varbit,
+        Skill,
+        Item,
+    };
+
+    // One `--varp id=value` style entry, written over the base snapshot.
+    struct CapOverride
+    {
+        CapKind kind;
+        int32_t id;
+        int32_t value;
+    };
+
     struct Args
     {
         const char *artifactPath;
@@ -44,12 +69,16 @@ namespace
         int32_t     goalPlane;
         const char *outPath;   // nullptr -> stdout
         const char *teleportDir;  // nullptr -> baked transitions only
+        bool        isUngated;    // admit no requirement-bearing transition
+        std::vector<CapOverride> overrides;  // written over the base snapshot
     };
 
     void printUsage()
     {
         std::printf("usage: wwcli path <artifact.wwa> <fromX> <fromY> <fromPlane>"
-                    " <toX> <toY> <toPlane> [--out path.json]\n");
+                    " <toX> <toY> <toPlane> [--out path.json] [--teleports dir]"
+                    " [--ungated] [--varp id=value] [--varbit id=value]"
+                    " [--skill id=level] [--item id=count]\n");
     }
 
     bool parseInt(const char *s, int32_t &out)
@@ -71,6 +100,75 @@ namespace
         return true;
     }
 
+    // "id=value" -> the two ints; false for anything else.
+    bool parseIdValue(const char *s, int32_t &outId, int32_t &outValue)
+    {
+        if (s == nullptr)
+        {
+            return false;
+        }
+        const std::string text{s};
+        const std::size_t eq = text.find('=');
+        if (eq == std::string::npos)
+        {
+            return false;
+        }
+        const std::string idText = text.substr(0, eq);
+        const std::string valueText = text.substr(eq + 1);
+        return parseInt(idText.c_str(), outId) && parseInt(valueText.c_str(), outValue);
+    }
+
+    // --varp / --varbit / --skill / --item -> its kind; false for any other token.
+    bool capKindOf(const char *flag, CapKind &outKind)
+    {
+        if (std::strcmp(flag, "--varp") == 0)
+        {
+            outKind = CapKind::Varp;
+            return true;
+        }
+        if (std::strcmp(flag, "--varbit") == 0)
+        {
+            outKind = CapKind::Varbit;
+            return true;
+        }
+        if (std::strcmp(flag, "--skill") == 0)
+        {
+            outKind = CapKind::Skill;
+            return true;
+        }
+        if (std::strcmp(flag, "--item") == 0)
+        {
+            outKind = CapKind::Item;
+            return true;
+        }
+        return false;
+    }
+
+    // Later writes win in CapabilitySnapshot, so these replace whatever the
+    // base snapshot set for the same id.
+    void applyOverrides(const std::vector<CapOverride> &overrides,
+                        ww::runtime::CapabilitySnapshot &ioSnapshot)
+    {
+        for (const CapOverride &o : overrides)
+        {
+            switch (o.kind)
+            {
+                case CapKind::Varp:
+                    ioSnapshot.setVarp(o.id, o.value);
+                    break;
+                case CapKind::Varbit:
+                    ioSnapshot.setVarbit(o.id, o.value);
+                    break;
+                case CapKind::Skill:
+                    ioSnapshot.setSkillLevel(o.id, o.value);
+                    break;
+                case CapKind::Item:
+                    ioSnapshot.setItemCount(o.id, o.value);
+                    break;
+            }
+        }
+    }
+
     bool parseArgs(int argc, char **argv, Args &out)
     {
         if (argc < 7)
@@ -86,6 +184,7 @@ namespace
         }
         out.outPath = nullptr;
         out.teleportDir = nullptr;
+        out.isUngated = false;
         for (int i = 7; i < argc; ++i)
         {
             if (std::strcmp(argv[i], "--out") == 0)
@@ -95,6 +194,23 @@ namespace
                     return false;
                 }
                 out.outPath = argv[i + 1];
+                ++i;
+                continue;
+            }
+            if (std::strcmp(argv[i], "--ungated") == 0)
+            {
+                out.isUngated = true;
+                continue;
+            }
+            CapKind capKind{};
+            if (capKindOf(argv[i], capKind))
+            {
+                CapOverride o{capKind, 0, 0};
+                if (i + 1 >= argc || !parseIdValue(argv[i + 1], o.id, o.value))
+                {
+                    return false;
+                }
+                out.overrides.push_back(o);
                 ++i;
                 continue;
             }
@@ -157,10 +273,34 @@ namespace
         outStep["route"] = route;
     }
 
+    // What the executor clicks to start a transition: the loc's option, or,
+    // when the chain opens with ClickNpc, the NPC id range and its option. Lets
+    // a reader check a planned route against the cache's op lists.
+    void appendOrigin(const ww::format::TransitionRecord &tx,
+                      std::span<const ww::format::ChainStepRecord> chain,
+                      nlohmann::ordered_json &outStep)
+    {
+        if (tx.objectId >= 0)
+        {
+            outStep["objectId"] = tx.objectId;
+        }
+        outStep["optionIndex"] = static_cast<int32_t>(tx.optionIndex);
+        const bool opensWithNpc = tx.chainCount > 0 && tx.chainStart < chain.size()
+            && chain[tx.chainStart].kind
+                   == static_cast<uint8_t>(ww::data::ChainStepKind::ClickNpc);
+        if (opensWithNpc)
+        {
+            const ww::format::ChainStepRecord &npc = chain[tx.chainStart];
+            outStep["npc"] = { npc.f, npc.g };
+            outStep["optionIndex"] = npc.a;
+        }
+    }
+
     nlohmann::ordered_json buildJson(const Args &a, const ww::runtime::Plan &plan,
                                      ww::runtime::TileSearch &tileSearch,
                                      ww::runtime::WorldView &view,
-                                     std::span<const ww::format::TransitionRecord> transitions)
+                                     std::span<const ww::format::TransitionRecord> transitions,
+                                     std::span<const ww::format::ChainStepRecord> chain)
     {
         nlohmann::ordered_json doc;
         doc["artifact"] = a.artifactPath;
@@ -200,15 +340,17 @@ namespace
                 {
                     const ww::format::TransitionRecord &tx = transitions[s.transitionIndex];
                     js["transitionKind"] = transitionKindName(tx.kind);
+                    // The tile the host looks for the loc around, which is
+                    // not the step's x, y (where the player stands to click).
+                    js["originX"]        = tx.originX;
+                    js["originY"]        = tx.originY;
+                    js["originPlane"]    = static_cast<int32_t>(tx.originPlane);
                     js["destX"]          = tx.destX;
                     js["destY"]          = tx.destY;
                     js["destPlane"]      = static_cast<int32_t>(tx.destPlane);
                     js["isGlobal"] =
                         (tx.flags & ww::format::kTransitionFlagGlobalOrigin) != 0;
-                    if (tx.objectId >= 0)
-                    {
-                        js["objectId"] = tx.objectId;
-                    }
+                    appendOrigin(tx, chain, js);
                     cursorX = tx.destX;
                     cursorY = tx.destY;
                     cursorP = static_cast<int32_t>(tx.destPlane);
@@ -269,8 +411,15 @@ int runPathExport(int argc, char **argv)
         ww::runtime::TileSearch   tileSearch(view);
         ww::runtime::PathAssembler assembler(reader, view, areaSearch, tileSearch);
 
+        // --ungated leaves the snapshot empty, so every requirement-bearing
+        // transition is refused: the route an account that meets none of
+        // them would be given. The default admits them all.
         ww::runtime::CapabilitySnapshot snapshot;
-        ww::runtime::applyPermissiveRequirements(reader.requirements(), snapshot);
+        if (!args.isUngated)
+        {
+            ww::runtime::applyPermissiveRequirements(reader.requirements(), snapshot);
+        }
+        applyOverrides(args.overrides, snapshot);
 
         ww::runtime::Plan plan;
         const bool ok =
@@ -286,7 +435,7 @@ int runPathExport(int argc, char **argv)
         }
 
         const nlohmann::ordered_json doc =
-            buildJson(args, plan, tileSearch, view, reader.transitions());
+            buildJson(args, plan, tileSearch, view, reader.transitions(), reader.chainSteps());
         const std::string payload = doc.dump(2);
         if (!writeOutput(args.outPath, payload))
         {

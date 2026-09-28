@@ -187,4 +187,24 @@ namespace ww::build
         takeCrossings(records, crossingCount, outCrossings);
         return true;
     }
+
+    bool CacheClient::readFile(int indexId, int archiveId, int fileId,
+                               std::vector<uint8_t> &outBytes) const
+    {
+        outBytes.clear();
+        uint8_t *data = nullptr;
+        size_t size = 0;
+        nxt_result rc = nxt_read_file_raw(handle, indexId, archiveId, fileId, &data, &size);
+        if (rc == NXT_ERR_NOT_FOUND)
+        {
+            return false;
+        }
+        if (rc != NXT_OK)
+        {
+            throw std::runtime_error(std::string("nxt_read_file_raw failed: ") + nxt_last_error());
+        }
+        const NxtBufferGuard guard{data};
+        outBytes.assign(data, data + size);
+        return true;
+    }
 }

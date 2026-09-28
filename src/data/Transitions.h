@@ -2,6 +2,7 @@
 #define WORLDWALKER_DATA_TRANSITIONS_H
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 // In-memory transition model used while building the artifact. This is the
@@ -74,6 +75,11 @@ namespace ww::data
         Varbit        = 2,  // amount = required value, matched exactly
         Varp          = 3,  // amount = required value, matched exactly
         VarbitAtLeast = 4,  // amount = minimum value
+        // amount = minimum value. Quest progress that the game keeps only in a
+        // varp (Tree Gnome Village, Cabin Fever, Regicide) has no varbit to
+        // gate on. The executor reads varps solely from the host's
+        // readCapability, so a host that supplies none denies these gates.
+        VarpAtLeast   = 5,
     };
 
     // One structured predicate filtered against a per-query capability snapshot.
@@ -113,6 +119,15 @@ namespace ww::data
         // (data/DialogZones.h). a..i = the answer's UTF-8 bytes, four per
         // slot, little-endian, zero-padded (format::DialogAnswerRecord).
         DialogueAnswer = 5,
+        // Click an NPC: the origin of a transition that has no loc (a charter
+        // ship's Trader Crewmember). NPC actions target a live server index,
+        // which no baked Click can carry, so the host resolves it: the
+        // nearest NPC whose type id lies in [f, g] on plane d within
+        // Chebyshev e of (b, c), clicked with option a (0-based, as a loc
+        // interact's option index). Finding none, the host does nothing; the
+        // chain's next WaitInterface then times out and the executor treats
+        // the origin as missing. Only ever a chain's first step.
+        ClickNpc = 6,
     };
 
     // One step of an execution chain, passed through to the executor verbatim.
@@ -153,11 +168,20 @@ namespace ww::data
         uint8_t optionIndex{};
         char code[4]{};  // fairy-ring code (e.g. "aip"), null-padded; empty otherwise
 
-        float cost{};        // tick cost (chain waits + per-kind default)
+        float cost{};        // tick cost (chain waits + per-kind default + extraCost)
         float costQuick{-1.0f};  // reserved: quick-teleport cost, -1 when n/a
+        // A dataset surcharge on top of the time a transition takes: what it
+        // costs the player that no wait expresses, such as a charter's fare.
+        // A chain wait would say the same to the planner but make the bot
+        // actually stand still for it.
+        float extraCost{};
 
         std::vector<Requirement> requirements;
         std::vector<ChainStep> chain;
+
+        // The dataset row's `name` (its family, e.g. "Magic carpet network"),
+        // for bake reports only. Never baked.
+        std::string label;
     };
 
     struct TransitionModel

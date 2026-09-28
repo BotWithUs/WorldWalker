@@ -54,6 +54,14 @@ namespace ww::build
         std::vector<AreaGrid> grids;  // sorted by (squareY, squareX, plane)
     };
 
+    // A transition whose two ends share an area is still an edge when its
+    // destination lies more than this many tiles (Chebyshev) from its origin:
+    // a ride across the area can beat walking it. Every magic carpet station
+    // sits in the desert's one area, so dropping them all left the carpets
+    // unplannable. Shorter same-area hops (a door both sides of which the
+    // fill joined round another way) stay dropped; walking suffices.
+    inline constexpr int32_t kMinIntraAreaHopTiles = 32;
+
     // Build-log accounting for buildAreaGraph.
     struct AreaGraphReport
     {
@@ -65,6 +73,8 @@ namespace ww::build
         std::size_t unresolvedOrigin{};     // local transitions whose origin touched no area
         std::size_t unresolvedDest{};       // local transitions whose dest tile is in no area
         std::size_t intraAreaSkipped{};     // edges dropped because from == to (walk suffices)
+        std::size_t intraAreaKept{};        // from == to edges kept: the hop is too long to walk
+
         std::size_t intraAreaOnly{};        // local transitions whose EVERY origin area was the dest area
         std::size_t globalSkipped{};        // global-origin transitions (seeded at the frontier)
         std::size_t verticalApproachPinned{}; // stairs/ladders pinned to the room beneath the landing

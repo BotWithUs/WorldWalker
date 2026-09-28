@@ -73,6 +73,7 @@ namespace ww::data
             Kept,
             Dangling,
             SelfLoop,
+            NoLoc,
         };
 
         Outcome snapAndCost(Transition &t, const CollisionLookup &collision,
@@ -85,6 +86,15 @@ namespace ww::data
             // fairy-ring data) or no walkable approach tile lies within the radius.
             if (!t.isGlobalOrigin)
             {
+                // The host clicks a local transition's loc by id, and no loc
+                // answers to 0: 890 curated rows (gliders, balloons, boats,
+                // spirit trees, portals) carried it, could never execute, and
+                // still won routes, each costing the walk a failed step and a
+                // reroute. An NPC origin carries -1 and its own ClickNpc step.
+                if (t.objectId == 0)
+                {
+                    return Outcome::NoLoc;
+                }
                 if (t.originX == t.destX && t.originY == t.destY && t.originPlane == t.destPlane)
                 {
                     return Outcome::SelfLoop;
@@ -202,6 +212,11 @@ namespace ww::data
             if (outcome == Outcome::SelfLoop)
             {
                 ++report.droppedSelfLoop;
+                continue;
+            }
+            if (outcome == Outcome::NoLoc)
+            {
+                ++report.droppedNoLoc;
                 continue;
             }
             // Dedup on (kind, origin, dest, isGlobalOrigin). Snapping above

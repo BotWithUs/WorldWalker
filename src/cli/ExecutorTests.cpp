@@ -10,6 +10,7 @@
 #include "runtime/ContextPool.h"
 #include "runtime/PathAssembler.h"
 #include "runtime/TeleportPolicy.h"
+#include "runtime/TileScan.h"
 #include "runtime/TileSearch.h"
 #include "runtime/TransitionShape.h"
 #include "runtime/WorldView.h"
@@ -19,6 +20,8 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <span>
+#include <vector>
 
 namespace ww::cli
 {
@@ -108,6 +111,35 @@ namespace ww::cli
             // jump dropping them into a pit.
             int               failedLandingsLeft;
             exec::WwTile      failedLanding;
+            // SimulateTransition, when non-empty: every interact lands on the
+            // destination of the transition it names (looked up here by loc,
+            // origin and option), except the first loc the executor clicks,
+            // whose first brokenLandingsLeft clicks do not move the player: a
+            // transport that does not land. brokenInteracts counts every click
+            // on that loc.
+            std::span<const format::TransitionRecord> landingRecords;
+            int               brokenLandingsLeft;
+            // With landingRecords: the broken loc is not there at all. Every
+            // interact on it answers 0, as the host does for a loc it cannot
+            // find near the origin (Shantay Pass's gate, 2 tiles from the row).
+            bool              isBrokenLocAbsent;
+            bool              hasBrokenLoc;
+            std::int32_t      brokenObjectId;
+            exec::WwTile      brokenOrigin;
+            int               brokenInteracts;
+            // When set, a walk click moves the player only within the area of
+            // the baked grid they stand in, as walls do: a walk into the next
+            // area stalls. Without it the harness walk passes through any wall,
+            // so a refused crossing followed by a walk would still arrive.
+            runtime::WorldView *areaWalls;
+            // SimulateTransition: ClickNpc steps received, and whether the NPC is
+            // absent (the click does nothing and no interface ever opens).
+            // npcOriginClicks counts only those searching from npcOrigin, the
+            // transition under test, since a detour may start at another NPC.
+            int               npcClicks;
+            bool              isNpcAbsent;
+            exec::WwTile      npcOrigin;
+            int               npcOriginClicks;
             // SimulateTransition: a door that walks the player through itself.
             // The landing commits `landingDelayTicks` ticks after the click; a
             // walk clicked before then cancels it, as the game does, and is
@@ -260,6 +292,8 @@ namespace ww::cli
         constexpr std::int32_t kOptionList = 1188;
         constexpr std::int32_t kDialogueAnswerKind =
             static_cast<std::int32_t>(data::ChainStepKind::DialogueAnswer);
+        constexpr std::int32_t kClickNpcKind =
+            static_cast<std::int32_t>(data::ChainStepKind::ClickNpc);
         constexpr int kMaxDialogActionsPerRun = 20;  // the executor's per-run budget
 
         bool isChatInterface(std::int32_t interfaceId)
@@ -288,10 +322,18 @@ namespace ww::cli
             }
             if (h->mode == ExecHarnessMode::SimulateTransition)
             {
-                return 1;
+                return h->isNpcAbsent ? 0 : 1;
             }
             recordUnexpected(h, HarnessCallback::IsInterfaceOpen);
             return 0;
+        }
+
+        // Whether a walk from `from` may reach `to` under areaWalls: both in
+        // the same area of the baked grid.
+        bool isSameArea(runtime::WorldView &view, const exec::WwTile &from, const exec::WwTile &to)
+        {
+            const std::int32_t fromArea = view.areaAt(from.x, from.y, from.plane);
+            return fromArea >= 0 && fromArea == view.areaAt(to.x, to.y, to.plane);
         }
 
         extern "C" void harnessWalkTo(void *user, exec::WwTile target)
@@ -325,6 +367,10 @@ namespace ww::cli
                 --h->droppedWalkClicks;
                 return;
             }
+            if (h->areaWalls != nullptr && !isSameArea(*h->areaWalls, h->position, target))
+            {
+                return;
+            }
             if (h->mode == ExecHarnessMode::SimulateInstantWalk
                 || h->mode == ExecHarnessMode::SimulateTransition)
             {
@@ -347,8 +393,56 @@ namespace ww::cli
             }
         }
 
+        bool isSameTile(const exec::WwTile &a, const exec::WwTile &b)
+        {
+            return a.x == b.x && a.y == b.y && a.plane == b.plane;
+        }
+
+        // landingRecords mode: the first loc clicked is latched as broken and
+        // does not move the player while brokenLandingsLeft lasts; every other
+        // click lands on its own row's destination. False when the click found
+        // no loc (the broken loc under isBrokenLocAbsent).
+        bool landOnRecord(ExecHarness *h, std::int32_t objectId, const exec::WwTile &origin,
+                          std::int32_t option)
+        {
+            if (!h->hasBrokenLoc)
+            {
+                h->hasBrokenLoc   = true;
+                h->brokenObjectId = objectId;
+                h->brokenOrigin   = origin;
+            }
+            const bool isBroken =
+                objectId == h->brokenObjectId && isSameTile(origin, h->brokenOrigin);
+            if (isBroken)
+            {
+                ++h->brokenInteracts;
+            }
+            if (isBroken && h->isBrokenLocAbsent)
+            {
+                return false;
+            }
+            if (isBroken && h->brokenLandingsLeft > 0)
+            {
+                --h->brokenLandingsLeft;
+                return true;
+            }
+            for (const format::TransitionRecord &tx : h->landingRecords)
+            {
+                const exec::WwTile txOrigin{ tx.originX, tx.originY,
+                                             static_cast<std::int32_t>(tx.originPlane) };
+                if (tx.objectId == objectId && isSameTile(txOrigin, origin)
+                    && static_cast<std::int32_t>(tx.optionIndex) == option)
+                {
+                    h->position = exec::WwTile{ tx.destX, tx.destY,
+                                                static_cast<std::int32_t>(tx.destPlane) };
+                    return true;
+                }
+            }
+            return true;
+        }
+
         extern "C" std::int32_t harnessInteract(void *user, std::int32_t objectId,
-                                                exec::WwTile origin, std::int32_t)
+                                                exec::WwTile origin, std::int32_t option)
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->interactCalls;
@@ -364,6 +458,13 @@ namespace ww::cli
             else if (h->isLocMissing)
             {
                 return 0;
+            }
+            else if (!h->landingRecords.empty())
+            {
+                if (!landOnRecord(h, objectId, origin, option))
+                {
+                    return 0;
+                }
             }
             else if (h->failedLandingsLeft > 0)
             {
@@ -429,11 +530,20 @@ namespace ww::cli
                 return;
             }
             ++h->runChainStepCalls;
+            const bool isNpcClick = kind == kClickNpcKind;
+            if (isNpcClick)
+            {
+                ++h->npcClicks;
+                // ClickNpc carries its search centre in b..d.
+                const bool isAtOrigin =
+                    b == h->npcOrigin.x && c == h->npcOrigin.y && d == h->npcOrigin.plane;
+                h->npcOriginClicks += isAtOrigin ? 1 : 0;
+            }
             if (h->mode != ExecHarnessMode::SimulateTransition)
             {
                 recordUnexpected(h, HarnessCallback::RunChainStep);
             }
-            else
+            else if (!(isNpcClick && h->isNpcAbsent))
             {
                 h->position = h->transitionDest;
             }
@@ -623,8 +733,11 @@ namespace ww::cli
             const auto chain = reader.chainSteps();
             for (std::uint32_t i = 0; i < tx.chainCount; ++i)
             {
-                if (chain[tx.chainStart + i].kind
-                    == static_cast<std::uint8_t>(data::ChainStepKind::Click))
+                // Both reach the host: a Click, and the ClickNpc an NPC origin
+                // opens its chain with.
+                const std::uint8_t kind = chain[tx.chainStart + i].kind;
+                if (kind == static_cast<std::uint8_t>(data::ChainStepKind::Click)
+                    || kind == static_cast<std::uint8_t>(data::ChainStepKind::ClickNpc))
                 {
                     ++outClicks;
                 }
@@ -661,6 +774,12 @@ namespace ww::cli
                 return 0;
             }
             const bool isGlobal = (tx.flags & format::kTransitionFlagGlobalOrigin) != 0;
+            // A global teleport and an NPC origin click no loc.
+            const std::uint32_t chainAt = tx.chainStart;
+            const bool isNpcOrigin = tx.chainCount != 0u
+                && chainAt < ctx.reader.chainSteps().size()
+                && ctx.reader.chainSteps()[chainAt].kind == static_cast<std::uint8_t>(kClickNpcKind);
+            const int wantInteracts = (isGlobal || isNpcOrigin) ? 0 : 1;
             std::int32_t clickCount = 0;
             std::int32_t waitCount  = 0;
             countChain(ctx.reader, tx, clickCount, waitCount);
@@ -685,13 +804,13 @@ namespace ww::cli
                         static_cast<int>(exec::WwEventKind::Arrived));
             std::printf("  exec:   interacts=%d (expect %d) chainSteps=%d (expect %d)"
                         " ifaceOpen=%d (>= %d)\n",
-                        harness.interactCalls, isGlobal ? 0 : 1, harness.runChainStepCalls,
+                        harness.interactCalls, wantInteracts, harness.runChainStepCalls,
                         clickCount, harness.isInterfaceOpenCalls, clickCount);
             printCallPattern("", harness);
             std::size_t failures = (status == exec::WwStatus::Arrived
                                     && harness.lastEventKind == exec::WwEventKind::Arrived)
                                        ? 0u : 1u;
-            failures += (harness.interactCalls == (isGlobal ? 0 : 1)
+            failures += (harness.interactCalls == wantInteracts
                          && harness.runChainStepCalls == clickCount) ? 0u : 1u;
             failures += harness.unexpectedActions == 0 ? 0u : 1u;
             return failures;
@@ -1045,11 +1164,13 @@ namespace ww::cli
             return failures;
         }
 
-        // Test 4e: a non-door transition lands the player back where they
-        // started (a failed jump into a pit) `failedLandings` times. Each is a
-        // re-plan from the live position that spends no stuck budget; one
-        // failure is recovered, endless failures end on that transition once
-        // the reroute budget is gone rather than looping.
+        // Test 4e: every transition lands the player back where they started
+        // (a failed jump into a pit) `failedLandings` times. Each is a re-plan
+        // from the live position that spends no stuck budget; one failure is
+        // recovered, endless failures end on a transition once the reroute
+        // budget is gone rather than looping. Which transitions the reroutes
+        // try (a detour, or the same one again when it is the only way) is
+        // tests 4f and 4g's business; this one counts attempts.
         std::size_t testOffCourseLanding(ExecContext &ctx, int failedLandings, bool isRecoverable)
         {
             CrossAreaPick pick{};
@@ -1089,16 +1210,643 @@ namespace ww::cli
             const int txIndex = static_cast<int>(edge.transitionIndex);
             const bool isStatusRight = isRecoverable
                 ? status == exec::WwStatus::Arrived
-                : (status == exec::WwStatus::Failed && harness.failedTransitionIndex == txIndex);
+                : (status == exec::WwStatus::Failed && harness.failedTransitionIndex >= 0);
             std::printf("  exec:   off-course tx%d fails=%d status=%d (expect %d) interacts=%d"
-                        " (expect %d) stucks=%d (expect 0)\n",
+                        " (expect %d) failedOn=tx%d stucks=%d (expect 0)\n",
                         txIndex, failedLandings, static_cast<int>(status),
                         isRecoverable ? 0 : 1, harness.interactCalls, wantInteracts,
-                        harness.stuckEvents);
+                        harness.failedTransitionIndex, harness.stuckEvents);
             printCallPattern("off-course ", harness);
             std::size_t failures = isStatusRight ? 0u : 1u;
             failures += harness.interactCalls == wantInteracts ? 0u : 1u;
             failures += harness.stuckEvents == 0 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // A transition the off-course test can watch miss: local, ungated, not
+        // a door, no chain (the landing is decided at the interact), and a
+        // destination far enough from its origin that staying put reads as
+        // off course.
+        bool isFarLandingNonDoor(const format::TransitionRecord &tx)
+        {
+            const std::int32_t spread = std::max(std::abs(tx.originX - tx.destX),
+                                                 std::abs(tx.originY - tx.destY));
+            const bool isFar = tx.originPlane != tx.destPlane
+                            || spread > runtime::kMaxSameFloorHop + 3;
+            return acceptUngatedNonDoor(tx) && tx.objectId > 0 && tx.chainCount == 0u && isFar;
+        }
+
+        bool isSameLocRow(const format::TransitionRecord &a, const format::TransitionRecord &b)
+        {
+            return a.objectId == b.objectId && a.originX == b.originX
+                && a.originY == b.originY && a.originPlane == b.originPlane;
+        }
+
+        // Two edges between the same pair of areas through different locs, both
+        // accepted by `filter`: a route with a spare. The pick starts on the
+        // first edge's interact tile and ends on its destination.
+        bool pickParallelPair(const format::ArtifactReader &reader, runtime::WorldView &view,
+                              TransitionFilter filter, CrossAreaPick &outPick)
+        {
+            const auto edges = reader.areaEdges();
+            const auto txs   = reader.transitions();
+            for (std::size_t i = 0; i < edges.size(); ++i)
+            {
+                const format::TransitionRecord &a = txs[edges[i].transitionIndex];
+                if (!filter(a))
+                {
+                    continue;
+                }
+                for (std::size_t j = i + 1; j < edges.size(); ++j)
+                {
+                    const format::TransitionRecord &b = txs[edges[j].transitionIndex];
+                    const bool isSpare = edges[j].fromArea == edges[i].fromArea
+                                      && edges[j].toArea == edges[i].toArea
+                                      && filter(b) && !isSameLocRow(a, b);
+                    if (!isSpare)
+                    {
+                        continue;
+                    }
+                    const std::int32_t plane = static_cast<std::int32_t>(a.originPlane);
+                    const auto standableInArea = [&](std::int32_t x, std::int32_t y)
+                    {
+                        return view.isStandable(x, y, plane)
+                            && view.areaAt(x, y, plane) == edges[i].fromArea;
+                    };
+                    std::int32_t startX = 0;
+                    std::int32_t startY = 0;
+                    if (!runtime::findNearestTile(a.originX, a.originY,
+                                                  data::kTransitionApproachRadius, true,
+                                                  standableInArea, a.originX, a.originY,
+                                                  startX, startY))
+                    {
+                        break;
+                    }
+                    outPick.start      = { startX, startY };
+                    outPick.startPlane = plane;
+                    outPick.goal       = { a.destX, a.destY };
+                    outPick.goalPlane  = static_cast<std::int32_t>(a.destPlane);
+                    outPick.edgeIndex  = i;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Test 4f: the transition the plan picks never lands (the live bug: the
+        // campus map chosen, missed and chosen again until the reroute budget
+        // ran out). Another loc reaches the same area, so the reroute must go
+        // round: the broken loc is clicked once, the spare once, and the run
+        // arrives.
+        std::size_t testOffCourseWithSpare(ExecContext &ctx)
+        {
+            CrossAreaPick pick{};
+            if (!pickParallelPair(ctx.reader, ctx.view, isFarLandingNonDoor, pick))
+            {
+                std::printf("  exec:   off-course spare test skipped (no parallel edge pair)\n");
+                return 0;
+            }
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, pick.start.x,
+                                              pick.start.y, pick.startPlane);
+            harness.landingRecords     = ctx.reader.transitions();
+            harness.brokenLandingsLeft = 99;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   off-course spare edge%zu status=%d (expect 0) broken-loc=%d"
+                        " clicks=%d (expect 1) interacts=%d (expect 2) replans=%d (expect >= 1)\n",
+                        pick.edgeIndex, static_cast<int>(status), harness.brokenObjectId,
+                        harness.brokenInteracts, harness.interactCalls,
+                        harness.replanStartedEvents);
+            printCallPattern("off-course spare ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.brokenInteracts == 1 ? 0u : 1u;
+            failures += harness.interactCalls == 2 ? 0u : 1u;
+            failures += harness.replanStartedEvents >= 1 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // An edge `filter` accepts that is the only edge into its area. Areas
+        // are walk-connected components, so nothing but that edge reaches it
+        // (the harness snapshot admits no global teleport): once it is ruled
+        // out the planner has no route.
+        bool pickSoleEntry(const format::ArtifactReader &reader, runtime::WorldView &view,
+                           TransitionFilter filter, CrossAreaPick &outPick)
+        {
+            const auto edges = reader.areaEdges();
+            const auto txs   = reader.transitions();
+            std::vector<std::uint32_t> entries(reader.areaNodes().size(), 0u);
+            for (const format::AreaEdgeRecord &edge : edges)
+            {
+                if (static_cast<std::size_t>(edge.toArea) < entries.size())
+                {
+                    ++entries[static_cast<std::size_t>(edge.toArea)];
+                }
+            }
+            for (std::size_t i = 0; i < edges.size(); ++i)
+            {
+                const format::AreaEdgeRecord &edge = edges[i];
+                const format::TransitionRecord &tx = txs[edge.transitionIndex];
+                const bool isSole = static_cast<std::size_t>(edge.toArea) < entries.size()
+                                 && entries[static_cast<std::size_t>(edge.toArea)] == 1u
+                                 && edge.fromArea != edge.toArea;
+                if (!isSole || !filter(tx))
+                {
+                    continue;
+                }
+                const std::int32_t plane = static_cast<std::int32_t>(tx.originPlane);
+                const auto standableInArea = [&](std::int32_t x, std::int32_t y)
+                {
+                    return view.isStandable(x, y, plane) && view.areaAt(x, y, plane) == edge.fromArea;
+                };
+                std::int32_t startX = 0;
+                std::int32_t startY = 0;
+                if (!runtime::findNearestTile(tx.originX, tx.originY,
+                                              data::kTransitionApproachRadius, true,
+                                              standableInArea, tx.originX, tx.originY,
+                                              startX, startY))
+                {
+                    continue;
+                }
+                outPick.start      = { startX, startY };
+                outPick.startPlane = plane;
+                outPick.goal       = { tx.destX, tx.destY };
+                outPick.goalPlane  = static_cast<std::int32_t>(tx.destPlane);
+                outPick.edgeIndex  = i;
+                return true;
+            }
+            return false;
+        }
+
+        // Test 4g: the only transition into the goal's area misses once (a
+        // failed jump on the only way across). Ruling it out leaves no route,
+        // so the reroute puts it back and tries again: clicked twice, arrived.
+        std::size_t testOffCourseSoleEntry(ExecContext &ctx)
+        {
+            CrossAreaPick pick{};
+            if (!pickSoleEntry(ctx.reader, ctx.view, isFarLandingNonDoor, pick))
+            {
+                std::printf("  exec:   off-course sole-entry test skipped (no such edge)\n");
+                return 0;
+            }
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, pick.start.x,
+                                              pick.start.y, pick.startPlane);
+            harness.landingRecords     = ctx.reader.transitions();
+            harness.brokenLandingsLeft = 1;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            std::printf("  exec:   off-course sole-entry tx%u status=%d (expect 0) clicks=%d"
+                        " (expect 2) interacts=%d (expect 2)\n",
+                        edge.transitionIndex, static_cast<int>(status), harness.brokenInteracts,
+                        harness.interactCalls);
+            printCallPattern("off-course sole-entry ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.brokenInteracts == 2 ? 0u : 1u;
+            failures += harness.interactCalls == 2 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // A crossing the refusal tests can watch: an ungated same-floor crossing
+        // (stile, gate, door) with a loc and no chain, so the landing is decided
+        // at the interact. Its two sides lie within the executor's distance
+        // slack of each other, so distance alone cannot tell a refusal.
+        bool isShortCrossing(const format::TransitionRecord &tx)
+        {
+            return acceptUngatedDoor(tx) && tx.objectId > 0 && tx.chainCount == 0u;
+        }
+
+        // Whether the loc the harness latched as broken is a same-floor
+        // crossing, so a refusal test knows the planner clicked the kind of
+        // crossing it meant to refuse and not some detour.
+        bool isBrokenLocShort(const ExecHarness &h)
+        {
+            for (const format::TransitionRecord &tx : h.landingRecords)
+            {
+                const exec::WwTile origin{ tx.originX, tx.originY,
+                                           static_cast<std::int32_t>(tx.originPlane) };
+                if (tx.objectId == h.brokenObjectId && isSameTile(origin, h.brokenOrigin))
+                {
+                    return runtime::isSameFloorCrossing(tx);
+                }
+            }
+            return false;
+        }
+
+        // Runs one walk from `pick` with every interact landing on its row's
+        // destination except the first loc clicked, which refuses the player
+        // `refusals` times (they stay where they clicked), or is not there at
+        // all when `isLocAbsent`, and walls that keep each walk inside its area.
+        exec::WwStatus runRefusalWalk(ExecContext &ctx, const CrossAreaPick &pick, int refusals,
+                                      bool isLocAbsent, ExecHarness &outHarness)
+        {
+            outHarness = makeHarness(ExecHarnessMode::SimulateTransition, pick.start.x,
+                                     pick.start.y, pick.startPlane);
+            outHarness.landingRecords     = ctx.reader.transitions();
+            outHarness.brokenLandingsLeft = refusals;
+            outHarness.isBrokenLocAbsent  = isLocAbsent;
+            outHarness.areaWalls          = &ctx.view;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &outHarness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            return executor.run(exec::WwGoal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 });
+        }
+
+        // Test 4k: the live Tree Gnome Stronghold stile. A crossing two tiles
+        // wide refuses the player, who stays within the distance slack of its
+        // far side; another crossing joins the same two areas. The player is
+        // still in the area they clicked from, so the crossing is excluded
+        // after its one attempt (the click and the same-floor re-click) and
+        // the run goes round by the spare. The old executor judged by
+        // distance, walked on into the wall and spent its stuck budget.
+        std::size_t testRefusedCrossingWithSpare(ExecContext &ctx)
+        {
+            CrossAreaPick pick{};
+            if (!pickParallelPair(ctx.reader, ctx.view, isShortCrossing, pick))
+            {
+                std::printf("  exec:   refused-crossing spare test skipped (no parallel pair)\n");
+                return 0;
+            }
+            ExecHarness harness{};
+            const exec::WwStatus status = runRefusalWalk(ctx, pick, 99, false, harness);
+
+            const bool isShort = isBrokenLocShort(harness);
+            std::printf("  exec:   refused-crossing spare edge%zu status=%d (expect 0) broken-loc=%d"
+                        " short=%d (expect 1) clicks=%d (expect 2) interacts=%d (expect 3)"
+                        " stucks=%d (expect 0) replans=%d (expect >= 1)\n",
+                        pick.edgeIndex, static_cast<int>(status), harness.brokenObjectId,
+                        isShort ? 1 : 0, harness.brokenInteracts, harness.interactCalls,
+                        harness.stuckEvents, harness.replanStartedEvents);
+            printCallPattern("refused-crossing spare ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += isShort ? 0u : 1u;
+            failures += harness.brokenInteracts == 2 ? 0u : 1u;
+            failures += harness.interactCalls == 3 ? 0u : 1u;
+            failures += harness.stuckEvents == 0 ? 0u : 1u;
+            failures += harness.replanStartedEvents >= 1 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4l: the only crossing into an area refuses the player every
+        // time. Each refusal is a reroute (ruled out, nothing else reaches the
+        // goal, put back, tried again) and never a walk into the wall, so the
+        // run fails on the crossing once the reroute budget is spent: four
+        // attempts of two clicks, no Stuck.
+        std::size_t testRefusedSoleCrossing(ExecContext &ctx)
+        {
+            CrossAreaPick pick{};
+            if (!pickSoleEntry(ctx.reader, ctx.view, isShortCrossing, pick))
+            {
+                std::printf("  exec:   refused-crossing sole test skipped (no such edge)\n");
+                return 0;
+            }
+            ExecHarness harness{};
+            const exec::WwStatus status = runRefusalWalk(ctx, pick, 99, false, harness);
+
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            std::printf("  exec:   refused-crossing sole tx%u status=%d (expect 1) failedOn=tx%d"
+                        " clicks=%d (expect 8) interacts=%d (expect 8) stucks=%d (expect 0)\n",
+                        edge.transitionIndex, static_cast<int>(status),
+                        harness.failedTransitionIndex, harness.brokenInteracts,
+                        harness.interactCalls, harness.stuckEvents);
+            printCallPattern("refused-crossing sole ", harness);
+            std::size_t failures = status == exec::WwStatus::Failed ? 0u : 1u;
+            failures += harness.failedTransitionIndex >= 0 ? 0u : 1u;
+            failures += harness.brokenInteracts == 8 ? 0u : 1u;
+            failures += harness.interactCalls == 8 ? 0u : 1u;
+            failures += harness.stuckEvents == 0 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Move `ioPick`'s goal from its crossing's destination to a standable
+        // tile of the destination's area 3 to 6 tiles further from the origin,
+        // so the plan ends in a walk beyond the crossing rather than on it: a
+        // skipped crossing is only walked through by the walk after it. False
+        // when the area has no such tile.
+        bool movePickGoalPastCrossing(ExecContext &ctx, CrossAreaPick &ioPick)
+        {
+            const format::AreaEdgeRecord &edge = ctx.reader.areaEdges()[ioPick.edgeIndex];
+            const format::TransitionRecord &tx = ctx.reader.transitions()[edge.transitionIndex];
+            const std::int32_t plane = ioPick.goalPlane;
+            const std::int32_t destArea = ctx.view.areaAt(ioPick.goal.x, ioPick.goal.y, plane);
+            const std::int32_t destReach = std::max(std::abs(tx.destX - tx.originX),
+                                                    std::abs(tx.destY - tx.originY));
+            for (std::int32_t ring = 3; ring <= 6; ++ring)
+            {
+                for (std::int32_t dy = -ring; dy <= ring; ++dy)
+                {
+                    for (std::int32_t dx = -ring; dx <= ring; ++dx)
+                    {
+                        const std::int32_t x = ioPick.goal.x + dx;
+                        const std::int32_t y = ioPick.goal.y + dy;
+                        const std::int32_t reach = std::max(std::abs(x - tx.originX),
+                                                            std::abs(y - tx.originY));
+                        const bool isPast = reach > destReach + 1
+                                         && ctx.view.isStandable(x, y, plane)
+                                         && ctx.view.areaAt(x, y, plane) == destArea;
+                        if (isPast)
+                        {
+                            ioPick.goal = { x, y };
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Test 4o: the live Shantay Pass. A same-floor crossing's loc is not
+        // there, so the executor skips it as an open door, but nothing is open
+        // and the walk beyond stalls on the near side. The crossing is then
+        // excluded like a missing loc and the run goes round by the spare,
+        // never clicking it again. The old executor re-planned onto the same
+        // crossing after every stall and failed the walk with its re-plan
+        // budget spent (four clicks, four Stucks).
+        std::size_t testAbsentCrossingWithSpare(ExecContext &ctx)
+        {
+            CrossAreaPick pick{};
+            if (!pickParallelPair(ctx.reader, ctx.view, isShortCrossing, pick)
+                || !movePickGoalPastCrossing(ctx, pick))
+            {
+                std::printf("  exec:   absent-crossing spare test skipped (no parallel pair)\n");
+                return 0;
+            }
+            ExecHarness harness{};
+            const exec::WwStatus status = runRefusalWalk(ctx, pick, 0, true, harness);
+
+            const bool isShort = isBrokenLocShort(harness);
+            std::printf("  exec:   absent-crossing spare edge%zu status=%d (expect 0) broken-loc=%d"
+                        " short=%d (expect 1) clicks=%d (expect 1) stucks=%d (expect 1)"
+                        " replans=%d (expect >= 1)\n",
+                        pick.edgeIndex, static_cast<int>(status), harness.brokenObjectId,
+                        isShort ? 1 : 0, harness.brokenInteracts, harness.stuckEvents,
+                        harness.replanStartedEvents);
+            printCallPattern("absent-crossing spare ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += isShort ? 0u : 1u;
+            failures += harness.brokenInteracts == 1 ? 0u : 1u;
+            failures += harness.stuckEvents == 1 ? 0u : 1u;
+            failures += harness.replanStartedEvents >= 1 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // A blocked tile within `radius` of (cx, cy) whose every standable tile
+        // within the goal-snap reach (3) lies in `area`, so wherever the
+        // planner snaps it stays in the start's area.
+        bool pickBlockedGoal(runtime::WorldView &view, std::int32_t cx, std::int32_t cy,
+                             std::int32_t plane, std::int32_t area, std::int32_t radius,
+                             runtime::TilePoint &outGoal)
+        {
+            constexpr std::int32_t kSnapReach = 3;
+            for (std::int32_t x = cx - radius; x <= cx + radius; ++x)
+            {
+                for (std::int32_t y = cy - radius; y <= cy + radius; ++y)
+                {
+                    if (view.isStandable(x, y, plane))
+                    {
+                        continue;
+                    }
+                    bool hasStandIn = false;
+                    bool isAllInArea = true;
+                    for (std::int32_t dx = -kSnapReach; dx <= kSnapReach; ++dx)
+                    {
+                        for (std::int32_t dy = -kSnapReach; dy <= kSnapReach; ++dy)
+                        {
+                            if (!view.isStandable(x + dx, y + dy, plane))
+                            {
+                                continue;
+                            }
+                            hasStandIn = true;
+                            isAllInArea = isAllInArea && view.areaAt(x + dx, y + dy, plane) == area;
+                        }
+                    }
+                    if (hasStandIn && isAllInArea)
+                    {
+                        outGoal = { x, y };
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Test 4q: the goal tile is blocked (the Rusty Anchor's bartender at
+        // 3050,3257), so the plan ends on the nearest standable tile. Reaching
+        // it is arrival; the old executor judged the drained run by the goal
+        // tile alone and returned Failed on the last step.
+        std::size_t testBlockedGoal(ExecContext &ctx)
+        {
+            // The first roomy area whose centroid is its own standable tile
+            // and has a blocked tile in reach.
+            constexpr std::uint32_t kMinTiles = 64;
+            const auto nodes = ctx.reader.areaNodes();
+            runtime::TilePoint start{};
+            runtime::TilePoint goal{};
+            std::int32_t plane = 0;
+            bool isPicked = false;
+            for (std::size_t a = 0; a < nodes.size() && !isPicked; ++a)
+            {
+                const format::AreaNodeRecord &n = nodes[a];
+                plane = static_cast<std::int32_t>(n.plane);
+                const auto area = static_cast<std::int32_t>(a);
+                start = { n.centroidX, n.centroidY };
+                isPicked = n.tileCount >= kMinTiles
+                    && ctx.view.areaAt(start.x, start.y, plane) == area
+                    && pickBlockedGoal(ctx.view, start.x, start.y, plane, area, 8, goal);
+            }
+            if (!isPicked)
+            {
+                std::printf("  exec:   blocked-goal test skipped (no blocked tile in reach)\n");
+                return 0;
+            }
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              start.x, start.y, plane);
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwStatus status = executor.run(exec::WwGoal{ goal.x, goal.y, plane, 0 });
+
+            const std::int32_t off = std::max(std::abs(harness.position.x - goal.x),
+                                              std::abs(harness.position.y - goal.y));
+            std::printf("  exec:   blocked-goal status=%d (expect 0) off=%d (expect 1..3)\n",
+                        static_cast<int>(status), off);
+            printLanding("blocked-goal", harness, goal, plane);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += (off >= 1 && off <= 3) ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4p: as 4o, but the absent crossing is the only way into the
+        // goal's area. Once the stall shows it is not open, it is excluded and
+        // nothing else reaches the goal, so the run fails on that crossing
+        // after one click and one Stuck instead of looping on it.
+        std::size_t testAbsentSoleCrossing(ExecContext &ctx)
+        {
+            CrossAreaPick pick{};
+            if (!pickSoleEntry(ctx.reader, ctx.view, isShortCrossing, pick)
+                || !movePickGoalPastCrossing(ctx, pick))
+            {
+                std::printf("  exec:   absent-crossing sole test skipped (no such edge)\n");
+                return 0;
+            }
+            ExecHarness harness{};
+            const exec::WwStatus status = runRefusalWalk(ctx, pick, 0, true, harness);
+
+            const bool isShort = isBrokenLocShort(harness);
+            std::printf("  exec:   absent-crossing sole edge%zu status=%d (expect 1) failedOn=tx%d"
+                        " short=%d (expect 1) clicks=%d (expect 1) stucks=%d (expect 1)\n",
+                        pick.edgeIndex, static_cast<int>(status), harness.failedTransitionIndex,
+                        isShort ? 1 : 0, harness.brokenInteracts, harness.stuckEvents);
+            printCallPattern("absent-crossing sole ", harness);
+            std::size_t failures = status == exec::WwStatus::Failed ? 0u : 1u;
+            failures += harness.failedTransitionIndex >= 0 ? 0u : 1u;
+            failures += isShort ? 0u : 1u;
+            failures += harness.brokenInteracts == 1 ? 0u : 1u;
+            failures += harness.stuckEvents == 1 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Tests 4m and 4n: a crossing that lets the player through still
+        // counts as landed under the area judgement, short (`filter` =
+        // isShortCrossing, the two sides within the distance slack) or long
+        // (isFarLandingNonDoor, a ladder or ride). One click, no reroute, no
+        // Stuck, arrived.
+        std::size_t testCrossingLands(ExecContext &ctx, TransitionFilter filter, const char *label)
+        {
+            CrossAreaPick pick{};
+            if (!pickCrossAreaPair(ctx.reader, ctx.view, filter, pick))
+            {
+                std::printf("  exec:   %s landing test skipped (no such edge)\n", label);
+                return 0;
+            }
+            ExecHarness harness{};
+            const exec::WwStatus status = runRefusalWalk(ctx, pick, 0, false, harness);
+
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            std::printf("  exec:   %s landing tx%u status=%d (expect 0) interacts=%d (expect 1)"
+                        " replans=%d stucks=%d (expect 0, 0)\n",
+                        label, edge.transitionIndex, static_cast<int>(status),
+                        harness.interactCalls, harness.replanStartedEvents, harness.stuckEvents);
+            printCallPattern("landing ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.interactCalls == 1 ? 0u : 1u;
+            failures += (harness.replanStartedEvents == 0 && harness.stuckEvents == 0) ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // An ungated edge whose transition starts at an NPC (its chain opens
+        // with ClickNpc), with the pick starting on a standable tile beside the
+        // NPC's tile. Only an artifact baked with an enabled `npc` row has one.
+        bool pickNpcOrigin(const format::ArtifactReader &reader, runtime::WorldView &view,
+                           CrossAreaPick &outPick)
+        {
+            const auto edges = reader.areaEdges();
+            const auto txs   = reader.transitions();
+            const auto chain = reader.chainSteps();
+            for (std::size_t i = 0; i < edges.size(); ++i)
+            {
+                const format::AreaEdgeRecord &edge = edges[i];
+                const format::TransitionRecord &tx = txs[edge.transitionIndex];
+                const bool isNpc = tx.chainCount != 0u && tx.chainStart < chain.size()
+                    && chain[tx.chainStart].kind == static_cast<std::uint8_t>(kClickNpcKind);
+                if (!isNpc || tx.requirementCount != 0u)
+                {
+                    continue;
+                }
+                const std::int32_t plane = static_cast<std::int32_t>(tx.originPlane);
+                const auto standableInArea = [&](std::int32_t x, std::int32_t y)
+                {
+                    return view.isStandable(x, y, plane) && view.areaAt(x, y, plane) == edge.fromArea;
+                };
+                std::int32_t startX = 0;
+                std::int32_t startY = 0;
+                if (!runtime::findNearestTile(tx.originX, tx.originY,
+                                              data::kTransitionApproachRadius, true,
+                                              standableInArea, tx.originX, tx.originY,
+                                              startX, startY))
+                {
+                    continue;
+                }
+                outPick.start      = { startX, startY };
+                outPick.startPlane = plane;
+                outPick.goal       = { tx.destX, tx.destY };
+                outPick.goalPlane  = static_cast<std::int32_t>(tx.destPlane);
+                outPick.edgeIndex  = i;
+                return true;
+            }
+            return false;
+        }
+
+        // Test 4h: a transition that starts at an NPC. Present, it is crossed
+        // through its chain alone: one ClickNpc, no loc interact. Absent (no
+        // NPC, so its interface never opens), it is routed around like a
+        // missing loc rather than ending the run: clicked once, then a
+        // re-plan. Whether that re-plan finds another way is the artifact's
+        // business, not this test's.
+        std::size_t testNpcOrigin(ExecContext &ctx, bool isNpcAbsent)
+        {
+            CrossAreaPick pick{};
+            if (!pickNpcOrigin(ctx.reader, ctx.view, pick))
+            {
+                std::printf("  exec:   npc-origin test skipped (no enabled npc transition)\n");
+                return 0;
+            }
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            const auto &tx   = ctx.reader.transitions()[edge.transitionIndex];
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, pick.start.x,
+                                              pick.start.y, pick.startPlane);
+            harness.transitionDest =
+                exec::WwTile{ tx.destX, tx.destY, static_cast<std::int32_t>(tx.destPlane) };
+            harness.isNpcAbsent = isNpcAbsent;
+            harness.npcOrigin =
+                exec::WwTile{ tx.originX, tx.originY, static_cast<std::int32_t>(tx.originPlane) };
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   npc-origin tx%u absent=%d status=%d npc-clicks=%d here=%d"
+                        " (expect %s, 1 here) interacts=%d (expect %s) replans=%d (expect %s)\n",
+                        edge.transitionIndex, isNpcAbsent ? 1 : 0, static_cast<int>(status),
+                        harness.npcClicks, harness.npcOriginClicks, isNpcAbsent ? ">= 1" : "1",
+                        harness.interactCalls, isNpcAbsent ? "any" : "0",
+                        harness.replanStartedEvents, isNpcAbsent ? ">= 1" : "0");
+            printCallPattern("npc-origin ", harness);
+            // Absent, the detour may click locs and other NPCs of its own (every
+            // NPC is absent here, so another port's charter fails the same
+            // way); only this transition's NPC must not be tried again.
+            std::size_t failures = harness.npcOriginClicks == 1 ? 0u : 1u;
+            if (isNpcAbsent)
+            {
+                failures += harness.replanStartedEvents >= 1 ? 0u : 1u;
+            }
+            else
+            {
+                failures += harness.npcClicks == 1 ? 0u : 1u;
+                failures += harness.interactCalls == 0 ? 0u : 1u;
+                failures += status == exec::WwStatus::Arrived ? 0u : 1u;
+            }
             failures += harness.unexpectedActions == 0 ? 0u : 1u;
             return failures;
         }
@@ -1279,6 +2027,17 @@ namespace ww::cli
         failures += testDroppedWalkClick(ctx);
         failures += testOffCourseLanding(ctx, 1, true);
         failures += testOffCourseLanding(ctx, 99, false);
+        failures += testOffCourseWithSpare(ctx);
+        failures += testOffCourseSoleEntry(ctx);
+        failures += testRefusedCrossingWithSpare(ctx);
+        failures += testRefusedSoleCrossing(ctx);
+        failures += testAbsentCrossingWithSpare(ctx);
+        failures += testAbsentSoleCrossing(ctx);
+        failures += testBlockedGoal(ctx);
+        failures += testCrossingLands(ctx, isShortCrossing, "short-crossing");
+        failures += testCrossingLands(ctx, isFarLandingNonDoor, "far-crossing");
+        failures += testNpcOrigin(ctx, false);
+        failures += testNpcOrigin(ctx, true);
         failures += testWalkThroughDoor(ctx, 0, false);
         failures += testWalkThroughDoor(ctx, 1, false);
         failures += testWalkThroughDoor(ctx, 0, true);

@@ -228,9 +228,11 @@ if(WORLDWALKER_BUILD_WWBUILD) # build-wwbuild
 		"src/build/CollisionBuilder.cpp"
 		"src/build/CollisionLookup.cpp"
 		"src/build/Provenance.cpp"
+		"src/build/TerrainFloor.cpp"
 		"src/build/main.cpp"
 		"src/data/CrossingDeriver.cpp"
 		"src/data/FreshnessDeriver.cpp"
+		"src/data/OpCheck.cpp"
 		"src/data/TeleportZones.cpp"
 		"src/data/TransitionBuilder.cpp"
 	)

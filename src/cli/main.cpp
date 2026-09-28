@@ -1089,6 +1089,24 @@ namespace
         return runTxNear(argv[0], std::atoi(argv[1]), std::atoi(argv[2]), std::atoi(argv[3]));
     }
 
+    int runAreaGridCmd(int, char **argv)
+    {
+        return runAreaGrid(argv[0], std::atoi(argv[1]), std::atoi(argv[2]), std::atoi(argv[3]),
+                           std::atoi(argv[4]));
+    }
+
+    int runAreaStatsCmd(int argc, char **argv)
+    {
+        constexpr int kDefaultMinSpan = 256;
+        return runAreaStats(argv[0], argc >= 2 ? std::atoi(argv[1]) : kDefaultMinSpan);
+    }
+
+    int runReachDiffCmd(int, char **argv)
+    {
+        return runReachDiff(argv[0], argv[1], std::atoi(argv[2]), std::atoi(argv[3]),
+                            std::atoi(argv[4]));
+    }
+
     int runBenchCmd(int, char **argv)
     {
         return runBench(argv[0]);
@@ -1243,8 +1261,15 @@ namespace
                           " [<sx> <sy> <sp> <gx> <gy> <gp>]", runTeleports},
         {"doorprobe",  2, "wwcli doorprobe <artifact.wwa> <txIndex>", runDoorProbeCmd},
         {"txnear",     4, "wwcli txnear <artifact.wwa> <x> <y> <radius>", runTxNearCmd},
+        {"areagrid",   5, "wwcli areagrid <artifact.wwa> <x> <y> <plane> <radius>",
+         runAreaGridCmd},
+        {"areastats",  1, "wwcli areastats <artifact.wwa> [<minSpan>]", runAreaStatsCmd},
+        {"reachdiff",  5, "wwcli reachdiff <old.wwa> <new.wwa> <x> <y> <plane>",
+         runReachDiffCmd},
         {"path",       7, "wwcli path <artifact.wwa> <fromX> <fromY> <fromPlane>"
-                          " <toX> <toY> <toPlane> [--out path.json] [--teleports dir]",
+                          " <toX> <toY> <toPlane> [--out path.json] [--teleports dir]"
+                          " [--ungated] [--varp id=value] [--varbit id=value]"
+                          " [--skill id=level] [--item id=count]",
          runPathExport},
     };
 

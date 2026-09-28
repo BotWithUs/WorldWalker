@@ -5,6 +5,7 @@
 #include "runtime/SearchContext.h"
 #include "runtime/TeleportPolicy.h"
 #include "runtime/TransitionShape.h"
+#include "runtime/WorldView.h"
 
 #include <algorithm>
 #include <chrono>
@@ -13,6 +14,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <optional>
+#include <utility>
 
 namespace ww::exec
 {
@@ -400,6 +403,13 @@ namespace ww::exec
                 dispatchClickItem(tx, cs);
                 return WwStatus::Arrived;
             }
+            case data::ChainStepKind::ClickNpc:
+            {
+                // The host picks the live NPC (type range, plane, radius) and
+                // clicks it; the chain's WaitInterface is what notices a miss.
+                dispatchChainStep(cs);
+                return WwStatus::Arrived;
+            }
             default:
             {
                 // DialogueSelect: the host resolves the option component against
@@ -410,6 +420,17 @@ namespace ww::exec
                 return WwStatus::Arrived;
             }
         }
+    }
+
+    bool Executor::hasNpcOrigin(const format::TransitionRecord &tx) const
+    {
+        if (tx.chainCount == 0)
+        {
+            return false;
+        }
+        const auto chain = artifact->chainSteps();
+        return tx.chainStart < chain.size()
+            && chain[tx.chainStart].kind == static_cast<uint8_t>(data::ChainStepKind::ClickNpc);
     }
 
     WwStatus Executor::runChain(const format::TransitionRecord &tx) const
@@ -432,7 +453,8 @@ namespace ww::exec
     }
 
     WwStatus Executor::executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
-                                             WwTile &outPosition, StepReport &outReport)
+                                             runtime::WorldView &view, WwTile &outPosition,
+                                             StepReport &outReport)
     {
         outReport = StepReport{};
         // outPosition arrives holding the live position the prior step left,
@@ -458,7 +480,8 @@ namespace ww::exec
         emit(WwEventKind::StepAdvanced, stepIndex, transitionIndex);
 
         bool hasIssuedAction = true;
-        if (!isGlobal)
+        const bool isNpcOrigin = hasNpcOrigin(tx);
+        if (!isGlobal && !isNpcOrigin)
         {
             // Click the world object from the interact-tile (the prior Walk
             // step put the player there). The object tile itself may be
@@ -473,6 +496,7 @@ namespace ww::exec
                 return WwStatus::Failed;
             }
             hasIssuedAction = outcome == LocInteract::Issued;
+            outReport.isCrossingSkipped = outcome == LocInteract::SkippedOpenCrossing;
         }
         else
         {
@@ -480,6 +504,13 @@ namespace ww::exec
         }
 
         const WwStatus chainResult = runChain(tx);
+        if (chainResult == WwStatus::Failed && isNpcOrigin)
+        {
+            // The NPC was not there to click, or its interface never opened:
+            // the same dead origin a missing loc is, so route around it
+            // rather than end the run on it.
+            outReport.isLocMissing = true;
+        }
         if (chainResult != WwStatus::Arrived)
         {
             return chainResult;
@@ -517,7 +548,7 @@ namespace ww::exec
                 }
             }
         }
-        outReport.isOffCourse = didAct && isOffCourse(tx, outPosition);
+        outReport.isOffCourse = didAct && hasMissedLanding(tx, start, outPosition, view);
         return WwStatus::Arrived;
     }
 
@@ -650,6 +681,86 @@ namespace ww::exec
         return chebyshev(at, dest) > kLandingSlack;
     }
 
+    Executor::AreaVerdict Executor::judgeLandingArea(const format::TransitionRecord &tx,
+                                                     const WwTile &start, const WwTile &at,
+                                                     runtime::WorldView &view)
+    {
+        // The area grid is the static world's; inside an instance it answers
+        // for unrelated ground (WorldView::areaAt), so it has no say there.
+        if (view.isInstanced())
+        {
+            return AreaVerdict::Unknown;
+        }
+        const int32_t startArea = view.areaAt(start.x, start.y, start.plane);
+        const int32_t destArea =
+            view.areaAt(tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane));
+        const int32_t atArea = view.areaAt(at.x, at.y, at.plane);
+        const bool isDecidable = startArea >= 0 && destArea >= 0 && atArea >= 0
+                              && startArea != destArea;
+        if (!isDecidable)
+        {
+            return AreaVerdict::Unknown;
+        }
+        return atArea == destArea ? AreaVerdict::Crossed : AreaVerdict::Refused;
+    }
+
+    bool Executor::isOnNearSide(const format::TransitionRecord &tx, const WwTile &start,
+                                const WwTile &at)
+    {
+        const WwTile dest{ tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane) };
+        return chebyshev(at, start) < chebyshev(at, dest);
+    }
+
+    bool Executor::isHeldBackBy(const format::TransitionRecord &tx, const WwTile &from,
+                                const WwTile &at, runtime::WorldView &view)
+    {
+        if (!view.isInstanced())
+        {
+            const int32_t fromArea = view.areaAt(from.x, from.y, from.plane);
+            const int32_t destArea =
+                view.areaAt(tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane));
+            const int32_t atArea = view.areaAt(at.x, at.y, at.plane);
+            const bool isDecidable = fromArea >= 0 && destArea >= 0 && atArea >= 0
+                                  && fromArea != destArea;
+            if (isDecidable)
+            {
+                return atArea == fromArea;
+            }
+        }
+        return isOnNearSide(tx, from, at);
+    }
+
+    bool Executor::isStalledBehindSkip(const std::optional<SkippedCrossing> &skipped,
+                                       const runtime::Step &step, const WwTile &at,
+                                       runtime::WorldView &view) const
+    {
+        if (!skipped.has_value() || step.kind != runtime::StepKind::Walk)
+        {
+            return false;
+        }
+        const format::TransitionRecord &tx = artifact->transitions()[skipped->transitionIndex];
+        return isHeldBackBy(tx, skipped->from, at, view);
+    }
+
+    bool Executor::hasMissedLanding(const format::TransitionRecord &tx, const WwTile &start,
+                                    const WwTile &at, runtime::WorldView &view)
+    {
+        if (isOffCourse(tx, at))
+        {
+            return true;
+        }
+        if ((tx.flags & format::kTransitionFlagGlobalOrigin) != 0)
+        {
+            return false;
+        }
+        const AreaVerdict verdict = judgeLandingArea(tx, start, at, view);
+        if (verdict != AreaVerdict::Unknown)
+        {
+            return verdict == AreaVerdict::Refused;
+        }
+        return runtime::isSameFloorCrossing(tx) && isOnNearSide(tx, start, at);
+    }
+
     Executor::LocInteract Executor::interactWithLoc(const format::TransitionRecord &tx) const
     {
         const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
@@ -744,7 +855,7 @@ namespace ww::exec
                                              int32_t stepIndex, RunState &io)
     {
         emit(WwEventKind::ReplanStarted, stepIndex);
-        if (!planFrom(io.position, goal, io.missingLocTransitions, context, plan))
+        if (!planFrom(io.position, goal, io.excludedTransitions, context, plan))
         {
             return ReplanOutcome::Failed;
         }
@@ -819,7 +930,7 @@ namespace ww::exec
         }
         ++io.reroutesUsed;
         excludeTransitionsOfLoc(artifact->transitions()[transitionIndex],
-                                io.missingLocTransitions);
+                                io.excludedTransitions);
         callbacks->readPosition(callbacks->user, &io.position);
         const ReplanOutcome outcome = replan(goal, context, stepIndex, io);
         if (outcome == ReplanOutcome::Restarted)
@@ -830,6 +941,43 @@ namespace ww::exec
         outStatus = outcome == ReplanOutcome::Arrived ? WwStatus::Arrived
                                                       : failRun(stepIndex, txIndex);
         return false;
+    }
+
+    bool Executor::rerouteAroundOffCourse(uint32_t transitionIndex, const WwGoal &goal,
+                                          runtime::SearchContext &context, int32_t stepIndex,
+                                          RunState &io, WwStatus &outStatus)
+    {
+        if (io.reroutesUsed >= kMaxReroutes)
+        {
+            outStatus = failRun(stepIndex, static_cast<int32_t>(transitionIndex));
+            return false;
+        }
+        ++io.reroutesUsed;
+        // Without the exclusion the planner, asked the same question from
+        // the same place, picks the same transition again, so a transport
+        // that never lands was chosen, missed and chosen again until the
+        // budget ran out. A global transition has no loc, so only its own
+        // row is ruled out.
+        const std::size_t keptCount = io.excludedTransitions.size();
+        const format::TransitionRecord &tx = artifact->transitions()[transitionIndex];
+        if ((tx.flags & format::kTransitionFlagGlobalOrigin) != 0)
+        {
+            io.excludedTransitions.push_back(transitionIndex);
+        }
+        else
+        {
+            excludeTransitionsOfLoc(tx, io.excludedTransitions);
+        }
+        ReplanOutcome outcome = replan(goal, context, stepIndex, io);
+        if (outcome == ReplanOutcome::Failed)
+        {
+            // Nothing else reaches the goal. Put the rows back rather than
+            // fail a run a second try might finish (a failed jump on the only
+            // way across); the list returns to exactly what it held before.
+            io.excludedTransitions.resize(keptCount);
+            outcome = replan(goal, context, stepIndex, io);
+        }
+        return isRestart(outcome, stepIndex, outStatus);
     }
 
     int32_t Executor::arrivalRadiusFor(std::size_t i, const WwGoal &goal) const
@@ -848,8 +996,8 @@ namespace ww::exec
         return kArrivalChebyshev;
     }
 
-    WwStatus Executor::executeStep(std::size_t i, const WwGoal &goal, WwTile &outPosition,
-                                   StepReport &outReport)
+    WwStatus Executor::executeStep(std::size_t i, const WwGoal &goal, runtime::WorldView &view,
+                                   WwTile &outPosition, StepReport &outReport)
     {
         const runtime::Step &step = plan.steps[i];
         const int32_t stepIndex = static_cast<int32_t>(i);
@@ -858,19 +1006,38 @@ namespace ww::exec
         {
             return walkOneStep(step, stepIndex, arrivalRadiusFor(i, goal), outPosition);
         }
-        return executeTransitionStep(step, stepIndex, outPosition, outReport);
+        return executeTransitionStep(step, stepIndex, view, outPosition, outReport);
     }
 
-    WwStatus Executor::judgeDrainedRun(const WwGoal &goal, WwTile &ioPosition)
+    bool Executor::isAtGoalStandIn(const WwGoal &goal, runtime::WorldView &view,
+                                   const WwTile &at) const
     {
-        if (!isInsideGoal(ioPosition, goal))
+        if (plan.steps.empty() || view.isStandable(goal.x, goal.y, goal.plane))
+        {
+            return false;
+        }
+        const runtime::Step &last = plan.steps.back();
+        const WwTile standIn{ last.targetX, last.targetY, static_cast<int32_t>(last.plane) };
+        const WwTile goalTile{ goal.x, goal.y, goal.plane };
+        return last.kind == runtime::StepKind::Walk && !isSameTile(standIn, goalTile)
+            && isSameTile(at, standIn);
+    }
+
+    WwStatus Executor::judgeDrainedRun(const WwGoal &goal, runtime::WorldView &view,
+                                       WwTile &ioPosition)
+    {
+        const auto isArrived = [&]()
+        {
+            return isInsideGoal(ioPosition, goal) || isAtGoalStandIn(goal, view, ioPosition);
+        };
+        if (!isArrived())
         {
             // The walk poll often samples mid-stride; give the engine one
             // tick to commit the final tile before judging.
             callbacks->sleepTicks(callbacks->user, 1);
             callbacks->readPosition(callbacks->user, &ioPosition);
         }
-        if (isInsideGoal(ioPosition, goal))
+        if (isArrived())
         {
             emit(WwEventKind::Arrived);
             return WwStatus::Arrived;
@@ -901,7 +1068,7 @@ namespace ww::exec
 
         // The plan member's vector grows once and is reused across re-plans
         // — outPlan.steps.clear() inside the assembler keeps the capacity.
-        if (!planFrom(st.position, goal, st.missingLocTransitions, context, plan))
+        if (!planFrom(st.position, goal, st.excludedTransitions, context, plan))
         {
             return failRun(-1, -1);
         }
@@ -924,7 +1091,11 @@ namespace ww::exec
         {
             const int32_t stepIndex = static_cast<int32_t>(i);
             StepReport report{};
-            const WwStatus stepResult = executeStep(i, goal, st.position, report);
+            const WwStatus stepResult = executeStep(i, goal, context.view, st.position, report);
+            // Only the step right after a skip may blame it, so every step
+            // takes it off the run state.
+            const std::optional<SkippedCrossing> skipped =
+                std::exchange(st.skippedCrossing, std::nullopt);
             if (stepResult == WwStatus::Cancelled)
             {
                 return WwStatus::Cancelled;
@@ -938,11 +1109,17 @@ namespace ww::exec
                 // may have moved further than walkOneStep's last sample.
                 const runtime::Step &step = plan.steps[i];
                 const bool isTransition = step.kind == runtime::StepKind::Transition;
-                if (report.isLocMissing)
+                // A walk that stalled behind a crossing skipped as an open
+                // door: nothing was open there (Shantay Pass without a pass
+                // re-planned onto the same gate until the budget ran out).
+                const bool isHeldBack =
+                    isStalledBehindSkip(skipped, step, st.position, context.view);
+                if (report.isLocMissing || isHeldBack)
                 {
+                    const uint32_t missing =
+                        isHeldBack ? skipped->transitionIndex : step.transitionIndex;
                     WwStatus terminal = WwStatus::Failed;
-                    if (!rerouteAroundMissingLoc(step.transitionIndex, goal, context, stepIndex,
-                                                 st, terminal))
+                    if (!rerouteAroundMissingLoc(missing, goal, context, stepIndex, st, terminal))
                     {
                         return terminal;
                     }
@@ -974,17 +1151,14 @@ namespace ww::exec
             }
             if (report.isOffCourse)
             {
-                // The transition put the player somewhere other than its
-                // destination: a failed agility obstacle, a refused teleport.
-                // Plan again from where they are, on the reroute budget.
-                const int32_t txIndex = static_cast<int32_t>(plan.steps[i].transitionIndex);
-                if (st.reroutesUsed >= kMaxReroutes)
-                {
-                    return failRun(stepIndex, txIndex);
-                }
-                ++st.reroutesUsed;
+                // The transition did not put the player across it: a failed
+                // agility obstacle, a refused teleport, a stile or gate that
+                // turned them back into the area they clicked from. Plan
+                // again from where they are, around it where possible, on the
+                // reroute budget.
                 WwStatus terminal = WwStatus::Failed;
-                if (!isRestart(replan(goal, context, stepIndex, st), stepIndex, terminal))
+                if (!rerouteAroundOffCourse(plan.steps[i].transitionIndex, goal, context,
+                                            stepIndex, st, terminal))
                 {
                     return terminal;
                 }
@@ -1004,9 +1178,13 @@ namespace ww::exec
                 continue;
             }
             st.isTeleAllowedAtLastPlan = isTeleAllowedNow;
+            if (report.isCrossingSkipped)
+            {
+                st.skippedCrossing = SkippedCrossing{ plan.steps[i].transitionIndex, st.position };
+            }
             ++i;
         }
-        return judgeDrainedRun(goal, st.position);
+        return judgeDrainedRun(goal, context.view, st.position);
         // lease destructor returns the context to the pool here.
     }
 }

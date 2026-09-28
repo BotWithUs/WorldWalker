@@ -29,4 +29,21 @@ int runDoorProbe(const char *wwaPath, int txIndex);
 // position with no derived plane-change transition into it.
 int runTxNear(const char *wwaPath, int x, int y, int radius);
 
+// `wwcli areagrid <artifact.wwa> <x> <y> <plane> <radius>` — diagnostic: print
+// the area of every tile in the window, one letter per area and '#' for a tile
+// in none. Used to place a transition's origin and landing on the right floor.
+int runAreaGrid(const char *wwaPath, int x, int y, int plane, int radius);
+
+// `wwcli areastats <artifact.wwa> [<minSpan>]` — audit: per plane, how many
+// areas there are and how many span more than minSpan tiles (default 256) on
+// either axis, listing each such area above plane 0. No real floor spans that
+// far, so a wide upper-plane area is the fill spilling over void.
+int runAreaStats(const char *wwaPath, int minSpan);
+
+// `wwcli reachdiff <old.wwa> <new.wwa> <x> <y> <plane>` — audit: every area of
+// the old artifact reachable from the tile over its baked edges (requirements
+// ignored) that the new artifact no longer reaches from the same tile, judged
+// at one sample tile of the old area. Lists each and counts them.
+int runReachDiff(const char *oldPath, const char *newPath, int x, int y, int plane);
+
 #endif  // WORLDWALKER_CLI_DOORPATHS_H

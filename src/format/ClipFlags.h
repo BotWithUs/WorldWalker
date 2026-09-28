@@ -41,8 +41,15 @@ namespace ww::format
 
     // A tile is standable when no whole-tile blocker occupies it. Wall-edge bits
     // do not block standing — only crossing the edge — so they are excluded here.
+    //
+    // CLIP_FLOOR_DECORATION is a whole-tile blocker too. NXTCacheLibrary sets it
+    // only for a ground decoration (shape 22) that blocks walking, such as the
+    // ends of a log balance, and the game's own walk will not step onto one: the
+    // Coal Truck log (loc 2296, 2599 and 2602,3477) was planned as open ground
+    // and the player never moved. Crossing one takes the loc's option.
     inline constexpr uint32_t kClipStandBlockedMask =
-        static_cast<uint32_t>(CLIP_BLOCKED) | static_cast<uint32_t>(CLIP_OBJECT);
+        static_cast<uint32_t>(CLIP_BLOCKED) | static_cast<uint32_t>(CLIP_OBJECT)
+        | static_cast<uint32_t>(CLIP_FLOOR_DECORATION);
 
     // The eight directional wall bits occupy the low byte, in clockwise order
     // starting at NW: NW, N, NE, E, SE, S, SW, W. Every other clip bit describes

@@ -8,6 +8,18 @@
 
 namespace ww::runtime
 {
+    // Octile distance in the planner's cost units (cardinal 1.0, diagonal
+    // sqrt(2)). An admissible lower bound on the tile-walk cost between two
+    // tiles of one area: obstacles only make the real path longer.
+    inline float octileDistance(int32_t dx, int32_t dy)
+    {
+        dx = dx < 0 ? -dx : dx;
+        dy = dy < 0 ? -dy : dy;
+        const int32_t lo = dx < dy ? dx : dy;
+        const int32_t hi = dx < dy ? dy : dx;
+        return static_cast<float>(hi - lo) + static_cast<float>(lo) * 1.41421356f;
+    }
+
     // The single answer to "which tile near here is the one to stand on": the
     // interact tile beside a transition's loc, the stand-in for a blocked goal,
     // the snapped destination of a teleport — at bake time and at runtime.
