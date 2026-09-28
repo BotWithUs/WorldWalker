@@ -44278,6 +44278,58 @@
     "dest_plane": 1
   },
   {
+    "name": "Open",
+    "object_id": 34819,
+    "x": 2615,
+    "y": 3303,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 2615,
+    "dest_y": 3304,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 34819,
+    "x": 2615,
+    "y": 3304,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 2615,
+    "dest_y": 3303,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 34822,
+    "x": 2616,
+    "y": 3303,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 2616,
+    "dest_y": 3304,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 34822,
+    "x": 2616,
+    "y": 3304,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 2616,
+    "dest_y": 3303,
+    "dest_plane": 0
+  },
+  {
     "name": "Climb up",
     "object_id": 1739,
     "x": 2572,

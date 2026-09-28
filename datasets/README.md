@@ -205,9 +205,15 @@ bake derives from the cache:
   loc has `interactType > 0` (`MapSquare.cpp`), and some doors with an `Open`
   option carry none: 2546 and 2548 (Ardougne castle, Bravek's house), 34825,
   21814 (Tower of Life), 25638 (Camelot), 31808 (the Clock Tower dungeon),
-  5183, 5186 and 5172 (Fenkenstrain's castle). Each crossing has a row per
-  direction with the door's own shape and rotation. Fixing the library would
-  derive these and probably others.
+  5183, 5186 and 5172 (Fenkenstrain's castle), and 34819 and 34822, the
+  double front door of the East Ardougne church at 2615-2616,3303, whose
+  interior could not be reached at all (live 2026-09-29). Each crossing has a
+  row per direction with the door's own shape and rotation. Fixing the
+  library would derive these and probably others: the decoder defaults
+  `interactType` to 0 and sets it only from opcode 19, where the client
+  treats an absent opcode 19 as interactive when the loc has an option. A
+  cache scan (2026-09-29) found 1913 placements of 183 wall/door-shape loc
+  ids with an `Open` option and `interactType` 0.
 - **Stairs anchored on different tiles.** The vertical deriver pairs a loc on
   plane p with one on p + 1 only when both stand on the same tile, so a
   staircase whose upper half is anchored a tile away has no link. Where a
