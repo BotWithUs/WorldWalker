@@ -1533,6 +1533,45 @@ namespace ww::cli
             return failures;
         }
 
+        // Test 4l2: the only crossing into an area is a door already open, and
+        // the host clicks the closed loc the open one hides (Sinclair Mansion's
+        // gate, Falador castle's doors): every click is issued and none moves
+        // the player. No walls, since the doorway is open. After the click and
+        // the re-click the executor walks across, and the run arrives on that
+        // one attempt instead of rerouting onto the same door until it fails.
+        std::size_t testDeadClickOnOpenCrossing(ExecContext &ctx)
+        {
+            CrossAreaPick pick{};
+            if (!pickSoleEntry(ctx.reader, ctx.view, isShortCrossing, pick))
+            {
+                std::printf("  exec:   dead-click open crossing test skipped (no such edge)\n");
+                return 0;
+            }
+            // Not runRefusalWalk: it walls every area, and this doorway is open.
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, pick.start.x,
+                                  pick.start.y, pick.startPlane);
+            harness.landingRecords     = ctx.reader.transitions();
+            harness.brokenLandingsLeft = 99;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwStatus status =
+                executor.run(exec::WwGoal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 });
+
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            std::printf("  exec:   dead-click open crossing tx%u status=%d (expect 0) clicks=%d"
+                        " (expect 2) replans=%d (expect 0) stucks=%d (expect 0)\n",
+                        edge.transitionIndex, static_cast<int>(status), harness.brokenInteracts,
+                        harness.replanStartedEvents, harness.stuckEvents);
+            printCallPattern("dead-click open crossing ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.brokenInteracts == 2 ? 0u : 1u;
+            failures += harness.replanStartedEvents == 0 ? 0u : 1u;
+            failures += harness.stuckEvents == 0 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
         // Move `ioPick`'s goal from its crossing's destination to a standable
         // tile of the destination's area 3 to 6 tiles further from the origin,
         // so the plan ends in a walk beyond the crossing rather than on it: a
@@ -2031,6 +2070,7 @@ namespace ww::cli
         failures += testOffCourseSoleEntry(ctx);
         failures += testRefusedCrossingWithSpare(ctx);
         failures += testRefusedSoleCrossing(ctx);
+        failures += testDeadClickOnOpenCrossing(ctx);
         failures += testAbsentCrossingWithSpare(ctx);
         failures += testAbsentSoleCrossing(ctx);
         failures += testBlockedGoal(ctx);

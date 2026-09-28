@@ -536,20 +536,41 @@ namespace ww::exec
             awaitLanding(tx, start, outPosition);
             if (runtime::isSameFloorCrossing(tx) && isSameTile(outPosition, start))
             {
-                // Still where the click was made: the click was dropped, or a
-                // door that walks you through (Draynor Manor) has not started.
-                // Click it once more. An open door is no longer found, so the
-                // host no-ops and the walk goes on through the doorway.
-                if (interactWithLoc(tx) == LocInteract::Issued)
-                {
-                    callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
-                    callbacks->readPosition(callbacks->user, &outPosition);
-                    awaitLanding(tx, start, outPosition);
-                }
+                retryUnmovedCrossing(tx, start, outPosition);
             }
         }
         outReport.isOffCourse = didAct && hasMissedLanding(tx, start, outPosition, view);
         return WwStatus::Arrived;
+    }
+
+    void Executor::retryUnmovedCrossing(const format::TransitionRecord &tx, const WwTile &start,
+                                        WwTile &ioPosition)
+    {
+        // Still where the click was made: the click was dropped, or a door
+        // that walks you through (Draynor Manor) has not started. Click it
+        // once more. An open door is no longer found, so the host no-ops.
+        if (interactWithLoc(tx) == LocInteract::Issued)
+        {
+            callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
+            callbacks->readPosition(callbacks->user, &ioPosition);
+            awaitLanding(tx, start, ioPosition);
+        }
+        if (!isSameTile(ioPosition, start))
+        {
+            return;
+        }
+        // Two clicks and the player has not moved: the click reached a loc that
+        // is not really there. An open door leaves its closed loc hidden in the
+        // scene, and a host that finds the hidden one clicks it to no effect
+        // (Sinclair Mansion's gate, Falador castle's doors). Walk across, as
+        // for an open door the host skipped: an open doorway lets the player
+        // through, a shut one holds them on this side for the landing judgement
+        // to refuse.
+        const WwTile dest{ tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane) };
+        callbacks->walkTo(callbacks->user, dest);
+        callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
+        callbacks->readPosition(callbacks->user, &ioPosition);
+        awaitLanding(tx, start, ioPosition);
     }
 
     bool Executor::isSameTile(const WwTile &a, const WwTile &b)

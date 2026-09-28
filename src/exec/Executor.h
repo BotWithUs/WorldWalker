@@ -319,11 +319,19 @@ namespace ww::exec
         // Any plain chat page open meanwhile is continued (continueOpenChat).
         //
         // A same-floor crossing whose player has not moved at all after this
-        // is clicked once more (executeTransitionStep): a door like Draynor
+        // is clicked once more (retryUnmovedCrossing): a door like Draynor
         // Manor's walks the player through itself, and a walk clicked before
         // that starts cancels it.
         void awaitLanding(const format::TransitionRecord &tx, const WwTile &start,
                           WwTile &ioPosition);
+
+        // A same-floor crossing that left the player on `start`: click it once
+        // more, and if they still have not moved, walk to its destination. The
+        // walk carries the player through a door that is already open but whose
+        // hidden closed loc the host clicked to no effect; a shut one holds
+        // them, and the caller's landing judgement refuses the crossing.
+        void retryUnmovedCrossing(const format::TransitionRecord &tx, const WwTile &start,
+                                  WwTile &ioPosition);
 
         // Deal with one open conversation page, if any, while the player is at
         // `at`: answer the option list inside a dialog zone, else continue a
