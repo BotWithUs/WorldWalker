@@ -2749,6 +2749,72 @@ namespace ww::cli
             return failures;
         }
 
+        // Test 4aa: the live hang of 2026-09-30. FortWithUs walked from the
+        // Varrock lodestone to Fort Forinthry's hub; after the hop clicked at
+        // (3292,3474) the run went quiet for minutes with the player standing on
+        // that very tile. Replay the leg the live re-plan walked (walk-only; the
+        // Varrock east transport was not taken) across the stride seeds, the
+        // player landing exactly on each clicked tile as it did live. Every run
+        // must arrive with no Stuck and no re-plan, the hops must follow the
+        // plan, and a hop that lands on (3292,3474) must never be the last one:
+        // the executor itself always clicks on from there.
+        std::size_t testFortWalkReplay(ExecContext &ctx)
+        {
+            const exec::WwTile start{ 3222, 3377, 0 };
+            const exec::WwTile frozeAt{ 3292, 3474, 0 };
+            const exec::WwGoal goal{ 3286, 3555, 0, 1 };
+            const std::uint32_t noTransports =
+                1u << static_cast<std::uint8_t>(format::MoveCategory::Transports);
+            runtime::Plan plan;
+            const bool isPlanned = ctx.view.areaAt(start.x, start.y, start.plane) >= 0
+                && planLikeExecutor(ctx, start, goal, plan, noTransports);
+            const bool isOnRoute = isPlanned
+                && std::any_of(plan.steps.begin(), plan.steps.end(), [&](const runtime::Step &s)
+                {
+                    return s.kind == runtime::StepKind::Walk && isSameTile(stepTile(s), frozeAt);
+                });
+            if (!isOnRoute)
+            {
+                std::printf("  exec:   fort-walk replay skipped (route does not pass (3292,3474))\n");
+                return 0;
+            }
+            std::size_t failures = 0;
+            int arrived = 0;
+            int landedThere = 0;
+            int stoppedThere = 0;
+            int stucks = 0;
+            for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                                  start.x, start.y, start.plane);
+                exec::Callbacks cb = kCallbackPrototype;
+                cb.user = &harness;
+                exec::Executor executor(ctx.reader, ctx.pool, cb, seed, noTransports);
+                const exec::WwStatus status = executor.run(goal);
+                arrived += status == exec::WwStatus::Arrived ? 1 : 0;
+                stucks += harness.stuckEvents + harness.replanStartedEvents;
+                for (std::size_t k = 0; k < harness.hops.size(); ++k)
+                {
+                    if (!isSameTile(harness.hops[k].target, frozeAt))
+                    {
+                        continue;
+                    }
+                    ++landedThere;
+                    stoppedThere += k + 1 == harness.hops.size() ? 1 : 0;
+                }
+                failures += (hopsFollowPlan(harness, plan) && harness.unexpectedActions == 0)
+                    ? 0u : 1u;
+            }
+            std::printf("  exec:   fort-walk replay (%d,%d)->(%d,%d) plan=%zu steps: arrived=%d/%u"
+                        " stucks+replans=%d (expect 0) hops onto (3292,3474)=%d, last hop there=%d"
+                        " (expect 0)\n",
+                        start.x, start.y, goal.x, goal.y, plan.steps.size(), arrived, kStrideSeeds,
+                        stucks, landedThere, stoppedThere);
+            failures += arrived == static_cast<int>(kStrideSeeds) ? 0u : 1u;
+            failures += (stucks == 0 && stoppedThere == 0) ? 0u : 1u;
+            return failures;
+        }
+
         // Test 4c: in combat at the first plan, out of it after the first hop.
         // The walk-only goal needs no teleport, but the flip back out of combat
         // must still re-plan once, since that is the moment teleports come
@@ -2946,6 +3012,7 @@ namespace ww::cli
         failures += testStuckDeadline(ctx);
         failures += testInteractionHint(ctx);
         failures += testDisabledMoves(ctx);
+        failures += testFortWalkReplay(ctx);
         failures += testFfi(ctx, artifactPath);
         return failures;
     }
