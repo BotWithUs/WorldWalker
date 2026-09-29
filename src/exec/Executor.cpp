@@ -25,23 +25,35 @@ namespace ww::exec
         // Tunables, all open per CONTEXT.md. Polling cadence is in game ticks;
         // the stuck deadline is wall-clock (executor links the CRT DLL).
         constexpr int32_t kPollTicks            = 2;     // ~1.2s game time between polls
+        // Near a hop's handoff the walk polls every tick instead, so the next
+        // click fires within a tick of the player reaching the handoff point
+        // rather than up to kPollTicks late - at a run that is 4 tiles, the
+        // whole lead, and the player would have stopped on the tile first.
+        constexpr int32_t kNearPollTicks        = 1;
         constexpr int32_t kArrivalChebyshev     = 1;     // accept being within 1 tile of step target
+        // Movement pace, in tiles a game tick: walking 1, running 2.
+        constexpr int32_t kWalkTilesPerTick     = 1;
+        constexpr int32_t kRunTilesPerTick      = 2;
         // Human walkers don't wait to land on each waypoint before clicking the
         // next - they click ahead while still moving, so motion is continuous.
-        // When another Walk step follows, hand off somewhere in this range out
-        // from the hop's target, drawn per hop, so the next walkTo fires
-        // mid-stride and never at the same point twice. The tight
+        // When another Walk step follows on the same walkable stretch, the hop
+        // hands off once the player is within a lead drawn per hop from this
+        // range of its target, and never less than one tick of travel plus a
+        // tile at the observed pace (so a running player, 2 tiles a tick, is
+        // never stepped past the lead between two 1-tick polls). The tight
         // kArrivalChebyshev is kept for the last walk before an interact /
         // Transition (and the final approach to goal), where landing on the
         // exact interact tile matters. Open tuning per CONTEXT.md.
-        constexpr int32_t kHandoffMinChebyshev  = 1;
-        constexpr int32_t kHandoffMaxChebyshev  = 6;
+        constexpr int32_t kLeadMinTiles         = 2;
+        constexpr int32_t kLeadMaxTiles         = 5;
         // Now and then a walker stops dead and stands a moment before the next
         // click: this share of Walk-to-Walk handoffs arrives within
         // kArrivalChebyshev instead, then idles 0..kFullStopMaxIdleTicks.
-        constexpr int32_t kFullStopPercent      = 10;
+        constexpr int32_t kFullStopPercent      = 5;
         constexpr int32_t kFullStopMaxIdleTicks = 2;
-        constexpr int32_t kStalledPollsTrip     = 3;     // N polls with the player unmoved => stuck
+        // Game ticks with the player's tile unchanged before a hop is stalled
+        // (three polls of kPollTicks, as it was when every poll was two ticks).
+        constexpr int32_t kStalledTicksTrip     = 6;
         // Stuck deadline per Walk hop: a base plus an allowance per path tile.
         // Walking without run is ~0.6s a tile, so 0.9s leaves room for a
         // winding hop and a slow client without letting a dead one linger.
@@ -250,8 +262,70 @@ namespace ww::exec
         return kStuckBaseMs + kStuckMsPerPathTile * std::max<int64_t>(pathTiles, 0);
     }
 
+    int32_t Executor::handoffRadius(const Handoff &handoff) const
+    {
+        if (!handoff.isLeading)
+        {
+            return handoff.radius;
+        }
+        // Between two 1-tick polls the player covers tilesPerTick tiles, so a
+        // lead one past that is never stepped over: the click always fires
+        // with the player still short of the target, still moving.
+        return std::max(handoff.radius, tilesPerTick + 1);
+    }
+
+    int32_t Executor::pollTicksFor(const WwTile &at, const WwTile &target, int32_t radius)
+    {
+        // Poll every tick once one kPollTicks poll at a run could carry the
+        // player inside the radius; farther out, every kPollTicks. A plane
+        // mismatch is infinitely far (chebyshev), so it polls at the slow rate.
+        const int64_t outside = static_cast<int64_t>(chebyshev(at, target)) - radius;
+        return outside <= kPollTicks * kRunTilesPerTick ? kNearPollTicks : kPollTicks;
+    }
+
+    void Executor::notePace(const WwTile &from, const WwTile &to, int32_t ticks)
+    {
+        // Tiles a tick over the last poll, rounded up: running reads 2, walking
+        // 1. Standing still says nothing about the pace, and a jump farther
+        // than a run covers (Surge, Dive, a teleport) is no pace at all.
+        const int32_t moved = chebyshev(from, to);
+        if (ticks <= 0 || moved <= 0 || moved > ticks * kRunTilesPerTick)
+        {
+            return;
+        }
+        const int32_t pace = (moved + ticks - 1) / ticks;
+        tilesPerTick = std::clamp(pace, kWalkTilesPerTick, kRunTilesPerTick);
+    }
+
+    Executor::WalkProgress Executor::judgeProgress(const WwTile &pos, const WwTile &lastPos,
+                                                   const WwTile &target, int32_t ticks,
+                                                   int64_t deadlineMs, WalkWatch &io)
+    {
+        // Progress is the player moving at all: a long hop winds round walls
+        // and can head away from its target for several polls. A player on
+        // another plane than the target (a teleport mid-walk) is not making
+        // progress on this hop however they moved.
+        const bool isUnmoved = isSameTile(pos, lastPos) || pos.plane != target.plane;
+        io.stalledTicks = isUnmoved ? io.stalledTicks + ticks : 0;
+        const auto elapsed = std::chrono::steady_clock::now() - io.start;
+        const auto elapsedMs =
+            std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+        const bool isStalled = io.stalledTicks >= kStalledTicksTrip;
+        const bool isTimedOut = elapsedMs >= deadlineMs;
+        if (isStalled && !io.hasReclicked && !isTimedOut)
+        {
+            // The game drops a walk click issued while the player is still in
+            // a forced move, which reads exactly like a stall. Click once more
+            // before calling it stuck.
+            io.hasReclicked = true;
+            io.stalledTicks = 0;
+            return WalkProgress::Reclick;
+        }
+        return (isStalled || isTimedOut) ? WalkProgress::Stuck : WalkProgress::Moving;
+    }
+
     WwStatus Executor::walkOneStep(const runtime::Step &step, int32_t stepIndex,
-                                   int32_t arrivalRadius, int32_t pathTiles,
+                                   const Handoff &handoff, int32_t pathTiles,
                                    int32_t interactionHint, WwTile &outPosition)
     {
         const WwTile target = targetOf(step);
@@ -261,12 +335,10 @@ namespace ww::exec
         emit(WwEventKind::StepAdvanced, stepIndex, -1, interactionHint);
         callbacks->walkTo(callbacks->user, target);
 
-        auto stepStart = std::chrono::steady_clock::now();
+        WalkWatch watch{ std::chrono::steady_clock::now(), 0, false };
         WwTile lastPos{};
         callbacks->readPosition(callbacks->user, &lastPos);
         outPosition = lastPos;
-        int32_t stalledPolls = 0;
-        bool hasReclicked = false;
         bool isResumePending = false;
 
         while (true)
@@ -275,12 +347,14 @@ namespace ww::exec
             {
                 return WwStatus::Cancelled;
             }
-            callbacks->sleepTicks(callbacks->user, kPollTicks);
+            const int32_t ticks = pollTicksFor(lastPos, target, handoffRadius(handoff));
+            callbacks->sleepTicks(callbacks->user, ticks);
 
             WwTile pos{};
             callbacks->readPosition(callbacks->user, &pos);
             outPosition = pos;
-            if (chebyshev(pos, target) <= arrivalRadius)
+            notePace(lastPos, pos, ticks);
+            if (chebyshev(pos, target) <= handoffRadius(handoff))
             {
                 return WwStatus::Arrived;
             }
@@ -289,9 +363,8 @@ namespace ww::exec
                 // A conversation holds the player where they are: not a
                 // stall, and the walk it interrupted is clicked again once
                 // it closes.
-                stalledPolls = 0;
+                watch = WalkWatch{ std::chrono::steady_clock::now(), 0, watch.hasReclicked };
                 isResumePending = true;
-                stepStart = std::chrono::steady_clock::now();
                 lastPos = pos;
                 continue;
             }
@@ -300,34 +373,13 @@ namespace ww::exec
                 callbacks->walkTo(callbacks->user, target);
                 isResumePending = false;
             }
-
-            // Progress is the player moving at all: a long hop winds round
-            // walls and can head away from its target for several polls. A
-            // player on another plane than the target (a teleport mid-walk)
-            // is not making progress on this hop however they moved.
-            if (isSameTile(pos, lastPos) || pos.plane != target.plane)
+            const WalkProgress progress =
+                judgeProgress(pos, lastPos, target, ticks, deadlineMs, watch);
+            if (progress == WalkProgress::Reclick)
             {
-                ++stalledPolls;
-            }
-            else
-            {
-                stalledPolls = 0;
-            }
-            const auto elapsed = std::chrono::steady_clock::now() - stepStart;
-            const auto elapsedMs =
-                std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
-            const bool isStalled = stalledPolls >= kStalledPollsTrip;
-            const bool isTimedOut = elapsedMs >= deadlineMs;
-            if (isStalled && !hasReclicked && !isTimedOut)
-            {
-                // The game drops a walk click issued while the player is still
-                // in a forced move, which reads exactly like a stall. Click once
-                // more before calling it stuck.
                 callbacks->walkTo(callbacks->user, target);
-                hasReclicked = true;
-                stalledPolls = 0;
             }
-            else if (isStalled || isTimedOut)
+            else if (progress == WalkProgress::Stuck)
             {
                 emit(WwEventKind::Stuck, stepIndex);
                 return WwStatus::Failed;
@@ -1067,25 +1119,38 @@ namespace ww::exec
         return isRestart(outcome, stepIndex, outStatus);
     }
 
-    Executor::Handoff Executor::handoffFor(std::size_t i, const WwGoal &goal)
+    Executor::Handoff Executor::handoffFor(std::size_t i, const WwGoal &goal, const WwTile &from)
     {
         const bool isNextWalk = (i + 1 < plan.steps.size())
             && plan.steps[i + 1].kind == runtime::StepKind::Walk;
         if (isNextWalk)
         {
-            if (drawBetween(rng, 0, 99) < kFullStopPercent)
+            // All three drawn before anything can rule the lead out, so every
+            // Walk-to-Walk hop spends the same draws.
+            const bool isFullStop = drawBetween(rng, 0, 99) < kFullStopPercent;
+            const int32_t lead = drawBetween(rng, kLeadMinTiles, kLeadMaxTiles);
+            const int32_t idle = drawBetween(rng, 0, kFullStopMaxIdleTicks);
+            if (isFullStop)
             {
-                return Handoff{ drawBetween(rng, 0, kArrivalChebyshev),
-                                drawBetween(rng, 0, kFullStopMaxIdleTicks) };
+                return Handoff{ drawBetween(rng, 0, kArrivalChebyshev), idle, false };
             }
-            return Handoff{ drawBetween(rng, kHandoffMinChebyshev, kHandoffMaxChebyshev), 0 };
+            // Walking out of a tile that allows no teleport onto one that
+            // does, chooseHop ends the hop on the first such target so the
+            // re-plan onto a teleport fires there: arrive on it, as a
+            // Transition's approach does, or the check runs a hop late.
+            const WwTile target = targetOf(plan.steps[i]);
+            const bool isTeleportFlip =
+                !runtime::isTeleportAllowed(*artifact, from.x, from.y, from.plane)
+                && runtime::isTeleportAllowed(*artifact, target.x, target.y, target.plane);
+            return isTeleportFlip ? Handoff{ kArrivalChebyshev, 0, false }
+                                  : Handoff{ lead, 0, true };
         }
         const bool isFinalStep = (i + 1 == plan.steps.size());
         if (isFinalStep && goal.radius <= 0)
         {
-            return Handoff{ 0, 0 };
+            return Handoff{ 0, 0, false };
         }
-        return Handoff{ kArrivalChebyshev, 0 };
+        return Handoff{ kArrivalChebyshev, 0, false };
     }
 
     int32_t Executor::drawStride()
@@ -1199,8 +1264,8 @@ namespace ww::exec
         {
             return executeTransitionStep(step, stepIndex, view, outPosition, outReport);
         }
-        const Handoff handoff = handoffFor(i, goal);
-        const WwStatus walked = walkOneStep(step, stepIndex, handoff.radius, hopTiles,
+        const Handoff handoff = handoffFor(i, goal, outPosition);
+        const WwStatus walked = walkOneStep(step, stepIndex, handoff, hopTiles,
                                             interactionHintFor(i), outPosition);
         if (walked != WwStatus::Arrived || handoff.idleTicks == 0)
         {
@@ -1259,6 +1324,7 @@ namespace ww::exec
         RunState st;
         dialogActionsLeft = kMaxDialogActions;
         answerCursor = 0;
+        tilesPerTick = kRunTilesPerTick;
         rng.seed(fixedSeed.has_value() ? *fixedSeed : std::random_device{}());
         callbacks->readPosition(callbacks->user, &st.position);
         if (isInsideGoal(st.position, goal))
