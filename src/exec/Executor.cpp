@@ -69,6 +69,9 @@ namespace ww::exec
         // a Wilderness box the executor clicks each planned step in turn, so
         // the game has no room to cut through.
         constexpr int32_t kWildernessMargin   = 8;
+        // Ceiling of WwEvent::interactionHint: 1 + 1000 path tiles. Past that
+        // an interaction is no nearer than "far".
+        constexpr int32_t kMaxInteractionHint = 1001;
 
         // Transition-step tunables. Interface-open polling lets the executor
         // wait for an interact-opened dialog before clicking inside it; the
@@ -222,13 +225,15 @@ namespace ww::exec
         return dx <= radius && dy <= radius;
     }
 
-    void Executor::emit(WwEventKind kind, int32_t stepIndex, int32_t transitionIndex) const
+    void Executor::emit(WwEventKind kind, int32_t stepIndex, int32_t transitionIndex,
+                        int32_t interactionHint) const
     {
         if (callbacks->onEvent == nullptr)
         {
             return;
         }
-        const WwEvent event{ static_cast<int32_t>(kind), 0, stepIndex, transitionIndex };
+        const WwEvent event{ static_cast<int32_t>(kind), interactionHint, stepIndex,
+                             transitionIndex };
         callbacks->onEvent(callbacks->user, &event);
     }
 
@@ -244,12 +249,15 @@ namespace ww::exec
     }
 
     WwStatus Executor::walkOneStep(const runtime::Step &step, int32_t stepIndex,
-                                   int32_t arrivalRadius, int32_t pathTiles, WwTile &outPosition)
+                                   int32_t arrivalRadius, int32_t pathTiles,
+                                   int32_t interactionHint, WwTile &outPosition)
     {
         const WwTile target = targetOf(step);
         const int64_t deadlineMs = stuckDeadlineMs(pathTiles);
+        // The event goes first: a host that holds back Surge / Dive near an
+        // interaction reads the hint when the walkTo arrives.
+        emit(WwEventKind::StepAdvanced, stepIndex, -1, interactionHint);
         callbacks->walkTo(callbacks->user, target);
-        emit(WwEventKind::StepAdvanced, stepIndex);
 
         auto stepStart = std::chrono::steady_clock::now();
         WwTile lastPos{};
@@ -1163,6 +1171,20 @@ namespace ww::exec
         return hop;
     }
 
+    int32_t Executor::interactionHintFor(std::size_t i) const
+    {
+        int64_t tiles = 0;
+        for (std::size_t k = i + 1; k < plan.steps.size(); ++k)
+        {
+            if (plan.steps[k].kind != runtime::StepKind::Walk || tiles >= kMaxInteractionHint)
+            {
+                break;
+            }
+            tiles += chebyshev(targetOf(plan.steps[k - 1]), targetOf(plan.steps[k]));
+        }
+        return static_cast<int32_t>(std::min<int64_t>(tiles + 1, kMaxInteractionHint));
+    }
+
     WwStatus Executor::executeStep(std::size_t i, int32_t hopTiles, const WwGoal &goal,
                                    runtime::WorldView &view, WwTile &outPosition,
                                    StepReport &outReport)
@@ -1175,8 +1197,8 @@ namespace ww::exec
             return executeTransitionStep(step, stepIndex, view, outPosition, outReport);
         }
         const Handoff handoff = handoffFor(i, goal);
-        const WwStatus walked =
-            walkOneStep(step, stepIndex, handoff.radius, hopTiles, outPosition);
+        const WwStatus walked = walkOneStep(step, stepIndex, handoff.radius, hopTiles,
+                                            interactionHintFor(i), outPosition);
         if (walked != WwStatus::Arrived || handoff.idleTicks == 0)
         {
             return walked;

@@ -102,8 +102,16 @@ The result of a query: an ordered list of Steps from a start Tile to a goal Tile
 _Avoid_: route (use informally only), trail, plan.
 
 **Step**:
-One element of a Path. Either a WALK step (a target Tile chunked to stay within the client's local walk-to range) or a Transition step (a loc/spell/item to interact with plus its destination Tile). The consumer executes Steps in order.
+One element of a Path. Either a WALK step (a target Tile a short, fixed distance along the route, well within the client's local walk-to range) or a Transition step (a loc/spell/item to interact with plus its destination Tile). The consumer executes Steps in order.
 _Avoid_: waypoint, node, move, leg.
+
+**Hop**:
+One walk click the Executor makes: it clicks the furthest of the next few WALK steps within a stride it draws at random per click, never past a Transition step, so the steps in between are passed over rather than clicked. The Planner stays deterministic; the randomness is all the Executor's.
+_Avoid_: chunk (an 8 x 8-Tile block), leg, segment.
+
+**Interaction hint**:
+The number a Hop's step-advanced event carries so the consumer can hold back movement abilities (Surge, Dive) that would overshoot something it must stop at: 1 + the path Tiles from the clicked Tile to the next Transition step's approach, or to the Goal when no Transition follows, capped at 1001. 1 means the click is the approach itself; 0 means unknown, and is what every other event and older libraries send.
+_Avoid_: distance (the value is offset by one and capped), padding.
 
 **Goal**:
 The target of a query: an acceptance set of one or more Tiles. The search returns the cheapest Path reaching any of them. A single Tile, "nearest bank/lodestone" (the set of their Tiles), and "within interaction range" (the ring of Tiles around an object) are all expressed this way.

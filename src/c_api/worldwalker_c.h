@@ -151,11 +151,23 @@ typedef struct WwGoal
 
 /* Single progress event. stepIndex and transitionIndex are -1 when not
    applicable to the kind (e.g., Arrived has neither). `kind` is one of the
-   WW_EVENT_* sentinels above. */
+   WW_EVENT_* sentinels above.
+
+   interactionHint (the old zero `pad`, same offset and size) tells a host how
+   near the next interaction is, so it can hold back movement abilities that
+   would overshoot it. On a Walk step's STEP_ADVANCED it is 1 + the path tiles
+   from the clicked target to the next interaction, capped at 1001: 1 means the
+   clicked target is itself the approach tile of the next Transition, or the
+   goal. The next interaction is the next Transition step, or the goal when no
+   Transition follows before the plan ends. Path tiles are summed as Chebyshev
+   distances between consecutive step targets. 0 on every other event, and
+   from older DLLs, means unknown. A Walk step's STEP_ADVANCED is emitted
+   before its walkTo; a re-click of the same step (stall, dialog resume) calls
+   walkTo again with no new event, so the last hint still holds. */
 typedef struct WwEvent
 {
     int32_t kind;
-    int32_t pad;
+    int32_t interactionHint;
     int32_t stepIndex;
     int32_t transitionIndex;
 } WwEvent;

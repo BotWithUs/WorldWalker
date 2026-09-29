@@ -364,11 +364,14 @@ namespace ww::exec
         // a stall trip (the player's tile unchanged, not the distance to the
         // target: a winding hop moves away from its target for a while), or
         // the stuck deadline for `pathTiles` (stuckDeadlineMs). Emits
-        // StepAdvanced once at entry; emits Stuck on either failure path.
+        // StepAdvanced (carrying `interactionHint`) once at entry, before the
+        // walkTo, so the host knows the hint when the click arrives; emits
+        // Stuck on either failure path.
         // Writes the final sampled position to outPosition so run() can drive
         // re-plan / teleport-allowed checks without a redundant readPosition.
         WwStatus walkOneStep(const runtime::Step &step, int32_t stepIndex,
-                             int32_t arrivalRadius, int32_t pathTiles, WwTile &outPosition);
+                             int32_t arrivalRadius, int32_t pathTiles, int32_t interactionHint,
+                             WwTile &outPosition);
 
         // Drive one Transition step's interact + embedded chain. Looks up
         // the TransitionRecord, validates its chain range, fires interact for
@@ -536,10 +539,18 @@ namespace ww::exec
                                const format::ChainStepRecord &cs) const;
 
         // Emit one progress event when the host wired onEvent; no-op otherwise.
-        // stepIndex / transitionIndex default to -1 to signal "not applicable".
+        // stepIndex / transitionIndex default to -1 to signal "not applicable";
+        // interactionHint defaults to 0, "unknown" (see WwEvent).
         void emit(WwEventKind kind,
                   int32_t stepIndex = -1,
-                  int32_t transitionIndex = -1) const;
+                  int32_t transitionIndex = -1,
+                  int32_t interactionHint = 0) const;
+
+        // WwEvent::interactionHint for a walk clicked at plan.steps[i]: 1 + the
+        // path tiles from its target to the next Transition's approach step
+        // (the last Walk before it) or to the plan's end, capped at
+        // kMaxInteractionHint.
+        int32_t interactionHintFor(std::size_t i) const;
 
         const format::ArtifactReader *artifact;
         runtime::ContextPool *pool;

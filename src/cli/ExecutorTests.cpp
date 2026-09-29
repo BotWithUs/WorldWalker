@@ -65,22 +65,27 @@ namespace ww::cli
         };
 
         // One walk hop as the executor announced it: the plan step it named,
-        // the plan it belongs to, where the player stood and what was clicked.
+        // the plan it belongs to, its interaction hint, where the player stood,
+        // and the tile the walkTo straight after the announcement clicked
+        // (isClicked stays false until one does).
         struct HopRecord
         {
             std::int32_t stepIndex;
             int          plan;
+            std::int32_t hint;
             exec::WwTile from;
             exec::WwTile target;
+            bool         isClicked;
         };
 
-        // One StepAdvanced of either kind, in order: the step, the plan, and
-        // whether it was a Transition.
+        // One StepAdvanced of either kind, in order: the step, the plan,
+        // whether it was a Transition, and its interaction hint.
         struct StepRecord
         {
             std::int32_t stepIndex;
             int          plan;
             bool         isTransition;
+            std::int32_t hint;
         };
 
         struct ExecHarness
@@ -191,12 +196,11 @@ namespace ww::cli
             // What the stride tests read back: every walk hop and crossing in
             // the order the executor announced them (StepAdvanced), numbered
             // by plan (planGeneration counts ReplanStarted events), with the
-            // tile the player stood on and the tile clicked for each hop.
-            // lastClickFrom / lastClickTarget are the latest walkTo's, which
-            // the hop's StepAdvanced follows.
+            // tile the player stood on and the tile clicked for each hop. A
+            // hop's StepAdvanced comes first; the next walkTo is its click
+            // (isHopClickPending), any later one a re-click.
             int                     planGeneration;
-            exec::WwTile            lastClickFrom;
-            exec::WwTile            lastClickTarget;
+            bool                    isHopClickPending;
             std::vector<HopRecord>  hops;
             std::vector<StepRecord> steps;
             // Walk clicks that leave the player walking but never on the
@@ -385,8 +389,12 @@ namespace ww::cli
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->walkToCalls;
-            h->lastClickFrom = h->position;
-            h->lastClickTarget = target;
+            if (h->isHopClickPending)
+            {
+                h->isHopClickPending = false;
+                h->hops.back().target = target;
+                h->hops.back().isClicked = true;
+            }
             if (h->isChatOpen || h->isOptionListOpen)
             {
                 return;
@@ -675,11 +683,14 @@ namespace ww::cli
             if (kind == exec::WwEventKind::StepAdvanced)
             {
                 const bool isTransition = event->transitionIndex >= 0;
-                h->steps.push_back({ event->stepIndex, h->planGeneration, isTransition });
+                h->steps.push_back({ event->stepIndex, h->planGeneration, isTransition,
+                                     event->interactionHint });
                 if (!isTransition)
                 {
-                    h->hops.push_back({ event->stepIndex, h->planGeneration, h->lastClickFrom,
-                                        h->lastClickTarget });
+                    h->hops.push_back({ event->stepIndex, h->planGeneration,
+                                        event->interactionHint, h->position, exec::WwTile{},
+                                        false });
+                    h->isHopClickPending = true;
                 }
             }
             else if (kind == exec::WwEventKind::Stuck)
@@ -2096,7 +2107,7 @@ namespace ww::cli
                 {
                     continue;
                 }
-                const bool isInPlan = hop.stepIndex > prev
+                const bool isInPlan = hop.isClicked && hop.stepIndex > prev
                     && static_cast<std::size_t>(hop.stepIndex) < plan.steps.size()
                     && isSameTile(stepTile(plan.steps[static_cast<std::size_t>(hop.stepIndex)]),
                                   hop.target);
@@ -2497,6 +2508,123 @@ namespace ww::cli
             return failures;
         }
 
+        // Interaction hints (test 4y). The value the WwEvent contract promises
+        // for a walk clicked at plan step i, worked out from the plan alone:
+        // 1 + the Chebyshev path tiles from its target through the following
+        // Walk steps up to the next Transition or the plan's end, capped.
+        constexpr std::int32_t kMaxInteractionHint = 1001;
+
+        std::int32_t promisedHint(const runtime::Plan &plan, std::size_t i)
+        {
+            std::int64_t tiles = 0;
+            for (std::size_t k = i + 1;
+                 k < plan.steps.size() && plan.steps[k].kind == runtime::StepKind::Walk; ++k)
+            {
+                tiles += tileChebyshev(stepTile(plan.steps[k - 1]), stepTile(plan.steps[k]));
+            }
+            return static_cast<std::int32_t>(std::min<std::int64_t>(tiles + 1, kMaxInteractionHint));
+        }
+
+        // What one run's first plan got wrong about hints: walk hops whose
+        // hint is not the promised one (or 0), walk hops whose hint did not
+        // fall from the hop before them on the way to the same interaction,
+        // and Transition announcements carrying anything but 0. Also counts
+        // the hops that ended on the step right before an interaction and
+        // said so with a 1.
+        struct HintTally
+        {
+            int wrong{0};
+            int notFalling{0};
+            int transitionNonZero{0};
+            int approachOnes{0};
+        };
+
+        void tallyHints(const ExecHarness &h, const runtime::Plan &plan, HintTally &io)
+        {
+            std::int32_t lastHint = 0;  // 0: no walk hop since the last Transition
+            for (const StepRecord &rec : h.steps)
+            {
+                if (rec.plan != 0)
+                {
+                    break;
+                }
+                if (rec.isTransition)
+                {
+                    io.transitionNonZero += rec.hint != 0 ? 1 : 0;
+                    lastHint = 0;
+                    continue;
+                }
+                const std::size_t at = static_cast<std::size_t>(rec.stepIndex);
+                const bool isBeforeInteraction = at + 1 == plan.steps.size()
+                    || plan.steps[at + 1].kind != runtime::StepKind::Walk;
+                io.wrong += (rec.hint <= 0 || rec.hint != promisedHint(plan, at)) ? 1 : 0;
+                io.notFalling += (lastHint != 0 && rec.hint >= lastHint) ? 1 : 0;
+                io.approachOnes += (isBeforeInteraction && rec.hint == 1) ? 1 : 0;
+                lastHint = rec.hint;
+            }
+        }
+
+        // Test 4y: every walk hop's StepAdvanced carries the interaction hint
+        // and comes before its walkTo (the harness fills each hop's target
+        // from the walkTo straight after it, so a click made before its event
+        // lands on the wrong hop and fails hopsFollowPlan). On a walk up to a
+        // crossing the hint counts down to 1 on the crossing's approach step,
+        // and the crossing's own StepAdvanced carries 0; on a long walk-only
+        // route it counts down to 1 on the step at the goal.
+        std::size_t testInteractionHint(ExecContext &ctx)
+        {
+            struct Fixture
+            {
+                const char       *label;
+                bool              isFound;
+                exec::WwTile      start;
+                exec::WwGoal      goal;
+                runtime::Plan     plan;
+                ExecHarnessMode   mode;
+            };
+            Fixture fixtures[2]{};
+            fixtures[0].label = "crossing";
+            fixtures[0].mode = ExecHarnessMode::SimulateTransition;
+            fixtures[0].isFound = pickWalkToCrossing(ctx, fixtures[0].start, fixtures[0].goal,
+                                                     fixtures[0].plan);
+            fixtures[1].label = "goal";
+            fixtures[1].mode = ExecHarnessMode::SimulateInstantWalk;
+            fixtures[1].isFound = pickLongWalk(ctx, fixtures[1].start, fixtures[1].goal,
+                                               fixtures[1].plan);
+            std::size_t failures = 0;
+            for (Fixture &f : fixtures)
+            {
+                if (!f.isFound)
+                {
+                    std::printf("  exec:   hint %s test skipped (no such route)\n", f.label);
+                    continue;
+                }
+                HintTally tally{};
+                int unordered = 0;
+                for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+                {
+                    ExecHarness harness = makeHarness(f.mode, f.start.x, f.start.y, f.start.plane);
+                    harness.landingRecords = ctx.reader.transitions();
+                    const exec::WwStatus status = runSeeded(ctx, harness, f.goal, seed);
+                    const bool isOrdered = status == exec::WwStatus::Arrived
+                                        && harness.replanStartedEvents == 0
+                                        && hopsFollowPlan(harness, f.plan);
+                    unordered += isOrdered ? 0 : 1;
+                    tallyHints(harness, f.plan, tally);
+                }
+                std::printf("  exec:   hint %s plan=%zu steps over %u seeds: unordered=%d wrong=%d"
+                            " not-falling=%d transition-nonzero=%d (expect 0,0,0,0)"
+                            " approach-ones=%d (expect %u)\n",
+                            f.label, f.plan.steps.size(), kStrideSeeds, unordered, tally.wrong,
+                            tally.notFalling, tally.transitionNonZero, tally.approachOnes,
+                            kStrideSeeds);
+                failures += (unordered == 0 && tally.wrong == 0 && tally.notFalling == 0
+                             && tally.transitionNonZero == 0) ? 0u : 1u;
+                failures += tally.approachOnes >= static_cast<int>(kStrideSeeds) ? 0u : 1u;
+            }
+            return failures;
+        }
+
         // Test 4c: in combat at the first plan, out of it after the first hop.
         // The walk-only goal needs no teleport, but the flip back out of combat
         // must still re-plan once, since that is the moment teleports come
@@ -2692,6 +2820,7 @@ namespace ww::cli
         failures += testStrideWildernessFence(ctx);
         failures += testWindingHopNoStall(ctx);
         failures += testStuckDeadline(ctx);
+        failures += testInteractionHint(ctx);
         failures += testFfi(ctx, artifactPath);
         return failures;
     }
