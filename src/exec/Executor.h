@@ -99,6 +99,9 @@ namespace ww::exec
     // The pool borrow is held across the loop so re-plans reuse the same
     // SearchContext without re-entering the blocking acquire path.
     //
+    // `disabledMoves` (WW_MOVE_* bits) keeps every plan of the run off those
+    // movement categories.
+    //
     // Stride, handoff radius and idle are drawn from a generator the Executor
     // owns and seeds at every run() entry: from std::random_device, or from
     // `fixedSeed` when one is given, so a test replays the same walk exactly.
@@ -112,7 +115,8 @@ namespace ww::exec
         Executor(const format::ArtifactReader &reader,
                  runtime::ContextPool &pool,
                  const Callbacks &callbacks,
-                 std::optional<uint32_t> fixedSeed = std::nullopt);
+                 std::optional<uint32_t> fixedSeed = std::nullopt,
+                 uint32_t disabledMoves = 0);
 
         // Wall-clock budget of a walk hop covering `pathTiles` path tiles:
         // a fixed base plus a per-tile allowance, so a long click is not
@@ -591,6 +595,10 @@ namespace ww::exec
         // handoff and idle is drawn from; reseeded at run() entry.
         std::optional<uint32_t> fixedSeed;
         std::mt19937 rng;
+
+        // Movement categories (format::MoveCategory bits) every plan and
+        // re-plan of this run refuses; see ww_executor_run_ex.
+        uint32_t disabledMoves{0};
     };
 }
 

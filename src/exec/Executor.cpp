@@ -185,14 +185,16 @@ namespace ww::exec
     Executor::Executor(const format::ArtifactReader &reader,
                        runtime::ContextPool &pool,
                        const Callbacks &callbacks,
-                       std::optional<uint32_t> fixedSeed)
+                       std::optional<uint32_t> fixedSeed,
+                       uint32_t disabledMoves)
         : artifact(&reader),
           pool(&pool),
           callbacks(&callbacks),
           planVarbitIds(reader.requirementVarbitIds().begin(),
                         reader.requirementVarbitIds().end()),
           requirementItemIds(reader.requirementItemIds()),
-          fixedSeed(fixedSeed)
+          fixedSeed(fixedSeed),
+          disabledMoves(disabledMoves)
     {
         if (std::find(planVarbitIds.begin(), planVarbitIds.end(), runtime::kInCombatVarbitId)
             == planVarbitIds.end())
@@ -918,6 +920,7 @@ namespace ww::exec
         {
             snapshot.excludeTransition(transitionIndex);
         }
+        snapshot.disableMoves(disabledMoves, artifact->moveCategories());
 
         // Re-derive the scene's dynamic-region grid on every (re-)plan, for the
         // same reason the capability snapshot is re-pulled: a single run can

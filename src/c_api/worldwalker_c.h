@@ -355,6 +355,33 @@ typedef struct WwCallbacks
     WwOnEventFn      onEvent;
 } WwCallbacks;
 
+/* ---- Movement categories ------------------------------------------------ */
+
+/* Every transition belongs to one movement category. A `disabledMoves` mask
+   (ww_executor_run_ex, ww_query_moves) with bit (1u << WW_MOVE_x) set keeps
+   the planner off every transition of that category, on the first plan and
+   every re-plan. 0 disables nothing. With WW_MOVE_DOORS set a route that
+   needs a closed door fails rather than open it.
+
+   Categories are read from the artifact as it is (no format change): the
+   transition kind, the travel interface its chain waits on, whether it
+   changes floor, and for locs the curated transport links click, a loc-id
+   table generated from the loc definitions (tools/move_categories). */
+#define WW_MOVE_DOORS          0u  /* doors and gates */
+#define WW_MOVE_SHORTCUTS      1u  /* agility shortcuts and obstacles */
+#define WW_MOVE_PLANE          2u  /* stairs, ladders, trapdoors, into dungeons */
+#define WW_MOVE_CLIMBOVERS     3u  /* stiles and walls climbed or stepped over */
+#define WW_MOVE_TRANSPORTS     4u  /* boats, carts, portals, other loc / NPC links */
+#define WW_MOVE_TELEPORTS      5u  /* spell and item teleports */
+#define WW_MOVE_LODESTONES     6u
+#define WW_MOVE_FAIRY_RINGS    7u
+#define WW_MOVE_SPIRIT_TREES   8u
+#define WW_MOVE_GLIDERS        9u
+#define WW_MOVE_CHARTERS      10u  /* charter ships */
+#define WW_MOVE_MAGIC_CARPETS 11u
+#define WW_MOVE_OTHER_CHAINS  12u  /* any other teleport_chains network */
+#define WW_MOVE_COUNT         13u
+
 /* ---- Executor entry ----------------------------------------------------- */
 
 /* Block the calling thread, plan a route from the player's live position to
@@ -366,6 +393,14 @@ WW_API int32_t ww_executor_run(ww_artifact      *artifact,
                                 ww_context_pool *pool,
                                 WwGoal           goal,
                                 const WwCallbacks *callbacks);
+
+/* ww_executor_run with movement categories switched off: `disabledMoves` as
+   described under WW_MOVE_*. ww_executor_run is exactly this call with 0. */
+WW_API int32_t ww_executor_run_ex(ww_artifact       *artifact,
+                                   ww_context_pool   *pool,
+                                   WwGoal             goal,
+                                   const WwCallbacks *callbacks,
+                                   uint32_t           disabledMoves);
 
 /* ---- Query result shapes ----------------------------------------------- */
 
@@ -436,6 +471,19 @@ WW_API ww_result ww_query_ex(ww_artifact                *artifact,
                               const WwCapabilitySnapshot *capabilities,
                               const WwInstanceChunks     *instance,
                               WwPath                     *outPath);
+
+/* ww_query_ex with movement categories switched off: ww_query_ex's
+   parameters plus a trailing `disabledMoves`, as described under WW_MOVE_*. `capabilities` may still be NULL, which admits
+   every requirement gate as before while the disabled categories stay
+   refused. ww_query_ex is exactly this call with 0. */
+WW_API ww_result ww_query_moves(ww_artifact                *artifact,
+                                 ww_context_pool            *pool,
+                                 WwTile                      start,
+                                 WwGoal                      goal,
+                                 const WwCapabilitySnapshot *capabilities,
+                                 const WwInstanceChunks     *instance,
+                                 WwPath                     *outPath,
+                                 uint32_t                    disabledMoves);
 
 /* Release a path produced by ww_query and zero its fields. Safe to call on
    a zero-initialised WwPath or with path == NULL. */

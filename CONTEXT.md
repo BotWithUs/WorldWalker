@@ -109,6 +109,10 @@ _Avoid_: waypoint, node, move, leg.
 One walk click the Executor makes: it clicks the furthest of the next few WALK steps within a stride it draws at random per click, never past a Transition step, so the steps in between are passed over rather than clicked. The Planner stays deterministic; the randomness is all the Executor's.
 _Avoid_: chunk (an 8 x 8-Tile block), leg, segment.
 
+**Movement category**:
+The kind of movement a Transition is, as a consumer that lets the player switch some off sees it: doors, shortcuts, plane (stairs, ladders, trapdoors), climb-overs, transports, teleports, lodestones, fairy rings, spirit trees, gliders, charters, magic carpets, other chains. Every Transition has exactly one, read from what the artifact holds (its kind, the travel interface its chain waits on, whether it changes floor, and for a curated loc a generated loc-id table). A query or walk given a mask of disabled categories never plans a Transition in one of them.
+_Avoid_: transport type (Transport is one kind of Transition and one category), mode.
+
 **Interaction hint**:
 The number a Hop's step-advanced event carries so the consumer can hold back movement abilities (Surge, Dive) that would overshoot something it must stop at: 1 + the path Tiles from the clicked Tile to the next Transition step's approach, or to the Goal when no Transition follows, capped at 1001. 1 means the click is the approach itself; 0 means unknown, and is what every other event and older libraries send.
 _Avoid_: distance (the value is offset by one and capped), padding.

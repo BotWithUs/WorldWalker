@@ -6,6 +6,7 @@
 #include "exec/Callbacks.h"
 #include "exec/Executor.h"
 #include "format/Artifact.h"
+#include "format/MoveCategory.h"
 #include "runtime/AreaSearch.h"
 #include "runtime/CapabilitySnapshot.h"
 #include "runtime/ContextPool.h"
@@ -79,13 +80,14 @@ namespace ww::cli
         };
 
         // One StepAdvanced of either kind, in order: the step, the plan,
-        // whether it was a Transition, and its interaction hint.
+        // whether it was a Transition (and which), and its interaction hint.
         struct StepRecord
         {
             std::int32_t stepIndex;
             int          plan;
             bool         isTransition;
             std::int32_t hint;
+            std::int32_t transitionIndex;
         };
 
         struct ExecHarness
@@ -684,7 +686,7 @@ namespace ww::cli
             {
                 const bool isTransition = event->transitionIndex >= 0;
                 h->steps.push_back({ event->stepIndex, h->planGeneration, isTransition,
-                                     event->interactionHint });
+                                     event->interactionHint, event->transitionIndex });
                 if (!isTransition)
                 {
                     h->hops.push_back({ event->stepIndex, h->planGeneration,
@@ -2075,12 +2077,14 @@ namespace ww::cli
         // checks every clicked target against it, so a plan that differed
         // would fail the test rather than hide behind it.
         bool planLikeExecutor(ExecContext &ctx, const exec::WwTile &start,
-                              const exec::WwGoal &goal, runtime::Plan &outPlan)
+                              const exec::WwGoal &goal, runtime::Plan &outPlan,
+                              std::uint32_t disabledMoves = 0)
         {
             runtime::AreaSearch    areaSearch(ctx.reader);
             runtime::TileSearch    tileSearch(ctx.view);
             runtime::PathAssembler assembler(ctx.reader, ctx.view, areaSearch, tileSearch);
-            const runtime::CapabilitySnapshot none;
+            runtime::CapabilitySnapshot none;
+            none.disableMoves(disabledMoves, ctx.reader.moveCategories());
             return assembler.assemble(start.x, start.y, start.plane, goal.x, goal.y, goal.plane,
                                       &none, outPlan)
                 && !outPlan.steps.empty();
@@ -2625,6 +2629,126 @@ namespace ww::cli
             return failures;
         }
 
+        // Transitions of movement category `category` the run announced, in
+        // any of its plans.
+        int crossingsIn(const ExecHarness &h, const format::ArtifactReader &reader,
+                        std::uint8_t category)
+        {
+            const auto categories = reader.moveCategories();
+            int n = 0;
+            for (const StepRecord &rec : h.steps)
+            {
+                const bool isInCategory = rec.isTransition && rec.transitionIndex >= 0
+                    && static_cast<std::size_t>(rec.transitionIndex) < categories.size()
+                    && categories[static_cast<std::size_t>(rec.transitionIndex)] == category;
+                n += isInCategory ? 1 : 0;
+            }
+            return n;
+        }
+
+        // A door the executor's plan crosses from beside it, and which it can
+        // also walk round when doors are disabled: the masked plan exists and
+        // starts with a walk (so a dropped click can stall it). Searches the
+        // first kMaxDetourTries door edges.
+        constexpr std::size_t kMaxDetourTries = 5000;
+
+        bool pickDetouredDoor(ExecContext &ctx, exec::WwTile &outStart, exec::WwGoal &outGoal)
+        {
+            constexpr auto kDoors = static_cast<std::uint8_t>(format::MoveCategory::Doors);
+            const auto edges = ctx.reader.areaEdges();
+            const auto txs = ctx.reader.transitions();
+            std::size_t tries = 0;
+            for (std::size_t i = 0; i < edges.size() && tries < kMaxDetourTries; ++i)
+            {
+                const std::uint32_t t = edges[i].transitionIndex;
+                if (t >= txs.size() || ctx.reader.moveCategories()[t] != kDoors
+                    || !isShortCrossing(txs[t]))
+                {
+                    continue;
+                }
+                ++tries;
+                const format::TransitionRecord &tx = txs[t];
+                const std::int32_t plane = static_cast<std::int32_t>(tx.originPlane);
+                const auto isInFromArea = [&](std::int32_t x, std::int32_t y)
+                {
+                    return ctx.view.isStandable(x, y, plane)
+                        && ctx.view.areaAt(x, y, plane) == edges[i].fromArea;
+                };
+                std::int32_t x = 0;
+                std::int32_t y = 0;
+                if (!runtime::findNearestTile(tx.originX, tx.originY,
+                                              data::kTransitionApproachRadius, true, isInFromArea,
+                                              tx.originX, tx.originY, x, y))
+                {
+                    continue;
+                }
+                const exec::WwTile start{ x, y, plane };
+                const exec::WwGoal goal{ tx.destX, tx.destY, static_cast<std::int32_t>(tx.destPlane),
+                                         0 };
+                runtime::Plan direct;
+                runtime::Plan detour;
+                const bool isUsable = planLikeExecutor(ctx, start, goal, direct)
+                    && planLikeExecutor(ctx, start, goal, detour, 1u << kDoors)
+                    && detour.steps.front().kind == runtime::StepKind::Walk
+                    && std::any_of(direct.steps.begin(), direct.steps.end(),
+                                   [&](const runtime::Step &s)
+                                   {
+                                       return s.kind == runtime::StepKind::Transition
+                                           && ctx.reader.moveCategories()[s.transitionIndex]
+                                                  == kDoors;
+                                   });
+                if (isUsable)
+                {
+                    outStart = start;
+                    outGoal = goal;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Test 4z: the executor's disabledMoves keeps every plan of the run,
+        // the first and each re-plan, off the category. Beside a door that
+        // can also be walked round: with the mask off the run goes through
+        // the door; with doors disabled and the first two walk clicks dropped
+        // (a stall, so a Stuck and a re-plan) it walks round, and no door is
+        // announced in any plan.
+        std::size_t testDisabledMoves(ExecContext &ctx)
+        {
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            if (!pickDetouredDoor(ctx, start, goal))
+            {
+                std::printf("  exec:   disabled-moves test skipped (no door with a way round)\n");
+                return 0;
+            }
+            const auto category = static_cast<std::uint8_t>(format::MoveCategory::Doors);
+            ExecHarness open = makeHarness(ExecHarnessMode::SimulateTransition,
+                                           start.x, start.y, start.plane);
+            std::printf("  exec:   disabled-moves door walk (%d,%d,p%d)->(%d,%d,p%d)\n", start.x,
+                        start.y, start.plane, goal.x, goal.y, goal.plane);
+            open.landingRecords = ctx.reader.transitions();
+            ExecHarness shut = open;
+            shut.droppedWalkClicks = 2;
+            const exec::WwStatus openStatus = runSeeded(ctx, open, goal, 1);
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &shut;
+            exec::Executor executor(ctx.reader, ctx.pool, cb, 1u, 1u << category);
+            const exec::WwStatus shutStatus = executor.run(goal);
+            const int openUses = crossingsIn(open, ctx.reader, category);
+            const int shutUses = crossingsIn(shut, ctx.reader, category);
+            std::printf("  exec:   disabled-moves category=%s off: status=%d uses=%d (expect 0, >= 1)"
+                        " on: status=%d uses=%d (expect 0, 0) stucks=%d replans=%d (expect >= 1)\n",
+                        format::moveCategoryName(static_cast<format::MoveCategory>(category)),
+                        static_cast<int>(openStatus), openUses, static_cast<int>(shutStatus),
+                        shutUses, shut.stuckEvents, shut.replanStartedEvents);
+            std::size_t failures = (openStatus == exec::WwStatus::Arrived && openUses >= 1) ? 0u : 1u;
+            failures += (shutStatus == exec::WwStatus::Arrived && shutUses == 0
+                         && shut.replanStartedEvents >= 1) ? 0u : 1u;
+            failures += (open.unexpectedActions == 0 && shut.unexpectedActions == 0) ? 0u : 1u;
+            return failures;
+        }
+
         // Test 4c: in combat at the first plan, out of it after the first hop.
         // The walk-only goal needs no teleport, but the flip back out of combat
         // must still re-plan once, since that is the moment teleports come
@@ -2821,6 +2945,7 @@ namespace ww::cli
         failures += testWindingHopNoStall(ctx);
         failures += testStuckDeadline(ctx);
         failures += testInteractionHint(ctx);
+        failures += testDisabledMoves(ctx);
         failures += testFfi(ctx, artifactPath);
         return failures;
     }
