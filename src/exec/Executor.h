@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <random>
 #include <span>
 #include <vector>
 
@@ -46,13 +47,22 @@ namespace ww::exec
     // the live position; the budget runs out before infinite-loop pathologies
     // do.
     //
-    // Walk step: walkTo(target), then poll readPosition with sleepTicks between
-    // samples; arrival = within the caller-supplied radius of the step target
-    // (kHandoffChebyshev when another Walk follows, so the next click fires
-    // mid-stride; kArrivalChebyshev when the next action needs an exact tile). A
-    // stalled-distance counter (no progress for N polls; the first trip only
+    // Walk hop: the planner's Walk steps are fine-grained, and the executor
+    // clicks ahead over a random stride of them (chooseHop): the furthest
+    // following Walk within a stride drawn per hop, never past a Transition,
+    // never beyond kMaxClickChebyshev of the player, and only the next step
+    // near the Wilderness fence the game's own pathfinder does not know about.
+    // The steps passed over are not executed; the cursor moves straight to
+    // the one clicked, so every event and re-plan names that step. Then
+    // walkTo(target), and poll readPosition with sleepTicks between samples;
+    // arrival = within the hop's radius of its target (random per hop when
+    // another Walk follows, so the next click fires mid-stride at an uneven
+    // point, now and then after a full stop and a short idle;
+    // kArrivalChebyshev when the next action needs an exact tile). A stall
+    // counter (the player's tile unchanged for N polls; the first trip only
     // re-clicks, since the game drops a click made mid forced-move) and a
-    // wall-clock deadline together detect "stuck" and surface as Failed; shouldCancel
+    // wall-clock deadline scaled by the hop's length together detect "stuck"
+    // and surface as Failed; shouldCancel
     // polled before every sleep aborts with Cancelled. The final live
     // position is written out so run() can drive re-plan / teleport-allowed
     // checks without re-reading.
@@ -89,6 +99,11 @@ namespace ww::exec
     // The pool borrow is held across the loop so re-plans reuse the same
     // SearchContext without re-entering the blocking acquire path.
     //
+    // Stride, handoff radius and idle are drawn from a generator the Executor
+    // owns and seeds at every run() entry: from std::random_device, or from
+    // `fixedSeed` when one is given, so a test replays the same walk exactly.
+    // The planner stays deterministic; all of the randomness lives here.
+    //
     // Non-copyable, non-movable (it holds references to the borrowed artifact,
     // pool, and callbacks — relocation would dangle them).
     class Executor
@@ -96,7 +111,13 @@ namespace ww::exec
     public:
         Executor(const format::ArtifactReader &reader,
                  runtime::ContextPool &pool,
-                 const Callbacks &callbacks);
+                 const Callbacks &callbacks,
+                 std::optional<uint32_t> fixedSeed = std::nullopt);
+
+        // Wall-clock budget of a walk hop covering `pathTiles` path tiles:
+        // a fixed base plus a per-tile allowance, so a long click is not
+        // judged stuck while the player is still honestly walking it.
+        static int64_t stuckDeadlineMs(int32_t pathTiles);
 
         Executor(const Executor &) = delete;
         Executor &operator=(const Executor &) = delete;
@@ -257,20 +278,68 @@ namespace ww::exec
                                     runtime::SearchContext &context, int32_t stepIndex,
                                     RunState &io, WwStatus &outStatus);
 
-        // Drive plan.steps[i]: a Walk with the arrival radius its successor
-        // demands, or a Transition. Writes the final live position and what
-        // the step learned (see StepReport). `view` is the run's context view,
-        // which a Transition's landing is judged against.
-        WwStatus executeStep(std::size_t i, const WwGoal &goal, runtime::WorldView &view,
-                             WwTile &outPosition, StepReport &outReport);
+        // Drive plan.steps[i]: a Walk hop of `hopTiles` path tiles with the
+        // handoff its successor demands, or a Transition. Writes the final
+        // live position and what the step learned (see StepReport). `view` is
+        // the run's context view, which a Transition's landing is judged
+        // against.
+        WwStatus executeStep(std::size_t i, int32_t hopTiles, const WwGoal &goal,
+                             runtime::WorldView &view, WwTile &outPosition,
+                             StepReport &outReport);
 
-        // Chebyshev distance at which the Walk step at index i counts as done:
-        // kHandoffChebyshev when another Walk follows (the next click fires
-        // while the avatar is still moving instead of stopping on each
-        // waypoint), 0 for the final walk of a radius-0 goal (the ARRIVED
-        // contract demands the exact tile, not its neighbour), else
-        // kArrivalChebyshev.
-        int32_t arrivalRadiusFor(std::size_t i, const WwGoal &goal) const;
+        // One walk click: the index of the Walk step it targets, and the path
+        // tiles from the player to that target through every step it passes
+        // over (the Chebyshev hop between consecutive targets stands in for a
+        // step's length, which the plan does not carry).
+        struct Hop
+        {
+            std::size_t last{0};
+            int32_t     pathTiles{0};
+        };
+
+        // The hop to click from `from` when plan.steps[first] is a Walk: the
+        // furthest consecutive Walk from `first` on whose path length the
+        // stride drawn for it (drawStride) still holds, stopping at a
+        // Transition (its approach walk is always clicked itself), at
+        // kMaxClickChebyshev of `from`, and, walking out of a tile that
+        // allows no teleport, at the first target that does (so the
+        // post-step re-plan onto a teleport fires where it did when every
+        // step was clicked). Only `first` when any target the hop would pass
+        // is near the Wilderness fence (isNearWildernessFence). Always at
+        // least `first`.
+        Hop chooseHop(std::size_t first, const WwTile &from, const WwGoal &goal);
+
+        // Desired stride of one hop in path tiles, from a mixture that keeps
+        // most clicks medium, some long and a few very long.
+        int32_t drawStride();
+
+        // Whether the planner fences this run's walks off the Wilderness: a
+        // player outside it walking to a goal outside it (the same rule as
+        // PathAssembler::decideWilderness, judged at `from`).
+        bool isWildernessFenced(const WwTile &from, const WwGoal &goal) const;
+
+        // Whether `at` lies within kWildernessMargin of any Wilderness box on
+        // its plane. A click there hands the route to the game's pathfinder,
+        // which may cut through the fenced tiles.
+        bool isNearWildernessFence(const WwTile &at) const;
+
+        // How a Walk hop hands over to what comes next: the Chebyshev radius
+        // at which it counts as done, and the ticks to idle after it.
+        struct Handoff
+        {
+            int32_t radius{0};
+            int32_t idleTicks{0};
+        };
+
+        // The handoff of the Walk hop ending at step i. When another Walk
+        // follows, a random radius in [kHandoffMinChebyshev,
+        // kHandoffMaxChebyshev] (the next click fires while the avatar is
+        // still moving, at a point that never repeats), or, one hop in
+        // kFullStopPercent, a full stop: arrive within kArrivalChebyshev and
+        // idle up to kFullStopMaxIdleTicks. Otherwise no idle, and 0 for the
+        // final walk of a radius-0 goal (the ARRIVED contract demands the
+        // exact tile, not its neighbour), else kArrivalChebyshev.
+        Handoff handoffFor(std::size_t i, const WwGoal &goal);
 
         // The plan drained without an in-loop arrival: the assembler's final
         // step targets the acceptance set, but the walk hands back at its
@@ -290,14 +359,16 @@ namespace ww::exec
         bool isAtGoalStandIn(const WwGoal &goal, runtime::WorldView &view,
                              const WwTile &at) const;
 
-        // Drive one Walk step to its target. Issues walkTo, then alternates
+        // Drive one Walk hop to its target. Issues walkTo, then alternates
         // shouldCancel / sleepTicks / readPosition until arrival, cancellation,
-        // a stalled-distance trip, or the wall-clock stuck deadline. Emits
+        // a stall trip (the player's tile unchanged, not the distance to the
+        // target: a winding hop moves away from its target for a while), or
+        // the stuck deadline for `pathTiles` (stuckDeadlineMs). Emits
         // StepAdvanced once at entry; emits Stuck on either failure path.
         // Writes the final sampled position to outPosition so run() can drive
         // re-plan / teleport-allowed checks without a redundant readPosition.
         WwStatus walkOneStep(const runtime::Step &step, int32_t stepIndex,
-                             int32_t arrivalRadius, WwTile &outPosition);
+                             int32_t arrivalRadius, int32_t pathTiles, WwTile &outPosition);
 
         // Drive one Transition step's interact + embedded chain. Looks up
         // the TransitionRecord, validates its chain range, fires interact for
@@ -504,6 +575,11 @@ namespace ww::exec
         // zone the next option-list pick sends. Both reset at run() entry.
         int32_t dialogActionsLeft{0};
         std::size_t answerCursor{0};
+
+        // The seed a test pinned, if any, and the generator every stride,
+        // handoff and idle is drawn from; reseeded at run() entry.
+        std::optional<uint32_t> fixedSeed;
+        std::mt19937 rng;
     };
 }
 

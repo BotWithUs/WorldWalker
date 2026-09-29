@@ -54,7 +54,7 @@ namespace ww::runtime
 
     // Orchestrates AreaSearch + TileSearch into a Step list. The area-graph A*
     // produces the route; tile-level A* refines each area-segment to legal moves;
-    // this class stitches them into chunked WALK steps and Transition steps.
+    // this class stitches them into short WALK steps and Transition steps.
     //
     // One instance per search context (ADR 0007). Borrows the artifact + searches
     // (which themselves borrow the same artifact / view), holds reusable scratch
@@ -198,8 +198,8 @@ namespace ww::runtime
         // most walks pay nothing for it.
         std::span<const format::WildernessRegion> wildernessFenceFor(int32_t area) const;
 
-        // Refine (fromX, fromY) -> (toX, toY) inside `area` and append chunked
-        // WALK steps to outPlan. Each step's target advances at most kWalkChunkTiles
+        // Refine (fromX, fromY) -> (toX, toY) inside `area` and append WALK
+        // steps to outPlan. Each step's target advances at most kWalkStepTiles
         // along the refined path; the final step always lands on the end tile.
         // A zero-distance refinement appends nothing.
         bool appendWalkSegment(int32_t fromX, int32_t fromY, int32_t toX, int32_t toY,

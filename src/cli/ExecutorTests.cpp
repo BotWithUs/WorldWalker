@@ -7,6 +7,7 @@
 #include "exec/Executor.h"
 #include "format/Artifact.h"
 #include "runtime/AreaSearch.h"
+#include "runtime/CapabilitySnapshot.h"
 #include "runtime/ContextPool.h"
 #include "runtime/PathAssembler.h"
 #include "runtime/TeleportPolicy.h"
@@ -16,11 +17,14 @@
 #include "runtime/WorldView.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <limits>
 #include <span>
+#include <thread>
 #include <vector>
 
 namespace ww::cli
@@ -58,6 +62,25 @@ namespace ww::cli
             SimulateInstantWalk    = 1,
             SimulateTransition     = 2,
             SimulateReplanRecovery = 3,
+        };
+
+        // One walk hop as the executor announced it: the plan step it named,
+        // the plan it belongs to, where the player stood and what was clicked.
+        struct HopRecord
+        {
+            std::int32_t stepIndex;
+            int          plan;
+            exec::WwTile from;
+            exec::WwTile target;
+        };
+
+        // One StepAdvanced of either kind, in order: the step, the plan, and
+        // whether it was a Transition.
+        struct StepRecord
+        {
+            std::int32_t stepIndex;
+            int          plan;
+            bool         isTransition;
         };
 
         struct ExecHarness
@@ -165,6 +188,28 @@ namespace ww::cli
             // DialogueAnswer steps the executor sent, and the last answer's text.
             int               answerCalls;
             char              lastAnswer[40];
+            // What the stride tests read back: every walk hop and crossing in
+            // the order the executor announced them (StepAdvanced), numbered
+            // by plan (planGeneration counts ReplanStarted events), with the
+            // tile the player stood on and the tile clicked for each hop.
+            // lastClickFrom / lastClickTarget are the latest walkTo's, which
+            // the hop's StepAdvanced follows.
+            int                     planGeneration;
+            exec::WwTile            lastClickFrom;
+            exec::WwTile            lastClickTarget;
+            std::vector<HopRecord>  hops;
+            std::vector<StepRecord> steps;
+            // Walk clicks that leave the player walking but never on the
+            // target: wanderPollsLeft polls of heading away from it (a winding
+            // long hop), then the target; or, with isWanderingForever, a
+            // player pacing between two tiles until the executor calls it
+            // Stuck, with the time from that first click to the Stuck event.
+            int                     wanderPollsLeft;
+            bool                    isWanderingForever;
+            bool                    hasWanderTarget;
+            exec::WwTile            wanderTarget;
+            std::chrono::steady_clock::time_point wanderStart;
+            std::int64_t            wanderStuckMs;
         };
 
         // Every callback that can surprise the harness. The class each one
@@ -340,6 +385,8 @@ namespace ww::cli
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->walkToCalls;
+            h->lastClickFrom = h->position;
+            h->lastClickTarget = target;
             if (h->isChatOpen || h->isOptionListOpen)
             {
                 return;
@@ -371,6 +418,17 @@ namespace ww::cli
             {
                 return;
             }
+            if (h->wanderPollsLeft > 0 || h->isWanderingForever)
+            {
+                // A re-click keeps the wander (and its clock) going.
+                if (!h->hasWanderTarget)
+                {
+                    h->wanderStart = std::chrono::steady_clock::now();
+                }
+                h->wanderTarget = target;
+                h->hasWanderTarget = true;
+                return;
+            }
             if (h->mode == ExecHarnessMode::SimulateInstantWalk
                 || h->mode == ExecHarnessMode::SimulateTransition)
             {
@@ -380,7 +438,7 @@ namespace ww::cli
             {
                 // Stall until the harness flips walkToUpdatesPosition on the
                 // executor's first ReplanStarted event. The first walk never
-                // moves the simulated player, so the stalled-distance counter
+                // moves the simulated player, so the unmoved-player stall counter
                 // trips at kStalledPollsTrip polls -> Stuck -> run() re-plans.
                 if (h->walkToUpdatesPosition)
                 {
@@ -549,10 +607,39 @@ namespace ww::cli
             }
         }
 
+        // One poll's worth of a wandering walk. Pacing forever: two tiles well
+        // outside any arrival radius, alternately, so the player moves on every
+        // poll and never lands; a real millisecond passes too, so the wait for
+        // the wall-clock deadline is not a hot loop. Otherwise one tile further
+        // from the target per poll, and on the last poll the target itself.
+        void wanderOnePoll(ExecHarness *h)
+        {
+            if (h->isWanderingForever)
+            {
+                const std::int32_t paceX = h->position.x == h->wanderTarget.x + 10 ? 11 : 10;
+                h->position = exec::WwTile{ h->wanderTarget.x + paceX, h->wanderTarget.y,
+                                            h->wanderTarget.plane };
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                return;
+            }
+            --h->wanderPollsLeft;
+            if (h->wanderPollsLeft <= 0)
+            {
+                h->position = h->wanderTarget;
+                h->hasWanderTarget = false;
+                return;
+            }
+            h->position.x += h->position.x >= h->wanderTarget.x ? 1 : -1;
+        }
+
         extern "C" void harnessSleepTicks(void *user, std::int32_t ticks)
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->sleepTicksCalls;
+            if (h->hasWanderTarget)
+            {
+                wanderOnePoll(h);
+            }
             if (h->pendingLandingTicks > 0)
             {
                 h->pendingLandingTicks -= ticks;
@@ -585,9 +672,29 @@ namespace ww::cli
             ++h->onEventCalls;
             const auto kind = static_cast<exec::WwEventKind>(event->kind);
             h->lastEventKind = kind;
-            if (kind == exec::WwEventKind::Stuck)
+            if (kind == exec::WwEventKind::StepAdvanced)
+            {
+                const bool isTransition = event->transitionIndex >= 0;
+                h->steps.push_back({ event->stepIndex, h->planGeneration, isTransition });
+                if (!isTransition)
+                {
+                    h->hops.push_back({ event->stepIndex, h->planGeneration, h->lastClickFrom,
+                                        h->lastClickTarget });
+                }
+            }
+            else if (kind == exec::WwEventKind::Stuck)
             {
                 ++h->stuckEvents;
+                if (h->isWanderingForever)
+                {
+                    // Deadline reached: stop pacing and let the re-plan land.
+                    const auto elapsed = std::chrono::steady_clock::now() - h->wanderStart;
+                    h->wanderStuckMs =
+                        std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count();
+                    h->isWanderingForever = false;
+                    h->hasWanderTarget = false;
+                    h->position = h->wanderTarget;
+                }
             }
             else if (kind == exec::WwEventKind::Failed)
             {
@@ -596,6 +703,7 @@ namespace ww::cli
             else if (kind == exec::WwEventKind::ReplanStarted)
             {
                 ++h->replanStartedEvents;
+                ++h->planGeneration;
                 // SimulateReplanRecovery: the executor has just consumed one
                 // re-plan from its budget. Flipping the flag lets the next walk
                 // arrive normally so the run terminates Arrived.
@@ -817,7 +925,7 @@ namespace ww::cli
         }
 
         // Test 4: stuck -> re-plan -> recover. The first walk's walkTo does NOT
-        // advance the simulated position, so the stalled-distance counter trips
+        // advance the simulated position, so the unmoved-player stall counter trips
         // and walkOneStep emits Stuck and returns Failed. run() then issues
         // ReplanStarted; on that event the harness flips walkToUpdatesPosition,
         // so the re-planned walk arrives on its first poll. Final terminal:
@@ -1931,39 +2039,490 @@ namespace ww::cli
             return failures;
         }
 
-        // Test 4c: in combat at the first plan, out of it after the first step.
+        // Walk hops (tests 4s-4x). The executor clicks ahead over a random
+        // stride of the plan's Walk steps, so each test drives many pinned
+        // seeds and checks a rule every one of them must keep. The two limits
+        // mirror the executor's own; a test that re-derived them from the
+        // executor would pass whatever the executor did.
+        constexpr std::uint32_t kStrideSeeds       = 25;
+        constexpr std::int32_t  kMaxClickChebyshev = 32;
+        constexpr std::int32_t  kWildernessMargin  = 8;
+        constexpr std::int32_t  kOldStepTiles      = 16;  // the fixed click before strides
+
+        std::int32_t tileChebyshev(const exec::WwTile &a, const exec::WwTile &b)
+        {
+            return std::max(std::abs(a.x - b.x), std::abs(a.y - b.y));
+        }
+
+        exec::WwTile stepTile(const runtime::Step &step)
+        {
+            return exec::WwTile{ step.targetX, step.targetY, static_cast<std::int32_t>(step.plane) };
+        }
+
+        // The plan the executor makes for a walk: the same assembler over the
+        // same empty capabilities the harness reports. Each stride test also
+        // checks every clicked target against it, so a plan that differed
+        // would fail the test rather than hide behind it.
+        bool planLikeExecutor(ExecContext &ctx, const exec::WwTile &start,
+                              const exec::WwGoal &goal, runtime::Plan &outPlan)
+        {
+            runtime::AreaSearch    areaSearch(ctx.reader);
+            runtime::TileSearch    tileSearch(ctx.view);
+            runtime::PathAssembler assembler(ctx.reader, ctx.view, areaSearch, tileSearch);
+            const runtime::CapabilitySnapshot none;
+            return assembler.assemble(start.x, start.y, start.plane, goal.x, goal.y, goal.plane,
+                                      &none, outPlan)
+                && !outPlan.steps.empty();
+        }
+
+        // Run one walk from `harness` with the executor's seed pinned.
+        exec::WwStatus runSeeded(ExecContext &ctx, ExecHarness &ioHarness, const exec::WwGoal &goal,
+                                 std::uint32_t seed)
+        {
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &ioHarness;
+            exec::Executor executor(ctx.reader, ctx.pool, cb, seed);
+            return executor.run(goal);
+        }
+
+        // Whether every hop of the first plan clicked its own step's target
+        // and the hops only ever moved forward.
+        bool hopsFollowPlan(const ExecHarness &h, const runtime::Plan &plan)
+        {
+            std::int32_t prev = -1;
+            for (const HopRecord &hop : h.hops)
+            {
+                if (hop.plan != 0)
+                {
+                    continue;
+                }
+                const bool isInPlan = hop.stepIndex > prev
+                    && static_cast<std::size_t>(hop.stepIndex) < plan.steps.size()
+                    && isSameTile(stepTile(plan.steps[static_cast<std::size_t>(hop.stepIndex)]),
+                                  hop.target);
+                if (!isInPlan)
+                {
+                    return false;
+                }
+                prev = hop.stepIndex;
+            }
+            return true;
+        }
+
+        // A long walk-only route: from the centroid of the largest area whose
+        // centroid lies in it to its farthest tile within 96, when the plan
+        // has at least eight Walk steps and no Transition.
+        bool pickLongWalk(ExecContext &ctx, exec::WwTile &outStart, exec::WwGoal &outGoal,
+                          runtime::Plan &outPlan)
+        {
+            const auto nodes = ctx.reader.areaNodes();
+            std::size_t best = nodes.size();
+            for (std::size_t a = 0; a < nodes.size(); ++a)
+            {
+                const format::AreaNodeRecord &n = nodes[a];
+                const bool isOwnCentroid = ctx.view.areaAt(n.centroidX, n.centroidY,
+                    static_cast<std::int32_t>(n.plane)) == static_cast<std::int32_t>(a);
+                if (isOwnCentroid && (best == nodes.size() || n.tileCount > nodes[best].tileCount))
+                {
+                    best = a;
+                }
+            }
+            if (best == nodes.size())
+            {
+                return false;
+            }
+            const format::AreaNodeRecord &n = nodes[best];
+            const std::int32_t plane = static_cast<std::int32_t>(n.plane);
+            const runtime::TilePoint far = farthestInArea(ctx.view, n.centroidX, n.centroidY, plane,
+                                                          static_cast<std::int32_t>(best), 96);
+            outStart = exec::WwTile{ n.centroidX, n.centroidY, plane };
+            outGoal = exec::WwGoal{ far.x, far.y, plane, 0 };
+            if (!planLikeExecutor(ctx, outStart, outGoal, outPlan) || outPlan.steps.size() < 8)
+            {
+                return false;
+            }
+            return std::all_of(outPlan.steps.begin(), outPlan.steps.end(), [](const runtime::Step &s)
+            {
+                return s.kind == runtime::StepKind::Walk;
+            });
+        }
+
+        // Test 4s: on a long walk, no click ever lands beyond the scene cap,
+        // every hop clicks a step of the plan and moves forward, and across
+        // the seeds some clicks reach past the old fixed 16 tiles.
+        std::size_t testStrideCap(ExecContext &ctx)
+        {
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            runtime::Plan plan;
+            if (!pickLongWalk(ctx, start, goal, plan))
+            {
+                std::printf("  exec:   stride-cap test skipped (no long walk-only route)\n");
+                return 0;
+            }
+            std::size_t failures = 0;
+            std::int32_t longest = 0;
+            std::int32_t shortest = std::numeric_limits<std::int32_t>::max();
+            int overCap = 0;
+            int hopCount = 0;
+            for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                                  start.x, start.y, start.plane);
+                const exec::WwStatus status = runSeeded(ctx, harness, goal, seed);
+                failures += (status == exec::WwStatus::Arrived && hopsFollowPlan(harness, plan)
+                             && harness.unexpectedActions == 0) ? 0u : 1u;
+                for (const HopRecord &hop : harness.hops)
+                {
+                    const std::int32_t click = tileChebyshev(hop.from, hop.target);
+                    longest = std::max(longest, click);
+                    shortest = std::min(shortest, click);
+                    overCap += click > kMaxClickChebyshev ? 1 : 0;
+                    ++hopCount;
+                }
+            }
+            std::printf("  exec:   stride-cap (%d,%d)->(%d,%d) plan=%zu steps: %d hops over %u seeds,"
+                        " click %d..%d tiles (expect max > %d, <= %d) over-cap=%d (expect 0)\n",
+                        start.x, start.y, goal.x, goal.y, plan.steps.size(), hopCount, kStrideSeeds,
+                        shortest, longest, kOldStepTiles, kMaxClickChebyshev, overCap);
+            failures += overCap == 0 ? 0u : 1u;
+            failures += longest > kOldStepTiles ? 0u : 1u;
+            return failures;
+        }
+
+        bool isSameHops(const ExecHarness &a, const ExecHarness &b)
+        {
+            if (a.hops.size() != b.hops.size() || a.sleepTicksCalls != b.sleepTicksCalls)
+            {
+                return false;
+            }
+            for (std::size_t i = 0; i < a.hops.size(); ++i)
+            {
+                const HopRecord &x = a.hops[i];
+                const HopRecord &y = b.hops[i];
+                if (x.stepIndex != y.stepIndex || !isSameTile(x.from, y.from)
+                    || !isSameTile(x.target, y.target))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Test 4t: a pinned seed replays the same walk (the same hops and the
+        // same idles); another seed walks it differently.
+        std::size_t testStrideDeterministic(ExecContext &ctx)
+        {
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            runtime::Plan plan;
+            if (!pickLongWalk(ctx, start, goal, plan))
+            {
+                std::printf("  exec:   stride-seed test skipped (no long walk-only route)\n");
+                return 0;
+            }
+            ExecHarness first = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                            start.x, start.y, start.plane);
+            ExecHarness again = first;
+            ExecHarness other = first;
+            const exec::WwStatus s1 = runSeeded(ctx, first, goal, 7);
+            const exec::WwStatus s2 = runSeeded(ctx, again, goal, 7);
+            const exec::WwStatus s3 = runSeeded(ctx, other, goal, 8);
+            const bool isReplayed = isSameHops(first, again);
+            const bool isVaried = !isSameHops(first, other);
+            std::printf("  exec:   stride-seed status=%d,%d,%d (expect 0,0,0) hops=%zu,%zu,%zu"
+                        " sleeps=%d,%d,%d same-seed-equal=%d (expect 1) other-seed-differs=%d"
+                        " (expect 1)\n",
+                        static_cast<int>(s1), static_cast<int>(s2), static_cast<int>(s3),
+                        first.hops.size(), again.hops.size(), other.hops.size(),
+                        first.sleepTicksCalls, again.sleepTicksCalls, other.sleepTicksCalls,
+                        isReplayed ? 1 : 0, isVaried ? 1 : 0);
+            std::size_t failures = (s1 == exec::WwStatus::Arrived && s2 == exec::WwStatus::Arrived
+                                    && s3 == exec::WwStatus::Arrived) ? 0u : 1u;
+            failures += isReplayed ? 0u : 1u;
+            failures += isVaried ? 0u : 1u;
+            return failures;
+        }
+
+        // How many Walk steps come straight before step `t` of `plan`.
+        std::size_t walksBefore(const runtime::Plan &plan, std::size_t t)
+        {
+            std::size_t n = 0;
+            while (n < t && plan.steps[t - 1 - n].kind == runtime::StepKind::Walk)
+            {
+                ++n;
+            }
+            return n;
+        }
+
+        // A route that walks at least three steps up to a crossing: from the
+        // far side of the first short crossing's area to its destination.
+        bool pickWalkToCrossing(ExecContext &ctx, exec::WwTile &outStart, exec::WwGoal &outGoal,
+                                runtime::Plan &outPlan)
+        {
+            CrossAreaPick pick{};
+            if (!pickCrossAreaPair(ctx.reader, ctx.view, isShortCrossing, pick))
+            {
+                return false;
+            }
+            const std::int32_t area = ctx.view.areaAt(pick.start.x, pick.start.y, pick.startPlane);
+            const runtime::TilePoint far =
+                farthestInArea(ctx.view, pick.start.x, pick.start.y, pick.startPlane, area, 48);
+            outStart = exec::WwTile{ far.x, far.y, pick.startPlane };
+            outGoal = exec::WwGoal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
+            if (!planLikeExecutor(ctx, outStart, outGoal, outPlan))
+            {
+                return false;
+            }
+            for (std::size_t t = 0; t < outPlan.steps.size(); ++t)
+            {
+                if (outPlan.steps[t].kind == runtime::StepKind::Transition && walksBefore(outPlan, t) >= 3)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Whether the first plan's announced steps kept every Transition they
+        // reached: each one announced straight after the step before it, and
+        // no two announced steps with a Transition between them. Counts the
+        // hops that passed over steps into ioSkips.
+        bool keepsEveryCrossing(const ExecHarness &h, const runtime::Plan &plan, int &ioSkips)
+        {
+            std::int32_t prev = -1;
+            for (const StepRecord &rec : h.steps)
+            {
+                if (rec.plan != 0)
+                {
+                    break;
+                }
+                for (std::int32_t k = prev + 1; k < rec.stepIndex; ++k)
+                {
+                    if (plan.steps[static_cast<std::size_t>(k)].kind != runtime::StepKind::Walk)
+                    {
+                        return false;  // passed over a Transition
+                    }
+                }
+                const std::size_t at = static_cast<std::size_t>(rec.stepIndex);
+                if (rec.isTransition && rec.stepIndex > 0 && prev != rec.stepIndex - 1)
+                {
+                    return false;  // its approach walk was not the last thing done
+                }
+                if (rec.isTransition != (plan.steps[at].kind == runtime::StepKind::Transition))
+                {
+                    return false;
+                }
+                ioSkips += rec.stepIndex > prev + 1 ? 1 : 0;
+                prev = rec.stepIndex;
+            }
+            return prev >= 0;
+        }
+
+        // Test 4u: striding never passes a Transition. Walking a few steps up
+        // to a crossing, the walk clicked last before it is always the step
+        // straight before it, whatever the seed, while hops elsewhere still
+        // pass over steps.
+        std::size_t testStrideStopsAtCrossing(ExecContext &ctx)
+        {
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            runtime::Plan plan;
+            if (!pickWalkToCrossing(ctx, start, goal, plan))
+            {
+                std::printf("  exec:   stride-crossing test skipped (no long walk to a crossing)\n");
+                return 0;
+            }
+            std::size_t failures = 0;
+            int skips = 0;
+            int broken = 0;
+            for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition,
+                                                  start.x, start.y, start.plane);
+                harness.landingRecords = ctx.reader.transitions();
+                const exec::WwStatus status = runSeeded(ctx, harness, goal, seed);
+                const bool isKept = status == exec::WwStatus::Arrived
+                                 && harness.replanStartedEvents == 0
+                                 && hopsFollowPlan(harness, plan)
+                                 && keepsEveryCrossing(harness, plan, skips)
+                                 && harness.unexpectedActions == 0;
+                broken += isKept ? 0 : 1;
+            }
+            std::printf("  exec:   stride-crossing (%d,%d)->(%d,%d) plan=%zu steps: broken=%d of %u"
+                        " seeds (expect 0) skipping-hops=%d (expect > 0)\n",
+                        start.x, start.y, goal.x, goal.y, plan.steps.size(), broken, kStrideSeeds,
+                        skips);
+            failures += broken == 0 ? 0u : 1u;
+            failures += skips > 0 ? 0u : 1u;
+            return failures;
+        }
+
+        bool isNearWilderness(const format::ArtifactReader &reader, const exec::WwTile &at)
+        {
+            for (const format::WildernessRegion &w : reader.wildernessRegions())
+            {
+                const std::int32_t dx = std::max({ w.minX - at.x, at.x - w.maxX, 0 });
+                const std::int32_t dy = std::max({ w.minY - at.y, at.y - w.maxY, 0 });
+                const bool isOnPlane = at.plane >= w.planeMin && at.plane <= w.planeMax;
+                if (isOnPlane && std::max(dx, dy) <= kWildernessMargin)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Test 4v: along the Wilderness ditch north of Edgeville, a hop never
+        // passes over a step near the fence: there each step is clicked in
+        // turn, since the game's own pathfinder would route a far click
+        // through the fenced tiles. A fixed fixture on purpose (the ditch is
+        // what is under test); skipped when the artifact does not bake it.
+        std::size_t testStrideWildernessFence(ExecContext &ctx)
+        {
+            const exec::WwTile start{ 3094, 3491, 0 };
+            const exec::WwGoal goal{ 3130, 3516, 0, 0 };
+            runtime::Plan plan;
+            std::size_t nearSteps = 0;
+            if (ctx.reader.wildernessRegions().empty() || !planLikeExecutor(ctx, start, goal, plan))
+            {
+                std::printf("  exec:   stride-wilderness test skipped (no Edgeville ditch walk)\n");
+                return 0;
+            }
+            for (const runtime::Step &step : plan.steps)
+            {
+                nearSteps += isNearWilderness(ctx.reader, stepTile(step)) ? 1u : 0u;
+            }
+            if (nearSteps == 0)
+            {
+                std::printf("  exec:   stride-wilderness test skipped (route keeps clear of the"
+                            " fence)\n");
+                return 0;
+            }
+            std::size_t failures = 0;
+            int crossedNear = 0;
+            int nearHops = 0;
+            for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                                  start.x, start.y, start.plane);
+                const exec::WwStatus status = runSeeded(ctx, harness, goal, seed);
+                failures += (status == exec::WwStatus::Arrived && hopsFollowPlan(harness, plan))
+                                ? 0u : 1u;
+                std::int32_t prev = -1;
+                for (const HopRecord &hop : harness.hops)
+                {
+                    bool isSpanNear = false;
+                    for (std::int32_t k = prev + 1; k <= hop.stepIndex; ++k)
+                    {
+                        isSpanNear = isSpanNear || isNearWilderness(ctx.reader,
+                            stepTile(plan.steps[static_cast<std::size_t>(k)]));
+                    }
+                    nearHops += isSpanNear ? 1 : 0;
+                    crossedNear += (isSpanNear && hop.stepIndex > prev + 1) ? 1 : 0;
+                    prev = hop.stepIndex;
+                }
+            }
+            std::printf("  exec:   stride-wilderness plan=%zu steps (%zu near the fence):"
+                        " near-fence hops=%d multi-step-near=%d (expect 0)\n",
+                        plan.steps.size(), nearSteps, nearHops, crossedNear);
+            failures += crossedNear == 0 ? 0u : 1u;
+            failures += nearHops > 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4w: a long hop winds away from its target for several polls
+        // (round a building) before it gets there. The player moves on every
+        // poll, so it is not a stall: no re-click, no Stuck. The old test,
+        // distance to the target not falling, re-clicked at the third poll
+        // and gave up at the sixth.
+        std::size_t testWindingHopNoStall(ExecContext &ctx)
+        {
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              ctx.node.centroidX, ctx.node.centroidY, ctx.plane);
+            harness.wanderPollsLeft = 8;
+            const exec::WwGoal goal{ ctx.farthest.x, ctx.farthest.y, ctx.plane, 0 };
+            const exec::WwStatus status = runSeeded(ctx, harness, goal, 3);
+
+            const int reclicks = harness.walkToCalls - static_cast<int>(harness.hops.size());
+            std::printf("  exec:   winding-hop status=%d (expect 0) stucks=%d replans=%d re-clicks=%d"
+                        " (expect 0, 0, 0)\n",
+                        static_cast<int>(status), harness.stuckEvents, harness.replanStartedEvents,
+                        reclicks);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += (harness.stuckEvents == 0 && harness.replanStartedEvents == 0
+                         && reclicks == 0) ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4x: the stuck deadline grows with the hop. The arithmetic
+        // against fixed values, then the live clock: a player who paces
+        // forever (moving, so never a stall) is called Stuck no sooner than
+        // the deadline of the hop's length and not long after. Takes that
+        // deadline (about 9 s) of wall-clock time.
+        std::size_t testStuckDeadline(ExecContext &ctx)
+        {
+            const bool isScaled = exec::Executor::stuckDeadlineMs(0) == 8000
+                               && exec::Executor::stuckDeadlineMs(1) == 8900
+                               && exec::Executor::stuckDeadlineMs(35) == 39500;
+            const runtime::TilePoint near = farthestInArea(ctx.view, ctx.node.centroidX,
+                                                           ctx.node.centroidY, ctx.plane,
+                                                           ctx.view.areaAt(ctx.node.centroidX,
+                                                                           ctx.node.centroidY,
+                                                                           ctx.plane),
+                                                           2);
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              ctx.node.centroidX, ctx.node.centroidY, ctx.plane);
+            harness.isWanderingForever = true;
+            const exec::WwStatus status =
+                runSeeded(ctx, harness, exec::WwGoal{ near.x, near.y, ctx.plane, 0 }, 1);
+
+            const std::int32_t hopTiles = harness.hops.empty()
+                ? 0 : tileChebyshev(harness.hops[0].from, harness.hops[0].target);
+            const std::int64_t wantMs = exec::Executor::stuckDeadlineMs(hopTiles);
+            constexpr std::int64_t kLateSlackMs = 2000;
+            const bool isOnTime = harness.wanderStuckMs >= wantMs
+                               && harness.wanderStuckMs <= wantMs + kLateSlackMs;
+            std::printf("  exec:   stuck-deadline table=%d (expect 1) hop=%d tiles stuck after %lld ms"
+                        " (expect %lld..%lld) stucks=%d (expect 1) status=%d (expect 0)\n",
+                        isScaled ? 1 : 0, hopTiles, static_cast<long long>(harness.wanderStuckMs),
+                        static_cast<long long>(wantMs),
+                        static_cast<long long>(wantMs + kLateSlackMs), harness.stuckEvents,
+                        static_cast<int>(status));
+            std::size_t failures = isScaled ? 0u : 1u;
+            failures += (!harness.hops.empty() && isOnTime && harness.stuckEvents == 1) ? 0u : 1u;
+            failures += status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4c: in combat at the first plan, out of it after the first hop.
         // The walk-only goal needs no teleport, but the flip back out of combat
         // must still re-plan once, since that is the moment teleports come
-        // back into consideration (V1 interrupted its walk the same way).
+        // back into consideration (V1 interrupted its walk the same way). The
+        // walk is the long one, past the longest stride: a walk one hop can
+        // cover arrives before the flip is ever looked at.
         std::size_t testCombatEndReplan(ExecContext &ctx)
         {
-            if (!runtime::isTeleportAllowed(ctx.reader, ctx.node.centroidX, ctx.node.centroidY,
-                                            ctx.plane))
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            runtime::Plan plan;
+            if (!pickLongWalk(ctx, start, goal, plan))
+            {
+                std::printf("  exec:   combat test skipped (no long walk-only route)\n");
+                return 0;
+            }
+            if (!runtime::isTeleportAllowed(ctx.reader, start.x, start.y, start.plane))
             {
                 std::printf("  exec:   combat test skipped (start tile is not teleport-allowed)\n");
                 return 0;
             }
-            runtime::AreaSearch    refAreaSearch(ctx.reader);
-            runtime::TileSearch    refTileSearch(ctx.view);
-            runtime::PathAssembler refAssembler(ctx.reader, ctx.view, refAreaSearch, refTileSearch);
-            runtime::Plan refPlan;
-            if (!refAssembler.assemble(ctx.node.centroidX, ctx.node.centroidY, ctx.plane,
-                                       ctx.farthest.x, ctx.farthest.y, ctx.plane, refPlan)
-                || refPlan.steps.size() < 2)
-            {
-                std::printf("  exec:   combat test skipped (walk has fewer than two steps)\n");
-                return 0;
-            }
 
             ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
-                                              ctx.node.centroidX, ctx.node.centroidY, ctx.plane);
+                                              start.x, start.y, start.plane);
             harness.inCombatReadsLeft = 1;
-            exec::Callbacks cb = kCallbackPrototype;
-            cb.user = &harness;
-
-            exec::Executor executor(ctx.reader, ctx.pool, cb);
-            const exec::WwGoal goal{ ctx.farthest.x, ctx.farthest.y, ctx.plane, 0 };
-            const exec::WwStatus status = executor.run(goal);
+            const exec::WwStatus status = runSeeded(ctx, harness, goal, 1);
 
             std::printf("  exec:   combat-end status=%d (expect 0=Arrived) replans=%d (expect 1)"
                         " combat-reads=%d (expect >= 2)\n",
@@ -2127,6 +2686,12 @@ namespace ww::cli
         failures += testChatNeverCloses(ctx);
         failures += testZoneAnswer(ctx);
         failures += testNoZoneNeverAnswers(ctx);
+        failures += testStrideCap(ctx);
+        failures += testStrideDeterministic(ctx);
+        failures += testStrideStopsAtCrossing(ctx);
+        failures += testStrideWildernessFence(ctx);
+        failures += testWindingHopNoStall(ctx);
+        failures += testStuckDeadline(ctx);
         failures += testFfi(ctx, artifactPath);
         return failures;
     }

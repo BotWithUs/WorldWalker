@@ -21,10 +21,12 @@ namespace ww::runtime
 {
     namespace
     {
-        // Tunable: maximum tiles per emitted WALK step. The executor re-issues a
-        // walkTo at each chunk endpoint, which doubles as the natural cadence for
-        // mid-walk stuck / drift checks (open tuning per the implementation plan).
-        constexpr std::size_t kWalkChunkTiles = 16;
+        // Tunable: maximum tiles per emitted WALK step. Kept short on purpose:
+        // the executor clicks ahead over a random stride of these steps
+        // (Executor::chooseHop), so they are the points it picks its clicks
+        // from, and a finer grid gives it more of them. The planner itself
+        // stays deterministic; every random choice is the executor's.
+        constexpr std::size_t kWalkStepTiles = 8;
 
         // Chebyshev radius searched around a blocked goal tile for the nearest
         // standable stand-in. A flag dropped on a wall, a closed door, or the
@@ -317,7 +319,7 @@ namespace ww::runtime
     // so areaAt answers -1 for every tile in it and the area-level backbone has
     // nothing to route over. What survives is per-tile collision, which
     // WorldView resolves through the chunk descriptors. This is therefore a plain
-    // tile-level A* with the area constraint off, chunked into Walk steps by the
+    // tile-level A* with the area constraint off, split into Walk steps by the
     // same appendWalkSegment the static path uses.
     //
     // Three limits, deliberate rather than accidental:
@@ -416,16 +418,16 @@ namespace ww::runtime
         {
             return true;  // start == end: refined path has one tile, no movement to emit
         }
-        // Walk steps advance by at most kWalkChunkTiles tiles per hop; the final
-        // hop always lands on the last tile so the segment terminates exactly.
+        // Walk steps advance by at most kWalkStepTiles tiles each; the final
+        // step always lands on the last tile so the segment terminates exactly.
         // Reserve up front so a long segment (kMaxExpansions tiles in the worst
         // case) does not trigger geometric grows on outPlan.steps mid-emit.
-        const std::size_t chunks = (n - 1u + kWalkChunkTiles - 1u) / kWalkChunkTiles;
-        outPlan.steps.reserve(outPlan.steps.size() + chunks);
+        const std::size_t stepCount = (n - 1u + kWalkStepTiles - 1u) / kWalkStepTiles;
+        outPlan.steps.reserve(outPlan.steps.size() + stepCount);
         std::size_t cursor = 0;
         while (cursor < n - 1)
         {
-            const std::size_t next = std::min(cursor + kWalkChunkTiles, n - 1);
+            const std::size_t next = std::min(cursor + kWalkStepTiles, n - 1);
             const TilePoint &tp = tilePath.tiles[next];
             if (!pushWalk(outPlan, tp.x, tp.y, plane))
             {
