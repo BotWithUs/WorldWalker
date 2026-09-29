@@ -739,6 +739,52 @@ Phasmatys. No route got dearer or cheaper.
 it could hand over a per-tile floor bit (or set a clip bit for an unfloored
 upper-plane tile) and WorldWalker would stop decoding the terrain itself.
 
+## Isafdar forest (2026-09-29)
+
+The forest between Port Tyras and the Tirannwn lodestone (x 2140..2340,
+y 3100..3300) is crossed through "Dense forest" strips (3937, 3938, 3939,
+3998, 3999, option 0 "Enter") and traps: Tripwire 3921 "Step-over", Sticks
+3922 "Pass", Leaves 3924 "Jump". None of these locs carries an interact type,
+so the bake derives nothing for them and every crossing is a row here.
+
+**One click crosses one strip.** Strips come in groups of two to four, each
+3 tiles thick with a one-tile pocket between them. "Enter" moves the player
+through the one strip clicked, 3 tiles. The source of truth is V1's
+navigation data, `rs3-nav-api` `src/main/resources/mapdata.zip`
+(`areas.dat`, decoded by `pathfinder/data/Area.java`), which has one link
+per strip per direction. Its only multi-strip links need the Tirannwn
+quiver (33722) worn and are not carried here.
+
+**What was wrong.** 13 "Interactive scenery" rows claimed one strip crossed
+two (dest 4 tiles past the loc's far edge, e.g. 3999 at 2187,3163 to
+2188,3168). They were the cheapest way in, so the walker took them, landed a
+strip short, judged the landing off course and replanned. 9 more rows
+clicked a tree (70060, 70063, "Chop down") or an animica rock (113017,
+"Mine") beside a trap; each had a correct twin on the trap itself. All 22
+are removed.
+
+**The crawl is slow.** In the host log of a live run on 2026-09-29, the
+player's tile changed 3.0 to 4.4 s after an "Enter" click and not before. The executor's landing check
+(2 settle ticks, then 3 still polls) gave up after 3.0 s, called the
+crossing refused, and planned again from the near side while the player was
+still crawling; the next click on the same strip then crawled them back.
+Every dense-forest row now carries `"chain": [{"wait": 5}]`, so the check
+starts 4.2 s after the click. The wait also puts the crawl's real time into
+the cost (3 -> 8).
+
+**Rows added** from the same V1 data, each anchor checked against the cache's
+placements: both directions of the tripwires at 2251,3168 and 2294,3243 and
+the sticks at 2275,3163 and 2257,3227, and the two groups of strips V1 had
+and this file lacked, the row at y 3219 (3938, 3939, 3937, 3939 anchored at
+2227/2230/2233/2236,3218) and the column at x 2279 (3938, 3937, 3939 anchored
+at 2278,3223/3226/3229). Log balances (3931..3933, plane 1) and the pit
+climbs out of a failed Leaves jump (3927) are still missing.
+
+**Not verified live:** the 5-tick wait, the traps' timings (no wait added;
+their forced moves have not been timed), and the added y 3219 row (V1 walks
+to 2238,3219 before the westbound 3939 at 2236,3218; this file's row already
+starts there).
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a
