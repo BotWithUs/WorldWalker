@@ -45848,5 +45848,53 @@
     "dest_x": 3280,
     "dest_y": 9415,
     "dest_plane": 0
+  },
+  {
+    "name": "Cross",
+    "object_id": 137303,
+    "x": 3653,
+    "y": 1589,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3659,
+    "dest_y": 1589,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 60919,
+        "value": 1
+      }
+    }
+  },
+  {
+    "name": "Cross",
+    "object_id": 137303,
+    "x": 3659,
+    "y": 1589,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3653,
+    "dest_y": 1589,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 60919,
+        "value": 1
+      }
+    }
   }
 ]

@@ -793,6 +793,39 @@ their forced moves have not been timed), and the added y 3219 row (V1 walks
 to 2238,3219 before the westbound 3939 at 2236,3218; this file's row already
 starts there).
 
+## Wendlewick - Amberfell bridge (2026-09-30)
+
+Secrets of Amberfell repairs the bridge east of Wendlewick, the only way on
+foot to Amberfell. The two rows click loc 137303
+(`WENDLE_AMBERFELL_BRIDGE_CROSS_MULTI`, op 0 `Cross`), anchored at 3653,1589:
+3653,1589 -> 3659,1589 eastbound and 3659,1589 -> 3653,1589 westbound.
+
+- **One loc, both ends.** The cache places 137303 once (shape 10, rotation 1,
+  stored plane 1 on a bridge column, so plane 0). Its size is 1x7, so turned it
+  covers x 3653..3659 on y 1589. There is no separate east-end loc. The host
+  matches a row's tile against the whole footprint, so both row tiles sit on
+  the loc. 137304 (`..._CROSS_ACTIVE`) is not a placement. It is the morph that
+  carries the name and the op.
+- **Landings.** Row y 1589 is walkable on the west bank up to x 3653 and on
+  the east bank from x 3659. x 3654..3658 is blocked water, so the rows land
+  on the loc's two end tiles, which are also its first walkable tiles.
+  Agility dbrow 3901 (loc param 6668) is empty in the cache and in the dumps,
+  so no dbrow gives a landing tile.
+- **Gate.** 137303 morphs on varbit 60919 (`WENDLE_AMBERFELL_BRIDGE_COMPLETE`,
+  varp 12867 bit 19, so only 0 or 1): 0 -> nothing, 1 -> 137304 "Bridge"
+  [Cross] (rs3-cs2-dumps `locations.json` `morphs_1`; the NXTCacheLibrary
+  decoder drops morphs). The broken bridge has no Cross loc at all. So
+  `varbit_at_least 60919 >= 1` is the game's own condition for the op to
+  exist. The repaired deck, 137301 -> 137302, morphs on the same varbit.
+- **Wait.** Each row carries `"chain": [{"wait": 5}]`, the same as the
+  Isafdar crawls. If the crossing commits the player's tile only at the far
+  end, as a forced move does, then without the wait the landing check would
+  call it refused after about 5 ticks. The bridge is the only route, so the
+  walk would then fail.
+
+**Not verified live:** the crossing's timing and landing tiles, and that the
+game takes the click from the east end.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a
