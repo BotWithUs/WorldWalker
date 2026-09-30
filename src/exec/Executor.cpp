@@ -1099,7 +1099,8 @@ namespace ww::exec
         // row is ruled out.
         const std::size_t keptCount = io.excludedTransitions.size();
         const format::TransitionRecord &tx = artifact->transitions()[transitionIndex];
-        if ((tx.flags & format::kTransitionFlagGlobalOrigin) != 0)
+        const bool isGlobal = (tx.flags & format::kTransitionFlagGlobalOrigin) != 0;
+        if (isGlobal)
         {
             io.excludedTransitions.push_back(transitionIndex);
         }
@@ -1108,6 +1109,16 @@ namespace ww::exec
             excludeTransitionsOfLoc(tx, io.excludedTransitions);
         }
         ReplanOutcome outcome = replan(goal, context, stepIndex, io);
+        if (outcome == ReplanOutcome::Failed && isGlobal)
+        {
+            // A global teleport that did not land was refused on state the
+            // walker cannot see (a lodestone the server says has vanished, a
+            // pick on a component that moved), not lost to a failure rate, so
+            // a second try from the same tile gets the same answer. It stays
+            // excluded and the run fails on it.
+            outStatus = failRun(stepIndex, static_cast<int32_t>(transitionIndex));
+            return false;
+        }
         if (outcome == ReplanOutcome::Failed)
         {
             // Nothing else reaches the goal. Put the rows back rather than

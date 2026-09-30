@@ -11,6 +11,7 @@
 #include "runtime/CapabilitySnapshot.h"
 #include "runtime/ContextPool.h"
 #include "runtime/PathAssembler.h"
+#include "runtime/RuntimeTeleports.h"
 #include "runtime/TeleportPolicy.h"
 #include "runtime/TileScan.h"
 #include "runtime/TileSearch.h"
@@ -23,8 +24,12 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <limits>
+#include <random>
 #include <span>
+#include <system_error>
 #include <thread>
 #include <vector>
 
@@ -230,6 +235,13 @@ namespace ww::cli
             bool                    hasWalkGoal;
             exec::WwTile            walkGoal;
             int                     ticksSlept;
+            // SimulateTransition: a chain click on one of these interfaces does
+            // not move the player, as the server answers a teleport it refuses
+            // ("This teleport has vanished."). inertClicks counts those clicks
+            // and teleportEvents every TeleportInitiated.
+            std::vector<std::int32_t> inertInterfaces;
+            int                     inertClicks;
+            int                     teleportEvents;
         };
 
         // Every callback that can surprise the harness. The class each one
@@ -597,6 +609,18 @@ namespace ww::cli
             }
         }
 
+        // A Click step whose interface (param3 >> 16) the harness refuses.
+        bool isInertClick(const ExecHarness &h, std::int32_t kind, std::int32_t hash)
+        {
+            if (kind != static_cast<std::int32_t>(data::ChainStepKind::Click))
+            {
+                return false;
+            }
+            const std::int32_t interfaceId = hash >> 16;
+            return std::find(h.inertInterfaces.begin(), h.inertInterfaces.end(), interfaceId)
+                != h.inertInterfaces.end();
+        }
+
         extern "C" void harnessRunChainStep(void *user, std::int32_t kind, std::int32_t a,
                                             std::int32_t b, std::int32_t c, std::int32_t d,
                                             std::int32_t e, std::int32_t f, std::int32_t g,
@@ -633,6 +657,10 @@ namespace ww::cli
             if (h->mode != ExecHarnessMode::SimulateTransition)
             {
                 recordUnexpected(h, HarnessCallback::RunChainStep);
+            }
+            else if (isInertClick(*h, kind, d))
+            {
+                ++h->inertClicks;
             }
             else if (!(isNpcClick && h->isNpcAbsent))
             {
@@ -757,6 +785,10 @@ namespace ww::cli
             else if (kind == exec::WwEventKind::Failed)
             {
                 h->failedTransitionIndex = event->transitionIndex;
+            }
+            else if (kind == exec::WwEventKind::TeleportInitiated)
+            {
+                ++h->teleportEvents;
             }
             else if (kind == exec::WwEventKind::ReplanStarted)
             {
@@ -3210,6 +3242,162 @@ namespace ww::cli
             ww_artifact_close(cArt);
             return failures;
         }
+
+        // Lumbridge alone and ungated, with the ability-book cast beside the
+        // map pick, so the harness's zeroed varbits admit both and the cheaper
+        // cast leads.
+        const char *const kRefusedTeleportFixture = R"({
+          "lodestones": {
+            "config": { "open_interface": 1465, "open_component": 34,
+                        "select_interface": 1092, "open_wait": 6, "teleport_wait": 18 },
+            "destinations": [
+              { "name": "Lumbridge", "x": 3233, "y": 3222, "plane": 0, "component": 17,
+                "routes": [
+                  { "name": "ability book",
+                    "requirements": { "varbit": { "id": 50990, "value": 0 } },
+                    "chain": [ { "click": [1461, 1, 1, 234] }, { "wait": 18 } ] }
+                ] }
+            ]
+          }
+        })";
+
+        // Interfaces of the fixture's two chains: the book cast, and the map
+        // opener and pick.
+        constexpr std::int32_t kAbilityBook = 1461;
+        constexpr std::int32_t kMinimap = 1465;
+        constexpr std::int32_t kLodestoneMap = 1092;
+
+        // Varrock's west bank, teleport-allowed and a walk away from Lumbridge;
+        // and an instanced Yeti Town tile outside every baked square, where the
+        // only way on is a teleport.
+        constexpr exec::WwTile kVarrockStart{ 3185, 3436, 0 };
+        constexpr exec::WwTile kOffMapStart{ 10338, 1632, 0 };
+        constexpr std::int32_t kStartSnapRadius = 5;
+
+        bool writeFixtureFile(const std::filesystem::path &path, const char *text)
+        {
+            std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+            stream << text;
+            stream.close();
+            return static_cast<bool>(stream);
+        }
+
+        // Stage the fixture in a directory of its own and append it to `reader`;
+        // the number of transitions appended (2 when it loaded).
+        std::size_t appendRefusedTeleportFixture(format::ArtifactReader &reader)
+        {
+            std::random_device entropy;
+            char name[48];
+            std::snprintf(name, sizeof(name), "wwcli_refused_teleport_%08x%08x",
+                          static_cast<unsigned>(entropy()), static_cast<unsigned>(entropy()));
+            const std::filesystem::path dir = std::filesystem::temp_directory_path() / name;
+            std::error_code ignored;
+            std::filesystem::create_directories(dir, ignored);
+            std::size_t appended = 0;
+            if (writeFixtureFile(dir / "spell_teleports.json", R"({ "teleports": [] })")
+                && writeFixtureFile(dir / "item_teleports.json", kRefusedTeleportFixture))
+            {
+                appended = runtime::loadGlobalTeleportsInto(reader, dir.string());
+            }
+            std::filesystem::remove_all(dir, ignored);
+            return appended;
+        }
+
+        // One refused-teleport run: the chains' clicks on `inert` interfaces do
+        // nothing, every other chain click lands on the lodestone.
+        struct RefusedTeleportCase
+        {
+            const char               *label;
+            exec::WwTile              start;
+            std::vector<std::int32_t> inert;
+            exec::WwStatus            wantStatus;
+            int                       wantInertClicks;
+            std::int32_t              wantFailedOn;
+        };
+
+        std::size_t runRefusedTeleport(const format::ArtifactReader &reader,
+                                       runtime::ContextPool &pool, const RefusedTeleportCase &c,
+                                       const exec::WwTile &landing)
+        {
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, c.start.x,
+                                              c.start.y, c.start.plane);
+            harness.transitionDest  = landing;
+            harness.inertInterfaces = c.inert;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(reader, pool, cb);
+            const exec::WwGoal goal{ landing.x, landing.y, landing.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            // Each of the two records is tried once: the cast, then the map.
+            constexpr int kWantTeleports = 2;
+            std::printf("  exec:   refused-teleport %s status=%d (expect %d) teleports=%d"
+                        " (expect %d) refused-clicks=%d (expect %d) failedOn=tx%d (expect tx%d)\n",
+                        c.label, static_cast<int>(status), static_cast<int>(c.wantStatus),
+                        harness.teleportEvents, kWantTeleports, harness.inertClicks,
+                        c.wantInertClicks, harness.failedTransitionIndex, c.wantFailedOn);
+            printCallPattern("refused-teleport ", harness);
+            std::size_t failures = status == c.wantStatus ? 0u : 1u;
+            failures += harness.teleportEvents == kWantTeleports ? 0u : 1u;
+            failures += harness.inertClicks == c.wantInertClicks ? 0u : 1u;
+            failures += harness.failedTransitionIndex == c.wantFailedOn ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 7: a global teleport whose chain completes but leaves the player
+        // where they stood, as the server does for a pick it refuses (the
+        // lodestone map gained a component and the Wendlewick pick landed on a
+        // seasonal hub: "This teleport has vanished."). It is ruled out for the
+        // rest of the run. With the map beside it the walker takes the map and
+        // arrives; with nothing else left it fails on the teleport after one
+        // try each, instead of re-planning onto the same refused record until
+        // the reroute budget runs out.
+        std::size_t testRefusedTeleport(const char *artifactPath)
+        {
+            if (artifactPath == nullptr)
+            {
+                std::printf("  exec:   refused-teleport test skipped (no artifact path)\n");
+                return 0;
+            }
+            format::ArtifactReader reader(artifactPath);
+            if (appendRefusedTeleportFixture(reader) != 2)
+            {
+                std::printf("  exec:   refused-teleport fixture did not append a cast + map\n");
+                return 1;
+            }
+            const auto txs = reader.transitions();
+            const std::int32_t mapIndex = static_cast<std::int32_t>(txs.size() - 1);
+            const format::TransitionRecord &map = txs[txs.size() - 1];
+            const exec::WwTile landing{ map.destX, map.destY,
+                                        static_cast<std::int32_t>(map.destPlane) };
+            runtime::WorldView view(reader);
+            const auto standable = [&](std::int32_t x, std::int32_t y)
+            {
+                return view.isStandable(x, y, kVarrockStart.plane);
+            };
+            exec::WwTile varrock = kVarrockStart;
+            if (view.areaAt(landing.x, landing.y, landing.plane) < 0
+                || !runtime::findNearestTile(kVarrockStart.x, kVarrockStart.y, kStartSnapRadius,
+                                             true, standable, kVarrockStart.x, kVarrockStart.y,
+                                             varrock.x, varrock.y))
+            {
+                std::printf("  exec:   refused-teleport test skipped (no Lumbridge landing or"
+                            " Varrock start)\n");
+                return 0;
+            }
+            runtime::ContextPool pool(reader, 1);
+            std::size_t failures = runRefusedTeleport(
+                reader, pool,
+                { "spare", varrock, { kAbilityBook }, exec::WwStatus::Arrived, 1, -1 }, landing);
+            failures += runRefusedTeleport(
+                reader, pool,
+                { "sole", kOffMapStart, { kAbilityBook, kMinimap, kLodestoneMap },
+                  exec::WwStatus::Failed, 3, mapIndex },
+                landing);
+            return failures;
+        }
     }
 
     std::size_t runExecutorTests(const format::ArtifactReader &reader, const char *artifactPath)
@@ -3278,6 +3466,7 @@ namespace ww::cli
         failures += testLeadStopsAtCrossing(ctx, kRunTilesPerTick, "run");
         failures += testLeadStopsAtCrossing(ctx, kWalkTilesPerTick, "walk");
         failures += testFfi(ctx, artifactPath);
+        failures += testRefusedTeleport(artifactPath);
         return failures;
     }
 }

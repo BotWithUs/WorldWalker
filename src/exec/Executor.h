@@ -95,7 +95,9 @@ namespace ww::exec
     // any distance slack. One that missed, like a failed agility jump into a
     // pit or a gate that turns the player away, is excluded and re-planned
     // around on a reroute budget of its own rather than the stuck-recovery
-    // budget. A same-floor crossing whose loc was missing is walked on through
+    // budget; so is a global teleport whose chain left the player short of
+    // its destination, which stays excluded even when nothing else reaches
+    // the goal. A same-floor crossing whose loc was missing is walked on through
     // as an open door; when the walk after it stalls with the player still on
     // the near side, nothing was open (a gate that needs an item, a loc the
     // host cannot see from the row's origin), and the crossing is handled as
@@ -279,9 +281,11 @@ namespace ww::exec
         // teleport, a failed agility jump). Spend one reroute, exclude it (and
         // its loc's other rows, when it has a loc) and re-plan from the live
         // position, so a transport that never lands is not chosen again. When
-        // nothing else reaches the goal, the exclusion is dropped and the same
-        // transition is planned again: a failable shortcut to an island is
-        // still worth a retry, and the reroute budget still bounds it.
+        // nothing else reaches the goal, a local transition's exclusion is
+        // dropped and it is planned again: a failable shortcut to an island is
+        // still worth a retry, and the reroute budget still bounds it. A global
+        // teleport's is kept and the run fails on it: the game refused it on
+        // state the walker cannot see, and asks again get the same answer.
         // Returns as rerouteAroundMissingLoc does.
         bool rerouteAroundOffCourse(uint32_t transitionIndex, const WwGoal &goal,
                                     runtime::SearchContext &context, int32_t stepIndex,
