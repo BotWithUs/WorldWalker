@@ -66,6 +66,14 @@ ANDs its own gates on top. The shipped dataset gives every lodestone one route â
 the cast from the Magic ability book (`1461:1`, sub = the spell's `param 2793`
 slot), gated on the book's lodestone filter varbit `50990` being `0`.
 
+A destination's `component` is its button on the lodestone map (interface
+1092), and those numbers move when Jagex inserts a component: a seasonal hub
+slot (`THAS_LODESTONE_MAP__BEACH`, comp 39) pushed Wendlewick from 40 to 41,
+and the pick on 40 then hit the Halloween hub, which the server answers with
+"This teleport has vanished." After a game update, check every `component`
+against the current gameval (`THAS_LODESTONE_MAP__<NAME>`); a real lodestone
+button carries two ops, `Teleport` and `Quick Teleport`, a hub slot only one.
+
 The config-built lodestone-map chain is **always** emitted alongside the routes
 and is deliberately left ungated. It is the fallback for any player the routes
 do not describe, and a route that cannot complete must never be a destination's
