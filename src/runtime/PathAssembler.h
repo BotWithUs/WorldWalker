@@ -87,7 +87,9 @@ namespace ww::runtime
         //
         // A start the walker has no map for (an instance whose goal lies outside
         // it, or a tile in no baked square) is planned by assembleTeleportOut:
-        // a global teleport first, then the normal route from its landing.
+        // a global teleport first, then the normal route from its landing. A
+        // blocked start, or one in a sealed pocket nothing routes out of, is
+        // planned from a nearby linked tile by assembleFromStartStandIn.
         //
         // When the borrowed WorldView has a dynamic region installed, everything
         // above is bypassed for assembleInstanceRoute: the baked area graph does
@@ -163,11 +165,39 @@ namespace ww::runtime
         void snapOutOfPocket(int32_t plane, int32_t startArea, int32_t &ioX, int32_t &ioY,
                              int32_t &ioArea) const;
 
-        // The nearest linked stand-in reachable from the goal by cardinal steps
-        // that cross no wall edge but may pass over object-filled tiles (booths,
-        // counters), within kGoalSnapRadius. False, outputs untouched, when none.
-        bool reachOutOfPocket(int32_t goalX, int32_t goalY, int32_t plane, int32_t startArea,
-                              int32_t &outX, int32_t &outY) const;
+        // Which end of the query reachOutOfPocket starts from. The rules differ:
+        // a goal is only a tile to serve, so the reach may pass over objects
+        // (a booth); the player's tile is where they really stand, so its own
+        // wall bits are ignored and only tiles they can walk onto are entered.
+        enum class ReachOrigin : uint8_t
+        {
+            Goal,
+            Player,
+        };
+
+        // The nearest linked stand-in reachable from the origin by cardinal
+        // steps that cross no wall edge, within kGoalSnapRadius, under the
+        // origin's rules above. `otherEndArea`, the other endpoint's area,
+        // counts as linked. False, outputs untouched, when none.
+        bool reachOutOfPocket(ReachOrigin origin, int32_t originX, int32_t originY,
+                              int32_t plane, int32_t otherEndArea, int32_t &outX,
+                              int32_t &outY) const;
+
+        // assemble for a start in the baked static world whose area is known.
+        bool assembleStatic(int32_t startX, int32_t startY, int32_t startPlane,
+                            int32_t startArea, int32_t goalX, int32_t goalY, int32_t goalPlane,
+                            const CapabilitySnapshot *capabilities, Plan &outPlan);
+
+        // The player stands where the baked graph has no way out: on a blocked
+        // tile (the Wendlewick mine's cave exit drops them on 3517,1694, inside
+        // a rock the cache marks solid, and every walk from there FAILED with no
+        // route, live 2026-09-30), or in a sealed pocket from which nothing
+        // routes. Plan from the nearest linked tile reachOutOfPocket finds from
+        // the player, with a first Walk step onto it. False, outPlan untouched,
+        // when nothing linked is in reach or no route leaves the stand-in.
+        bool assembleFromStartStandIn(int32_t startX, int32_t startY, int32_t startPlane,
+                                      int32_t goalX, int32_t goalY, int32_t goalPlane,
+                                      const CapabilitySnapshot *capabilities, Plan &outPlan);
 
         // Plan a route wholly inside a dynamic region (instance), appending Walk
         // steps to outPlan. Returns false when either endpoint is outside the

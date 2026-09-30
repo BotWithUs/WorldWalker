@@ -1971,6 +1971,58 @@ namespace ww::cli
             return failures;
         }
 
+        // Test 4r2: the player stands on a tile the cache marks solid. Leaving
+        // the Wendlewick mine's cave drops them on 3517,1694, inside a rock
+        // (blocked terrain under loc 136468's 7x7 footprint), and every walk
+        // from there failed at plan time with no route (live 2026-09-30). The
+        // plan must open with a Walk onto 3517,1693, the mine's open tile just
+        // south, and the run must arrive. A fixed fixture on purpose, like 4r.
+        std::size_t testBlockedStart(ExecContext &ctx)
+        {
+            constexpr std::int32_t kPlane = 0;
+            const runtime::TilePoint start{ 3517, 1694 };
+            const runtime::TilePoint standIn{ 3517, 1693 };
+            const runtime::TilePoint goal{ 3517, 1680 };
+            const std::int32_t goalArea = ctx.view.areaAt(goal.x, goal.y, kPlane);
+            if (ctx.view.areaAt(start.x, start.y, kPlane) >= 0 || goalArea < 0
+                || ctx.view.areaAt(standIn.x, standIn.y, kPlane) != goalArea)
+            {
+                std::printf("  exec:   blocked-start test skipped (Wendlewick mine exit not"
+                            " baked as a blocked tile)\n");
+                return 0;
+            }
+            runtime::Plan plan;
+            bool isPlanned = false;
+            {
+                runtime::ContextLease lease = ctx.pool.acquire();
+                isPlanned = lease->assembler.assemble(start.x, start.y, kPlane, goal.x, goal.y,
+                                                      kPlane, plan);
+            }
+            const bool isFirstStepStandIn = isPlanned && !plan.steps.empty()
+                && plan.steps.front().kind == runtime::StepKind::Walk
+                && plan.steps.front().targetX == standIn.x
+                && plan.steps.front().targetY == standIn.y;
+
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                              start.x, start.y, kPlane);
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwStatus status = executor.run(exec::WwGoal{ goal.x, goal.y, kPlane, 0 });
+
+            const bool isOnGoal = harness.position.x == goal.x && harness.position.y == goal.y
+                && harness.position.plane == kPlane;
+            std::printf("  exec:   blocked-start planned=%d first-step-on-stand-in=%d status=%d"
+                        " (expect 1 1 0) at=(%d,%d) (expect %d,%d)\n",
+                        isPlanned ? 1 : 0, isFirstStepStandIn ? 1 : 0, static_cast<int>(status),
+                        harness.position.x, harness.position.y, goal.x, goal.y);
+            std::size_t failures = isFirstStepStandIn ? 0u : 1u;
+            failures += status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += isOnGoal ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
         // Test 4p: as 4o, but the absent crossing is the only way into the
         // goal's area. Once the stall shows it is not open, it is excluded and
         // nothing else reaches the goal, so the run fails on that crossing
@@ -3441,6 +3493,7 @@ namespace ww::cli
         failures += testAbsentSoleCrossing(ctx);
         failures += testBlockedGoal(ctx);
         failures += testPocketGoal(ctx);
+        failures += testBlockedStart(ctx);
         failures += testCrossingLands(ctx, isShortCrossing, "short-crossing");
         failures += testCrossingLands(ctx, isFarLandingNonDoor, "far-crossing");
         failures += testNpcOrigin(ctx, false);

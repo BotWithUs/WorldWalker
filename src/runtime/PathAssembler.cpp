@@ -246,46 +246,52 @@ namespace ww::runtime
             && isAreaLinked[static_cast<std::size_t>(area)] == 0u;
     }
 
-    // Breadth-first over the box of kGoalSnapRadius around the goal, one
-    // cardinal step at a time. A step may enter a tile an object fills (a bank
-    // booth, a counter) but never cross a wall edge, so the first linked
-    // stand-in reached is on the side the goal is served from, not behind a
-    // wall that happens to be just as near.
-    bool PathAssembler::reachOutOfPocket(int32_t goalX, int32_t goalY, int32_t plane,
-                                         int32_t startArea, int32_t &outX, int32_t &outY) const
+    // Breadth-first over the box of kGoalSnapRadius around the origin, one
+    // cardinal step at a time, never crossing a wall edge. From a goal a step
+    // may enter a tile an object fills (a bank booth, a counter), so the first
+    // linked stand-in reached is on the side the goal is served from, not
+    // behind a wall that happens to be just as near. From the player's tile
+    // the walk is the game's: only standable tiles are entered, and the
+    // origin's own wall bits are not trusted, since the player stands there.
+    bool PathAssembler::reachOutOfPocket(ReachOrigin origin, int32_t originX, int32_t originY,
+                                         int32_t plane, int32_t otherEndArea, int32_t &outX,
+                                         int32_t &outY) const
     {
         std::array<uint8_t, kReachTiles> isSeen{};
         std::array<std::pair<int32_t, int32_t>, kReachTiles> queue{};
         const auto slot = [&](int32_t x, int32_t y)
         {
-            return static_cast<std::size_t>((x - goalX + kGoalSnapRadius) * kReachSide
-                                            + (y - goalY + kGoalSnapRadius));
+            return static_cast<std::size_t>((x - originX + kGoalSnapRadius) * kReachSide
+                                            + (y - originY + kGoalSnapRadius));
         };
+        const bool isFromPlayer = origin == ReachOrigin::Player;
         std::size_t head = 0;
         std::size_t tail = 0;
-        queue[tail++] = {goalX, goalY};
-        isSeen[slot(goalX, goalY)] = 1u;
+        queue[tail++] = {originX, originY};
+        isSeen[slot(originX, originY)] = 1u;
         while (head < tail)
         {
             const auto [x, y] = queue[head++];
-            if (isLinkedStandIn(x, y, plane, startArea))
+            if (isLinkedStandIn(x, y, plane, otherEndArea))
             {
                 outX = x;
                 outY = y;
                 return true;
             }
-            const uint32_t fromClip = view->clipAt(x, y, plane);
+            const bool isOrigin = x == originX && y == originY;
+            const uint32_t fromClip = isFromPlayer && isOrigin ? 0u : view->clipAt(x, y, plane);
             for (const ReachStep &step : kReachSteps)
             {
                 const int32_t nx = x + step.dx;
                 const int32_t ny = y + step.dy;
-                if (std::abs(nx - goalX) > kGoalSnapRadius
-                    || std::abs(ny - goalY) > kGoalSnapRadius || isSeen[slot(nx, ny)] != 0u)
+                if (std::abs(nx - originX) > kGoalSnapRadius
+                    || std::abs(ny - originY) > kGoalSnapRadius || isSeen[slot(nx, ny)] != 0u)
                 {
                     continue;
                 }
                 if ((fromClip & step.fromWall) != 0u
-                    || (view->clipAt(nx, ny, plane) & step.toWall) != 0u)
+                    || (view->clipAt(nx, ny, plane) & step.toWall) != 0u
+                    || (isFromPlayer && !view->isStandable(nx, ny, plane)))
                 {
                     continue;
                 }
@@ -302,7 +308,7 @@ namespace ww::runtime
         int32_t x = ioX;
         int32_t y = ioY;
         if (!isSealedPocket(ioArea, startArea)
-            || !reachOutOfPocket(ioX, ioY, plane, startArea, x, y))
+            || !reachOutOfPocket(ReachOrigin::Goal, ioX, ioY, plane, startArea, x, y))
         {
             return;
         }
@@ -723,10 +729,64 @@ namespace ww::runtime
                                        capabilities, outPlan);
         }
         const int32_t startArea = view->areaAt(startX, startY, startPlane);
-        if (startArea < 0)
+        if (startArea >= 0
+            && assembleStatic(startX, startY, startPlane, startArea, goalX, goalY, goalPlane,
+                              capabilities, outPlan))
+        {
+            return true;
+        }
+        // A start in a linked area that found no route is a real "no route":
+        // walking a few tiles would not change it.
+        if (startArea >= 0 && !isSealedPocket(startArea, -1))
         {
             return false;
         }
+        return assembleFromStartStandIn(startX, startY, startPlane, goalX, goalY, goalPlane,
+                                        capabilities, outPlan);
+    }
+
+    bool PathAssembler::assembleFromStartStandIn(int32_t startX, int32_t startY,
+                                                 int32_t startPlane, int32_t goalX,
+                                                 int32_t goalY, int32_t goalPlane,
+                                                 const CapabilitySnapshot *capabilities,
+                                                 Plan &outPlan)
+    {
+        const int32_t goalArea = view->areaAt(goalX, goalY, goalPlane);
+        int32_t standInX = startX;
+        int32_t standInY = startY;
+        const bool isFound = reachOutOfPocket(ReachOrigin::Player, startX, startY, startPlane,
+                                              goalArea, standInX, standInY);
+        if (!isFound || (standInX == startX && standInY == startY))
+        {
+            return false;
+        }
+        Plan fromStandIn;
+        const int32_t standInArea = view->areaAt(standInX, standInY, startPlane);
+        if (!assembleStatic(standInX, standInY, startPlane, standInArea, goalX, goalY, goalPlane,
+                            capabilities, fromStandIn))
+        {
+            return false;
+        }
+        // The first step walks the player off the start onto the stand-in; the
+        // game's own pathing moves them, as it does from any tile they stand on.
+        outPlan.steps.clear();
+        outPlan.steps.reserve(fromStandIn.steps.size() + 1u);
+        if (!pushWalk(outPlan, standInX, standInY, startPlane))
+        {
+            outPlan.steps.clear();
+            return false;
+        }
+        outPlan.steps.insert(outPlan.steps.end(), fromStandIn.steps.begin(),
+                             fromStandIn.steps.end());
+        outPlan.cost = octileDistance(standInX - startX, standInY - startY) + fromStandIn.cost;
+        return true;
+    }
+
+    bool PathAssembler::assembleStatic(int32_t startX, int32_t startY, int32_t startPlane,
+                                       int32_t startArea, int32_t goalX, int32_t goalY,
+                                       int32_t goalPlane, const CapabilitySnapshot *capabilities,
+                                       Plan &outPlan)
+    {
         int32_t goalArea = view->areaAt(goalX, goalY, goalPlane);
         if (goalArea < 0)
         {
