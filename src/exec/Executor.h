@@ -95,10 +95,12 @@ namespace ww::exec
     // any distance slack. One that missed, like a failed agility jump into a
     // pit or a gate that turns the player away, is excluded and re-planned
     // around on a reroute budget of its own rather than the stuck-recovery
-    // budget; so is a global teleport whose chain left the player short of
-    // its destination, which stays excluded even when nothing else reaches
-    // the goal. A same-floor crossing whose loc was missing is walked on through
-    // as an open door; when the walk after it stalls with the player still on
+    // budget (a local one that stopped short by a tile or two is retried once
+    // instead when the way round costs many times the way through it); so is
+    // a global teleport whose chain left the player short of its destination,
+    // which stays excluded even when nothing else reaches the goal. A
+    // same-floor crossing whose loc was missing is walked on through as an
+    // open door; when the walk after it stalls with the player still on
     // the near side, nothing was open (a gate that needs an item, a loc the
     // host cannot see from the row's origin), and the crossing is handled as
     // a missing loc: excluded with its loc's rows and re-planned around.
@@ -161,6 +163,10 @@ namespace ww::exec
             // missing or that landed off course, with every other transition
             // from that loc and origin. Every (re-)plan excludes them.
             std::vector<uint32_t> excludedTransitions;
+            // Transitions whose off-course miss was already retried instead of
+            // taking an absurd detour (isDetourAbsurd); a second miss of one
+            // takes the detour.
+            std::vector<uint32_t> detourRefusals;
             // The same-floor crossing the previous step skipped because its
             // loc was missing, and the tile it was skipped from; only the step
             // right after the skip consults it (see isStalledBehindSkip()).
@@ -283,13 +289,30 @@ namespace ww::exec
         // position, so a transport that never lands is not chosen again. When
         // nothing else reaches the goal, a local transition's exclusion is
         // dropped and it is planned again: a failable shortcut to an island is
-        // still worth a retry, and the reroute budget still bounds it. A global
+        // still worth a retry, and the reroute budget still bounds it. So is
+        // it, once per transition, when the player stopped within the landing
+        // slack (judged by area) and the only other way costs many times the
+        // way through it (isDetourAbsurd): a door misjudged beside the goal is
+        // not worth a lodestone and a long walk, but a second miss is no
+        // misjudgement and takes the detour. A global
         // teleport's is kept and the run fails on it: the game refused it on
         // state the walker cannot see, and asks again get the same answer.
         // Returns as rerouteAroundMissingLoc does.
         bool rerouteAroundOffCourse(uint32_t transitionIndex, const WwGoal &goal,
                                     runtime::SearchContext &context, int32_t stepIndex,
                                     RunState &io, WwStatus &outStatus);
+
+        // The cost of a plan from `start` to `goal` under `excludedTransitions`,
+        // planned into costProbe so the run's plan is untouched; nullopt when
+        // the planner finds no route.
+        std::optional<float> planCostFrom(const WwTile &start, const WwGoal &goal,
+                                          std::span<const uint32_t> excludedTransitions,
+                                          runtime::SearchContext &context);
+
+        // Whether a route costing `detourCost` around a transition is out of
+        // all proportion to the `throughCost` route through it: several times
+        // it and more than a short walk beyond it.
+        static bool isDetourAbsurd(float throughCost, float detourCost);
 
         // Drive plan.steps[i]: a Walk hop of `hopTiles` path tiles with the
         // handoff its successor demands, or a Transition. Writes the final
@@ -454,18 +477,19 @@ namespace ww::exec
         //
         // Any plain chat page open meanwhile is continued (continueOpenChat).
         //
-        // A same-floor crossing whose player has not moved at all after this
-        // is clicked once more (retryUnmovedCrossing): a door like Draynor
-        // Manor's walks the player through itself, and a walk clicked before
-        // that starts cancels it.
+        // A same-floor crossing whose player is still short of it after this
+        // (isShortOfCrossing) is clicked once more (retryUnmovedCrossing): a
+        // door like Draynor Manor's walks the player through itself, and a
+        // walk clicked before that starts cancels it.
         void awaitLanding(const format::TransitionRecord &tx, const WwTile &start,
                           WwTile &ioPosition);
 
-        // A same-floor crossing that left the player on `start`: click it once
-        // more, and if they still have not moved, walk to its destination. The
-        // walk carries the player through a door that is already open but whose
-        // hidden closed loc the host clicked to no effect; a shut one holds
-        // them, and the caller's landing judgement refuses the crossing.
+        // A same-floor crossing that left the player short of it (on `start`
+        // or its origin): click it once more, and if they are still short,
+        // walk to its destination. The walk carries the player through a door
+        // the click opened in front of them, or one already open whose hidden
+        // closed loc the host clicked to no effect; a shut one holds them, and
+        // the caller's landing judgement refuses the crossing.
         void retryUnmovedCrossing(const format::TransitionRecord &tx, const WwTile &start,
                                   WwTile &ioPosition);
 
@@ -492,9 +516,18 @@ namespace ww::exec
         bool continueOpenChat() const;
 
         // True when `at` counts as having crossed tx from `start`: on the
-        // destination tile, or moved off `start` to within a tile of it.
+        // destination tile, or moved to within a tile of it and not short of
+        // the crossing (isShortOfCrossing).
         static bool hasLanded(const format::TransitionRecord &tx, const WwTile &start,
                               const WwTile &at);
+
+        // True when `at` is still this side of tx: on `start`, where the click
+        // was made, or on tx's origin tile, which a door's click walks the
+        // player onto when made a tile short of it (the approach hands over
+        // within kArrivalChebyshev) and where it leaves them with the door
+        // opened in front of them.
+        static bool isShortOfCrossing(const format::TransitionRecord &tx, const WwTile &start,
+                                      const WwTile &at);
 
         static bool isSameTile(const WwTile &a, const WwTile &b);
 
@@ -634,6 +667,8 @@ namespace ww::exec
         // across stuck-recovery re-plans within one ww_executor_run.
         runtime::CapabilitySnapshot snapshot;
         runtime::Plan plan;
+        // Scratch for planCostFrom: a plan only ever read for its cost.
+        runtime::Plan costProbe;
 
         // Scratch output buffers for the batched readVarbits / readItemCounts
         // callbacks. Sized to the artifact's requirement id lists at construct

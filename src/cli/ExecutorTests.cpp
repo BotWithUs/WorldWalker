@@ -163,6 +163,16 @@ namespace ww::cli
             // interact on it answers 0, as the host does for a loc it cannot
             // find near the origin (Shantay Pass's gate, 2 tiles from the row).
             bool              isBrokenLocAbsent;
+            // SimulateTransition: every interact walks the player onto the
+            // origin tile it names and never takes them across, as a door's
+            // Open does (Amberfell bank, 2026-09-30). With
+            // isDoorShutUntilClicked the first click opens the door and every
+            // later one finds no closed loc (answers 0); without it the door
+            // is already open and the host clicks the closed loc it hides, to
+            // no effect, every time.
+            bool              isClickStoppingShort;
+            bool              isDoorShutUntilClicked;
+            bool              isDoorOpened;
             bool              hasBrokenLoc;
             std::int32_t      brokenObjectId;
             exec::WwTile      brokenOrigin;
@@ -561,6 +571,15 @@ namespace ww::cli
             else if (h->isLocMissing)
             {
                 return 0;
+            }
+            else if (h->isClickStoppingShort)
+            {
+                if (h->isDoorShutUntilClicked && h->isDoorOpened)
+                {
+                    return 0;
+                }
+                h->isDoorOpened = true;
+                h->position = origin;
             }
             else if (!h->landingRecords.empty())
             {
@@ -3450,6 +3469,178 @@ namespace ww::cli
                 landing);
             return failures;
         }
+
+        // The live walk of 2026-09-30 inside Amberfell bank: from 3725,1576 to
+        // 3733,1580, 8 tiles, through the one door of a sealed 2x3 pocket (loc
+        // 137297, row origin 3726,1576 -> 3727,1576). The approach hop handed
+        // over a tile short, the click walked the player onto 3726 and opened
+        // the door there, and the executor read that as a refused crossing.
+        constexpr exec::WwTile kAmberfellBankStart{ 3725, 1576, 0 };
+        constexpr exec::WwGoal kAmberfellGoal{ 3733, 1580, 0, 0 };
+        constexpr std::int32_t kAmberfellDoorLoc = 137297;
+        constexpr exec::WwTile kAmberfellDoorOrigin{ 3726, 1576, 0 };
+
+        // The row of the Amberfell bank door out of the pocket, or false when
+        // the artifact does not carry it (an older bake, a fixture).
+        bool findAmberfellDoor(const format::ArtifactReader &reader, std::int32_t &outIndex)
+        {
+            const auto txs = reader.transitions();
+            for (std::size_t i = 0; i < txs.size(); ++i)
+            {
+                const format::TransitionRecord &tx = txs[i];
+                const exec::WwTile origin{ tx.originX, tx.originY,
+                                           static_cast<std::int32_t>(tx.originPlane) };
+                if (tx.objectId == kAmberfellDoorLoc && isSameTile(origin, kAmberfellDoorOrigin))
+                {
+                    outIndex = static_cast<std::int32_t>(i);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // One walk out of the bank with the door clicked a tile short of its
+        // origin (the approach hop's first click is dropped, so the player is
+        // still on the start tile when it hands over, as live) and every door
+        // click stopping on the origin.
+        exec::WwStatus runAmberfellDoorWalk(const format::ArtifactReader &reader,
+                                            runtime::ContextPool &pool, bool isDoorShut,
+                                            runtime::WorldView *walls, const exec::WwTile &landing,
+                                            ExecHarness &outHarness)
+        {
+            outHarness = makeHarness(ExecHarnessMode::SimulateTransition, kAmberfellBankStart.x,
+                                     kAmberfellBankStart.y, kAmberfellBankStart.plane);
+            outHarness.droppedWalkClicks      = 1;
+            outHarness.isClickStoppingShort   = true;
+            outHarness.isDoorShutUntilClicked = isDoorShut;
+            outHarness.areaWalls              = walls;
+            outHarness.transitionDest         = landing;
+            outHarness.watchedObjectId        = kAmberfellDoorLoc;
+            outHarness.watchedOrigin          = kAmberfellDoorOrigin;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &outHarness;
+            exec::Executor executor(reader, pool, cb);
+            return executor.run(kAmberfellGoal);
+        }
+
+        // Test 8: the door clicked a tile short opens in front of the player
+        // and leaves them on its origin (`isDoorShut`), or is already open and
+        // every click reaches the closed loc it hides and does nothing. Either
+        // way the doorway is open: the executor clicks once more and walks
+        // through, and the run arrives with no re-plan. The old executor took
+        // the origin tile for a landing, judged it by area as refused and
+        // excluded the only way out of the pocket.
+        std::size_t testDoorOpensShort(ExecContext &ctx, bool isDoorShut)
+        {
+            const char *label = isDoorShut ? "shut" : "already-open";
+            std::int32_t doorIndex = -1;
+            if (!findAmberfellDoor(ctx.reader, doorIndex))
+            {
+                std::printf("  exec:   door-opens-short %s test skipped (no Amberfell door)\n",
+                            label);
+                return 0;
+            }
+            ExecHarness harness{};
+            const exec::WwStatus status =
+                runAmberfellDoorWalk(ctx.reader, ctx.pool, isDoorShut, nullptr, exec::WwTile{},
+                                     harness);
+            std::printf("  exec:   door-opens-short %s tx%d status=%d (expect 0) door-clicks=%d"
+                        " (expect 2) replans=%d stucks=%d teleports=%d (expect 0, 0, 0)\n",
+                        label, doorIndex, static_cast<int>(status), harness.watchedInteracts,
+                        harness.replanStartedEvents, harness.stuckEvents,
+                        harness.teleportEvents);
+            printCallPattern("door-opens-short ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.watchedInteracts == 2 ? 0u : 1u;
+            failures += harness.replanStartedEvents == 0 ? 0u : 1u;
+            failures += harness.stuckEvents == 0 ? 0u : 1u;
+            failures += harness.teleportEvents == 0 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // A lodestone onto the Amberfell side of its bridge (3659,1589), a
+        // walk of ~75 tiles from the bank: the long way round the door, as
+        // the live re-plan's Wendlewick lodestone and bridge were.
+        const char *const kAmberfellDetourFixture = R"({
+          "lodestones": {
+            "config": { "open_interface": 1465, "open_component": 34,
+                        "select_interface": 1092, "open_wait": 6, "teleport_wait": 18 },
+            "destinations": [
+              { "name": "Amberfell bridge", "x": 3659, "y": 1589, "plane": 0, "component": 17,
+                "routes": [
+                  { "name": "ability book",
+                    "requirements": { "varbit": { "id": 50990, "value": 0 } },
+                    "chain": [ { "click": [1461, 1, 1, 234] }, { "wait": 18 } ] }
+                ] }
+            ]
+          }
+        })";
+        constexpr exec::WwTile kAmberfellDetourLanding{ 3659, 1589, 0 };
+
+        std::size_t appendAmberfellDetourFixture(format::ArtifactReader &reader)
+        {
+            std::random_device entropy;
+            char name[48];
+            std::snprintf(name, sizeof(name), "wwcli_amberfell_detour_%08x%08x",
+                          static_cast<unsigned>(entropy()), static_cast<unsigned>(entropy()));
+            const std::filesystem::path dir = std::filesystem::temp_directory_path() / name;
+            std::error_code ignored;
+            std::filesystem::create_directories(dir, ignored);
+            std::size_t appended = 0;
+            if (writeFixtureFile(dir / "spell_teleports.json", R"({ "teleports": [] })")
+                && writeFixtureFile(dir / "item_teleports.json", kAmberfellDetourFixture))
+            {
+                appended = runtime::loadGlobalTeleportsInto(reader, dir.string());
+            }
+            std::filesystem::remove_all(dir, ignored);
+            return appended;
+        }
+
+        // Test 9: the bank door really refuses (walls hold the player in the
+        // pocket) and the only other way to the goal is the fixture lodestone
+        // and a long walk, many times the 8 tiles through the door. The first
+        // refusal does not buy that detour: the door is tried again (click
+        // and re-click, twice over). The second refusal is no misjudgement,
+        // and the run takes the lodestone and arrives. The old executor took
+        // the detour on the first refusal, after two clicks.
+        std::size_t testAbsurdDetour(const char *artifactPath)
+        {
+            if (artifactPath == nullptr)
+            {
+                std::printf("  exec:   absurd-detour test skipped (no artifact path)\n");
+                return 0;
+            }
+            format::ArtifactReader reader(artifactPath);
+            std::int32_t doorIndex = -1;
+            if (!findAmberfellDoor(reader, doorIndex))
+            {
+                std::printf("  exec:   absurd-detour test skipped (no Amberfell door)\n");
+                return 0;
+            }
+            if (appendAmberfellDetourFixture(reader) == 0)
+            {
+                std::printf("  exec:   absurd-detour fixture did not append a lodestone\n");
+                return 1;
+            }
+            runtime::ContextPool pool(reader, 1);
+            runtime::WorldView view(reader);
+
+            ExecHarness harness{};
+            const exec::WwStatus status = runAmberfellDoorWalk(
+                reader, pool, false, &view, kAmberfellDetourLanding, harness);
+            std::printf("  exec:   absurd-detour tx%d status=%d (expect 0) door-clicks=%d"
+                        " (expect 4) teleports=%d (expect 1) stucks=%d (expect 0)\n",
+                        doorIndex, static_cast<int>(status), harness.watchedInteracts,
+                        harness.teleportEvents, harness.stuckEvents);
+            printCallPattern("absurd-detour ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.watchedInteracts == 4 ? 0u : 1u;
+            failures += harness.teleportEvents == 1 ? 0u : 1u;
+            failures += harness.stuckEvents == 0 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
     }
 
     std::size_t runExecutorTests(const format::ArtifactReader &reader, const char *artifactPath)
@@ -3520,6 +3711,9 @@ namespace ww::cli
         failures += testLeadStopsAtCrossing(ctx, kWalkTilesPerTick, "walk");
         failures += testFfi(ctx, artifactPath);
         failures += testRefusedTeleport(artifactPath);
+        failures += testDoorOpensShort(ctx, true);
+        failures += testDoorOpensShort(ctx, false);
+        failures += testAbsurdDetour(artifactPath);
         return failures;
     }
 }

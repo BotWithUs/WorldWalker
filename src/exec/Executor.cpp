@@ -134,6 +134,16 @@ namespace ww::exec
         // bounded, so a transition that never lands cannot loop forever.
         constexpr int32_t kMaxReroutes = 3;
 
+        // A route around a local transition that landed off course is refused
+        // as a detour when it costs more than kDetourCostFactor times the route
+        // through that transition and at least kDetourMinExcess more (plan cost
+        // units, about a tile or a tick each). A door judged refused next to
+        // the goal once sent the walk off by lodestone and ~190 tiles to reach
+        // a tile 8 away (Amberfell bank, 2026-09-30); retrying the crossing
+        // once is the cheaper bet.
+        constexpr float kDetourCostFactor = 4.0F;
+        constexpr float kDetourMinExcess  = 40.0F;
+
         // Plain chat pages a transition can raise (Draynor Manor's front door
         // says its piece the first time): interface and its continue button.
         // Only pages that take a continue; the option list (1188 CHOICE_V2) is
@@ -651,7 +661,7 @@ namespace ww::exec
         if (!isGlobal && hasIssuedAction)
         {
             awaitLanding(tx, start, outPosition);
-            if (runtime::isSameFloorCrossing(tx) && isSameTile(outPosition, start))
+            if (runtime::isSameFloorCrossing(tx) && isShortOfCrossing(tx, start, outPosition))
             {
                 retryUnmovedCrossing(tx, start, outPosition);
             }
@@ -663,26 +673,28 @@ namespace ww::exec
     void Executor::retryUnmovedCrossing(const format::TransitionRecord &tx, const WwTile &start,
                                         WwTile &ioPosition)
     {
-        // Still where the click was made: the click was dropped, or a door
-        // that walks you through (Draynor Manor) has not started. Click it
-        // once more. An open door is no longer found, so the host no-ops.
+        // Still short of the crossing: the click was dropped, a door that
+        // walks you through (Draynor Manor) has not started, or the click
+        // walked the player up to the door and opened it without taking them
+        // through (Amberfell bank). Click it once more. An open door is no
+        // longer found, so the host no-ops.
         if (interactWithLoc(tx) == LocInteract::Issued)
         {
             callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
             callbacks->readPosition(callbacks->user, &ioPosition);
             awaitLanding(tx, start, ioPosition);
         }
-        if (!isSameTile(ioPosition, start))
+        if (!isShortOfCrossing(tx, start, ioPosition))
         {
             return;
         }
-        // Two clicks and the player has not moved: the click reached a loc that
-        // is not really there. An open door leaves its closed loc hidden in the
-        // scene, and a host that finds the hidden one clicks it to no effect
-        // (Sinclair Mansion's gate, Falador castle's doors). Walk across, as
-        // for an open door the host skipped: an open doorway lets the player
-        // through, a shut one holds them on this side for the landing judgement
-        // to refuse.
+        // Two clicks and the player is still on this side: the door opened in
+        // front of them, or the click reached a loc that is not really there.
+        // An open door leaves its closed loc hidden in the scene, and a host
+        // that finds the hidden one clicks it to no effect (Sinclair Mansion's
+        // gate, Falador castle's doors). Walk across, as for an open door the
+        // host skipped: an open doorway lets the player through, a shut one
+        // holds them on this side for the landing judgement to refuse.
         const WwTile dest{ tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane) };
         callbacks->walkTo(callbacks->user, dest);
         callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
@@ -700,10 +712,22 @@ namespace ww::exec
     {
         // Near the destination is not enough on its own: on a one-tile door
         // the tile the click is made from is already within a tile of the far
-        // side. The player must be on the destination, or have moved to near it.
+        // side. The player must be on the destination, or have moved to near
+        // it and off both the tile they clicked from and the row's origin.
         const WwTile dest{ tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane) };
         return isSameTile(at, dest)
-            || (!isSameTile(at, start) && chebyshev(at, dest) <= kArrivalChebyshev);
+            || (!isShortOfCrossing(tx, start, at) && chebyshev(at, dest) <= kArrivalChebyshev);
+    }
+
+    bool Executor::isShortOfCrossing(const format::TransitionRecord &tx, const WwTile &start,
+                                     const WwTile &at)
+    {
+        // The approach walk hands over within kArrivalChebyshev of the origin,
+        // so the click can be made a tile short of it; a door's click then
+        // walks the player onto the origin and opens the door there without
+        // taking them through. Both tiles are this side of the crossing.
+        const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
+        return isSameTile(at, start) || isSameTile(at, origin);
     }
 
     bool Executor::continueOpenChat() const
@@ -1100,6 +1124,20 @@ namespace ww::exec
         const std::size_t keptCount = io.excludedTransitions.size();
         const format::TransitionRecord &tx = artifact->transitions()[transitionIndex];
         const bool isGlobal = (tx.flags & format::kTransitionFlagGlobalOrigin) != 0;
+        // A local miss judged by area alone, the player still within the
+        // landing slack, may be a misjudgement (a door opened in front of the
+        // player); one far from the destination did not cross, whatever a
+        // retry costs. The first such miss of a transition is weighed against
+        // the detour; its cost through the transition is planned before the
+        // exclusion, so the snapshot the kept plan reads is its own.
+        const bool isWeighed = !isGlobal && !isOffCourse(tx, io.position)
+            && std::find(io.detourRefusals.begin(), io.detourRefusals.end(), transitionIndex)
+                   == io.detourRefusals.end();
+        std::optional<float> throughCost;
+        if (isWeighed)
+        {
+            throughCost = planCostFrom(io.position, goal, io.excludedTransitions, context);
+        }
         if (isGlobal)
         {
             io.excludedTransitions.push_back(transitionIndex);
@@ -1119,15 +1157,43 @@ namespace ww::exec
             outStatus = failRun(stepIndex, static_cast<int32_t>(transitionIndex));
             return false;
         }
-        if (outcome == ReplanOutcome::Failed)
+        const bool isAbsurdDetour = outcome == ReplanOutcome::Restarted
+                                 && throughCost.has_value()
+                                 && isDetourAbsurd(*throughCost, plan.cost);
+        if (isAbsurdDetour)
         {
-            // Nothing else reaches the goal. Put the rows back rather than
-            // fail a run a second try might finish (a failed jump on the only
-            // way across); the list returns to exactly what it held before.
+            // Refused once only: a second miss of the same transition is
+            // not a misjudgement, and the long way round is then the way.
+            io.detourRefusals.push_back(transitionIndex);
+        }
+        if (outcome == ReplanOutcome::Failed || isAbsurdDetour)
+        {
+            // Nothing else reaches the goal, or only a detour many times the
+            // way through does. Put the rows back rather than fail a run a
+            // second try might finish (a failed jump on the only way across)
+            // or send it the long way round on one judgement; the list returns
+            // to exactly what it held before.
             io.excludedTransitions.resize(keptCount);
             outcome = replan(goal, context, stepIndex, io);
         }
         return isRestart(outcome, stepIndex, outStatus);
+    }
+
+    std::optional<float> Executor::planCostFrom(const WwTile &start, const WwGoal &goal,
+                                                std::span<const uint32_t> excludedTransitions,
+                                                runtime::SearchContext &context)
+    {
+        if (!planFrom(start, goal, excludedTransitions, context, costProbe))
+        {
+            return std::nullopt;
+        }
+        return costProbe.cost;
+    }
+
+    bool Executor::isDetourAbsurd(float throughCost, float detourCost)
+    {
+        return detourCost > throughCost * kDetourCostFactor
+            && detourCost - throughCost >= kDetourMinExcess;
     }
 
     Executor::Handoff Executor::handoffFor(std::size_t i, const WwGoal &goal, const WwTile &from)
