@@ -45896,5 +45896,37 @@
         "value": 1
       }
     }
+  },
+  {
+    "name": "Enter",
+    "object_id": 136468,
+    "x": 3517,
+    "y": 1694,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3488,
+    "dest_y": 8071,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 60597,
+        "value": 51
+      }
+    }
+  },
+  {
+    "name": "Exit",
+    "object_id": 136471,
+    "x": 3488,
+    "y": 8070,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 3517,
+    "dest_y": 1693,
+    "dest_plane": 0
   }
 ]

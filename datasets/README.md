@@ -826,6 +826,40 @@ foot to Amberfell. The two rows click loc 137303
 **Not verified live:** the crossing's timing and landing tiles, and that the
 game takes the click from the east end.
 
+## Highweald mine (2026-10-01)
+
+Hearts of Sanguine opens the Highweald mine north of Wendlewick; its interior
+(Havenmine: phasmatite, necrite and havensilver rocks) lies 6400 tiles north,
+from y 8066. The cache already gives the interior's collision (one area from
+the exit up through the rocks at 3482..3497, 8083..8103), but no row joined it
+to the surface, so nothing inside could be planned to.
+
+- **Entrance.** Loc 136468 (`WENDLE_MINE_ENTRANCE_MULTI`), op 0 `Enter`. The
+  cache places it once: 3513,1694, shape 10, rotation 0, 7x7, so it covers
+  3513..3519, 1694..1700. The only standable tile against it is 3517,1693 on
+  its south edge, so the row sits on the footprint at 3517,1694 (the host
+  matches the whole footprint) and approaches from there; the anchor has no
+  standable tile within the approach radius.
+- **Exit.** Loc 136471 (`WENDLE_MINE_EXIT`), op 0 `Exit`, placed once at
+  3486,8066, shape 10, rotation 2, 5x5 (3486..3490, 8066..8070). The cave opens
+  north onto 3487..3488, 8071, so the row sits at 3488,8070.
+- **Landings.** Neither the cache nor the dumps give one. Each row lands on
+  the standable tile in front of the other loc's mouth: 3488,8071 inside (the
+  exit's centre column), 3517,1693 outside. Both are already standable, so the
+  bake snaps neither; a real landing up to 5 tiles off is still inside the
+  executor's slack and in the same area.
+- **Gate.** 136468 morphs on varbit 60597 (`QUEST_WENDLE_SANGUINE_MAIN`, varp
+  12736 bits 0..7): 0..50 -> 136469 "Ancient boulder" (no ops), 51..75 ->
+  136470 "Cave entrance" [Enter], anything above 75 -> the boulder again
+  (rs3-cs2-dumps `locations.json` `morphs_1`). Quest 527 ends at 75 (its
+  `endvalue` in `quests.json`), so `varbit_at_least 60597 >= 51` is exactly
+  the game's condition for the op to exist, and stays true once the quest is
+  done. 51 is the quest's "mine cave" stage, where Gidon moves inside.
+- **Exit ungated.** 136471 has no morph table; anyone inside can leave.
+
+**Not verified live:** both landing tiles and whether either move needs a wait
+before the landing check.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a
