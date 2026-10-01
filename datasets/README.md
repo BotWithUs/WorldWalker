@@ -860,6 +860,45 @@ to the surface, so nothing inside could be planned to.
 **Not verified live:** both landing tiles and whether either move needs a wait
 before the landing check.
 
+## Amberfell south-east barricade (2026-10-01)
+
+The barricade on Amberfell's south-east side (Ash guards it) splits the town
+from the ground east of it, towards Berylbrook. Heralds of Crimson opens a
+Climb over on it. Before these rows, area 2556 (west) and area 2559 (east) had
+no transition between them, so a walk from one side to the other had no route
+except the long way round, by teleport and the Wendlewick bridge.
+
+- **Loc.** 141015, op 0 `Climb over`. The cache places it once: 3762,1559,
+  shape 11, rotation 2, 2x5, so it covers 3762..3763, 1559..1563. 121189 (the
+  old id, on the same tile in the 9-16 spawn table; the wiki lists it as
+  `histid`) is no longer placed there. No row named either id before this one.
+- **Rows.** The host matches the whole footprint, and the bake joins a row to
+  every area within one tile of the row's tile. So each row tile is the
+  footprint tile that touches only its own side. Eastbound: 3762,1562, next to
+  west tiles 3761,1562 / 3761,1563 / 3762,1563. Westbound: the anchor,
+  3762,1559, next to east tiles 3763,1559 / 3763,1560. 3762,1561 touches both
+  sides, so neither row uses it.
+- **Landings (estimates).** One tile past the footprint on each side: 3764,1559
+  east and 3761,1562 west. Both are standable, so the bake snaps neither. Live
+  on 2026-10-01 the player clicked from 3760,1561, and the climb never
+  completed (see below), so no landing has been observed.
+- **Gate.** 141015 morphs on varbit 62090, the progress varbit of quest 533
+  Heralds of Crimson (start 5, end 215 in `quests.json`). Its `morphs_1` ids
+  are `[141162, 141016]`: 0 -> 141162 "Barricade" (Examine only), anything
+  else -> 141016 "Barricade" [Climb over]. The last entry is the default, as
+  in 136468's table above, and live the Climb over was offered at 10, 25 and
+  30. So `varbit_at_least 62090 >= 1` is the game's own condition for the op
+  to exist, and it stays true after the quest (the wiki: "During and after the
+  quest"). Both rows click the same loc from either side, so both are gated.
+- **Quest refusal is not gated.** At 62090 = 30, Anya stops the climb ("Wait!
+  We must first deal with these interlopers!"). That is quest dialogue on an op
+  that exists, not the loc's condition, so the rows do not encode it. A quest
+  script at that stage has to fight first.
+- **No wait.** Like the other Climb over rows, these have no chain wait.
+
+**Not verified live:** both landing tiles, the climb's timing, and that the
+game takes the click from the east side.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a

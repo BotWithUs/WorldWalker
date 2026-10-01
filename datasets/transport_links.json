@@ -45928,5 +45928,43 @@
     "dest_x": 3517,
     "dest_y": 1693,
     "dest_plane": 0
+  },
+  {
+    "name": "Climb over",
+    "object_id": 141015,
+    "x": 3762,
+    "y": 1562,
+    "plane": 0,
+    "shape": 11,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 3764,
+    "dest_y": 1559,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 62090,
+        "value": 1
+      }
+    }
+  },
+  {
+    "name": "Climb over",
+    "object_id": 141015,
+    "x": 3762,
+    "y": 1559,
+    "plane": 0,
+    "shape": 11,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 3761,
+    "dest_y": 1562,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 62090,
+        "value": 1
+      }
+    }
   }
 ]
