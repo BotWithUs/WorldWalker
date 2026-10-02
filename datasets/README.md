@@ -899,6 +899,66 @@ except the long way round, by teleport and the Wendlewick bridge.
 **Not verified live:** both landing tiles, the climb's timing, and that the
 game takes the click from the east side.
 
+## Exalted Quarry broken ladders (2026-10-02)
+
+The Exalted Quarry (Havenhythe Part II, 28 September 2026), south of
+Heathervein, is a pit in three tiers. The ground around it is area 2559, the
+same area as the ground east of the Amberfell barricade. The middle terrace is
+area 2936. The floor, with the exalted colossus (140913, 3850,1627, 6x6) and
+Aurora, is area 2937. Cliff walls in the cache's own collision separate the
+tiers. For example, 3865,1628 has a wall east and 3866,1628 a wall west; 3855,1621 has
+a wall north and 3855,1622 a wall south. So this is not missing collision or a bake
+artifact. Before these rows, nothing could be planned to the quarry floor, and
+a Heralds of Crimson step that walks from Wendlewick to the colossus had no
+route.
+
+- **Locs.** Four locs cross the cliffs. They are all agility obstacles (param
+  6668 points at a table-97 dbrow), and no row named any of them.
+  The bake derives ladders only between planes, and all four stand on plane 0,
+  so it made no transition for them. The cache places each once:
+  - 140908 `Broken ladder`, op 0 `Traverse`: 3865,1628, shape 10, rotation
+    3, 1x3 turned, so 3865..3867 on y 1628. Ground (2559) to terrace (2936),
+    east side.
+  - 140907 `Broken ladder`, op 0 `Traverse`: 3855,1620, stored plane 1 on a
+    bridge column (so plane 0), shape 10, rotation 0, 1x3, so 3855 on
+    1620..1622. Terrace (2936) to floor (2937), south side.
+  - 140910 `Ladder`, op 0 `Climb`: 3836,1631 (stored plane 1). Ground to
+    terrace, west side. 140909 `Ladder`, op 0 `Climb`: 3849,1638. Terrace to
+    floor, north side.
+- **Only the broken ladders.** The quest guide's route goes "to the lowest level by traversing the
+  broken ladders". The wiki says talking to Aurora on the floor is what
+  "unlock[s] access to the mine". Nothing in the cache shows whether the two
+  `Climb` ladders work before that. If they were rows, the planner would take the west
+  ladder from Amberfell, because it is nearer. So they are left out until someone
+  checks them live.
+- **Rows.** The host matches the whole footprint. The bake joins a row to every
+  area within one tile, except tiles walled off from the row tile. So each row tile is a
+  footprint tile whose walkable neighbours are all on its own side. Down:
+  3867,1628 -> 3864,1628 and 3855,1620 -> 3855,1623. Up: 3865,1628 ->
+  3868,1628 and 3855,1622 -> 3855,1619.
+- **Landings (estimates).** One tile past the footprint on the far side. All
+  four are standable, so the bake snaps none of them. The landings are not
+  observed.
+- **No gate.** 140907 and 140908 have no morph table (`varbitId`/`varpId` -1
+  in NXTCacheLibrary, no `morphs_1` in the 9-29 `locations.json`), and no loc in
+  that dump morphs into either. So the game gives no condition for the op
+  to exist, and the rows carry none. The wiki says the quarry needs "partial
+  completion" of Heralds of Crimson. Whatever enforces that is server-side and
+  is not encoded. On foot from the west, the route already crosses the
+  barricade, which is gated on 62090 >= 1.
+- **No Agility level.** Dbrows 20149 and 20150 are empty in the cache and in
+  the dumps, the same as 137303's 3901. The quest guide gives Agility levels
+  for other shortcuts on this route (72 for the stepping stones) but none for
+  the broken ladders. If the game does need a level, these rows do not encode it.
+- **No wait.** Like the other `Traverse` rows, these have no chain wait.
+- **Category.** None of the four is in `MoveCategoryLocs.inc`, so the rows
+  classify as doors, as 141015 does. Fixing that means regenerating the table
+  and rebuilding the library.
+
+**Not verified live:** the landing tiles, the traverse timing, whether either
+broken ladder needs an Agility level or a quest stage, and whether the
+`Climb` ladders could replace them.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a

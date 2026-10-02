@@ -45966,5 +45966,57 @@
         "value": 1
       }
     }
+  },
+  {
+    "name": "Traverse",
+    "object_id": 140908,
+    "x": 3867,
+    "y": 1628,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 3864,
+    "dest_y": 1628,
+    "dest_plane": 0
+  },
+  {
+    "name": "Traverse",
+    "object_id": 140908,
+    "x": 3865,
+    "y": 1628,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 3868,
+    "dest_y": 1628,
+    "dest_plane": 0
+  },
+  {
+    "name": "Traverse",
+    "object_id": 140907,
+    "x": 3855,
+    "y": 1620,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3855,
+    "dest_y": 1623,
+    "dest_plane": 0
+  },
+  {
+    "name": "Traverse",
+    "object_id": 140907,
+    "x": 3855,
+    "y": 1622,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3855,
+    "dest_y": 1619,
+    "dest_plane": 0
   }
 ]
