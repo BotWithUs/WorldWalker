@@ -1085,7 +1085,7 @@
   },
   {
     "name": "Go-through",
-    "object_id": 76546,
+    "object_id": 12774,
     "x": 3303,
     "y": 3117,
     "plane": 0,
@@ -1094,7 +1094,20 @@
     "option_index": 0,
     "dest_x": 3304,
     "dest_y": 3115,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 2
+      },
+      {
+        "action": [
+          30,
+          0,
+          -1,
+          37027842
+        ]
+      }
+    ]
   },
   {
     "name": "Go-through",

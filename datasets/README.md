@@ -665,7 +665,9 @@ between y 3117 and 3116. Each lane also has a `SHANTAY_PASS_CLICKZONE` (loc
 | south, into the desert | 3303,3117 (was 3304,3118) | 3304,3115 | none (was: holds a Shantay pass, item 1854) |
 | north, out of the desert | 3303,3115 | 3303,3118 (was 3304,3118, a blocked tile) | none |
 
-Both origins are within a tile of the anchor.
+Both origins are within a tile of the anchor. Since 2026-10-03 the
+southbound row clicks the west lane's clickzone, 12774 at 3303,3116, and
+confirms the desert warning (below); the northbound row still clicks 76546.
 
 **No pass (2026-10-03).** The southbound row used to need item 1854, the
 Shantay pass. RS3 removed the pass and the toll on 26 September 2012 (wiki
@@ -703,9 +705,35 @@ the same as a missing ladder, and the run re-plans around it. Before, it
 re-planned onto the same crossing until the stuck budget ran out. Harness
 tests 4o and 4p cover this.
 
-**Not verified offline:** that 76546 is clicked from 3303,3117. The
-clickzone 12774 is the fallback if it is not. Also unverified: whether the
-first trip through raises a warning the executor has no dialog zone for.
+**The desert warning (2026-10-03).** Live, the ungated row never crossed.
+Every attempt logged two clicks on 76546 three seconds apart and then a
+walk to 3304,3115, and the player stood still on 3303,3117 throughout. Going
+south raises the Content Warning System's desert page, interface 565
+(`CWS_WARNING_10`), and the player waits there until it is confirmed. The
+executor confirmed nothing. It re-clicked the gate when the player had not
+moved, and its fallback walk closed the page. The script's own click on
+12774 fared no better, since the walker clicked again 1.1 s later. The only
+crossing on record is a lone script click on 12774 on 2026-10-01, with
+nothing else clicked for 76 s afterwards.
+
+The southbound row now clicks 12774, the loc that crossed, and carries a
+chain: `wait 2`, then `action [30, 0, -1, 37027842]`. That is a DIALOGUE
+click on 565:2 (`CWS_WARNING_10__WARN1`), copied from the confirm V1
+intercepted from a real click (`TouristTrapQuest.java`, PathWithUs). It is
+sent blind. V1 measured `isOpen(565)` as false while the page was up, so a
+`wait_interface` would time out, and a confirm on a closed interface is
+dropped by the game, so an account that has turned the warning off (varbit
+1143, the 565:5 toggle) loses nothing. When the player is still short of a
+crossing, the executor's retry now re-runs the chain after re-clicking, so
+the confirm goes out again. The bare re-click it used to make only raised
+the warning again. Harness test 4ab covers both cases: a warning that is up
+on time, and one whose first confirm arrives too early.
+
+**Not verified live:** that 565:2 is the proceed button (its name is
+`WARN1`), and that two ticks are enough for the page to be up before the
+confirm is sent. If the walk still stalls, read the open interfaces at
+3303,3117 after the click. The northbound row (76546, from 3303,3115) is
+unchanged and has not been checked live either.
 
 ## Upper-plane void (2026-09-27)
 

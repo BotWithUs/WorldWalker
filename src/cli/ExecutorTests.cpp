@@ -252,6 +252,17 @@ namespace ww::cli
             std::vector<std::int32_t> inertInterfaces;
             int                     inertClicks;
             int                     teleportEvents;
+            // SimulateTransition, when non-zero: every loc click raises a
+            // warning that holds the player until a DIALOGUE click on this
+            // component hash confirms it (Shantay Pass, 565:2), which carries
+            // them across. A walk click closes it unconfirmed. The first
+            // earlyConfirmsLeft confirms reach the server before the warning
+            // is up and do nothing.
+            std::int32_t            warningConfirm;
+            bool                    isWarningOpen;
+            int                     earlyConfirmsLeft;
+            int                     warningConfirms;
+            int                     closedWarnings;
         };
 
         // Every callback that can surprise the harness. The class each one
@@ -439,6 +450,12 @@ namespace ww::cli
             {
                 return;
             }
+            if (h->isWarningOpen)
+            {
+                h->isWarningOpen = false;
+                ++h->closedWarnings;
+                return;
+            }
             if (h->chatOnNextWalk)
             {
                 h->chatOnNextWalk = false;
@@ -572,6 +589,10 @@ namespace ww::cli
             {
                 return 0;
             }
+            else if (h->warningConfirm != 0)
+            {
+                h->isWarningOpen = true;
+            }
             else if (h->isClickStoppingShort)
             {
                 if (h->isDoorShutUntilClicked && h->isDoorOpened)
@@ -640,6 +661,26 @@ namespace ww::cli
                 != h.inertInterfaces.end();
         }
 
+        // The warning's confirm: too early, it does nothing; with the warning
+        // up, it closes it and carries the player across; with none up (the
+        // game drops a click on a closed interface), nothing.
+        void confirmWarning(ExecHarness *h)
+        {
+            if (h->earlyConfirmsLeft > 0)
+            {
+                --h->earlyConfirmsLeft;
+                return;
+            }
+            if (!h->isWarningOpen)
+            {
+                return;
+            }
+            h->isWarningOpen = false;
+            ++h->warningConfirms;
+            h->position = h->transitionDest;
+            h->hasWalkGoal = false;
+        }
+
         extern "C" void harnessRunChainStep(void *user, std::int32_t kind, std::int32_t a,
                                             std::int32_t b, std::int32_t c, std::int32_t d,
                                             std::int32_t e, std::int32_t f, std::int32_t g,
@@ -661,6 +702,11 @@ namespace ww::cli
                     h->isChatOpen = false;
                     h->pendingLandingTicks = h->landingDelayTicks;
                 }
+                return;
+            }
+            if (h->warningConfirm != 0 && a == kDialogueAction && d == h->warningConfirm)
+            {
+                confirmWarning(h);
                 return;
             }
             ++h->runChainStepCalls;
@@ -1202,6 +1248,74 @@ namespace ww::cli
             failures += harness.interactCalls == wantInteracts ? 0u : 1u;
             failures += (harness.cancelledLandings == 0 && harness.stuckEvents == 0) ? 0u : 1u;
             failures += harness.continueClicks == wantContinues ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Shantay Pass, southbound: the row the live walk failed on
+        // (2026-10-03), and the desert warning its click raises (565:2).
+        constexpr exec::WwTile kShantayOrigin{ 3303, 3117, 0 };
+        constexpr exec::WwTile kShantayDest{ 3304, 3115, 0 };
+        constexpr std::int32_t kDesertWarningConfirm = (565 << 16) | 2;
+
+        const format::TransitionRecord *findShantaySouth(const format::ArtifactReader &reader)
+        {
+            for (const format::TransitionRecord &tx : reader.transitions())
+            {
+                const bool isOrigin = tx.originX == kShantayOrigin.x
+                                   && tx.originY == kShantayOrigin.y && tx.originPlane == 0;
+                const bool isDest = tx.destX == kShantayDest.x && tx.destY == kShantayDest.y
+                                 && tx.destPlane == 0;
+                if (isOrigin && isDest)
+                {
+                    return &tx;
+                }
+            }
+            return nullptr;
+        }
+
+        // Test 4ab: the Shantay Pass gate raises the desert warning, which
+        // holds the player until it is confirmed and closes on any walk. The
+        // baked row's chain confirms it, so the walk crosses on one click;
+        // with `earlyConfirms` the first confirm beats the warning to the
+        // server, and the retried click must confirm again rather than leave
+        // the warning up for the fallback walk to close.
+        std::size_t testShantayWarning(ExecContext &ctx, int earlyConfirms)
+        {
+            const format::TransitionRecord *tx = findShantaySouth(ctx.reader);
+            if (tx == nullptr)
+            {
+                std::printf("  exec:   shantay warning test skipped (no southbound row)\n");
+                return 0;
+            }
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition,
+                                              kShantayOrigin.x, kShantayOrigin.y, 0);
+            harness.transitionDest    = kShantayDest;
+            harness.areaWalls         = &ctx.view;
+            harness.warningConfirm    = kDesertWarningConfirm;
+            harness.earlyConfirmsLeft = earlyConfirms;
+            harness.watchedObjectId   = tx->objectId;
+            harness.watchedOrigin     = kShantayOrigin;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ kShantayDest.x, kShantayDest.y, kShantayDest.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            const int wantInteracts = 1 + earlyConfirms;
+            std::printf("  exec:   shantay warning early=%d status=%d (expect 0) interacts=%d"
+                        " (expect %d) confirms=%d (expect 1) closed=%d replans=%d"
+                        " (expect 0, 0)\n",
+                        earlyConfirms, static_cast<int>(status), harness.watchedInteracts,
+                        wantInteracts, harness.warningConfirms, harness.closedWarnings,
+                        harness.replanStartedEvents);
+            printCallPattern("shantay ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.watchedInteracts == wantInteracts ? 0u : 1u;
+            failures += harness.warningConfirms == 1 ? 0u : 1u;
+            failures += harness.closedWarnings == 0 ? 0u : 1u;
+            failures += harness.replanStartedEvents == 0 ? 0u : 1u;
             failures += harness.unexpectedActions == 0 ? 0u : 1u;
             return failures;
         }
@@ -3692,6 +3806,8 @@ namespace ww::cli
         failures += testWalkThroughDoor(ctx, 0, false);
         failures += testWalkThroughDoor(ctx, 1, false);
         failures += testWalkThroughDoor(ctx, 0, true);
+        failures += testShantayWarning(ctx, 0);
+        failures += testShantayWarning(ctx, 1);
         failures += testChatDuringWalk(ctx);
         failures += testChatNeverCloses(ctx);
         failures += testZoneAnswer(ctx);

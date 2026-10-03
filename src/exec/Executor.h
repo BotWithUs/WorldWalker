@@ -485,7 +485,8 @@ namespace ww::exec
                           WwTile &ioPosition);
 
         // A same-floor crossing that left the player short of it (on `start`
-        // or its origin): click it once more, and if they are still short,
+        // or its origin): click it once more, running its chain again after
+        // the click as the first try did, and if they are still short,
         // walk to its destination. The walk carries the player through a door
         // the click opened in front of them, or one already open whose hidden
         // closed loc the host clicked to no effect; a shut one holds them, and
