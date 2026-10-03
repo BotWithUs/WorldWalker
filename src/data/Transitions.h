@@ -80,6 +80,12 @@ namespace ww::data
         // gate on. The executor reads varps solely from the host's
         // readCapability, so a host that supplies none denies these gates.
         VarpAtLeast   = 5,
+        // amount = bit index (0..31) that must be set in the varp. For a varp
+        // the game packs as a bitfield with no varbit over the bit, such as
+        // the key ring's stored keys (varp 2673, one bit per key). Read from
+        // readCapability like the other varp gates; a reader older than this
+        // kind denies it (CapabilitySnapshot::meets).
+        VarpBit       = 6,
     };
 
     // One structured predicate filtered against a per-query capability snapshot.

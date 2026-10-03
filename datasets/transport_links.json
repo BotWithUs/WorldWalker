@@ -46076,5 +46076,249 @@
     "dest_x": 3118,
     "dest_y": 3245,
     "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 1804,
+    "x": 3115,
+    "y": 3449,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3115,
+    "dest_y": 3450,
+    "dest_plane": 0,
+    "requirements": {
+      "items": [
+        {
+          "id": 983,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 1804,
+    "x": 3115,
+    "y": 3449,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3116,
+    "dest_y": 3450,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 40074,
+        "value": 1
+      },
+      "varp_bit": {
+        "id": 2673,
+        "bit": 0
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 1804,
+    "x": 3115,
+    "y": 3449,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3114,
+    "dest_y": 3450,
+    "dest_plane": 0,
+    "requirements": {
+      "varp_bit": {
+        "id": 2673,
+        "bit": 0
+      },
+      "items": [
+        {
+          "id": 4446,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 1804,
+    "x": 3115,
+    "y": 3450,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3115,
+    "dest_y": 3449,
+    "dest_plane": 0,
+    "requirements": {
+      "items": [
+        {
+          "id": 983,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 1804,
+    "x": 3115,
+    "y": 3450,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3116,
+    "dest_y": 3449,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 40074,
+        "value": 1
+      },
+      "varp_bit": {
+        "id": 2673,
+        "bit": 0
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 1804,
+    "x": 3115,
+    "y": 3450,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3115,
+    "dest_y": 3448,
+    "dest_plane": 0,
+    "requirements": {
+      "varp_bit": {
+        "id": 2673,
+        "bit": 0
+      },
+      "items": [
+        {
+          "id": 4446,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 26933,
+    "x": 3097,
+    "y": 3468,
+    "plane": 0,
+    "shape": 22,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3096,
+    "dest_y": 9867,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          3,
+          26934,
+          3097,
+          3468
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Climb-down",
+    "object_id": 26934,
+    "x": 3097,
+    "y": 3468,
+    "plane": 0,
+    "shape": 22,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3096,
+    "dest_y": 9868,
+    "dest_plane": 0,
+    "extra_cost": 5
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 29355,
+    "x": 3097,
+    "y": 9868,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 3096,
+    "dest_y": 3468,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 881,
+    "x": 3237,
+    "y": 3458,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3237,
+    "dest_y": 9865,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          3,
+          882,
+          3237,
+          3458
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Climb down",
+    "object_id": 882,
+    "x": 3237,
+    "y": 3458,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3236,
+    "dest_y": 9865,
+    "dest_plane": 0,
+    "extra_cost": 5
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 128335,
+    "x": 3237,
+    "y": 9866,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3237,
+    "dest_y": 3459,
+    "dest_plane": 0
   }
 ]

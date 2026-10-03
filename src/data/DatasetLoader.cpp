@@ -189,23 +189,33 @@ namespace ww::data
         // chain / runtime teleport JSON, so it is part of the wire contract).
         constexpr int kComponentActionId = 57;
 
-        // One var gate kind: its dataset key, the kind it becomes, and the
-        // value an entry that omits `value` asks for (0 for an exact match,
-        // 1 for a minimum, so a bare `{id}` means "set" either way).
+        // One var gate kind: its dataset key, the kind it becomes, the field
+        // holding its amount, and the amount an entry that omits that field
+        // asks for (0 for an exact match, 1 for a minimum, so a bare `{id}`
+        // means "set" either way; bit 0 for a bit gate).
         struct VarGateKey
         {
             const char *key;
             RequirementKind kind;
+            const char *valueKey;
             int defaultValue;
             const char *context;
         };
 
-        // One `{id, value}` var gate, appended as `gate.kind`.
+        // One `{id, value}` (or `{id, bit}`) var gate, appended as `gate.kind`.
         void pushVarRequirement(const json &v, const VarGateKey &gate,
                                 std::vector<Requirement> &out)
         {
-            out.push_back({gate.kind, readRequiredInt(v, "id", gate.context),
-                           readOptionalInt(v, "value", gate.defaultValue, gate.context)});
+            const int32_t amount =
+                readOptionalInt(v, gate.valueKey, gate.defaultValue, gate.context);
+            // A bit past 31 names nothing in a 32-bit varp; refuse the bake
+            // rather than bake a gate no account can ever pass.
+            if (gate.kind == RequirementKind::VarpBit && (amount < 0 || amount > 31))
+            {
+                throw std::runtime_error(std::string(gate.context)
+                                         + ": bit must be 0..31");
+            }
+            out.push_back({gate.kind, readRequiredInt(v, "id", gate.context), amount});
         }
 
         // Every var gate is either one `{id, value}` object or an array of
@@ -244,11 +254,13 @@ namespace ww::data
         // array of them was dropped and the row baked ungated; it now shares
         // the object-or-array reader with the rest.
         constexpr VarGateKey kVarGateKeys[] = {
-            {"varbit", RequirementKind::Varbit, 0, "requirements.varbit"},
-            {"varbit_at_least", RequirementKind::VarbitAtLeast, 1,
+            {"varbit", RequirementKind::Varbit, "value", 0, "requirements.varbit"},
+            {"varbit_at_least", RequirementKind::VarbitAtLeast, "value", 1,
              "requirements.varbit_at_least"},
-            {"varp", RequirementKind::Varp, 0, "requirements.varp"},
-            {"varp_at_least", RequirementKind::VarpAtLeast, 1, "requirements.varp_at_least"},
+            {"varp", RequirementKind::Varp, "value", 0, "requirements.varp"},
+            {"varp_at_least", RequirementKind::VarpAtLeast, "value", 1,
+             "requirements.varp_at_least"},
+            {"varp_bit", RequirementKind::VarpBit, "bit", 0, "requirements.varp_bit"},
         };
 
         void parseRequirements(const json &node, std::vector<Requirement> &out)
@@ -267,7 +279,8 @@ namespace ww::data
             {
                 throw std::runtime_error(
                     "requirements must be an object of gate kinds "
-                    "(skill / varbit / varbit_at_least / varp / varp_at_least / items)");
+                    "(skill / varbit / varbit_at_least / varp / varp_at_least / varp_bit / "
+                    "items)");
             }
             // `id` is required on every gate: a requirement without one is
             // meaningless, and the silent -1 default used to flow through to

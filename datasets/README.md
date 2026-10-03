@@ -47,7 +47,16 @@ an item teleport; `varbit` and `varp` are either one `{id, value}` or an
 `varp_at_least` take the same two spellings and pass at or above `value`
 (which defaults to 1). The array spelling is how one entry demands more than
 one var — an unlock *and* a setting, or the unlocks at both ends of a route —
-without the loader having to know what those vars mean.
+without the loader having to know what those vars mean. `varp_bit` takes the
+same two spellings of `{id, bit}` and passes when bit `bit` (0..31, default 0)
+of the varp is set, for a varp the game packs as a bitfield with no varbit
+over the bit (the key ring's stored keys, varp 2673).
+
+**Gates are ANDed; an OR is two rows.** Outside item teleports, every gate on
+an entry must pass. A crossing that opens for either of two things (a key in
+the pack, or the same key on the key ring) is one row per alternative. The
+bake keeps one transition per (kind, origin, dest), so each alternative row
+lands one tile apart, as the Brass key door below does.
 
 **A varp gate is denied by the live bot today.** The executor reads every
 varbit a requirement names on each plan, but it only learns varps from the
@@ -1024,6 +1033,62 @@ these rows: no row and no derived link touched the sewer's area (48201), so
 **Not verified live:** the landing tiles (3118,9643 under the ladder and
 3118,3245 north of the trapdoor), the 3-tick wait between `Open` and
 `Climb-down`, and how long the trapdoor stays open.
+
+## Brass key door and the Edgeville Dungeon (2026-10-03)
+
+Live on 2026-10-03 a walk to the Edgeville Dungeon (3119,9862) failed over
+and over at transition 7509: the door 1804 at 3115,3449, derived from the
+cache with no gate, into the house over the dungeon (ladder 12389 at
+3116,3452). The account had no Brass key, and the game keeps that door
+locked without one.
+
+- **The key.** Obj 983 `EDGEVILLEDUNGEONKEY`, "Brass key"; its keyring
+  description (param 7511) is "Allows access to Edgeville Dungeon." It can
+  be stored on the Steel key ring (obj 4446): clientscript 2261 puts 983 in
+  slot 0 of the ring, and 2388 reads slot n as bit n of varp 2673
+  (`favour_keyring`). No varbit covers that bit, hence `varp_bit`. The ring
+  on the tool belt is varbit 40074 (`toolbelt_keyring`).
+- **Door 1804** (`Door`, op 0 `Open`, shape 0, rotation 1, at 3115,3449) has
+  no morph; the lock is the server's. Six rows replace the two derived hops
+  (a row on a door's origin tile suppresses the derived hop from it), three
+  each way, one per way of holding the key:
+  - Brass key in the pack or worn: `items` 983. Lands on 3115,3450 going in,
+    3115,3449 going out.
+  - Brass key on the ring, ring on the tool belt: `varp_bit` 2673 bit 0 and
+    `varbit_at_least` 40074. Lands on 3116,3450 / 3116,3449.
+  - Brass key on the ring, ring in the pack: `varp_bit` 2673 bit 0 and
+    `items` 4446. Lands on 3114,3450 / 3115,3448.
+  The odd landings are only there to survive the endpoint dedup; each is the
+  next standable tile of the same area, inside the executor's landing slack.
+  Leaving is gated too: whether the door opens from inside without a key is
+  not in any dump, and gating it keeps the planner from climbing up into a
+  house it cannot leave.
+- **Live, only the pack row passes today.** The executor reads item counts
+  (pack and worn) for every requirement, but varps only from the host's
+  `readCapability`, and the host's varp list (`REQUIREMENT_VARPS` in
+  `WorldWalkerCallbackBridge`) does not hold 2673, so both ring rows read 0
+  and are denied until the host adds it. A reader older than `varp_bit`
+  denies those rows too.
+- **The other ways in.** Without the key the walker uses:
+  - Edgeville trapdoor 26933 (`Trapdoor`, op 0 `Open`, shape 22, rotation 1)
+    at 3097,3468, opening to 26934 (`Climb-down`, `Close`). As with the
+    Draynor trapdoor: `Open`, wait 3 ticks, raw loc action
+    `[3, 26934, 3097, 3468]`, landing 3096,9867; a second row clicks an
+    already open 26934, landing 3096,9868 with `extra_cost` 5. Out: ladder
+    29355 (`Climb-up`) at 3097,9868 to 3096,3468. Both landings are in the
+    dungeon's area that holds 3119,9862.
+  - Varrock manhole 881 (`Manhole`, op 0 `Open`) at 3237,3458, opening to
+    882 (`Climb down`, `Close`), the same two-row shape, landing 3237,9865
+    and 3236,9865. Out: ladder 128335 (`Climb-up`) at 3237,9866 to
+    3237,3459. The sewer is not walkable to the Edgeville Dungeon in the
+    collision, so this does not serve 3119,9862; it is here because nothing
+    reached the Varrock Sewers before.
+- **No gate** on the trapdoor or the manhole: neither has a morph table or a
+  quest var in the dump.
+
+**Not verified live:** every landing tile above (they are the nearest
+standable tiles, not observed), the 3-tick waits, whether the door needs the
+key from inside, and whether a key on a ring left in the bank is refused.
 
 ## How they're consumed
 

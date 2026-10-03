@@ -158,6 +158,39 @@ namespace
     constexpr Requirement kFirstResortDone{RequirementKind::VarbitAtLeast, 14042, 1};
     constexpr Requirement kTreeGnomeVillage{RequirementKind::VarpAtLeast, 2661, 9};
 
+    // A bit gate: the key ring's stored-keys varp, bit 0 (the Brass key).
+    // The ids are the real ones, but the loader gives them no meaning.
+    const char *const kVarpBitGateFixture = R"({
+      "lodestones": {
+        "config": {
+          "open_interface": 1465, "open_component": 34,
+          "select_interface": 1092,
+          "open_wait": 6, "teleport_wait": 18
+        },
+        "destinations": [
+          { "name": "Lumbridge", "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "varbit": { "id": 35, "value": 1 } },
+            "routes": [
+              { "requirements": { "varp_bit": { "id": 2673, "bit": 0 } },
+                "chain": [ { "click": [1461, 1, 1, 234] }, { "wait": 18 } ] }
+            ] }
+        ]
+      }
+    })";
+
+    constexpr Requirement kBrassKeyOnRing{RequirementKind::VarpBit, 2673, 0};
+
+    // A bit past the top of a 32-bit varp: must throw.
+    const char *const kVarpBitOutOfRangeFixture = R"({
+      "lodestones": {
+        "config": { "open_interface": 1465, "open_component": 34, "select_interface": 1092 },
+        "destinations": [
+          { "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "varp_bit": { "id": 2673, "bit": 32 } } }
+        ]
+      }
+    })";
+
     // A scalar where a minimum-value gate belongs: must throw.
     const char *const kScalarVarpAtLeastFixture = R"({
       "lodestones": {
@@ -463,6 +496,45 @@ namespace
         return failures;
     }
 
+    // A varp holding `value` against the Brass-key-on-the-ring gate, bit 0.
+    bool meetsBrassKeyOnRing(int32_t value)
+    {
+        ww::runtime::CapabilitySnapshot snapshot;
+        snapshot.setVarp(kBrassKeyOnRing.id, value);
+        const ww::format::RequirementRecord gate{
+            static_cast<uint8_t>(kBrassKeyOnRing.kind), {}, kBrassKeyOnRing.id,
+            kBrassKeyOnRing.amount};
+        return snapshot.meets(gate);
+    }
+
+    // A bit gate loads as one VarpBit after the destination's own gate, and
+    // passes exactly when its bit is set, whatever the other bits hold.
+    int checkVarpBitGate(const std::filesystem::path &dir)
+    {
+        const ww::data::LoadedDatasets loaded = loadFixture(dir, kVarpBitGateFixture);
+        const std::vector<Transition> &txs = loaded.model.transitions;
+        std::printf("lodestones: varp-bit fixture -> %zu transitions (expect 2)\n", txs.size());
+        if (txs.size() != 2)
+        {
+            return fail("varp bit gate: expected a book route and a map");
+        }
+        int failures = expectLodestone("varp bit gate: Lumbridge book", txs[0], kLumbridgeX,
+                                       kLumbridgeY, {kLumbridgeUnlocked, kBrassKeyOnRing},
+                                       {kCastLumbridge, kTeleportWait});
+        const bool isClearDenied = !meetsBrassKeyOnRing(0);
+        const bool isSetAdmitted = meetsBrassKeyOnRing(1);
+        const bool isOtherBitDenied = !meetsBrassKeyOnRing(2);
+        const bool isAmongOthersAdmitted = meetsBrassKeyOnRing(-1);
+        std::printf("lodestones: varp_bit 0 vs 0/1/2/-1 -> %d/%d/%d/%d (expect 0/1/0/1)\n",
+                    isClearDenied ? 0 : 1, isSetAdmitted ? 1 : 0, isOtherBitDenied ? 0 : 1,
+                    isAmongOthersAdmitted ? 1 : 0);
+        if (!isClearDenied || !isSetAdmitted || !isOtherBitDenied || !isAmongOthersAdmitted)
+        {
+            failures += fail("varp bit gate: does not test exactly its bit");
+        }
+        return failures;
+    }
+
     // Staging happens outside the try: writeText throws too, and a read-only
     // temp directory used to satisfy every one of these without the loader
     // ever running.
@@ -728,6 +800,9 @@ namespace
             failures += checkNoRoutesIsMapOnly(dir);
             failures += checkArrayVarGate(dir);
             failures += checkAtLeastGates(dir);
+            failures += checkVarpBitGate(dir);
+            failures += expectLoadThrows(dir, "a varp_bit gate past bit 31",
+                                         kVarpBitOutOfRangeFixture);
             failures += expectLoadThrows(dir, "routes as an object", kRoutesNotArrayFixture);
             failures += expectLoadThrows(dir, "a route with no recognised step",
                                          kRouteWithoutChainFixture);
