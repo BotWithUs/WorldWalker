@@ -364,10 +364,11 @@ int runTxNear(const char *wwaPath, int x, int y, int radius)
             ++hits;
             const int oa = view.areaAt(tx.originX, tx.originY, static_cast<int>(tx.originPlane));
             const int da = view.areaAt(tx.destX, tx.destY, static_cast<int>(tx.destPlane));
-            std::printf("txnear:   tx%u kind=%u obj=%d opt=%d flags=0x%x origin=(%d,%d,p%u)a%d"
-                        " dest=(%d,%d,p%u)a%d cost=%.1f [od=%d dd=%d]\n",
-                        i, tx.kind, tx.objectId, tx.optionIndex, tx.flags, tx.originX, tx.originY,
-                        tx.originPlane, oa, tx.destX, tx.destY, tx.destPlane, da,
+            std::printf("txnear:   tx%u kind=%u obj=%d opt=%d shape=%u rot=%u flags=0x%x"
+                        " origin=(%d,%d,p%u)a%d dest=(%d,%d,p%u)a%d cost=%.1f [od=%d dd=%d]\n",
+                        i, tx.kind, tx.objectId, tx.optionIndex, tx.shape, tx.rotation, tx.flags,
+                        tx.originX, tx.originY, tx.originPlane, oa, tx.destX, tx.destY,
+                        tx.destPlane, da,
                         static_cast<double>(tx.cost), od, dd);
         }
         std::printf("txnear: %d transition(s) within radius\n", hits);

@@ -202,6 +202,41 @@ namespace
       }
     })";
 
+    // Two skills on one route, the way the Warriors' Guild door wants Attack
+    // and Strength. The array used to be dropped and the route baked ungated.
+    const char *const kSkillArrayFixture = R"({
+      "lodestones": {
+        "config": {
+          "open_interface": 1465, "open_component": 34,
+          "select_interface": 1092,
+          "open_wait": 6, "teleport_wait": 18
+        },
+        "destinations": [
+          { "name": "Lumbridge", "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "varbit": { "id": 35, "value": 1 } },
+            "routes": [
+              { "requirements": { "skill": [ { "id": 0, "level": 65 },
+                                             { "id": 2, "level": 65 } ] },
+                "chain": [ { "click": [1461, 1, 1, 234] }, { "wait": 18 } ] }
+            ] }
+        ]
+      }
+    })";
+
+    constexpr Requirement kAttack65{RequirementKind::Skill, 0, 65};
+    constexpr Requirement kStrength65{RequirementKind::Skill, 2, 65};
+
+    // A bare level where a skill gate belongs: must throw.
+    const char *const kScalarSkillFixture = R"({
+      "lodestones": {
+        "config": { "open_interface": 1465, "open_component": 34, "select_interface": 1092 },
+        "destinations": [
+          { "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "skill": 40 } }
+        ]
+      }
+    })";
+
     // `routes` as an object rather than an array: must throw, not be ignored.
     const char *const kRoutesNotArrayFixture = R"({
       "lodestones": {
@@ -535,6 +570,23 @@ namespace
         return failures;
     }
 
+    // A skill array loads as one Skill per element, after the destination's
+    // own gate, and both must pass.
+    int checkSkillArrayGate(const std::filesystem::path &dir)
+    {
+        const ww::data::LoadedDatasets loaded = loadFixture(dir, kSkillArrayFixture);
+        const std::vector<Transition> &txs = loaded.model.transitions;
+        std::printf("lodestones: skill-array fixture -> %zu transitions (expect 2)\n",
+                    txs.size());
+        if (txs.size() != 2)
+        {
+            return fail("skill array: expected a book route and a map");
+        }
+        return expectLodestone("skill array: Lumbridge book", txs[0], kLumbridgeX, kLumbridgeY,
+                               {kLumbridgeUnlocked, kAttack65, kStrength65},
+                               {kCastLumbridge, kTeleportWait});
+    }
+
     // Staging happens outside the try: writeText throws too, and a read-only
     // temp directory used to satisfy every one of these without the loader
     // ever running.
@@ -801,6 +853,8 @@ namespace
             failures += checkArrayVarGate(dir);
             failures += checkAtLeastGates(dir);
             failures += checkVarpBitGate(dir);
+            failures += checkSkillArrayGate(dir);
+            failures += expectLoadThrows(dir, "a scalar skill gate", kScalarSkillFixture);
             failures += expectLoadThrows(dir, "a varp_bit gate past bit 31",
                                          kVarpBitOutOfRangeFixture);
             failures += expectLoadThrows(dir, "routes as an object", kRoutesNotArrayFixture);

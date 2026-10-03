@@ -40,8 +40,10 @@ which needs the framework bridge to support it.
 
 ## Gates and routes
 
-Every entry may carry a `requirements` object. `skill` is one `{id, level}`;
-`items` is an array of `{id, count}` and passes when **any** of them is held on
+Every entry may carry a `requirements` object. `skill` is one `{id, level}` or
+an array of them (all must pass), `id` being the stat id the host reports
+(0 Attack, 2 Strength, 6 Magic, 7 Cooking, 10 Fishing, 12 Crafting,
+14 Mining, ...); `items` is an array of `{id, count}` and passes when **any** of them is held on
 an item teleport; `varbit` and `varp` are either one `{id, value}` or an
 **array** of them, and each is an exact-value match; `varbit_at_least` and
 `varp_at_least` take the same two spellings and pass at or above `value`
@@ -1089,6 +1091,57 @@ locked without one.
 **Not verified live:** every landing tile above (they are the nearest
 standable tiles, not observed), the 3-tick waits, whether the door needs the
 key from inside, and whether a key on a ring left in the bank is refused.
+
+## Guild doors (2026-10-03)
+
+Live on 2026-10-03 a walk to 2917,3289 failed at transition 6982: the
+Crafting Guild's north door, loc 133375 (`Guild door`, shape 0, rotation 3)
+at 2935,3292, derived with no gate. The account had Crafting below 40. The
+goal is not a field outside the guild: in the collision the whole stretch
+from x 2919 to the guild hall (area 9782 in that bake) is walled in, and the
+north door is its only way in from outside (the east `Guild door` at
+2938,3272 opens onto a pocket reachable only through the guild). 2917,3289
+itself is not standable and the planner ends on 2919,3291, inside.
+
+The levels come from the cache, not memory. Each guild's "Enter the ...
+Guild" achievement lists what entry needs (`skill_reqs_8`, `op_9`), and the
+skill guide's "Access to the ... Guild" structs agree on the levels:
+
+| Guild | Crossing | Gate | Evidence |
+|---|---|---|---|
+| Crafting | door 133375 at 2935,3292, new row | Crafting 40 | achievement 4094; skill guide struct 6085 |
+| Cooks' | door 2712 at 3143,3443, three new rows | Cooking 32 and one of: Chef's hat 1949, Varrock armour 3 (11758), Varrock armour 4 (19757) | achievement 4699; Varrock armour 3 reward "Access the Cooking Guild without a chef's hat" |
+| Mining | ladder 2113 at 3019,3339 and its four adjacent-tile rows; door 2112 at 3046,9757 from the Dwarven Mine | Mining 60 | achievement 683; struct 42965 |
+| Fishing | gate 49016 at 2614,3386, the only land way into the grounds | Fishing 68 | achievement 4587; struct 45992 |
+| Wizards' (Yanille) | door 1601 at 2584,3087 | Magic 66 | achievement 488; skill guide struct 5791 |
+| Warriors' | door 15653 at 2877,3542, three new rows | Attack 65 + Strength 65, or Attack 99, or Strength 99 | achievement 4089 lists 65 + 65 |
+| Champions' | door 1805 at 3191,3363, new row | `varp_at_least` 1297 (`qp`) 33 | achievement 955: "Quest Points: 33 (to enter the Champions' Guild)", var 1297 |
+| Heroes' | double door 2624 / 2625 at 2917,3513-3514, new rows | `varp_at_least` 2618 (`heroquest`) 15 | quests.json: Heroes' Quest ends at 15 on varp 2618 |
+
+Only the way in is gated; leaving is left free, so an account that is
+inside can always walk out. Rows with alternatives land one tile apart (see
+"Gates are ANDed"). The Brown apron shown on the Crafting Guild's skill
+guide entry is an icon only: neither the struct nor the achievement asks for
+it, so no row does.
+
+- **Warriors' Guild.** The game's rule is Attack + Strength of 130, or 99 in
+  either; a row cannot add two levels, so the first row asks for the
+  achievement's 65 + 65 and the other two for a 99. An account at, say,
+  70 + 60 is refused a door it could open. The 99 rows are from the wiki,
+  not the cache.
+- **Cooks' Guild.** The hat must be worn, and the gate passes on one held in
+  the pack. The cooking capes, which the wiki says also admit, have no row.
+- **Champions' and Heroes' Guilds are varp gates**, so the live bot refuses
+  them until the host adds varps 1297 and 2618 to `REQUIREMENT_VARPS`. Until
+  then a walk into either guild has no route.
+- **Left alone:** the Legends' Guild gate 2391 / 2392 and doors 2896 / 2897
+  (who may pass depends on the stage of Legends' Quest, and no dump says
+  which stage opens which); the Ranging Guild, which has no route in at all
+  (the fence door at 2658,3438 bakes no transition), so there is nothing to
+  gate.
+
+**Not verified live:** every gate above; the alternative landings at the
+Cooks' and Warriors' doors.
 
 ## How they're consumed
 

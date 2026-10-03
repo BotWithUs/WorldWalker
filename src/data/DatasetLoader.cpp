@@ -202,7 +202,8 @@ namespace ww::data
             const char *context;
         };
 
-        // One `{id, value}` (or `{id, bit}`) var gate, appended as `gate.kind`.
+        // One `{id, value}` (or `{id, bit}`, or a skill's `{id, level}`) gate,
+        // appended as `gate.kind`.
         void pushVarRequirement(const json &v, const VarGateKey &gate,
                                 std::vector<Requirement> &out)
         {
@@ -253,7 +254,11 @@ namespace ww::data
         // `varbit_at_least` used to be read only when it was an object, so an
         // array of them was dropped and the row baked ungated; it now shares
         // the object-or-array reader with the rest.
+        // `skill` used to be read only when it was an object, so an array of
+        // them (a door that wants two skills) was dropped and the row baked
+        // ungated, as `varbit_at_least` once was; it shares the reader now.
         constexpr VarGateKey kVarGateKeys[] = {
+            {"skill", RequirementKind::Skill, "level", 0, "requirements.skill"},
             {"varbit", RequirementKind::Varbit, "value", 0, "requirements.varbit"},
             {"varbit_at_least", RequirementKind::VarbitAtLeast, "value", 1,
              "requirements.varbit_at_least"},
@@ -286,13 +291,6 @@ namespace ww::data
             // meaningless, and the silent -1 default used to flow through to
             // the executor as a varbit / item probe of id -1.
             const json &req = node.at("requirements");
-            if (req.contains("skill") && req.at("skill").is_object())
-            {
-                const json &s = req.at("skill");
-                out.push_back({RequirementKind::Skill,
-                               readRequiredInt(s, "id", "requirements.skill"),
-                               readOptionalInt(s, "level", 0, "requirements.skill")});
-            }
             for (const VarGateKey &gate : kVarGateKeys)
             {
                 readVarRequirements(req, gate, out);

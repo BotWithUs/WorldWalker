@@ -10,7 +10,13 @@
     "option_index": 0,
     "dest_x": 3019,
     "dest_y": 9739,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 14,
+        "level": 60
+      }
+    }
   },
   {
     "name": "Open",
@@ -23,7 +29,13 @@
     "option_index": 0,
     "dest_x": 3046,
     "dest_y": 9755,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 14,
+        "level": 60
+      }
+    }
   },
   {
     "name": "Open",
@@ -2242,7 +2254,13 @@
     "option_index": 0,
     "dest_x": 2614,
     "dest_y": 3387,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 10,
+        "level": 68
+      }
+    }
   },
   {
     "name": "Open",
@@ -2632,7 +2650,13 @@
     "option_index": 0,
     "dest_x": 2585,
     "dest_y": 3087,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 6,
+        "level": 66
+      }
+    }
   },
   {
     "name": "Open",
@@ -40585,7 +40609,13 @@
     "option_index": 0,
     "dest_x": 3018,
     "dest_y": 9739,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 14,
+        "level": 60
+      }
+    }
   },
   {
     "name": "Dungeon entrances",
@@ -40598,7 +40628,13 @@
     "option_index": 0,
     "dest_x": 3019,
     "dest_y": 9738,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 14,
+        "level": 60
+      }
+    }
   },
   {
     "name": "Dungeon entrances",
@@ -40611,7 +40647,13 @@
     "option_index": 0,
     "dest_x": 3019,
     "dest_y": 9740,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 14,
+        "level": 60
+      }
+    }
   },
   {
     "name": "Dungeon entrances",
@@ -40624,7 +40666,13 @@
     "option_index": 0,
     "dest_x": 3020,
     "dest_y": 9739,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 14,
+        "level": 60
+      }
+    }
   },
   {
     "name": "Dungeon entrances",
@@ -46320,5 +46368,219 @@
     "dest_x": 3237,
     "dest_y": 3459,
     "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 133375,
+    "x": 2935,
+    "y": 3292,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2935,
+    "dest_y": 3291,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 12,
+        "level": 40
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 2712,
+    "x": 3143,
+    "y": 3443,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3143,
+    "dest_y": 3444,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 7,
+        "level": 32
+      },
+      "items": [
+        {
+          "id": 1949,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 2712,
+    "x": 3143,
+    "y": 3443,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3142,
+    "dest_y": 3444,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 7,
+        "level": 32
+      },
+      "items": [
+        {
+          "id": 11758,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 2712,
+    "x": 3143,
+    "y": 3443,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3144,
+    "dest_y": 3444,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 7,
+        "level": 32
+      },
+      "items": [
+        {
+          "id": 19757,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 15653,
+    "x": 2877,
+    "y": 3542,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2876,
+    "dest_y": 3542,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": [
+        {
+          "id": 0,
+          "level": 65
+        },
+        {
+          "id": 2,
+          "level": 65
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 15653,
+    "x": 2877,
+    "y": 3542,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2876,
+    "dest_y": 3543,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 0,
+        "level": 99
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 15653,
+    "x": 2877,
+    "y": 3542,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2876,
+    "dest_y": 3541,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 2,
+        "level": 99
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 1805,
+    "x": 3191,
+    "y": 3363,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 3191,
+    "dest_y": 3362,
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 1297,
+        "value": 33
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 2624,
+    "x": 2917,
+    "y": 3513,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2916,
+    "dest_y": 3513,
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2618,
+        "value": 15
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 2625,
+    "x": 2917,
+    "y": 3514,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2916,
+    "dest_y": 3514,
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2618,
+        "value": 15
+      }
+    }
   }
 ]
