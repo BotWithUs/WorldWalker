@@ -995,6 +995,36 @@ route.
 broken ladder needs an Agility level or a quest stage, and whether the
 `Climb` ladders could replace them.
 
+## Draynor Sewers (2026-10-03)
+
+Nothing reached the Draynor Sewers (the zombies around 3119,9647) before
+these rows: no row and no derived link touched the sewer's area (48201), so
+`wwcli path` from Lumbridge said "no route".
+
+- **Locs.** The cache places one entrance and one exit:
+  - 6434 `Trapdoor`, op 0 `Open`: 3118,3244, shape 10, rotation 0, 1x1,
+    blockwalk. It has no morph table; opening it swaps it for 6435
+    `Trapdoor`, op 0 `Climb-down`, on the same tile. 6435 has no `Close`,
+    so it reverts on the server's timer.
+  - 26518 `Ladder` (`POG_SEWER_PIPE_SIDE_LADDER`), op 0 `Climb-up`:
+    3118,9643, shape 4 (wall decoration), rotation 3. The tile is
+    standable and in area 48201.
+- **Rows.** Down, the 6434 row clicks `Open`, waits 3 ticks and then clicks
+  6435's `Climb-down` with a raw loc action, `[3, 6435, 3118, 3244]` (action
+  3 is loc op 1; the host's own loc click uses the same world-tile params).
+  A second row clicks 6435 directly, for a trapdoor someone left open. It
+  lands on 3118,9644 rather than 9643 only because the bake keeps one
+  transition per endpoint tuple and kind, so two rows with the same ends
+  collapse into the first. Its `extra_cost: 5` (8 against the Open row's 6)
+  puts the closed trapdoor, the resting state, first. Whichever row meets
+  the wrong state finds its loc missing, and the executor routes onto the
+  other. Up, 26518 lands on 3118,3245, the open tile north of the trapdoor.
+- **No gate.** Neither loc has a morph table or a quest var in the dump.
+
+**Not verified live:** the landing tiles (3118,9643 under the ladder and
+3118,3245 north of the trapdoor), the 3-tick wait between `Open` and
+`Climb-down`, and how long the trapdoor stays open.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a

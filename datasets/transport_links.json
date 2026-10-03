@@ -46023,5 +46023,58 @@
     "dest_x": 3855,
     "dest_y": 1619,
     "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 6434,
+    "x": 3118,
+    "y": 3244,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3118,
+    "dest_y": 9643,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          3,
+          6435,
+          3118,
+          3244
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Climb-down",
+    "object_id": 6435,
+    "x": 3118,
+    "y": 3244,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3118,
+    "dest_y": 9644,
+    "dest_plane": 0,
+    "extra_cost": 5
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 26518,
+    "x": 3118,
+    "y": 9643,
+    "plane": 0,
+    "shape": 4,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 3118,
+    "dest_y": 3245,
+    "dest_plane": 0
   }
 ]
