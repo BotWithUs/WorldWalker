@@ -1094,15 +1094,7 @@
     "option_index": 0,
     "dest_x": 3304,
     "dest_y": 3115,
-    "dest_plane": 0,
-    "requirements": {
-      "items": [
-        {
-          "id": 1854,
-          "count": 1
-        }
-      ]
-    }
+    "dest_plane": 0
   },
   {
     "name": "Go-through",

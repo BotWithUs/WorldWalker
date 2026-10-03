@@ -662,20 +662,28 @@ between y 3117 and 3116. Each lane also has a `SHANTAY_PASS_CLICKZONE` (loc
 
 | Row | Origin | Dest | Gate |
 |---|---|---|---|
-| south, into the desert | 3303,3117 (was 3304,3118) | 3304,3115 | holds a Shantay pass, item 1854 |
+| south, into the desert | 3303,3117 (was 3304,3118) | 3304,3115 | none (was: holds a Shantay pass, item 1854) |
 | north, out of the desert | 3303,3115 | 3303,3118 (was 3304,3118, a blocked tile) | none |
 
-Both origins are within a tile of the anchor. The pass is a toll for going
-into the desert. Leaving is believed to be free, but that is from memory of
-the game and was not checked live, so the northbound row carries no gate.
+Both origins are within a tile of the anchor.
 
-**Without a pass.** `wwcli path 3303 3117 0 3323 2875 0 --ungated --item
+**No pass (2026-10-03).** The southbound row used to need item 1854, the
+Shantay pass. RS3 removed the pass and the toll on 26 September 2012 (wiki
+update: "Shantay Pass no longer requires a toll or pass ... Members can pass
+the gate straight through by walking from north to the south"), so the gate
+held every foot route out of the desert's reach: on 2026-10-03 a walk from
+Lumbridge (3215,3258) to Crondis failed with "no way into the desert without
+a Shantay pass". The row is now ungated. Crossing south is members-only, but
+the dataset has no membership gate and the bots play on members' worlds (the
+op check counts members-only options for the same reason), so nothing stands
+in for it.
+
+**Before the fix.** `wwcli path 3303 3117 0 3323 2875 0 --ungated --item
 1854=0` used to climb the Lumbridge house stairs (45481, 3194,3253), cross
 the empty sky on plane 1, and come down Pollnivneach's stairs (108803,
-3353,2958), cost 752.4. That route was never real; the bake now fences the
-upper-plane void (see "Upper-plane void" below) and the same query has no
-route. Without a pass or a teleport there is no way in, so the task that
-sends a player into the desert has to give them a pass.
+3353,2958), cost 752.4. That route was never real; the void fence (see
+"Upper-plane void" below) removed it, which left no foot route in at all
+until the pass gate went.
 
 **Magic carpets.** The Shantay carpet (3306,3109) is south of the gate, and
 every carpet station is in the same area of the baked grid as the desert
@@ -684,7 +692,7 @@ area, so no carpet ride was ever planned inside the desert. It now keeps one
 whose landing is more than 32 tiles from its origin (`kMinIntraAreaHopTiles`,
 131 edges, `intra-kept` in the bake log), and the walk-aware area search
 gives each such edge a node of its own, so a route can ride and ride on.
-Shorter same-area hops are still dropped. With a pass and no teleports,
+Shorter same-area hops are still dropped. With no teleports,
 3303,3117 to the Agility Pyramid mine (3323,2875) now takes the gate and the
 Shantay carpet to South Pollnivneach, cost 171.5, where it walked 337.6.
 
