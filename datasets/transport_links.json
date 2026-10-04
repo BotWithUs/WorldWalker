@@ -10,7 +10,13 @@
     "option_index": 0,
     "dest_x": 3019,
     "dest_y": 9739,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 14,
+        "level": 60
+      }
+    }
   },
   {
     "name": "Open",
@@ -23,7 +29,13 @@
     "option_index": 0,
     "dest_x": 3046,
     "dest_y": 9755,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 14,
+        "level": 60
+      }
+    }
   },
   {
     "name": "Open",
@@ -1085,7 +1097,7 @@
   },
   {
     "name": "Go-through",
-    "object_id": 76546,
+    "object_id": 12774,
     "x": 3303,
     "y": 3117,
     "plane": 0,
@@ -1095,14 +1107,19 @@
     "dest_x": 3304,
     "dest_y": 3115,
     "dest_plane": 0,
-    "requirements": {
-      "items": [
-        {
-          "id": 1854,
-          "count": 1
-        }
-      ]
-    }
+    "chain": [
+      {
+        "wait": 2
+      },
+      {
+        "action": [
+          30,
+          0,
+          -1,
+          37027842
+        ]
+      }
+    ]
   },
   {
     "name": "Go-through",
@@ -2237,7 +2254,13 @@
     "option_index": 0,
     "dest_x": 2614,
     "dest_y": 3387,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 10,
+        "level": 68
+      }
+    }
   },
   {
     "name": "Open",
@@ -2627,7 +2650,13 @@
     "option_index": 0,
     "dest_x": 2585,
     "dest_y": 3087,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 6,
+        "level": 66
+      }
+    }
   },
   {
     "name": "Open",
@@ -4671,15 +4700,21 @@
   {
     "name": "Climb down",
     "object_id": 91021,
-    "x": 3162,
-    "y": 3167,
+    "x": 3164,
+    "y": 3169,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
     "dest_x": 3169,
     "dest_y": 9571,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": {
+        "id": 16231,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Climb",
@@ -40580,7 +40615,13 @@
     "option_index": 0,
     "dest_x": 3018,
     "dest_y": 9739,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 14,
+        "level": 60
+      }
+    }
   },
   {
     "name": "Dungeon entrances",
@@ -40593,7 +40634,13 @@
     "option_index": 0,
     "dest_x": 3019,
     "dest_y": 9738,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 14,
+        "level": 60
+      }
+    }
   },
   {
     "name": "Dungeon entrances",
@@ -40606,7 +40653,13 @@
     "option_index": 0,
     "dest_x": 3019,
     "dest_y": 9740,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 14,
+        "level": 60
+      }
+    }
   },
   {
     "name": "Dungeon entrances",
@@ -40619,7 +40672,13 @@
     "option_index": 0,
     "dest_x": 3020,
     "dest_y": 9739,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 14,
+        "level": 60
+      }
+    }
   },
   {
     "name": "Dungeon entrances",
@@ -45928,5 +45987,606 @@
     "dest_x": 3517,
     "dest_y": 1693,
     "dest_plane": 0
+  },
+  {
+    "name": "Climb over",
+    "object_id": 141015,
+    "x": 3762,
+    "y": 1562,
+    "plane": 0,
+    "shape": 11,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 3764,
+    "dest_y": 1559,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 62090,
+        "value": 1
+      }
+    }
+  },
+  {
+    "name": "Climb over",
+    "object_id": 141015,
+    "x": 3762,
+    "y": 1559,
+    "plane": 0,
+    "shape": 11,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 3761,
+    "dest_y": 1562,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 62090,
+        "value": 1
+      }
+    }
+  },
+  {
+    "name": "Traverse",
+    "object_id": 140908,
+    "x": 3867,
+    "y": 1628,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 3864,
+    "dest_y": 1628,
+    "dest_plane": 0
+  },
+  {
+    "name": "Traverse",
+    "object_id": 140908,
+    "x": 3865,
+    "y": 1628,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 3868,
+    "dest_y": 1628,
+    "dest_plane": 0
+  },
+  {
+    "name": "Traverse",
+    "object_id": 140907,
+    "x": 3855,
+    "y": 1620,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3855,
+    "dest_y": 1623,
+    "dest_plane": 0
+  },
+  {
+    "name": "Traverse",
+    "object_id": 140907,
+    "x": 3855,
+    "y": 1622,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3855,
+    "dest_y": 1619,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 6434,
+    "x": 3118,
+    "y": 3244,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3118,
+    "dest_y": 9643,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          3,
+          6435,
+          3118,
+          3244
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Climb-down",
+    "object_id": 6435,
+    "x": 3118,
+    "y": 3244,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3118,
+    "dest_y": 9644,
+    "dest_plane": 0,
+    "extra_cost": 5
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 26518,
+    "x": 3118,
+    "y": 9643,
+    "plane": 0,
+    "shape": 4,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 3118,
+    "dest_y": 3245,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 1804,
+    "x": 3115,
+    "y": 3449,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3115,
+    "dest_y": 3450,
+    "dest_plane": 0,
+    "requirements": {
+      "items": [
+        {
+          "id": 983,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 1804,
+    "x": 3115,
+    "y": 3449,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3116,
+    "dest_y": 3450,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 40074,
+        "value": 1
+      },
+      "varp_bit": {
+        "id": 2673,
+        "bit": 0
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 1804,
+    "x": 3115,
+    "y": 3449,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3114,
+    "dest_y": 3450,
+    "dest_plane": 0,
+    "requirements": {
+      "varp_bit": {
+        "id": 2673,
+        "bit": 0
+      },
+      "items": [
+        {
+          "id": 4446,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 1804,
+    "x": 3115,
+    "y": 3450,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3115,
+    "dest_y": 3449,
+    "dest_plane": 0,
+    "requirements": {
+      "items": [
+        {
+          "id": 983,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 1804,
+    "x": 3115,
+    "y": 3450,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3116,
+    "dest_y": 3449,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 40074,
+        "value": 1
+      },
+      "varp_bit": {
+        "id": 2673,
+        "bit": 0
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 1804,
+    "x": 3115,
+    "y": 3450,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3115,
+    "dest_y": 3448,
+    "dest_plane": 0,
+    "requirements": {
+      "varp_bit": {
+        "id": 2673,
+        "bit": 0
+      },
+      "items": [
+        {
+          "id": 4446,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 26933,
+    "x": 3097,
+    "y": 3468,
+    "plane": 0,
+    "shape": 22,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3096,
+    "dest_y": 9867,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          3,
+          26934,
+          3097,
+          3468
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Climb-down",
+    "object_id": 26934,
+    "x": 3097,
+    "y": 3468,
+    "plane": 0,
+    "shape": 22,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3096,
+    "dest_y": 9868,
+    "dest_plane": 0,
+    "extra_cost": 5
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 29355,
+    "x": 3097,
+    "y": 9868,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 3096,
+    "dest_y": 3468,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 881,
+    "x": 3237,
+    "y": 3458,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3237,
+    "dest_y": 9865,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 3
+      },
+      {
+        "action": [
+          3,
+          882,
+          3237,
+          3458
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Climb down",
+    "object_id": 882,
+    "x": 3237,
+    "y": 3458,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3236,
+    "dest_y": 9865,
+    "dest_plane": 0,
+    "extra_cost": 5
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 128335,
+    "x": 3237,
+    "y": 9866,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3237,
+    "dest_y": 3459,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 133375,
+    "x": 2935,
+    "y": 3292,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2935,
+    "dest_y": 3291,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 12,
+        "level": 40
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 2712,
+    "x": 3143,
+    "y": 3443,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3143,
+    "dest_y": 3444,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 7,
+        "level": 32
+      },
+      "items": [
+        {
+          "id": 1949,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 2712,
+    "x": 3143,
+    "y": 3443,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3142,
+    "dest_y": 3444,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 7,
+        "level": 32
+      },
+      "items": [
+        {
+          "id": 11758,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 2712,
+    "x": 3143,
+    "y": 3443,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3144,
+    "dest_y": 3444,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 7,
+        "level": 32
+      },
+      "items": [
+        {
+          "id": 19757,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 15653,
+    "x": 2877,
+    "y": 3542,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2876,
+    "dest_y": 3542,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": [
+        {
+          "id": 0,
+          "level": 65
+        },
+        {
+          "id": 2,
+          "level": 65
+        }
+      ]
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 15653,
+    "x": 2877,
+    "y": 3542,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2876,
+    "dest_y": 3543,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 0,
+        "level": 99
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 15653,
+    "x": 2877,
+    "y": 3542,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2876,
+    "dest_y": 3541,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 2,
+        "level": 99
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 1805,
+    "x": 3191,
+    "y": 3363,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 3191,
+    "dest_y": 3362,
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 1297,
+        "value": 33
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 2624,
+    "x": 2917,
+    "y": 3513,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2916,
+    "dest_y": 3513,
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2618,
+        "value": 15
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 2625,
+    "x": 2917,
+    "y": 3514,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2916,
+    "dest_y": 3514,
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2618,
+        "value": 15
+      }
+    }
   }
 ]

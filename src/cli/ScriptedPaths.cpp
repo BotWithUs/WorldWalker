@@ -338,6 +338,11 @@ namespace
             {
                 return true;
             }
+            if (kind == ww::data::RequirementKind::VarpBit)
+            {
+                // The empty snapshot reads 0, which has no bit set.
+                return true;
+            }
         }
         return false;
     }

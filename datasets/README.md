@@ -40,14 +40,25 @@ which needs the framework bridge to support it.
 
 ## Gates and routes
 
-Every entry may carry a `requirements` object. `skill` is one `{id, level}`;
-`items` is an array of `{id, count}` and passes when **any** of them is held on
+Every entry may carry a `requirements` object. `skill` is one `{id, level}` or
+an array of them (all must pass), `id` being the stat id the host reports
+(0 Attack, 2 Strength, 6 Magic, 7 Cooking, 10 Fishing, 12 Crafting,
+14 Mining, ...); `items` is an array of `{id, count}` and passes when **any** of them is held on
 an item teleport; `varbit` and `varp` are either one `{id, value}` or an
 **array** of them, and each is an exact-value match; `varbit_at_least` and
 `varp_at_least` take the same two spellings and pass at or above `value`
 (which defaults to 1). The array spelling is how one entry demands more than
 one var — an unlock *and* a setting, or the unlocks at both ends of a route —
-without the loader having to know what those vars mean.
+without the loader having to know what those vars mean. `varp_bit` takes the
+same two spellings of `{id, bit}` and passes when bit `bit` (0..31, default 0)
+of the varp is set, for a varp the game packs as a bitfield with no varbit
+over the bit (the key ring's stored keys, varp 2673).
+
+**Gates are ANDed; an OR is two rows.** Outside item teleports, every gate on
+an entry must pass. A crossing that opens for either of two things (a key in
+the pack, or the same key on the key ring) is one row per alternative. The
+bake keeps one transition per (kind, origin, dest), so each alternative row
+lands one tile apart, as the Brass key door below does.
 
 **A varp gate is denied by the live bot today.** The executor reads every
 varbit a requirement names on each plan, but it only learns varps from the
@@ -662,20 +673,30 @@ between y 3117 and 3116. Each lane also has a `SHANTAY_PASS_CLICKZONE` (loc
 
 | Row | Origin | Dest | Gate |
 |---|---|---|---|
-| south, into the desert | 3303,3117 (was 3304,3118) | 3304,3115 | holds a Shantay pass, item 1854 |
+| south, into the desert | 3303,3117 (was 3304,3118) | 3304,3115 | none (was: holds a Shantay pass, item 1854) |
 | north, out of the desert | 3303,3115 | 3303,3118 (was 3304,3118, a blocked tile) | none |
 
-Both origins are within a tile of the anchor. The pass is a toll for going
-into the desert. Leaving is believed to be free, but that is from memory of
-the game and was not checked live, so the northbound row carries no gate.
+Both origins are within a tile of the anchor. Since 2026-10-03 the
+southbound row clicks the west lane's clickzone, 12774 at 3303,3116, and
+confirms the desert warning (below); the northbound row still clicks 76546.
 
-**Without a pass.** `wwcli path 3303 3117 0 3323 2875 0 --ungated --item
+**No pass (2026-10-03).** The southbound row used to need item 1854, the
+Shantay pass. RS3 removed the pass and the toll on 26 September 2012 (wiki
+update: "Shantay Pass no longer requires a toll or pass ... Members can pass
+the gate straight through by walking from north to the south"), so the gate
+held every foot route out of the desert's reach: on 2026-10-03 a walk from
+Lumbridge (3215,3258) to Crondis failed with "no way into the desert without
+a Shantay pass". The row is now ungated. Crossing south is members-only, but
+the dataset has no membership gate and the bots play on members' worlds (the
+op check counts members-only options for the same reason), so nothing stands
+in for it.
+
+**Before the fix.** `wwcli path 3303 3117 0 3323 2875 0 --ungated --item
 1854=0` used to climb the Lumbridge house stairs (45481, 3194,3253), cross
 the empty sky on plane 1, and come down Pollnivneach's stairs (108803,
-3353,2958), cost 752.4. That route was never real; the bake now fences the
-upper-plane void (see "Upper-plane void" below) and the same query has no
-route. Without a pass or a teleport there is no way in, so the task that
-sends a player into the desert has to give them a pass.
+3353,2958), cost 752.4. That route was never real; the void fence (see
+"Upper-plane void" below) removed it, which left no foot route in at all
+until the pass gate went.
 
 **Magic carpets.** The Shantay carpet (3306,3109) is south of the gate, and
 every carpet station is in the same area of the baked grid as the desert
@@ -684,7 +705,7 @@ area, so no carpet ride was ever planned inside the desert. It now keeps one
 whose landing is more than 32 tiles from its origin (`kMinIntraAreaHopTiles`,
 131 edges, `intra-kept` in the bake log), and the walk-aware area search
 gives each such edge a node of its own, so a route can ride and ride on.
-Shorter same-area hops are still dropped. With a pass and no teleports,
+Shorter same-area hops are still dropped. With no teleports,
 3303,3117 to the Agility Pyramid mine (3323,2875) now takes the gate and the
 Shantay carpet to South Pollnivneach, cost 171.5, where it walked 337.6.
 
@@ -695,9 +716,35 @@ the same as a missing ladder, and the run re-plans around it. Before, it
 re-planned onto the same crossing until the stuck budget ran out. Harness
 tests 4o and 4p cover this.
 
-**Not verified offline:** that 76546 is clicked from 3303,3117. The
-clickzone 12774 is the fallback if it is not. Also unverified: whether the
-first trip through raises a warning the executor has no dialog zone for.
+**The desert warning (2026-10-03).** Live, the ungated row never crossed.
+Every attempt logged two clicks on 76546 three seconds apart and then a
+walk to 3304,3115, and the player stood still on 3303,3117 throughout. Going
+south raises the Content Warning System's desert page, interface 565
+(`CWS_WARNING_10`), and the player waits there until it is confirmed. The
+executor confirmed nothing. It re-clicked the gate when the player had not
+moved, and its fallback walk closed the page. The script's own click on
+12774 fared no better, since the walker clicked again 1.1 s later. The only
+crossing on record is a lone script click on 12774 on 2026-10-01, with
+nothing else clicked for 76 s afterwards.
+
+The southbound row now clicks 12774, the loc that crossed, and carries a
+chain: `wait 2`, then `action [30, 0, -1, 37027842]`. That is a DIALOGUE
+click on 565:2 (`CWS_WARNING_10__WARN1`), copied from the confirm V1
+intercepted from a real click (`TouristTrapQuest.java`, PathWithUs). It is
+sent blind. V1 measured `isOpen(565)` as false while the page was up, so a
+`wait_interface` would time out, and a confirm on a closed interface is
+dropped by the game, so an account that has turned the warning off (varbit
+1143, the 565:5 toggle) loses nothing. When the player is still short of a
+crossing, the executor's retry now re-runs the chain after re-clicking, so
+the confirm goes out again. The bare re-click it used to make only raised
+the warning again. Harness test 4ab covers both cases: a warning that is up
+on time, and one whose first confirm arrives too early.
+
+**Not verified live:** that 565:2 is the proceed button (its name is
+`WARN1`), and that two ticks are enough for the page to be up before the
+confirm is sent. If the walk still stalls, read the open interfaces at
+3303,3117 after the click. The northbound row (76546, from 3303,3115) is
+unchanged and has not been checked live either.
 
 ## Upper-plane void (2026-09-27)
 
@@ -859,6 +906,294 @@ to the surface, so nothing inside could be planned to.
 
 **Not verified live:** both landing tiles and whether either move needs a wait
 before the landing check.
+
+## Amberfell south-east barricade (2026-10-01)
+
+The barricade on Amberfell's south-east side (Ash guards it) splits the town
+from the ground east of it, towards Berylbrook. Heralds of Crimson opens a
+Climb over on it. Before these rows, area 2556 (west) and area 2559 (east) had
+no transition between them, so a walk from one side to the other had no route
+except the long way round, by teleport and the Wendlewick bridge.
+
+- **Loc.** 141015, op 0 `Climb over`. The cache places it once: 3762,1559,
+  shape 11, rotation 2, 2x5, so it covers 3762..3763, 1559..1563. 121189 (the
+  old id, on the same tile in the 9-16 spawn table; the wiki lists it as
+  `histid`) is no longer placed there. No row named either id before this one.
+- **Rows.** The host matches the whole footprint, and the bake joins a row to
+  every area within one tile of the row's tile. So each row tile is the
+  footprint tile that touches only its own side. Eastbound: 3762,1562, next to
+  west tiles 3761,1562 / 3761,1563 / 3762,1563. Westbound: the anchor,
+  3762,1559, next to east tiles 3763,1559 / 3763,1560. 3762,1561 touches both
+  sides, so neither row uses it.
+- **Landings (estimates).** One tile past the footprint on each side: 3764,1559
+  east and 3761,1562 west. Both are standable, so the bake snaps neither. Live
+  on 2026-10-01 the player clicked from 3760,1561, and the climb never
+  completed (see below), so no landing has been observed.
+- **Gate.** 141015 morphs on varbit 62090, the progress varbit of quest 533
+  Heralds of Crimson (start 5, end 215 in `quests.json`). Its `morphs_1` ids
+  are `[141162, 141016]`: 0 -> 141162 "Barricade" (Examine only), anything
+  else -> 141016 "Barricade" [Climb over]. The last entry is the default, as
+  in 136468's table above, and live the Climb over was offered at 10, 25 and
+  30. So `varbit_at_least 62090 >= 1` is the game's own condition for the op
+  to exist, and it stays true after the quest (the wiki: "During and after the
+  quest"). Both rows click the same loc from either side, so both are gated.
+- **Quest refusal is not gated.** At 62090 = 30, Anya stops the climb ("Wait!
+  We must first deal with these interlopers!"). That is quest dialogue on an op
+  that exists, not the loc's condition, so the rows do not encode it. A quest
+  script at that stage has to fight first.
+- **No wait.** Like the other Climb over rows, these have no chain wait.
+
+**Not verified live:** both landing tiles, the climb's timing, and that the
+game takes the click from the east side.
+
+## Exalted Quarry broken ladders (2026-10-02)
+
+The Exalted Quarry (Havenhythe Part II, 28 September 2026), south of
+Heathervein, is a pit in three tiers. The ground around it is area 2559, the
+same area as the ground east of the Amberfell barricade. The middle terrace is
+area 2936. The floor, with the exalted colossus (140913, 3850,1627, 6x6) and
+Aurora, is area 2937. Cliff walls in the cache's own collision separate the
+tiers. For example, 3865,1628 has a wall east and 3866,1628 a wall west; 3855,1621 has
+a wall north and 3855,1622 a wall south. So this is not missing collision or a bake
+artifact. Before these rows, nothing could be planned to the quarry floor, and
+a Heralds of Crimson step that walks from Wendlewick to the colossus had no
+route.
+
+- **Locs.** Four locs cross the cliffs. They are all agility obstacles (param
+  6668 points at a table-97 dbrow), and no row named any of them.
+  The bake derives ladders only between planes, and all four stand on plane 0,
+  so it made no transition for them. The cache places each once:
+  - 140908 `Broken ladder`, op 0 `Traverse`: 3865,1628, shape 10, rotation
+    3, 1x3 turned, so 3865..3867 on y 1628. Ground (2559) to terrace (2936),
+    east side.
+  - 140907 `Broken ladder`, op 0 `Traverse`: 3855,1620, stored plane 1 on a
+    bridge column (so plane 0), shape 10, rotation 0, 1x3, so 3855 on
+    1620..1622. Terrace (2936) to floor (2937), south side.
+  - 140910 `Ladder`, op 0 `Climb`: 3836,1631 (stored plane 1). Ground to
+    terrace, west side. 140909 `Ladder`, op 0 `Climb`: 3849,1638. Terrace to
+    floor, north side.
+- **Only the broken ladders.** The quest guide's route goes "to the lowest level by traversing the
+  broken ladders". The wiki says talking to Aurora on the floor is what
+  "unlock[s] access to the mine". Nothing in the cache shows whether the two
+  `Climb` ladders work before that. If they were rows, the planner would take the west
+  ladder from Amberfell, because it is nearer. So they are left out until someone
+  checks them live.
+- **Rows.** The host matches the whole footprint. The bake joins a row to every
+  area within one tile, except tiles walled off from the row tile. So each row tile is a
+  footprint tile whose walkable neighbours are all on its own side. Down:
+  3867,1628 -> 3864,1628 and 3855,1620 -> 3855,1623. Up: 3865,1628 ->
+  3868,1628 and 3855,1622 -> 3855,1619.
+- **Landings (estimates).** One tile past the footprint on the far side. All
+  four are standable, so the bake snaps none of them. The landings are not
+  observed.
+- **No gate.** 140907 and 140908 have no morph table (`varbitId`/`varpId` -1
+  in NXTCacheLibrary, no `morphs_1` in the 9-29 `locations.json`), and no loc in
+  that dump morphs into either. So the game gives no condition for the op
+  to exist, and the rows carry none. The wiki says the quarry needs "partial
+  completion" of Heralds of Crimson. Whatever enforces that is server-side and
+  is not encoded. On foot from the west, the route already crosses the
+  barricade, which is gated on 62090 >= 1.
+- **No Agility level.** Dbrows 20149 and 20150 are empty in the cache and in
+  the dumps, the same as 137303's 3901. The quest guide gives Agility levels
+  for other shortcuts on this route (72 for the stepping stones) but none for
+  the broken ladders. If the game does need a level, these rows do not encode it.
+- **No wait.** Like the other `Traverse` rows, these have no chain wait.
+- **Category.** None of the four is in `MoveCategoryLocs.inc`, so the rows
+  classify as doors, as 141015 does. Fixing that means regenerating the table
+  and rebuilding the library.
+
+**Not verified live:** the landing tiles, the traverse timing, whether either
+broken ladder needs an Agility level or a quest stage, and whether the
+`Climb` ladders could replace them.
+
+## Draynor Sewers (2026-10-03)
+
+Nothing reached the Draynor Sewers (the zombies around 3119,9647) before
+these rows: no row and no derived link touched the sewer's area (48201), so
+`wwcli path` from Lumbridge said "no route".
+
+- **Locs.** The cache places one entrance and one exit:
+  - 6434 `Trapdoor`, op 0 `Open`: 3118,3244, shape 10, rotation 0, 1x1,
+    blockwalk. It has no morph table; opening it swaps it for 6435
+    `Trapdoor`, op 0 `Climb-down`, on the same tile. 6435 has no `Close`,
+    so it reverts on the server's timer.
+  - 26518 `Ladder` (`POG_SEWER_PIPE_SIDE_LADDER`), op 0 `Climb-up`:
+    3118,9643, shape 4 (wall decoration), rotation 3. The tile is
+    standable and in area 48201.
+- **Rows.** Down, the 6434 row clicks `Open`, waits 3 ticks and then clicks
+  6435's `Climb-down` with a raw loc action, `[3, 6435, 3118, 3244]` (action
+  3 is loc op 1; the host's own loc click uses the same world-tile params).
+  A second row clicks 6435 directly, for a trapdoor someone left open. It
+  lands on 3118,9644 rather than 9643 only because the bake keeps one
+  transition per endpoint tuple and kind, so two rows with the same ends
+  collapse into the first. Its `extra_cost: 5` (8 against the Open row's 6)
+  puts the closed trapdoor, the resting state, first. Whichever row meets
+  the wrong state finds its loc missing, and the executor routes onto the
+  other. Up, 26518 lands on 3118,3245, the open tile north of the trapdoor.
+- **No gate.** Neither loc has a morph table or a quest var in the dump.
+
+**Not verified live:** the landing tiles (3118,9643 under the ladder and
+3118,3245 north of the trapdoor), the 3-tick wait between `Open` and
+`Climb-down`, and how long the trapdoor stays open.
+
+## Brass key door and the Edgeville Dungeon (2026-10-03)
+
+Live on 2026-10-03 a walk to the Edgeville Dungeon (3119,9862) failed over
+and over at transition 7509: the door 1804 at 3115,3449, derived from the
+cache with no gate, into the house over the dungeon (ladder 12389 at
+3116,3452). The account had no Brass key, and the game keeps that door
+locked without one.
+
+- **The key.** Obj 983 `EDGEVILLEDUNGEONKEY`, "Brass key"; its keyring
+  description (param 7511) is "Allows access to Edgeville Dungeon." It can
+  be stored on the Steel key ring (obj 4446): clientscript 2261 puts 983 in
+  slot 0 of the ring, and 2388 reads slot n as bit n of varp 2673
+  (`favour_keyring`). No varbit covers that bit, hence `varp_bit`. The ring
+  on the tool belt is varbit 40074 (`toolbelt_keyring`).
+- **Door 1804** (`Door`, op 0 `Open`, shape 0, rotation 1, at 3115,3449) has
+  no morph; the lock is the server's. Six rows replace the two derived hops
+  (a row on a door's origin tile suppresses the derived hop from it), three
+  each way, one per way of holding the key:
+  - Brass key in the pack or worn: `items` 983. Lands on 3115,3450 going in,
+    3115,3449 going out.
+  - Brass key on the ring, ring on the tool belt: `varp_bit` 2673 bit 0 and
+    `varbit_at_least` 40074. Lands on 3116,3450 / 3116,3449.
+  - Brass key on the ring, ring in the pack: `varp_bit` 2673 bit 0 and
+    `items` 4446. Lands on 3114,3450 / 3115,3448.
+  The odd landings are only there to survive the endpoint dedup; each is the
+  next standable tile of the same area, inside the executor's landing slack.
+  Leaving is gated too: whether the door opens from inside without a key is
+  not in any dump, and gating it keeps the planner from climbing up into a
+  house it cannot leave.
+- **Live, only the pack row passes today.** The executor reads item counts
+  (pack and worn) for every requirement, but varps only from the host's
+  `readCapability`, and the host's varp list (`REQUIREMENT_VARPS` in
+  `WorldWalkerCallbackBridge`) does not hold 2673, so both ring rows read 0
+  and are denied until the host adds it. A reader older than `varp_bit`
+  denies those rows too.
+- **The other ways in.** Without the key the walker uses:
+  - Edgeville trapdoor 26933 (`Trapdoor`, op 0 `Open`, shape 22, rotation 1)
+    at 3097,3468, opening to 26934 (`Climb-down`, `Close`). As with the
+    Draynor trapdoor: `Open`, wait 3 ticks, raw loc action
+    `[3, 26934, 3097, 3468]`, landing 3096,9867; a second row clicks an
+    already open 26934, landing 3096,9868 with `extra_cost` 5. Out: ladder
+    29355 (`Climb-up`) at 3097,9868 to 3096,3468. Both landings are in the
+    dungeon's area that holds 3119,9862.
+  - Varrock manhole 881 (`Manhole`, op 0 `Open`) at 3237,3458, opening to
+    882 (`Climb down`, `Close`), the same two-row shape, landing 3237,9865
+    and 3236,9865. Out: ladder 128335 (`Climb-up`) at 3237,9866 to
+    3237,3459. The sewer is not walkable to the Edgeville Dungeon in the
+    collision, so this does not serve 3119,9862; it is here because nothing
+    reached the Varrock Sewers before.
+- **No gate** on the trapdoor or the manhole: neither has a morph table or a
+  quest var in the dump.
+
+**Not verified live:** every landing tile above (they are the nearest
+standable tiles, not observed), the 3-tick waits, whether the door needs the
+key from inside, and whether a key on a ring left in the bank is refused.
+
+## Guild doors (2026-10-03)
+
+Live on 2026-10-03 a walk to 2917,3289 failed at transition 6982: the
+Crafting Guild's north door, loc 133375 (`Guild door`, shape 0, rotation 3)
+at 2935,3292, derived with no gate. The account had Crafting below 40. The
+goal is not a field outside the guild: in the collision the whole stretch
+from x 2919 to the guild hall (area 9782 in that bake) is walled in, and the
+north door is its only way in from outside (the east `Guild door` at
+2938,3272 opens onto a pocket reachable only through the guild). 2917,3289
+itself is not standable and the planner ends on 2919,3291, inside.
+
+The levels come from the cache, not memory. Each guild's "Enter the ...
+Guild" achievement lists what entry needs (`skill_reqs_8`, `op_9`), and the
+skill guide's "Access to the ... Guild" structs agree on the levels:
+
+| Guild | Crossing | Gate | Evidence |
+|---|---|---|---|
+| Crafting | door 133375 at 2935,3292, new row | Crafting 40 | achievement 4094; skill guide struct 6085 |
+| Cooks' | door 2712 at 3143,3443, three new rows | Cooking 32 and one of: Chef's hat 1949, Varrock armour 3 (11758), Varrock armour 4 (19757) | achievement 4699; Varrock armour 3 reward "Access the Cooking Guild without a chef's hat" |
+| Mining | ladder 2113 at 3019,3339 and its four adjacent-tile rows; door 2112 at 3046,9757 from the Dwarven Mine | Mining 60 | achievement 683; struct 42965 |
+| Fishing | gate 49016 at 2614,3386, the only land way into the grounds | Fishing 68 | achievement 4587; struct 45992 |
+| Wizards' (Yanille) | door 1601 at 2584,3087 | Magic 66 | achievement 488; skill guide struct 5791 |
+| Warriors' | door 15653 at 2877,3542, three new rows | Attack 65 + Strength 65, or Attack 99, or Strength 99 | achievement 4089 lists 65 + 65 |
+| Champions' | door 1805 at 3191,3363, new row | `varp_at_least` 1297 (`qp`) 33 | achievement 955: "Quest Points: 33 (to enter the Champions' Guild)", var 1297 |
+| Heroes' | double door 2624 / 2625 at 2917,3513-3514, new rows | `varp_at_least` 2618 (`heroquest`) 15 | quests.json: Heroes' Quest ends at 15 on varp 2618 |
+
+Only the way in is gated; leaving is left free, so an account that is
+inside can always walk out. Rows with alternatives land one tile apart (see
+"Gates are ANDed"). The Brown apron shown on the Crafting Guild's skill
+guide entry is an icon only: neither the struct nor the achievement asks for
+it, so no row does.
+
+- **Warriors' Guild.** The game's rule is Attack + Strength of 130, or 99 in
+  either; a row cannot add two levels, so the first row asks for the
+  achievement's 65 + 65 and the other two for a 99. An account at, say,
+  70 + 60 is refused a door it could open. The 99 rows are from the wiki,
+  not the cache.
+- **Cooks' Guild.** The hat must be worn, and the gate passes on one held in
+  the pack. The cooking capes, which the wiki says also admit, have no row.
+- **Champions' and Heroes' Guilds are varp gates**, so the live bot refuses
+  them until the host adds varps 1297 and 2618 to `REQUIREMENT_VARPS`. Until
+  then a walk into either guild has no route.
+- **Left alone:** the Legends' Guild gate 2391 / 2392 and doors 2896 / 2897
+  (who may pass depends on the stage of Legends' Quest, and no dump says
+  which stage opens which); the Ranging Guild, which has no route in at all
+  (the fence door at 2658,3438 bakes no transition), so there is nothing to
+  gate.
+
+**Not verified live:** every gate above; the alternative landings at the
+Cooks' and Warriors' doors.
+
+## Lumbridge Swamp dark hole (2026-10-04)
+
+Live on 2026-10-04 (02:19-02:26) a walk to the Lumbridge Swamp Caves
+(3150,9555) failed over and over at transition 314. Each time the host
+logged `interact: loc 91021 matched at (3163,3166,0) for row tile
+(3162,3167,0); 3x3 footprint 1 tile(s) away`, the walk re-planned, and it
+picked the same row for seven minutes. The user had also seen the bot walk
+around the hole to its far side before it climbed down.
+
+**The loc.** 91021 (`TMF_GOBLIN_CAVE_ENTRANCE_MULTI`) is anchored at
+3163,3166 with rotation 1 and covers 3163-3165 x 3166-3168. It has no
+options of its own. It morphs on varbit 4291 (`tmf_main`) into 5947
+`Dark hole under tree` (`Climb down`) or 91020, the same hole after The
+Mighty Fall (`Climb-down`). Both forms carry `forceapproach` 7 (north, east
+and south blocked). Rotated once, that leaves only the north side open. The
+collision agrees: every tile next to the west, south and east edges is
+blocked, and on the north edge 3164,3169 and 3165,3169 are floor. The climb
+back up (78630) also lands on 3164,3169.
+
+**Why the walk circled.** The row's origin, 3162,3167, is a blocked tile
+west of the footprint. The planner stood on the nearest floor within a tile
+of it, 3161,3167. From there the hole cannot be clicked, so the game walked
+the player south, east and north around the hole to reach the north edge.
+
+**The row now:**
+
+| Row | Origin | Dest | Gate |
+|---|---|---|---|
+| `Climb down` 91021 | 3164,3169 (was 3162,3167) | 3169,9571 | varbit 16231 (`swamp_caves_roped_entrance`, varp 3145 bit 3) = 1 |
+
+- **Origin.** 3164,3169 is floor on the open north side, one tile from the
+  footprint. The host matches the loc by footprint, so it still finds
+  91021. A walk from 3165,3203 now comes down the east side
+  (3167,3173 -> 3165,3171 -> 3164,3169) and climbs from where it stops.
+- **Gate.** A player has to use a Rope (item 954) on the hole once before
+  they can climb down. `swamp_caves_roped_entrance` records that the rope
+  is tied, and no loc morphs on it, so the tied rope does not show on the
+  hole. Without the varbit, `wwcli path` now says "no route" into the caves
+  instead of the executor failing the climb forever.
+- **No rope row.** Tying the rope is item-on-loc: `SELECT_COMPONENT_ITEM`
+  on the rope's backpack slot, then `SELECT_OBJECT` on the hole. A chain
+  cannot do that today. `click_item` resolves the slot at run time but only
+  sends `COMPONENT` / `COMPONENT_SPECIAL`, and a raw `action` step would
+  fix the slot when the row is written. Until the executor has an
+  item-on-loc step, the rope has to be tied by a script or by hand.
+
+**Not verified live:** that the server sends varp 3145 to the client (the
+host reads varbits from the client's own copy of the varp). If it does not,
+the varbit reads 0 even after the rope is tied, and a roped account also
+gets "no route". Also not verified live: that the climb is accepted from
+3164,3169 with no extra step.
 
 ## How they're consumed
 

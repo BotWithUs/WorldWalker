@@ -680,6 +680,14 @@ namespace ww::exec
         // longer found, so the host no-ops.
         if (interactWithLoc(tx) == LocInteract::Issued)
         {
+            // The chain goes with the click. Shantay Pass's click raises a
+            // warning its chain confirms; a bare re-click only raised it
+            // again, and the walk below then closed it (2026-10-03). A
+            // failed chain leaves the player short, which is judged below.
+            if (runChain(tx) == WwStatus::Cancelled)
+            {
+                return;
+            }
             callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
             callbacks->readPosition(callbacks->user, &ioPosition);
             awaitLanding(tx, start, ioPosition);

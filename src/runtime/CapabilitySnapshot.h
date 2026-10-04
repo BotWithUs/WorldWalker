@@ -171,12 +171,25 @@ namespace ww::runtime
                     return varbit(req.id) >= req.amount;
                 case data::RequirementKind::VarpAtLeast:
                     return varp(req.id) >= req.amount;
+                case data::RequirementKind::VarpBit:
+                    return isBitSet(varp(req.id), req.amount);
             }
             return false;
         }
 
     private:
         using Entry = std::pair<int32_t, int32_t>;
+
+        // A bit index outside 0..31 names no bit of a 32-bit varp, so it fails
+        // rather than shifting out of range.
+        static bool isBitSet(int32_t value, int32_t bit)
+        {
+            if (bit < 0 || bit >= 32)
+            {
+                return false;
+            }
+            return ((static_cast<uint32_t>(value) >> bit) & 1u) != 0u;
+        }
 
         // Sort + dedup-keeping-last-write so a later setVarbit(id, v2) wins
         // over an earlier setVarbit(id, v1). Cheap when called after a
@@ -298,6 +311,14 @@ namespace ww::runtime
                     if (outSnapshot.varp(r.id) < r.amount)
                     {
                         outSnapshot.setVarp(r.id, r.amount);
+                    }
+                    break;
+                case data::RequirementKind::VarpBit:
+                    if (r.amount >= 0 && r.amount < 32)
+                    {
+                        const uint32_t bits = static_cast<uint32_t>(outSnapshot.varp(r.id))
+                                              | (1u << r.amount);
+                        outSnapshot.setVarp(r.id, static_cast<int32_t>(bits));
                     }
                     break;
             }
