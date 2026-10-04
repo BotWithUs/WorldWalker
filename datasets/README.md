@@ -1143,6 +1143,58 @@ it, so no row does.
 **Not verified live:** every gate above; the alternative landings at the
 Cooks' and Warriors' doors.
 
+## Lumbridge Swamp dark hole (2026-10-04)
+
+Live on 2026-10-04 (02:19-02:26) a walk to the Lumbridge Swamp Caves
+(3150,9555) failed over and over at transition 314. Each time the host
+logged `interact: loc 91021 matched at (3163,3166,0) for row tile
+(3162,3167,0); 3x3 footprint 1 tile(s) away`, the walk re-planned, and it
+picked the same row for seven minutes. The user had also seen the bot walk
+around the hole to its far side before it climbed down.
+
+**The loc.** 91021 (`TMF_GOBLIN_CAVE_ENTRANCE_MULTI`) is anchored at
+3163,3166 with rotation 1 and covers 3163-3165 x 3166-3168. It has no
+options of its own. It morphs on varbit 4291 (`tmf_main`) into 5947
+`Dark hole under tree` (`Climb down`) or 91020, the same hole after The
+Mighty Fall (`Climb-down`). Both forms carry `forceapproach` 7 (north, east
+and south blocked). Rotated once, that leaves only the north side open. The
+collision agrees: every tile next to the west, south and east edges is
+blocked, and on the north edge 3164,3169 and 3165,3169 are floor. The climb
+back up (78630) also lands on 3164,3169.
+
+**Why the walk circled.** The row's origin, 3162,3167, is a blocked tile
+west of the footprint. The planner stood on the nearest floor within a tile
+of it, 3161,3167. From there the hole cannot be clicked, so the game walked
+the player south, east and north around the hole to reach the north edge.
+
+**The row now:**
+
+| Row | Origin | Dest | Gate |
+|---|---|---|---|
+| `Climb down` 91021 | 3164,3169 (was 3162,3167) | 3169,9571 | varbit 16231 (`swamp_caves_roped_entrance`, varp 3145 bit 3) = 1 |
+
+- **Origin.** 3164,3169 is floor on the open north side, one tile from the
+  footprint. The host matches the loc by footprint, so it still finds
+  91021. A walk from 3165,3203 now comes down the east side
+  (3167,3173 -> 3165,3171 -> 3164,3169) and climbs from where it stops.
+- **Gate.** A player has to use a Rope (item 954) on the hole once before
+  they can climb down. `swamp_caves_roped_entrance` records that the rope
+  is tied, and no loc morphs on it, so the tied rope does not show on the
+  hole. Without the varbit, `wwcli path` now says "no route" into the caves
+  instead of the executor failing the climb forever.
+- **No rope row.** Tying the rope is item-on-loc: `SELECT_COMPONENT_ITEM`
+  on the rope's backpack slot, then `SELECT_OBJECT` on the hole. A chain
+  cannot do that today. `click_item` resolves the slot at run time but only
+  sends `COMPONENT` / `COMPONENT_SPECIAL`, and a raw `action` step would
+  fix the slot when the row is written. Until the executor has an
+  item-on-loc step, the rope has to be tied by a script or by hand.
+
+**Not verified live:** that the server sends varp 3145 to the client (the
+host reads varbits from the client's own copy of the varp). If it does not,
+the varbit reads 0 even after the rope is tied, and a roped account also
+gets "no route". Also not verified live: that the climb is accepted from
+3164,3169 with no extra step.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a

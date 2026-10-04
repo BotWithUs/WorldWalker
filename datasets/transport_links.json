@@ -4700,15 +4700,21 @@
   {
     "name": "Climb down",
     "object_id": 91021,
-    "x": 3162,
-    "y": 3167,
+    "x": 3164,
+    "y": 3169,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
     "option_index": 0,
     "dest_x": 3169,
     "dest_y": 9571,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": {
+        "id": 16231,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Climb",
