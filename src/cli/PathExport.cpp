@@ -3,6 +3,7 @@
 #include "data/Transitions.h"
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
+#include "format/MoveCategory.h"
 #include "runtime/AreaSearch.h"
 #include "runtime/CapabilitySnapshot.h"
 #include "runtime/PathAssembler.h"
@@ -26,7 +27,7 @@
 
 // `wwcli path <artifact> sx sy sp gx gy gp [--out path.json] [--teleports dir]
 //  [--ungated] [--varp id=value] [--varbit id=value] [--skill id=level]
-//  [--item id=count]`.
+//  [--item id=count] [--disable name[,name...]]`.
 //
 // Runs the runtime PathAssembler with a maximally permissive capability
 // snapshot (so requirement-gated transitions are admitted) and emits the
@@ -39,7 +40,9 @@
 // --varp / --varbit / --skill / --item (repeatable) then overwrite single
 // entries of whichever snapshot that is, so one account can be described: the
 // permissive player with `--varp 2740=0` has everything but The Grand Tree, and
-// with `--item 1854=0` holds no Shantay pass.
+// with `--item 1854=0` holds no Shantay pass. --disable switches movement
+// categories off by name (format::moveCategoryName: doors, spirit_trees, ...),
+// as a host does through ww_query_moves.
 namespace
 {
     enum class CapKind : uint8_t
@@ -71,6 +74,7 @@ namespace
         const char *teleportDir;  // nullptr -> baked transitions only
         bool        isUngated;    // admit no requirement-bearing transition
         std::vector<CapOverride> overrides;  // written over the base snapshot
+        uint32_t    disabledMoves; // MoveCategory bits the plan must not use
     };
 
     void printUsage()
@@ -78,7 +82,7 @@ namespace
         std::printf("usage: wwcli path <artifact.wwa> <fromX> <fromY> <fromPlane>"
                     " <toX> <toY> <toPlane> [--out path.json] [--teleports dir]"
                     " [--ungated] [--varp id=value] [--varbit id=value]"
-                    " [--skill id=level] [--item id=count]\n");
+                    " [--skill id=level] [--item id=count] [--disable name[,name...]]\n");
     }
 
     bool parseInt(const char *s, int32_t &out)
@@ -116,6 +120,39 @@ namespace
         const std::string idText = text.substr(0, eq);
         const std::string valueText = text.substr(eq + 1);
         return parseInt(idText.c_str(), outId) && parseInt(valueText.c_str(), outValue);
+    }
+
+    // "doors,spirit_trees" -> the MoveCategory bits; false for an unknown name.
+    bool parseMoveNames(const char *s, uint32_t &outMask)
+    {
+        if (s == nullptr)
+        {
+            return false;
+        }
+        const std::string text{s};
+        std::size_t begin = 0;
+        while (begin <= text.size())
+        {
+            const std::size_t comma = text.find(',', begin);
+            const std::size_t end = comma == std::string::npos ? text.size() : comma;
+            const std::string name = text.substr(begin, end - begin);
+            bool isKnown = false;
+            for (uint32_t c = 0; c < ww::format::kMoveCategoryCount; ++c)
+            {
+                const auto category = static_cast<ww::format::MoveCategory>(c);
+                if (name == ww::format::moveCategoryName(category))
+                {
+                    outMask |= 1u << c;
+                    isKnown = true;
+                }
+            }
+            if (!isKnown)
+            {
+                return false;
+            }
+            begin = end + 1;
+        }
+        return true;
     }
 
     // --varp / --varbit / --skill / --item -> its kind; false for any other token.
@@ -185,6 +222,7 @@ namespace
         out.outPath = nullptr;
         out.teleportDir = nullptr;
         out.isUngated = false;
+        out.disabledMoves = 0;
         for (int i = 7; i < argc; ++i)
         {
             if (std::strcmp(argv[i], "--out") == 0)
@@ -200,6 +238,15 @@ namespace
             if (std::strcmp(argv[i], "--ungated") == 0)
             {
                 out.isUngated = true;
+                continue;
+            }
+            if (std::strcmp(argv[i], "--disable") == 0)
+            {
+                if (i + 1 >= argc || !parseMoveNames(argv[i + 1], out.disabledMoves))
+                {
+                    return false;
+                }
+                ++i;
                 continue;
             }
             CapKind capKind{};
@@ -340,6 +387,7 @@ namespace
                 {
                     const ww::format::TransitionRecord &tx = transitions[s.transitionIndex];
                     js["transitionKind"] = transitionKindName(tx.kind);
+                    js["move"] = ww::format::moveCategoryName(ww::format::classifyMove(tx, chain));
                     // The tile the host looks for the loc around, which is
                     // not the step's x, y (where the player stands to click).
                     js["originX"]        = tx.originX;
@@ -420,6 +468,7 @@ int runPathExport(int argc, char **argv)
             ww::runtime::applyPermissiveRequirements(reader.requirements(), snapshot);
         }
         applyOverrides(args.overrides, snapshot);
+        snapshot.disableMoves(args.disabledMoves, reader.moveCategories());
 
         ww::runtime::Plan plan;
         const bool ok =

@@ -54,7 +54,7 @@ namespace ww::runtime
 
     // Orchestrates AreaSearch + TileSearch into a Step list. The area-graph A*
     // produces the route; tile-level A* refines each area-segment to legal moves;
-    // this class stitches them into chunked WALK steps and Transition steps.
+    // this class stitches them into short WALK steps and Transition steps.
     //
     // One instance per search context (ADR 0007). Borrows the artifact + searches
     // (which themselves borrow the same artifact / view), holds reusable scratch
@@ -87,7 +87,9 @@ namespace ww::runtime
         //
         // A start the walker has no map for (an instance whose goal lies outside
         // it, or a tile in no baked square) is planned by assembleTeleportOut:
-        // a global teleport first, then the normal route from its landing.
+        // a global teleport first, then the normal route from its landing. A
+        // blocked start, or one in a sealed pocket nothing routes out of, is
+        // planned from a nearby linked tile by assembleFromStartStandIn.
         //
         // When the borrowed WorldView has a dynamic region installed, everything
         // above is bypassed for assembleInstanceRoute: the baked area graph does
@@ -144,6 +146,59 @@ namespace ww::runtime
                              int32_t startArea, int32_t &outX, int32_t &outY,
                              int32_t &outArea) const;
 
+        // Standable, in a baked area, and that area is the start's or one some
+        // baked edge touches, so a route can get there.
+        bool isLinkedStandIn(int32_t x, int32_t y, int32_t plane, int32_t startArea) const;
+
+        // `area` is not the start's and no baked edge touches it: nothing can
+        // route into it.
+        bool isSealedPocket(int32_t area, int32_t startArea) const;
+
+        // A goal that can be stood on but sits in a sealed pocket is moved, like
+        // a blocked goal, to a linked stand-in within kGoalSnapRadius. East
+        // Ardougne's north bank goal 2614,3330 is the banker's tile behind the
+        // booth row: standable, walled in, and every walk to it FAILED with no
+        // route (live 2026-09-29). The stand-in is found by reachOutOfPocket, so
+        // it is 2614,3332 across the booth, not 2614,3329 behind the south wall.
+        // When nothing linked is in reach the goal is left as it is and the
+        // query fails as it did before.
+        void snapOutOfPocket(int32_t plane, int32_t startArea, int32_t &ioX, int32_t &ioY,
+                             int32_t &ioArea) const;
+
+        // Which end of the query reachOutOfPocket starts from. The rules differ:
+        // a goal is only a tile to serve, so the reach may pass over objects
+        // (a booth); the player's tile is where they really stand, so its own
+        // wall bits are ignored and only tiles they can walk onto are entered.
+        enum class ReachOrigin : uint8_t
+        {
+            Goal,
+            Player,
+        };
+
+        // The nearest linked stand-in reachable from the origin by cardinal
+        // steps that cross no wall edge, within kGoalSnapRadius, under the
+        // origin's rules above. `otherEndArea`, the other endpoint's area,
+        // counts as linked. False, outputs untouched, when none.
+        bool reachOutOfPocket(ReachOrigin origin, int32_t originX, int32_t originY,
+                              int32_t plane, int32_t otherEndArea, int32_t &outX,
+                              int32_t &outY) const;
+
+        // assemble for a start in the baked static world whose area is known.
+        bool assembleStatic(int32_t startX, int32_t startY, int32_t startPlane,
+                            int32_t startArea, int32_t goalX, int32_t goalY, int32_t goalPlane,
+                            const CapabilitySnapshot *capabilities, Plan &outPlan);
+
+        // The player stands where the baked graph has no way out: on a blocked
+        // tile (the Wendlewick mine's cave exit drops them on 3517,1694, inside
+        // a rock the cache marks solid, and every walk from there FAILED with no
+        // route, live 2026-09-30), or in a sealed pocket from which nothing
+        // routes. Plan from the nearest linked tile reachOutOfPocket finds from
+        // the player, with a first Walk step onto it. False, outPlan untouched,
+        // when nothing linked is in reach or no route leaves the stand-in.
+        bool assembleFromStartStandIn(int32_t startX, int32_t startY, int32_t startPlane,
+                                      int32_t goalX, int32_t goalY, int32_t goalPlane,
+                                      const CapabilitySnapshot *capabilities, Plan &outPlan);
+
         // Plan a route wholly inside a dynamic region (instance), appending Walk
         // steps to outPlan. Returns false when either endpoint is outside the
         // descriptor grid, the planes differ, or no walkable route exists.
@@ -173,8 +228,8 @@ namespace ww::runtime
         // most walks pay nothing for it.
         std::span<const format::WildernessRegion> wildernessFenceFor(int32_t area) const;
 
-        // Refine (fromX, fromY) -> (toX, toY) inside `area` and append chunked
-        // WALK steps to outPlan. Each step's target advances at most kWalkChunkTiles
+        // Refine (fromX, fromY) -> (toX, toY) inside `area` and append WALK
+        // steps to outPlan. Each step's target advances at most kWalkStepTiles
         // along the refined path; the final step always lands on the end tile.
         // A zero-distance refinement appends nothing.
         bool appendWalkSegment(int32_t fromX, int32_t fromY, int32_t toX, int32_t toY,

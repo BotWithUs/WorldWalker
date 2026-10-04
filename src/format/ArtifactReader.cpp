@@ -1,6 +1,7 @@
 #include "format/ArtifactReader.h"
 
 #include "data/Transitions.h"
+#include "format/MoveCategory.h"
 #include "format/Zlib.h"
 
 #include <cstddef>
@@ -268,6 +269,7 @@ namespace ww::format
         bakedChainCount = chainStepPool.size();
         rebuildGlobalOriginIndex();
         rebuildRequirementIdLists();
+        rebuildMoveCategories();
     }
 
     void ArtifactReader::truncateToBaked()
@@ -277,6 +279,7 @@ namespace ww::format
         chainStepPool.resize(bakedChainCount);
         rebuildGlobalOriginIndex();
         rebuildRequirementIdLists();
+        rebuildMoveCategories();
     }
 
     void ArtifactReader::appendTransitions(std::span<const TransitionRecord> transitions,
@@ -304,6 +307,7 @@ namespace ww::format
         // pool is small (a few hundred records on a real artifact) and an
         // append happens at most a handful of times per process.
         rebuildRequirementIdLists();
+        rebuildMoveCategories();
     }
 
     void ArtifactReader::rebuildGlobalOriginIndex()
@@ -402,6 +406,16 @@ namespace ww::format
         const std::size_t begin = nearGoalBucketFirst[key];
         const std::size_t end = nearGoalBucketFirst[key + 1u];
         return std::span<const uint32_t>(nearGoalBucketEdges.data() + begin, end - begin);
+    }
+
+    void ArtifactReader::rebuildMoveCategories()
+    {
+        moveCategoryTable.clear();
+        moveCategoryTable.reserve(transitionTable.size());
+        for (const TransitionRecord &tx : transitionTable)
+        {
+            moveCategoryTable.push_back(static_cast<uint8_t>(classifyMove(tx, chainStepPool)));
+        }
     }
 
     void ArtifactReader::rebuildRequirementIdLists()

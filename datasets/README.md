@@ -66,6 +66,14 @@ ANDs its own gates on top. The shipped dataset gives every lodestone one route â
 the cast from the Magic ability book (`1461:1`, sub = the spell's `param 2793`
 slot), gated on the book's lodestone filter varbit `50990` being `0`.
 
+A destination's `component` is its button on the lodestone map (interface
+1092), and those numbers move when Jagex inserts a component: a seasonal hub
+slot (`THAS_LODESTONE_MAP__BEACH`, comp 39) pushed Wendlewick from 40 to 41,
+and the pick on 40 then hit the Halloween hub, which the server answers with
+"This teleport has vanished." After a game update, check every `component`
+against the current gameval (`THAS_LODESTONE_MAP__<NAME>`); a real lodestone
+button carries two ops, `Teleport` and `Quick Teleport`, a hub slot only one.
+
 The config-built lodestone-map chain is **always** emitted alongside the routes
 and is deliberately left ungated. It is the fallback for any player the routes
 do not describe, and a route that cannot complete must never be a destination's
@@ -205,9 +213,15 @@ bake derives from the cache:
   loc has `interactType > 0` (`MapSquare.cpp`), and some doors with an `Open`
   option carry none: 2546 and 2548 (Ardougne castle, Bravek's house), 34825,
   21814 (Tower of Life), 25638 (Camelot), 31808 (the Clock Tower dungeon),
-  5183, 5186 and 5172 (Fenkenstrain's castle). Each crossing has a row per
-  direction with the door's own shape and rotation. Fixing the library would
-  derive these and probably others.
+  5183, 5186 and 5172 (Fenkenstrain's castle), and 34819 and 34822, the
+  double front door of the East Ardougne church at 2615-2616,3303, whose
+  interior could not be reached at all (live 2026-09-29). Each crossing has a
+  row per direction with the door's own shape and rotation. Fixing the
+  library would derive these and probably others: the decoder defaults
+  `interactType` to 0 and sets it only from opcode 19, where the client
+  treats an absent opcode 19 as interactive when the loc has an option. A
+  cache scan (2026-09-29) found 1913 placements of 183 wall/door-shape loc
+  ids with an `Open` option and `interactType` 0.
 - **Stairs anchored on different tiles.** The vertical deriver pairs a loc on
   plane p with one on p + 1 only when both stand on the same tile, so a
   staircase whose upper half is anchored a tile away has no link. Where a
@@ -732,6 +746,119 @@ Phasmatys. No route got dearer or cheaper.
 `decodeMapTerrain` already walks this stream and drops the underlay id, so
 it could hand over a per-tile floor bit (or set a clip bit for an unfloored
 upper-plane tile) and WorldWalker would stop decoding the terrain itself.
+
+## Isafdar forest (2026-09-29)
+
+The forest between Port Tyras and the Tirannwn lodestone (x 2140..2340,
+y 3100..3300) is crossed through "Dense forest" strips (3937, 3938, 3939,
+3998, 3999, option 0 "Enter") and traps: Tripwire 3921 "Step-over", Sticks
+3922 "Pass", Leaves 3924 "Jump". None of these locs carries an interact type,
+so the bake derives nothing for them and every crossing is a row here.
+
+**One click crosses one strip.** Strips come in groups of two to four, each
+3 tiles thick with a one-tile pocket between them. "Enter" moves the player
+through the one strip clicked, 3 tiles. The source of truth is V1's
+navigation data, `rs3-nav-api` `src/main/resources/mapdata.zip`
+(`areas.dat`, decoded by `pathfinder/data/Area.java`), which has one link
+per strip per direction. Its only multi-strip links need the Tirannwn
+quiver (33722) worn and are not carried here.
+
+**What was wrong.** 13 "Interactive scenery" rows claimed one strip crossed
+two (dest 4 tiles past the loc's far edge, e.g. 3999 at 2187,3163 to
+2188,3168). They were the cheapest way in, so the walker took them, landed a
+strip short, judged the landing off course and replanned. 9 more rows
+clicked a tree (70060, 70063, "Chop down") or an animica rock (113017,
+"Mine") beside a trap; each had a correct twin on the trap itself. All 22
+are removed.
+
+**The crawl is slow.** In the host log of a live run on 2026-09-29, the
+player's tile changed 3.0 to 4.4 s after an "Enter" click and not before. The executor's landing check
+(2 settle ticks, then 3 still polls) gave up after 3.0 s, called the
+crossing refused, and planned again from the near side while the player was
+still crawling; the next click on the same strip then crawled them back.
+Every dense-forest row now carries `"chain": [{"wait": 5}]`, so the check
+starts 4.2 s after the click. The wait also puts the crawl's real time into
+the cost (3 -> 8).
+
+**Rows added** from the same V1 data, each anchor checked against the cache's
+placements: both directions of the tripwires at 2251,3168 and 2294,3243 and
+the sticks at 2275,3163 and 2257,3227, and the two groups of strips V1 had
+and this file lacked, the row at y 3219 (3938, 3939, 3937, 3939 anchored at
+2227/2230/2233/2236,3218) and the column at x 2279 (3938, 3937, 3939 anchored
+at 2278,3223/3226/3229). Log balances (3931..3933, plane 1) and the pit
+climbs out of a failed Leaves jump (3927) are still missing.
+
+**Not verified live:** the 5-tick wait, the traps' timings (no wait added;
+their forced moves have not been timed), and the added y 3219 row (V1 walks
+to 2238,3219 before the westbound 3939 at 2236,3218; this file's row already
+starts there).
+
+## Wendlewick - Amberfell bridge (2026-09-30)
+
+Secrets of Amberfell repairs the bridge east of Wendlewick, the only way on
+foot to Amberfell. The two rows click loc 137303
+(`WENDLE_AMBERFELL_BRIDGE_CROSS_MULTI`, op 0 `Cross`), anchored at 3653,1589:
+3653,1589 -> 3659,1589 eastbound and 3659,1589 -> 3653,1589 westbound.
+
+- **One loc, both ends.** The cache places 137303 once (shape 10, rotation 1,
+  stored plane 1 on a bridge column, so plane 0). Its size is 1x7, so turned it
+  covers x 3653..3659 on y 1589. There is no separate east-end loc. The host
+  matches a row's tile against the whole footprint, so both row tiles sit on
+  the loc. 137304 (`..._CROSS_ACTIVE`) is not a placement. It is the morph that
+  carries the name and the op.
+- **Landings.** Row y 1589 is walkable on the west bank up to x 3653 and on
+  the east bank from x 3659. x 3654..3658 is blocked water, so the rows land
+  on the loc's two end tiles, which are also its first walkable tiles.
+  Agility dbrow 3901 (loc param 6668) is empty in the cache and in the dumps,
+  so no dbrow gives a landing tile.
+- **Gate.** 137303 morphs on varbit 60919 (`WENDLE_AMBERFELL_BRIDGE_COMPLETE`,
+  varp 12867 bit 19, so only 0 or 1): 0 -> nothing, 1 -> 137304 "Bridge"
+  [Cross] (rs3-cs2-dumps `locations.json` `morphs_1`; the NXTCacheLibrary
+  decoder drops morphs). The broken bridge has no Cross loc at all. So
+  `varbit_at_least 60919 >= 1` is the game's own condition for the op to
+  exist. The repaired deck, 137301 -> 137302, morphs on the same varbit.
+- **Wait.** Each row carries `"chain": [{"wait": 5}]`, the same as the
+  Isafdar crawls. If the crossing commits the player's tile only at the far
+  end, as a forced move does, then without the wait the landing check would
+  call it refused after about 5 ticks. The bridge is the only route, so the
+  walk would then fail.
+
+**Not verified live:** the crossing's timing and landing tiles, and that the
+game takes the click from the east end.
+
+## Highweald mine (2026-10-01)
+
+Hearts of Sanguine opens the Highweald mine north of Wendlewick; its interior
+(Havenmine: phasmatite, necrite and havensilver rocks) lies 6400 tiles north,
+from y 8066. The cache already gives the interior's collision (one area from
+the exit up through the rocks at 3482..3497, 8083..8103), but no row joined it
+to the surface, so nothing inside could be planned to.
+
+- **Entrance.** Loc 136468 (`WENDLE_MINE_ENTRANCE_MULTI`), op 0 `Enter`. The
+  cache places it once: 3513,1694, shape 10, rotation 0, 7x7, so it covers
+  3513..3519, 1694..1700. The only standable tile against it is 3517,1693 on
+  its south edge, so the row sits on the footprint at 3517,1694 (the host
+  matches the whole footprint) and approaches from there; the anchor has no
+  standable tile within the approach radius.
+- **Exit.** Loc 136471 (`WENDLE_MINE_EXIT`), op 0 `Exit`, placed once at
+  3486,8066, shape 10, rotation 2, 5x5 (3486..3490, 8066..8070). The cave opens
+  north onto 3487..3488, 8071, so the row sits at 3488,8070.
+- **Landings.** Neither the cache nor the dumps give one. Each row lands on
+  the standable tile in front of the other loc's mouth: 3488,8071 inside (the
+  exit's centre column), 3517,1693 outside. Both are already standable, so the
+  bake snaps neither; a real landing up to 5 tiles off is still inside the
+  executor's slack and in the same area.
+- **Gate.** 136468 morphs on varbit 60597 (`QUEST_WENDLE_SANGUINE_MAIN`, varp
+  12736 bits 0..7): 0..50 -> 136469 "Ancient boulder" (no ops), 51..75 ->
+  136470 "Cave entrance" [Enter], anything above 75 -> the boulder again
+  (rs3-cs2-dumps `locations.json` `morphs_1`). Quest 527 ends at 75 (its
+  `endvalue` in `quests.json`), so `varbit_at_least 60597 >= 51` is exactly
+  the game's condition for the op to exist, and stays true once the quest is
+  done. 51 is the quest's "mine cave" stage, where Gidon moves inside.
+- **Exit ungated.** 136471 has no morph table; anyone inside can leave.
+
+**Not verified live:** both landing tiles and whether either move needs a wait
+before the landing check.
 
 ## How they're consumed
 

@@ -1177,7 +1177,7 @@
         "x": 3461,
         "y": 1520,
         "plane": 0,
-        "component": 40,
+        "component": 41,
         "requirements": {
           "varbit": {
             "id": 60739,

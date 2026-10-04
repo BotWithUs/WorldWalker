@@ -128,6 +128,15 @@ namespace ww::format
             return {requirementItemIdList.data(), requirementItemIdList.size()};
         }
 
+        // The MoveCategory (format/MoveCategory.h) of every transition, by
+        // index, so a query that disables some categories tests each edge with
+        // one lookup. Rebuilt in lockstep with the transition table, like the
+        // lists above.
+        std::span<const uint8_t> moveCategories() const
+        {
+            return {moveCategoryTable.data(), moveCategoryTable.size()};
+        }
+
         // ---- Runtime teleports (appended after bake) ------------------------
         // Global teleports (spell + lodestone) are loaded from editable JSON at
         // runtime and appended onto the baked transition / requirement / chain
@@ -310,6 +319,10 @@ namespace ww::format
         // entry points as rebuildGlobalOriginIndex.
         void rebuildRequirementIdLists();
 
+        // Reclassify every transition into moveCategoryTable. Same entry
+        // points as rebuildRequirementIdLists.
+        void rebuildMoveCategories();
+
         // Build the near-goal edge bucket index from the baked area edges +
         // baked transition table. Called once at end of construction, after
         // both abstraction and transitions sections have been decoded; the
@@ -339,6 +352,8 @@ namespace ww::format
         // every ww_executor_run call.
         std::vector<int32_t> requirementVarbitIdList;
         std::vector<int32_t> requirementItemIdList;
+        // One MoveCategory per transitionTable entry (rebuildMoveCategories).
+        std::vector<uint8_t> moveCategoryTable;
         // Baked prefix lengths, captured after decodeTransitions; runtime
         // teleport appends sit past these and truncateToBaked() rewinds to them.
         std::size_t bakedTransitionCount{};

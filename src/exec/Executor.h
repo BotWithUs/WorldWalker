@@ -7,9 +7,11 @@
 #include "runtime/ContextPool.h"
 #include "runtime/PathAssembler.h"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <random>
 #include <span>
 #include <vector>
 
@@ -46,13 +48,26 @@ namespace ww::exec
     // the live position; the budget runs out before infinite-loop pathologies
     // do.
     //
-    // Walk step: walkTo(target), then poll readPosition with sleepTicks between
-    // samples; arrival = within the caller-supplied radius of the step target
-    // (kHandoffChebyshev when another Walk follows, so the next click fires
-    // mid-stride; kArrivalChebyshev when the next action needs an exact tile). A
-    // stalled-distance counter (no progress for N polls; the first trip only
-    // re-clicks, since the game drops a click made mid forced-move) and a
-    // wall-clock deadline together detect "stuck" and surface as Failed; shouldCancel
+    // Walk hop: the planner's Walk steps are fine-grained, and the executor
+    // clicks ahead over a random stride of them (chooseHop): the furthest
+    // following Walk within a stride drawn per hop, never past a Transition,
+    // never beyond kMaxClickChebyshev of the player, and only the next step
+    // near the Wilderness fence the game's own pathfinder does not know about.
+    // The steps passed over are not executed; the cursor moves straight to
+    // the one clicked, so every event and re-plan names that step. Then
+    // walkTo(target), and poll readPosition with sleepTicks between samples
+    // (every tick once the handoff is near, so it is caught on time);
+    // arrival = within the hop's radius of its target. When another Walk
+    // follows, that radius is a lead drawn per hop (never under a tick of
+    // travel at the observed pace), so the next click fires while the player
+    // is still moving, at an uneven point; now and then a hop comes to a full
+    // stop and a short idle instead. kArrivalChebyshev (or the exact tile)
+    // when the next action needs one: a Transition's approach, the goal, the
+    // first teleport-allowed target walking out of a no-teleport zone. A
+    // stall counter (the player's tile unchanged for N ticks; the first trip
+    // only re-clicks, since the game drops a click made mid forced-move) and a
+    // wall-clock deadline scaled by the hop's length together detect "stuck"
+    // and surface as Failed; shouldCancel
     // polled before every sleep aborts with Cancelled. The final live
     // position is written out so run() can drive re-plan / teleport-allowed
     // checks without re-reading.
@@ -80,14 +95,26 @@ namespace ww::exec
     // any distance slack. One that missed, like a failed agility jump into a
     // pit or a gate that turns the player away, is excluded and re-planned
     // around on a reroute budget of its own rather than the stuck-recovery
-    // budget. A same-floor crossing whose loc was missing is walked on through
-    // as an open door; when the walk after it stalls with the player still on
+    // budget (a local one that stopped short by a tile or two is retried once
+    // instead when the way round costs many times the way through it); so is
+    // a global teleport whose chain left the player short of its destination,
+    // which stays excluded even when nothing else reaches the goal. A
+    // same-floor crossing whose loc was missing is walked on through as an
+    // open door; when the walk after it stalls with the player still on
     // the near side, nothing was open (a gate that needs an item, a loc the
     // host cannot see from the row's origin), and the crossing is handled as
     // a missing loc: excluded with its loc's rows and re-planned around.
     //
     // The pool borrow is held across the loop so re-plans reuse the same
     // SearchContext without re-entering the blocking acquire path.
+    //
+    // `disabledMoves` (WW_MOVE_* bits) keeps every plan of the run off those
+    // movement categories.
+    //
+    // Stride, handoff radius and idle are drawn from a generator the Executor
+    // owns and seeds at every run() entry: from std::random_device, or from
+    // `fixedSeed` when one is given, so a test replays the same walk exactly.
+    // The planner stays deterministic; all of the randomness lives here.
     //
     // Non-copyable, non-movable (it holds references to the borrowed artifact,
     // pool, and callbacks — relocation would dangle them).
@@ -96,7 +123,14 @@ namespace ww::exec
     public:
         Executor(const format::ArtifactReader &reader,
                  runtime::ContextPool &pool,
-                 const Callbacks &callbacks);
+                 const Callbacks &callbacks,
+                 std::optional<uint32_t> fixedSeed = std::nullopt,
+                 uint32_t disabledMoves = 0);
+
+        // Wall-clock budget of a walk hop covering `pathTiles` path tiles:
+        // a fixed base plus a per-tile allowance, so a long click is not
+        // judged stuck while the player is still honestly walking it.
+        static int64_t stuckDeadlineMs(int32_t pathTiles);
 
         Executor(const Executor &) = delete;
         Executor &operator=(const Executor &) = delete;
@@ -129,6 +163,10 @@ namespace ww::exec
             // missing or that landed off course, with every other transition
             // from that loc and origin. Every (re-)plan excludes them.
             std::vector<uint32_t> excludedTransitions;
+            // Transitions whose off-course miss was already retried instead of
+            // taking an absurd detour (isDetourAbsurd); a second miss of one
+            // takes the detour.
+            std::vector<uint32_t> detourRefusals;
             // The same-floor crossing the previous step skipped because its
             // loc was missing, and the tile it was skipped from; only the step
             // right after the skip consults it (see isStalledBehindSkip()).
@@ -249,28 +287,141 @@ namespace ww::exec
         // teleport, a failed agility jump). Spend one reroute, exclude it (and
         // its loc's other rows, when it has a loc) and re-plan from the live
         // position, so a transport that never lands is not chosen again. When
-        // nothing else reaches the goal, the exclusion is dropped and the same
-        // transition is planned again: a failable shortcut to an island is
-        // still worth a retry, and the reroute budget still bounds it.
+        // nothing else reaches the goal, a local transition's exclusion is
+        // dropped and it is planned again: a failable shortcut to an island is
+        // still worth a retry, and the reroute budget still bounds it. So is
+        // it, once per transition, when the player stopped within the landing
+        // slack (judged by area) and the only other way costs many times the
+        // way through it (isDetourAbsurd): a door misjudged beside the goal is
+        // not worth a lodestone and a long walk, but a second miss is no
+        // misjudgement and takes the detour. A global
+        // teleport's is kept and the run fails on it: the game refused it on
+        // state the walker cannot see, and asks again get the same answer.
         // Returns as rerouteAroundMissingLoc does.
         bool rerouteAroundOffCourse(uint32_t transitionIndex, const WwGoal &goal,
                                     runtime::SearchContext &context, int32_t stepIndex,
                                     RunState &io, WwStatus &outStatus);
 
-        // Drive plan.steps[i]: a Walk with the arrival radius its successor
-        // demands, or a Transition. Writes the final live position and what
-        // the step learned (see StepReport). `view` is the run's context view,
-        // which a Transition's landing is judged against.
-        WwStatus executeStep(std::size_t i, const WwGoal &goal, runtime::WorldView &view,
-                             WwTile &outPosition, StepReport &outReport);
+        // The cost of a plan from `start` to `goal` under `excludedTransitions`,
+        // planned into costProbe so the run's plan is untouched; nullopt when
+        // the planner finds no route.
+        std::optional<float> planCostFrom(const WwTile &start, const WwGoal &goal,
+                                          std::span<const uint32_t> excludedTransitions,
+                                          runtime::SearchContext &context);
 
-        // Chebyshev distance at which the Walk step at index i counts as done:
-        // kHandoffChebyshev when another Walk follows (the next click fires
-        // while the avatar is still moving instead of stopping on each
-        // waypoint), 0 for the final walk of a radius-0 goal (the ARRIVED
-        // contract demands the exact tile, not its neighbour), else
-        // kArrivalChebyshev.
-        int32_t arrivalRadiusFor(std::size_t i, const WwGoal &goal) const;
+        // Whether a route costing `detourCost` around a transition is out of
+        // all proportion to the `throughCost` route through it: several times
+        // it and more than a short walk beyond it.
+        static bool isDetourAbsurd(float throughCost, float detourCost);
+
+        // Drive plan.steps[i]: a Walk hop of `hopTiles` path tiles with the
+        // handoff its successor demands, or a Transition. Writes the final
+        // live position and what the step learned (see StepReport). `view` is
+        // the run's context view, which a Transition's landing is judged
+        // against.
+        WwStatus executeStep(std::size_t i, int32_t hopTiles, const WwGoal &goal,
+                             runtime::WorldView &view, WwTile &outPosition,
+                             StepReport &outReport);
+
+        // One walk click: the index of the Walk step it targets, and the path
+        // tiles from the player to that target through every step it passes
+        // over (the Chebyshev hop between consecutive targets stands in for a
+        // step's length, which the plan does not carry).
+        struct Hop
+        {
+            std::size_t last{0};
+            int32_t     pathTiles{0};
+        };
+
+        // The hop to click from `from` when plan.steps[first] is a Walk: the
+        // furthest consecutive Walk from `first` on whose path length the
+        // stride drawn for it (drawStride) still holds, stopping at a
+        // Transition (its approach walk is always clicked itself), at
+        // kMaxClickChebyshev of `from`, and, walking out of a tile that
+        // allows no teleport, at the first target that does (so the
+        // post-step re-plan onto a teleport fires where it did when every
+        // step was clicked). Only `first` when any target the hop would pass
+        // is near the Wilderness fence (isNearWildernessFence). Always at
+        // least `first`.
+        Hop chooseHop(std::size_t first, const WwTile &from, const WwGoal &goal);
+
+        // Desired stride of one hop in path tiles, from a mixture that keeps
+        // most clicks medium, some long and a few very long.
+        int32_t drawStride();
+
+        // Whether the planner fences this run's walks off the Wilderness: a
+        // player outside it walking to a goal outside it (the same rule as
+        // PathAssembler::decideWilderness, judged at `from`).
+        bool isWildernessFenced(const WwTile &from, const WwGoal &goal) const;
+
+        // Whether `at` lies within kWildernessMargin of any Wilderness box on
+        // its plane. A click there hands the route to the game's pathfinder,
+        // which may cut through the fenced tiles.
+        bool isNearWildernessFence(const WwTile &at) const;
+
+        // How a Walk hop hands over to what comes next: the Chebyshev radius
+        // at which it counts as done, the ticks to idle after it, and whether
+        // the radius is a lead (handoffRadius raises it to the player's pace).
+        struct Handoff
+        {
+            int32_t radius{0};
+            int32_t idleTicks{0};
+            bool    isLeading{false};
+        };
+
+        // The handoff of the Walk hop ending at step i, clicked from `from`.
+        // When another Walk follows, a lead in [kLeadMinTiles, kLeadMaxTiles]
+        // (the next click fires while the avatar is still moving, at a point
+        // that never repeats), or, one hop in kFullStopPercent, a full stop:
+        // arrive within kArrivalChebyshev and idle up to
+        // kFullStopMaxIdleTicks. The hop onto the first teleport-allowed target
+        // out of a no-teleport `from` arrives within kArrivalChebyshev, so the
+        // teleport re-plan fires on it. Otherwise no idle, and 0 for the final
+        // walk of a radius-0 goal (the ARRIVED contract demands the exact
+        // tile, not its neighbour), else kArrivalChebyshev.
+        Handoff handoffFor(std::size_t i, const WwGoal &goal, const WwTile &from);
+
+        // The radius a hop's poll tests against: a leading handoff's lead,
+        // raised to one tile past a tick of travel at tilesPerTick, so a
+        // player moving that fast is never stepped past it between 1-tick
+        // polls; any other handoff's radius as drawn.
+        int32_t handoffRadius(const Handoff &handoff) const;
+
+        // Ticks to sleep before the next poll of a hop at `at` heading for
+        // `target`: kNearPollTicks once a kPollTicks sleep at a run could
+        // carry the player inside `radius`, else kPollTicks.
+        static int32_t pollTicksFor(const WwTile &at, const WwTile &target, int32_t radius);
+
+        // Update tilesPerTick from a poll that moved the player from `from`
+        // to `to` in `ticks` ticks; a poll without movement, or with a jump
+        // farther than a run (Surge, Dive), leaves it as it was.
+        void notePace(const WwTile &from, const WwTile &to, int32_t ticks);
+
+        // A hop's stall / deadline bookkeeping: when it (re)started, the
+        // ticks the player's tile has not changed, and whether the one
+        // re-click has been spent.
+        struct WalkWatch
+        {
+            std::chrono::steady_clock::time_point start;
+            int32_t stalledTicks{0};
+            bool    hasReclicked{false};
+        };
+
+        // What one poll of a hop concluded: still moving, stalled for the
+        // first time (click again), or stuck (stalled again, or past the
+        // deadline).
+        enum class WalkProgress : uint8_t
+        {
+            Moving,
+            Reclick,
+            Stuck,
+        };
+
+        // Judge one poll that moved the player from `lastPos` to `pos` over
+        // `ticks` ticks, updating `io`.
+        static WalkProgress judgeProgress(const WwTile &pos, const WwTile &lastPos,
+                                          const WwTile &target, int32_t ticks,
+                                          int64_t deadlineMs, WalkWatch &io);
 
         // The plan drained without an in-loop arrival: the assembler's final
         // step targets the acceptance set, but the walk hands back at its
@@ -284,18 +435,26 @@ namespace ww::exec
         // counter, an object's footprint), so the planner ended the route on
         // the nearest standable tile instead, and the player is on it. The
         // goal test alone can never pass there: the Rusty Anchor's walk to
-        // 3050,3257 reached the stand-in 3050,3256 and was judged FAILED.
+        // 3050,3257 reached the stand-in 3050,3256 and was judged FAILED. The
+        // same holds for a standable goal in a sealed pocket (East Ardougne's
+        // banker tile 2614,3330), which the planner moves across the booth.
         bool isAtGoalStandIn(const WwGoal &goal, runtime::WorldView &view,
                              const WwTile &at) const;
 
-        // Drive one Walk step to its target. Issues walkTo, then alternates
-        // shouldCancel / sleepTicks / readPosition until arrival, cancellation,
-        // a stalled-distance trip, or the wall-clock stuck deadline. Emits
-        // StepAdvanced once at entry; emits Stuck on either failure path.
+        // Drive one Walk hop to its target. Issues walkTo, then alternates
+        // shouldCancel / sleepTicks (pollTicksFor) / readPosition until the
+        // player is within handoffRadius(handoff), cancellation,
+        // a stall trip (the player's tile unchanged, not the distance to the
+        // target: a winding hop moves away from its target for a while), or
+        // the stuck deadline for `pathTiles` (stuckDeadlineMs). Emits
+        // StepAdvanced (carrying `interactionHint`) once at entry, before the
+        // walkTo, so the host knows the hint when the click arrives; emits
+        // Stuck on either failure path.
         // Writes the final sampled position to outPosition so run() can drive
         // re-plan / teleport-allowed checks without a redundant readPosition.
         WwStatus walkOneStep(const runtime::Step &step, int32_t stepIndex,
-                             int32_t arrivalRadius, WwTile &outPosition);
+                             const Handoff &handoff, int32_t pathTiles, int32_t interactionHint,
+                             WwTile &outPosition);
 
         // Drive one Transition step's interact + embedded chain. Looks up
         // the TransitionRecord, validates its chain range, fires interact for
@@ -318,12 +477,21 @@ namespace ww::exec
         //
         // Any plain chat page open meanwhile is continued (continueOpenChat).
         //
-        // A same-floor crossing whose player has not moved at all after this
-        // is clicked once more (executeTransitionStep): a door like Draynor
-        // Manor's walks the player through itself, and a walk clicked before
-        // that starts cancels it.
+        // A same-floor crossing whose player is still short of it after this
+        // (isShortOfCrossing) is clicked once more (retryUnmovedCrossing): a
+        // door like Draynor Manor's walks the player through itself, and a
+        // walk clicked before that starts cancels it.
         void awaitLanding(const format::TransitionRecord &tx, const WwTile &start,
                           WwTile &ioPosition);
+
+        // A same-floor crossing that left the player short of it (on `start`
+        // or its origin): click it once more, and if they are still short,
+        // walk to its destination. The walk carries the player through a door
+        // the click opened in front of them, or one already open whose hidden
+        // closed loc the host clicked to no effect; a shut one holds them, and
+        // the caller's landing judgement refuses the crossing.
+        void retryUnmovedCrossing(const format::TransitionRecord &tx, const WwTile &start,
+                                  WwTile &ioPosition);
 
         // Deal with one open conversation page, if any, while the player is at
         // `at`: answer the option list inside a dialog zone, else continue a
@@ -348,9 +516,18 @@ namespace ww::exec
         bool continueOpenChat() const;
 
         // True when `at` counts as having crossed tx from `start`: on the
-        // destination tile, or moved off `start` to within a tile of it.
+        // destination tile, or moved to within a tile of it and not short of
+        // the crossing (isShortOfCrossing).
         static bool hasLanded(const format::TransitionRecord &tx, const WwTile &start,
                               const WwTile &at);
+
+        // True when `at` is still this side of tx: on `start`, where the click
+        // was made, or on tx's origin tile, which a door's click walks the
+        // player onto when made a tile short of it (the approach hands over
+        // within kArrivalChebyshev) and where it leaves them with the door
+        // opened in front of them.
+        static bool isShortOfCrossing(const format::TransitionRecord &tx, const WwTile &start,
+                                      const WwTile &at);
 
         static bool isSameTile(const WwTile &a, const WwTile &b);
 
@@ -455,10 +632,18 @@ namespace ww::exec
                                const format::ChainStepRecord &cs) const;
 
         // Emit one progress event when the host wired onEvent; no-op otherwise.
-        // stepIndex / transitionIndex default to -1 to signal "not applicable".
+        // stepIndex / transitionIndex default to -1 to signal "not applicable";
+        // interactionHint defaults to 0, "unknown" (see WwEvent).
         void emit(WwEventKind kind,
                   int32_t stepIndex = -1,
-                  int32_t transitionIndex = -1) const;
+                  int32_t transitionIndex = -1,
+                  int32_t interactionHint = 0) const;
+
+        // WwEvent::interactionHint for a walk clicked at plan.steps[i]: 1 + the
+        // path tiles from its target to the next Transition's approach step
+        // (the last Walk before it) or to the plan's end, capped at
+        // kMaxInteractionHint.
+        int32_t interactionHintFor(std::size_t i) const;
 
         const format::ArtifactReader *artifact;
         runtime::ContextPool *pool;
@@ -482,6 +667,8 @@ namespace ww::exec
         // across stuck-recovery re-plans within one ww_executor_run.
         runtime::CapabilitySnapshot snapshot;
         runtime::Plan plan;
+        // Scratch for planCostFrom: a plan only ever read for its cost.
+        runtime::Plan costProbe;
 
         // Scratch output buffers for the batched readVarbits / readItemCounts
         // callbacks. Sized to the artifact's requirement id lists at construct
@@ -494,6 +681,20 @@ namespace ww::exec
         // zone the next option-list pick sends. Both reset at run() entry.
         int32_t dialogActionsLeft{0};
         std::size_t answerCursor{0};
+
+        // The seed a test pinned, if any, and the generator every stride,
+        // handoff and idle is drawn from; reseeded at run() entry.
+        std::optional<uint32_t> fixedSeed;
+        std::mt19937 rng;
+
+        // The player's pace in tiles a game tick as the walk polls last saw it
+        // (notePace); a leading handoff keeps at least a tick of it in hand.
+        // Assumed running at run() entry, the pace that needs the longer lead.
+        int32_t tilesPerTick{2};
+
+        // Movement categories (format::MoveCategory bits) every plan and
+        // re-plan of this run refuses; see ww_executor_run_ex.
+        uint32_t disabledMoves{0};
     };
 }
 

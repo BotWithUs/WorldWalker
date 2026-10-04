@@ -3106,7 +3106,12 @@
     "option_index": 0,
     "dest_x": 2237,
     "dest_y": 3149,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3119,7 +3124,12 @@
     "option_index": 0,
     "dest_x": 2240,
     "dest_y": 3149,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3132,7 +3142,12 @@
     "option_index": 0,
     "dest_x": 2234,
     "dest_y": 3149,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3145,7 +3160,12 @@
     "option_index": 0,
     "dest_x": 2237,
     "dest_y": 3149,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3158,7 +3178,12 @@
     "option_index": 0,
     "dest_x": 2231,
     "dest_y": 3149,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3171,7 +3196,12 @@
     "option_index": 0,
     "dest_x": 2234,
     "dest_y": 3149,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Step-over",
@@ -3210,7 +3240,12 @@
     "option_index": 0,
     "dest_x": 2217,
     "dest_y": 3163,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3223,7 +3258,12 @@
     "option_index": 0,
     "dest_x": 2217,
     "dest_y": 3160,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3236,7 +3276,12 @@
     "option_index": 0,
     "dest_x": 2217,
     "dest_y": 3166,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3249,7 +3294,12 @@
     "option_index": 0,
     "dest_x": 2217,
     "dest_y": 3163,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3262,7 +3312,12 @@
     "option_index": 0,
     "dest_x": 2217,
     "dest_y": 3169,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3275,7 +3330,12 @@
     "option_index": 0,
     "dest_x": 2217,
     "dest_y": 3166,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Pass",
@@ -3314,7 +3374,12 @@
     "option_index": 0,
     "dest_x": 2188,
     "dest_y": 3168,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3327,7 +3392,12 @@
     "option_index": 0,
     "dest_x": 2188,
     "dest_y": 3171,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3340,7 +3410,12 @@
     "option_index": 0,
     "dest_x": 2188,
     "dest_y": 3165,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3353,7 +3428,12 @@
     "option_index": 0,
     "dest_x": 2188,
     "dest_y": 3168,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3366,7 +3446,12 @@
     "option_index": 0,
     "dest_x": 2188,
     "dest_y": 3162,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3379,7 +3464,12 @@
     "option_index": 0,
     "dest_x": 2188,
     "dest_y": 3165,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3392,7 +3482,12 @@
     "option_index": 0,
     "dest_x": 2271,
     "dest_y": 3192,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3405,7 +3500,12 @@
     "option_index": 0,
     "dest_x": 2274,
     "dest_y": 3192,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3418,7 +3518,12 @@
     "option_index": 0,
     "dest_x": 2268,
     "dest_y": 3192,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3431,7 +3536,12 @@
     "option_index": 0,
     "dest_x": 2271,
     "dest_y": 3192,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3444,7 +3554,12 @@
     "option_index": 0,
     "dest_x": 2265,
     "dest_y": 3192,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3457,7 +3572,12 @@
     "option_index": 0,
     "dest_x": 2268,
     "dest_y": 3192,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Jump",
@@ -3496,7 +3616,12 @@
     "option_index": 0,
     "dest_x": 2303,
     "dest_y": 3216,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3509,7 +3634,12 @@
     "option_index": 0,
     "dest_x": 2303,
     "dest_y": 3213,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3522,7 +3652,12 @@
     "option_index": 0,
     "dest_x": 2303,
     "dest_y": 3219,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3535,7 +3670,12 @@
     "option_index": 0,
     "dest_x": 2303,
     "dest_y": 3216,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3548,7 +3688,12 @@
     "option_index": 0,
     "dest_x": 2303,
     "dest_y": 3222,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3561,7 +3706,12 @@
     "option_index": 0,
     "dest_x": 2303,
     "dest_y": 3219,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3574,7 +3724,12 @@
     "option_index": 0,
     "dest_x": 2303,
     "dest_y": 3225,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3587,7 +3742,12 @@
     "option_index": 0,
     "dest_x": 2303,
     "dest_y": 3222,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3600,7 +3760,12 @@
     "option_index": 0,
     "dest_x": 2236,
     "dest_y": 3249,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3613,7 +3778,12 @@
     "option_index": 0,
     "dest_x": 2239,
     "dest_y": 3249,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3626,7 +3796,12 @@
     "option_index": 0,
     "dest_x": 2233,
     "dest_y": 3249,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3639,7 +3814,12 @@
     "option_index": 0,
     "dest_x": 2236,
     "dest_y": 3249,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3652,7 +3832,12 @@
     "option_index": 0,
     "dest_x": 2230,
     "dest_y": 3249,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -3665,7 +3850,12 @@
     "option_index": 0,
     "dest_x": 2233,
     "dest_y": 3249,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Jump",
@@ -3770,6 +3960,362 @@
     "dest_x": 2181,
     "dest_y": 3212,
     "dest_plane": 0
+  },
+  {
+    "name": "Step-over",
+    "object_id": 3921,
+    "x": 2250,
+    "y": 3168,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2253,
+    "dest_y": 3168,
+    "dest_plane": 0
+  },
+  {
+    "name": "Step-over",
+    "object_id": 3921,
+    "x": 2253,
+    "y": 3168,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2250,
+    "dest_y": 3168,
+    "dest_plane": 0
+  },
+  {
+    "name": "Step-over",
+    "object_id": 3921,
+    "x": 2294,
+    "y": 3242,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2294,
+    "dest_y": 3245,
+    "dest_plane": 0
+  },
+  {
+    "name": "Step-over",
+    "object_id": 3921,
+    "x": 2294,
+    "y": 3245,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2294,
+    "dest_y": 3242,
+    "dest_plane": 0
+  },
+  {
+    "name": "Pass",
+    "object_id": 3922,
+    "x": 2274,
+    "y": 3163,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2278,
+    "dest_y": 3163,
+    "dest_plane": 0
+  },
+  {
+    "name": "Pass",
+    "object_id": 3922,
+    "x": 2278,
+    "y": 3163,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2274,
+    "dest_y": 3163,
+    "dest_plane": 0
+  },
+  {
+    "name": "Pass",
+    "object_id": 3922,
+    "x": 2256,
+    "y": 3227,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2260,
+    "dest_y": 3227,
+    "dest_plane": 0
+  },
+  {
+    "name": "Pass",
+    "object_id": 3922,
+    "x": 2260,
+    "y": 3227,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2256,
+    "dest_y": 3227,
+    "dest_plane": 0
+  },
+  {
+    "name": "Enter",
+    "object_id": 3938,
+    "x": 2226,
+    "y": 3219,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2229,
+    "dest_y": 3219,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
+  },
+  {
+    "name": "Enter",
+    "object_id": 3938,
+    "x": 2229,
+    "y": 3219,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2226,
+    "dest_y": 3219,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
+  },
+  {
+    "name": "Enter",
+    "object_id": 3939,
+    "x": 2229,
+    "y": 3219,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2232,
+    "dest_y": 3219,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
+  },
+  {
+    "name": "Enter",
+    "object_id": 3939,
+    "x": 2232,
+    "y": 3219,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2229,
+    "dest_y": 3219,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
+  },
+  {
+    "name": "Enter",
+    "object_id": 3937,
+    "x": 2232,
+    "y": 3219,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2235,
+    "dest_y": 3219,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
+  },
+  {
+    "name": "Enter",
+    "object_id": 3937,
+    "x": 2235,
+    "y": 3219,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2232,
+    "dest_y": 3219,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
+  },
+  {
+    "name": "Enter",
+    "object_id": 3939,
+    "x": 2235,
+    "y": 3219,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2238,
+    "dest_y": 3219,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
+  },
+  {
+    "name": "Enter",
+    "object_id": 3939,
+    "x": 2238,
+    "y": 3219,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2235,
+    "dest_y": 3219,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
+  },
+  {
+    "name": "Enter",
+    "object_id": 3938,
+    "x": 2279,
+    "y": 3222,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2279,
+    "dest_y": 3225,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
+  },
+  {
+    "name": "Enter",
+    "object_id": 3938,
+    "x": 2279,
+    "y": 3225,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2279,
+    "dest_y": 3222,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
+  },
+  {
+    "name": "Enter",
+    "object_id": 3937,
+    "x": 2279,
+    "y": 3225,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2279,
+    "dest_y": 3228,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
+  },
+  {
+    "name": "Enter",
+    "object_id": 3937,
+    "x": 2279,
+    "y": 3228,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2279,
+    "dest_y": 3225,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
+  },
+  {
+    "name": "Enter",
+    "object_id": 3939,
+    "x": 2279,
+    "y": 3228,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2278,
+    "dest_y": 3231,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
+  },
+  {
+    "name": "Enter",
+    "object_id": 3939,
+    "x": 2278,
+    "y": 3231,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2279,
+    "dest_y": 3228,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Enter",
@@ -25826,33 +26372,12 @@
     "option_index": 0,
     "dest_x": 2237,
     "dest_y": 3149,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 70060,
-    "x": 2248,
-    "y": 3170,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2253,
-    "dest_y": 3168,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 70063,
-    "x": 2272,
-    "y": 3171,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2274,
-    "dest_y": 3176,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -26523,32 +27048,6 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 70060,
-    "x": 2181,
-    "y": 3213,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2181,
-    "dest_y": 3208,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 70063,
-    "x": 2207,
-    "y": 3200,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2209,
-    "dest_y": 3205,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
     "object_id": 3938,
     "x": 2235,
     "y": 3148,
@@ -26558,7 +27057,12 @@
     "option_index": 0,
     "dest_x": 2234,
     "dest_y": 3149,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -26571,7 +27075,12 @@
     "option_index": 0,
     "dest_x": 2231,
     "dest_y": 3149,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -26610,33 +27119,12 @@
     "option_index": 0,
     "dest_x": 2217,
     "dest_y": 3163,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 3939,
-    "x": 2216,
-    "y": 3161,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2217,
-    "dest_y": 3166,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 3938,
-    "x": 2216,
-    "y": 3164,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2217,
-    "dest_y": 3169,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -26653,19 +27141,6 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 70063,
-    "x": 2234,
-    "y": 3182,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2238,
-    "dest_y": 3181,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
     "object_id": 3998,
     "x": 2186,
     "y": 3170,
@@ -26675,7 +27150,12 @@
     "option_index": 0,
     "dest_x": 2188,
     "dest_y": 3168,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -26688,7 +27168,12 @@
     "option_index": 0,
     "dest_x": 2188,
     "dest_y": 3165,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -26701,7 +27186,12 @@
     "option_index": 0,
     "dest_x": 2188,
     "dest_y": 3162,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -26740,7 +27230,12 @@
     "option_index": 0,
     "dest_x": 2271,
     "dest_y": 3192,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -26753,7 +27248,12 @@
     "option_index": 0,
     "dest_x": 2268,
     "dest_y": 3192,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -26766,7 +27266,12 @@
     "option_index": 0,
     "dest_x": 2265,
     "dest_y": 3192,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -26792,33 +27297,12 @@
     "option_index": 0,
     "dest_x": 2303,
     "dest_y": 3216,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 3937,
-    "x": 2301,
-    "y": 3215,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2303,
-    "dest_y": 3219,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 3938,
-    "x": 2302,
-    "y": 3217,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2303,
-    "dest_y": 3222,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -26831,7 +27315,12 @@
     "option_index": 0,
     "dest_x": 2303,
     "dest_y": 3225,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -26844,33 +27333,12 @@
     "option_index": 0,
     "dest_x": 2233,
     "dest_y": 3249,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 3938,
-    "x": 2231,
-    "y": 3248,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2236,
-    "dest_y": 3249,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 3939,
-    "x": 2234,
-    "y": 3248,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2239,
-    "dest_y": 3249,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -28731,19 +29199,6 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 3938,
-    "x": 2235,
-    "y": 3148,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2240,
-    "dest_y": 3149,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
     "object_id": 3921,
     "x": 2251,
     "y": 3168,
@@ -28766,19 +29221,6 @@
     "option_index": 0,
     "dest_x": 2274,
     "dest_y": 3172,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 113017,
-    "x": 2279,
-    "y": 3163,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2274,
-    "dest_y": 3163,
     "dest_plane": 0
   },
   {
@@ -29348,32 +29790,6 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 70063,
-    "x": 2207,
-    "y": 3203,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2209,
-    "dest_y": 3201,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 3937,
-    "x": 2232,
-    "y": 3148,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2237,
-    "dest_y": 3149,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
     "object_id": 3937,
     "x": 2232,
     "y": 3148,
@@ -29383,7 +29799,12 @@
     "option_index": 0,
     "dest_x": 2234,
     "dest_y": 3149,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -29422,7 +29843,12 @@
     "option_index": 0,
     "dest_x": 2217,
     "dest_y": 3160,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -29435,7 +29861,12 @@
     "option_index": 0,
     "dest_x": 2217,
     "dest_y": 3163,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -29448,7 +29879,12 @@
     "option_index": 0,
     "dest_x": 2217,
     "dest_y": 3166,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -29465,45 +29901,6 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 70060,
-    "x": 2236,
-    "y": 3182,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2234,
-    "dest_y": 3181,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 3939,
-    "x": 2187,
-    "y": 3166,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2188,
-    "dest_y": 3171,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 3999,
-    "x": 2187,
-    "y": 3163,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2188,
-    "dest_y": 3168,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
     "object_id": 3999,
     "x": 2187,
     "y": 3163,
@@ -29513,7 +29910,12 @@
     "option_index": 0,
     "dest_x": 2188,
     "dest_y": 3165,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -29543,32 +29945,6 @@
   },
   {
     "name": "Interactive scenery",
-    "object_id": 3939,
-    "x": 2269,
-    "y": 3191,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2274,
-    "dest_y": 3192,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 3938,
-    "x": 2266,
-    "y": 3191,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2271,
-    "dest_y": 3192,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
     "object_id": 3938,
     "x": 2266,
     "y": 3191,
@@ -29578,20 +29954,12 @@
     "option_index": 0,
     "dest_x": 2268,
     "dest_y": 3192,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 70060,
-    "x": 2266,
-    "y": 3206,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2267,
-    "dest_y": 3201,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -29604,7 +29972,12 @@
     "option_index": 0,
     "dest_x": 2303,
     "dest_y": 3213,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -29617,20 +29990,12 @@
     "option_index": 0,
     "dest_x": 2303,
     "dest_y": 3216,
-    "dest_plane": 0
-  },
-  {
-    "name": "Interactive scenery",
-    "object_id": 3938,
-    "x": 2301,
-    "y": 3223,
-    "plane": 0,
-    "shape": 10,
-    "rotation": 0,
-    "option_index": 0,
-    "dest_x": 2303,
-    "dest_y": 3219,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -29643,7 +30008,12 @@
     "option_index": 0,
     "dest_x": 2303,
     "dest_y": 3222,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -29656,7 +30026,12 @@
     "option_index": 0,
     "dest_x": 2230,
     "dest_y": 3249,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -29669,7 +30044,12 @@
     "option_index": 0,
     "dest_x": 2233,
     "dest_y": 3249,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -29682,7 +30062,12 @@
     "option_index": 0,
     "dest_x": 2236,
     "dest_y": 3249,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ]
   },
   {
     "name": "Interactive scenery",
@@ -44278,6 +44663,58 @@
     "dest_plane": 1
   },
   {
+    "name": "Open",
+    "object_id": 34819,
+    "x": 2615,
+    "y": 3303,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 2615,
+    "dest_y": 3304,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 34819,
+    "x": 2615,
+    "y": 3304,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 2615,
+    "dest_y": 3303,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 34822,
+    "x": 2616,
+    "y": 3303,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 2616,
+    "dest_y": 3304,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 34822,
+    "x": 2616,
+    "y": 3304,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 2616,
+    "dest_y": 3303,
+    "dest_plane": 0
+  },
+  {
     "name": "Climb up",
     "object_id": 1739,
     "x": 2572,
@@ -45410,6 +45847,86 @@
     "option_index": 0,
     "dest_x": 3280,
     "dest_y": 9415,
+    "dest_plane": 0
+  },
+  {
+    "name": "Cross",
+    "object_id": 137303,
+    "x": 3653,
+    "y": 1589,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3659,
+    "dest_y": 1589,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 60919,
+        "value": 1
+      }
+    }
+  },
+  {
+    "name": "Cross",
+    "object_id": 137303,
+    "x": 3659,
+    "y": 1589,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3653,
+    "dest_y": 1589,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 5
+      }
+    ],
+    "requirements": {
+      "varbit_at_least": {
+        "id": 60919,
+        "value": 1
+      }
+    }
+  },
+  {
+    "name": "Enter",
+    "object_id": 136468,
+    "x": 3517,
+    "y": 1694,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3488,
+    "dest_y": 8071,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 60597,
+        "value": 51
+      }
+    }
+  },
+  {
+    "name": "Exit",
+    "object_id": 136471,
+    "x": 3488,
+    "y": 8070,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 3517,
+    "dest_y": 1693,
     "dest_plane": 0
   }
 ]

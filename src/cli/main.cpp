@@ -6,6 +6,7 @@
 #include "cli/HarnessPicks.h"
 #include "cli/InstanceTests.h"
 #include "cli/LodestoneTests.h"
+#include "cli/MoveTests.h"
 #include "cli/PathExport.h"
 #include "cli/ScriptedPaths.h"
 #include "cli/WallShapeTests.h"
@@ -1112,6 +1113,16 @@ namespace
         return runBench(argv[0]);
     }
 
+    int runMoveCategoriesCmd(int argc, char **argv)
+    {
+        return runMoveCategories(argv[0], argc > 1 ? argv[1] : nullptr);
+    }
+
+    int runMoveTestsCmd(int argc, char **argv)
+    {
+        return runMoveTests(argv[0], argc > 1 ? argv[1] : nullptr);
+    }
+
     struct Subcommand
     {
         const char *name;
@@ -1257,6 +1268,9 @@ namespace
         {"scripted",   1, "wwcli scripted <artifact.wwa>", runScriptedPathsCmd},
         {"doors",      1, "wwcli doors <artifact.wwa>", runDoorPathsCmd},
         {"bench",      1, "wwcli bench <artifact.wwa>", runBenchCmd},
+        {"categories", 1, "wwcli categories <artifact.wwa> [<teleport_dir>]",
+         runMoveCategoriesCmd},
+        {"moves",      1, "wwcli moves <artifact.wwa> [<teleport_dir>]", runMoveTestsCmd},
         {"teleports",  2, "wwcli teleports <artifact.wwa> <dataset_dir>"
                           " [<sx> <sy> <sp> <gx> <gy> <gp>]", runTeleports},
         {"doorprobe",  2, "wwcli doorprobe <artifact.wwa> <txIndex>", runDoorProbeCmd},
@@ -1269,7 +1283,8 @@ namespace
         {"path",       7, "wwcli path <artifact.wwa> <fromX> <fromY> <fromPlane>"
                           " <toX> <toY> <toPlane> [--out path.json] [--teleports dir]"
                           " [--ungated] [--varp id=value] [--varbit id=value]"
-                          " [--skill id=level] [--item id=count]",
+                          " [--skill id=level] [--item id=count]"
+                          " [--disable name[,name...]]",
          runPathExport},
     };
 

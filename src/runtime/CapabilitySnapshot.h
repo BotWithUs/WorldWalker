@@ -48,6 +48,33 @@ namespace ww::runtime
             varbitsDirty = false;
             varpsDirty = false;
             excludedTransitions.clear();
+            disabledMoves = 0;
+            moveCategories = {};
+            isAdmittingAll = false;
+        }
+
+        // Refuse every transition whose format::MoveCategory bit is set in
+        // `mask` (bit n = category n, the WW_MOVE_* numbering), for this query
+        // and every re-plan built on the same settings. `categories` is the
+        // artifact's per-transition table (ArtifactReader::moveCategories),
+        // borrowed: it must outlive the snapshot's use.
+        void disableMoves(uint32_t mask, std::span<const uint8_t> categories)
+        {
+            disabledMoves = mask;
+            moveCategories = categories;
+        }
+
+        // Admit every requirement gate, as a null snapshot does, while still
+        // refusing excluded transitions and disabled moves. For a caller that
+        // plans without capabilities but with categories switched off.
+        void admitEveryRequirement()
+        {
+            isAdmittingAll = true;
+        }
+
+        bool isAdmittingEveryRequirement() const
+        {
+            return isAdmittingAll;
         }
 
         // Refuse one transition for this query whatever its requirements say.
@@ -58,11 +85,19 @@ namespace ww::runtime
             excludedTransitions.push_back(transitionIndex);
         }
 
-        // Linear: a run excludes at most a handful (one per reroute).
+        // Excluded by index (linear: a run excludes at most a handful, one per
+        // reroute), or by its movement category.
         bool isTransitionExcluded(uint32_t transitionIndex) const
         {
-            return std::find(excludedTransitions.begin(), excludedTransitions.end(),
+            return isMoveDisabled(transitionIndex)
+                || std::find(excludedTransitions.begin(), excludedTransitions.end(),
                              transitionIndex) != excludedTransitions.end();
+        }
+
+        bool isMoveDisabled(uint32_t transitionIndex) const
+        {
+            return disabledMoves != 0u && transitionIndex < moveCategories.size()
+                && ((disabledMoves >> moveCategories[transitionIndex]) & 1u) != 0u;
         }
 
         void setSkillLevel(int32_t id, int32_t level)
@@ -201,6 +236,9 @@ namespace ww::runtime
         mutable bool varbitsDirty{false};
         mutable bool varpsDirty{false};
         std::vector<uint32_t> excludedTransitions;
+        uint32_t disabledMoves{0};
+        std::span<const uint8_t> moveCategories;
+        bool isAdmittingAll{false};
     };
 
     // Convenience predicate over a Requirement run. Skill / varbit / varp gates
@@ -277,7 +315,7 @@ namespace ww::runtime
                                   std::span<const format::RequirementRecord> reqs,
                                   data::TransitionKind kind = data::TransitionKind::Transport)
     {
-        if (snapshot == nullptr)
+        if (snapshot == nullptr || snapshot->isAdmittingEveryRequirement())
         {
             return true;
         }

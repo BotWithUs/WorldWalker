@@ -3,6 +3,7 @@
 #include "exec/Callbacks.h"
 #include "exec/Executor.h"
 #include "format/ArtifactReader.h"
+#include "format/MoveCategory.h"
 #include "runtime/CapabilitySnapshot.h"
 #include "runtime/ContextPool.h"
 #include "runtime/PathAssembler.h"
@@ -13,6 +14,7 @@
 #include <cstring>
 #include <exception>
 #include <mutex>
+#include <optional>
 #include <shared_mutex>
 #include <string>
 #include <utility>
@@ -28,6 +30,22 @@ static_assert(static_cast<uint8_t>(ww::runtime::StepKind::Walk)       == WW_STEP
               "StepKind::Walk must match WW_STEP_KIND_WALK");
 static_assert(static_cast<uint8_t>(ww::runtime::StepKind::Transition) == WW_STEP_KIND_TRANSITION,
               "StepKind::Transition must match WW_STEP_KIND_TRANSITION");
+
+// The WW_MOVE_* bit numbers are format::MoveCategory's values.
+static_assert(WW_MOVE_DOORS         == static_cast<uint32_t>(ww::format::MoveCategory::Doors));
+static_assert(WW_MOVE_SHORTCUTS     == static_cast<uint32_t>(ww::format::MoveCategory::Shortcuts));
+static_assert(WW_MOVE_PLANE         == static_cast<uint32_t>(ww::format::MoveCategory::Plane));
+static_assert(WW_MOVE_CLIMBOVERS    == static_cast<uint32_t>(ww::format::MoveCategory::ClimbOvers));
+static_assert(WW_MOVE_TRANSPORTS    == static_cast<uint32_t>(ww::format::MoveCategory::Transports));
+static_assert(WW_MOVE_TELEPORTS     == static_cast<uint32_t>(ww::format::MoveCategory::Teleports));
+static_assert(WW_MOVE_LODESTONES    == static_cast<uint32_t>(ww::format::MoveCategory::Lodestones));
+static_assert(WW_MOVE_FAIRY_RINGS   == static_cast<uint32_t>(ww::format::MoveCategory::FairyRings));
+static_assert(WW_MOVE_SPIRIT_TREES  == static_cast<uint32_t>(ww::format::MoveCategory::SpiritTrees));
+static_assert(WW_MOVE_GLIDERS       == static_cast<uint32_t>(ww::format::MoveCategory::Gliders));
+static_assert(WW_MOVE_CHARTERS      == static_cast<uint32_t>(ww::format::MoveCategory::Charters));
+static_assert(WW_MOVE_MAGIC_CARPETS == static_cast<uint32_t>(ww::format::MoveCategory::MagicCarpets));
+static_assert(WW_MOVE_OTHER_CHAINS  == static_cast<uint32_t>(ww::format::MoveCategory::OtherChains));
+static_assert(WW_MOVE_COUNT == ww::format::kMoveCategoryCount);
 
 // Backs the opaque ww_artifact handle with the loaded, validated artifact.
 //
@@ -162,6 +180,15 @@ int32_t ww_executor_run(ww_artifact      *artifact,
                          WwGoal           goal,
                          const WwCallbacks *callbacks)
 {
+    return ww_executor_run_ex(artifact, pool, goal, callbacks, 0u);
+}
+
+int32_t ww_executor_run_ex(ww_artifact       *artifact,
+                            ww_context_pool   *pool,
+                            WwGoal             goal,
+                            const WwCallbacks *callbacks,
+                            uint32_t           disabledMoves)
+{
     if (artifact == nullptr)
     {
         setLastError("ww_executor_run: artifact is null");
@@ -206,7 +233,8 @@ int32_t ww_executor_run(ww_artifact      *artifact,
         // Shared for the whole walk: the Executor borrows requirement-id spans
         // and transition records from the reader for its entire run.
         const std::shared_lock<std::shared_mutex> shared(artifact->lifecycle);
-        ww::exec::Executor executor(artifact->reader, pool->pool, *callbacks);
+        ww::exec::Executor executor(artifact->reader, pool->pool, *callbacks, std::nullopt,
+                                    disabledMoves);
         return static_cast<int32_t>(executor.run(goal));
     }
     catch (const std::exception &e)
@@ -233,6 +261,18 @@ ww_result ww_query_ex(ww_artifact                *artifact,
                        const WwCapabilitySnapshot *capabilities,
                        const WwInstanceChunks     *instance,
                        WwPath                     *outPath)
+{
+    return ww_query_moves(artifact, pool, start, goal, capabilities, instance, outPath, 0u);
+}
+
+ww_result ww_query_moves(ww_artifact                *artifact,
+                          ww_context_pool            *pool,
+                          WwTile                      start,
+                          WwGoal                      goal,
+                          const WwCapabilitySnapshot *capabilities,
+                          const WwInstanceChunks     *instance,
+                          WwPath                     *outPath,
+                          uint32_t                    disabledMoves)
 {
     if (outPath == nullptr)
     {
@@ -261,8 +301,17 @@ ww_result ww_query_ex(ww_artifact                *artifact,
         {
             ww::exec::copyCapabilities(*capabilities, snapshot);
         }
-        const ww::runtime::CapabilitySnapshot *snapshotPtr =
-            (capabilities != nullptr) ? &snapshot : nullptr;
+        // No capabilities admits every gate. With moves disabled the planner
+        // still needs a snapshot to carry the mask, so it gets one that
+        // admits every gate the way a null one would; with none disabled the
+        // call is exactly the old one.
+        if (capabilities == nullptr && disabledMoves != 0u)
+        {
+            snapshot.admitEveryRequirement();
+        }
+        snapshot.disableMoves(disabledMoves, artifact->reader.moveCategories());
+        const bool hasSnapshot = capabilities != nullptr || disabledMoves != 0u;
+        const ww::runtime::CapabilitySnapshot *snapshotPtr = hasSnapshot ? &snapshot : nullptr;
 
         // RAII lease — released on scope exit even when assemble() throws. The
         // release path calls SearchContext::recycle(), which drops the instance
