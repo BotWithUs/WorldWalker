@@ -5198,6 +5198,43 @@
           }
         ]
       }
+    },
+    {
+      "name": "Archaeology journal: Archaeology Campus",
+      "global": true,
+      "dest_x": 3334,
+      "dest_y": 3378,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 49429,
+            "count": 1
+          }
+        ]
+      }
     }
   ]
 }
