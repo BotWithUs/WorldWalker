@@ -25592,16 +25592,29 @@
     "dest_plane": 0
   },
   {
-    "name": "NPCs",
+    "name": "Squeeze-through",
     "object_id": 2186,
     "x": 2515,
     "y": 3161,
     "plane": 0,
-    "shape": 10,
-    "rotation": 0,
+    "shape": 0,
+    "rotation": 3,
     "option_index": 0,
-    "dest_x": 2504,
-    "dest_y": 3192,
+    "dest_x": 2515,
+    "dest_y": 3160,
+    "dest_plane": 0
+  },
+  {
+    "name": "Squeeze-through",
+    "object_id": 2186,
+    "x": 2515,
+    "y": 3160,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2515,
+    "dest_y": 3161,
     "dest_plane": 0
   },
   {
