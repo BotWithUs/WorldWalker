@@ -21,6 +21,35 @@ namespace ww::data
         std::uint64_t fingerprint{};
     };
 
+    // What the loader does with a row whose requirements it cannot parse: an
+    // unknown key, an incomplete `extra`, a scalar where a gate belongs.
+    //
+    //   Throw       fail the whole load, naming the file and row. For wwbuild and
+    //               the wwcli suites, where a human reads the failure before
+    //               anything ships.
+    //   ExcludeRow  drop that row (it can never be planned, which is the safe
+    //               direction) and record it in excludedRows. For the runtime
+    //               load on a user's machine, where the hosts treat a failed
+    //               load as "no teleports at all": one bad row would otherwise
+    //               cost every user every teleport.
+    //
+    // Only requirement faults are row-scoped. Any other malformed field (a
+    // coordinate, a chain step) still fails the load under either policy.
+    enum class RowFaultPolicy : uint8_t
+    {
+        Throw,
+        ExcludeRow,
+    };
+
+    // A row ExcludeRow dropped: `row` is its JSON path within `file` (e.g.
+    // "lodestones.destinations[15]"), `reason` names the offending key.
+    struct ExcludedRow
+    {
+        std::string file;
+        std::string row;
+        std::string reason;
+    };
+
     struct LoadedDatasets
     {
         TransitionModel model;     // raw transitions: pre-snap, pre-dedup, pre-cost
@@ -31,6 +60,8 @@ namespace ww::data
         // The files behind filesFound, in load order. Same set datasetHash was
         // computed over, itemised so a bake can record what it actually read.
         std::vector<DatasetFileInfo> files;
+        // Rows dropped under RowFaultPolicy::ExcludeRow; always empty under Throw.
+        std::vector<ExcludedRow> excludedRows;
     };
 
     // Parse the four transition datasets in `directory` (transport_links.json,
@@ -48,7 +79,10 @@ namespace ww::data
     // scripter-editable teleports without re-baking; transport_links /
     // teleport_chains are skipped (those are local, baked into the area graph).
     // Missing files are skipped; throws on malformed JSON in a present file.
-    LoadedDatasets loadGlobalTeleports(const std::string &directory);
+    // A row with unparseable requirements throws under RowFaultPolicy::Throw
+    // and is dropped into excludedRows under ExcludeRow.
+    LoadedDatasets loadGlobalTeleports(const std::string &directory,
+                                       RowFaultPolicy policy = RowFaultPolicy::Throw);
 }
 
 #endif  // WORLDWALKER_DATA_DATASETLOADER_H

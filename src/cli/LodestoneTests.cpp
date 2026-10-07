@@ -272,6 +272,160 @@ namespace
       }
     })";
 
+    // The three shipped rows that carry an `extra` gate, copied from
+    // item_teleports.json (destinations 15, 23 and 26) with their hotkeys left
+    // out. Until the loader read `extra`, each loaded gated on its unlock
+    // varbit alone.
+    const char *const kExtraGateFixture = R"({
+      "lodestones": {
+        "config": {
+          "open_interface": 1465, "open_component": 34,
+          "select_interface": 1092,
+          "open_wait": 6, "teleport_wait": 18
+        },
+        "destinations": [
+          { "name": "Menaphos", "x": 3216, "y": 2717, "plane": 0, "component": 23,
+            "requirements": { "varbit": { "id": 36173, "value": 1 },
+                              "extra": { "varbit_id": 36140, "min_value": 100 } },
+            "routes": [ { "name": "ability book",
+                          "requirements": { "varbit": { "id": 50990, "value": 0 } },
+                          "chain": [ { "click": [1461, 1, 1, 236] }, { "wait": 18 } ] } ] },
+          { "name": "Tirannwn", "x": 2254, "y": 3150, "plane": 0, "component": 31,
+            "requirements": { "varbit": { "id": 18528, "value": 1 },
+                              "extra": { "varplayer_id": 2102, "min_value": 15 } },
+            "routes": [ { "name": "ability book",
+                          "requirements": { "varbit": { "id": 50990, "value": 0 } },
+                          "chain": [ { "click": [1461, 1, 1, 242] }, { "wait": 18 } ] } ] },
+          { "name": "Prifddinas", "x": 2208, "y": 3361, "plane": 1, "component": 34,
+            "requirements": { "varbit": { "id": 24967, "value": 1 },
+                              "extra": { "varbit_id": 23198, "min_value": 400 } },
+            "routes": [ { "name": "ability book",
+                          "requirements": { "varbit": { "id": 50990, "value": 0 } },
+                          "chain": [ { "click": [1461, 1, 1, 239] }, { "wait": 18 } ] } ] }
+        ]
+      }
+    })";
+
+    struct ExtraGateRow
+    {
+        const char *name;
+        int32_t x;
+        int32_t y;
+        Requirement unlock;
+        Requirement extra;
+    };
+
+    constexpr ExtraGateRow kExtraGateRows[] = {
+        {"Menaphos", 3216, 2717, {RequirementKind::Varbit, 36173, 1},
+         {RequirementKind::VarbitAtLeast, 36140, 100}},
+        {"Tirannwn", 2254, 3150, {RequirementKind::Varbit, 18528, 1},
+         {RequirementKind::VarpAtLeast, 2102, 15}},
+        {"Prifddinas", 2208, 3361, {RequirementKind::Varbit, 24967, 1},
+         {RequirementKind::VarbitAtLeast, 23198, 400}},
+    };
+
+    // Malformed requirements, each of which must fail a load under Throw.
+    const char *const kUnknownRequirementKeyFixture = R"({
+      "lodestones": {
+        "config": { "open_interface": 1465, "open_component": 34, "select_interface": 1092 },
+        "destinations": [
+          { "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "quest": { "id": 7, "value": 1 } } }
+        ]
+      }
+    })";
+
+    const char *const kUnknownExtraKeyFixture = R"({
+      "lodestones": {
+        "config": { "open_interface": 1465, "open_component": 34, "select_interface": 1092 },
+        "destinations": [
+          { "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "extra": { "varclient_id": 5, "min_value": 1 } } }
+        ]
+      }
+    })";
+
+    const char *const kExtraWithoutMinimumFixture = R"({
+      "lodestones": {
+        "config": { "open_interface": 1465, "open_component": 34, "select_interface": 1092 },
+        "destinations": [
+          { "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "extra": { "varbit_id": 36140 } } }
+        ]
+      }
+    })";
+
+    const char *const kExtraWithBothIdsFixture = R"({
+      "lodestones": {
+        "config": { "open_interface": 1465, "open_component": 34, "select_interface": 1092 },
+        "destinations": [
+          { "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "extra": { "varbit_id": 36140, "varplayer_id": 2102,
+                                         "min_value": 1 } } }
+        ]
+      }
+    })";
+
+    const char *const kItemsAsObjectFixture = R"({
+      "lodestones": {
+        "config": { "open_interface": 1465, "open_component": 34, "select_interface": 1092 },
+        "destinations": [
+          { "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "items": { "id": 995, "count": 1 } } }
+        ]
+      }
+    })";
+
+    // A typo inside a gate object: loaded as `value` 0 (an exact match on 0)
+    // before gate keys were checked.
+    const char *const kGateKeyTypoFixture = R"({
+      "lodestones": {
+        "config": { "open_interface": 1465, "open_component": 34, "select_interface": 1092 },
+        "destinations": [
+          { "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "varbit": { "id": 35, "vaule": 1 } } }
+        ]
+      }
+    })";
+
+    // One good destination whose route has an unknown key, and one destination
+    // with an unknown key of its own. Under ExcludeRow only the route and the
+    // second destination go; under Throw the load fails.
+    const char *const kOneBadRowFixture = R"({
+      "lodestones": {
+        "config": {
+          "open_interface": 1465, "open_component": 34,
+          "select_interface": 1092,
+          "open_wait": 6, "teleport_wait": 18
+        },
+        "destinations": [
+          { "name": "Lumbridge", "x": 3233, "y": 3222, "plane": 0, "component": 17,
+            "requirements": { "varbit": { "id": 35, "value": 1 } },
+            "routes": [ { "requirements": { "varbitt": { "id": 50990, "value": 0 } },
+                          "chain": [ { "click": [1461, 1, 1, 234] }, { "wait": 18 } ] } ] },
+          { "name": "Edgeville", "x": 3067, "y": 3506, "plane": 0, "component": 15,
+            "requirements": { "quest": { "id": 7, "value": 1 } } }
+        ]
+      }
+    })";
+
+    // The planner fixture for an `extra` gate: Menaphos alone, map only, gated
+    // as the shipped row is.
+    const char *const kExtraPlannerFixture = R"({
+      "lodestones": {
+        "config": {
+          "open_interface": 1465, "open_component": 34,
+          "select_interface": 1092,
+          "open_wait": 6, "teleport_wait": 18
+        },
+        "destinations": [
+          { "name": "Menaphos", "x": 3216, "y": 2717, "plane": 0, "component": 23,
+            "requirements": { "varbit": { "id": 36173, "value": 1 },
+                              "extra": { "varbit_id": 36140, "min_value": 100 } } }
+        ]
+      }
+    })";
+
     // The planner fixture: Lumbridge alone and carrying no unlock requirement,
     // so a snapshot holding only the filter varbit decides between the two
     // routes. The bake drops global teleports, but should an artifact still
@@ -587,6 +741,154 @@ namespace
                                {kCastLumbridge, kTeleportWait});
     }
 
+    // `requirements` holds `want` somewhere in its list.
+    bool hasRequirement(const std::vector<Requirement> &requirements, const Requirement &want)
+    {
+        for (const Requirement &r : requirements)
+        {
+            if (r.kind == want.kind && r.id == want.id && r.amount == want.amount)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Every Lodestone transition landing on `row` carries both its unlock and
+    // its `extra` gate, and there are exactly `wantCount` of them.
+    int expectExtraGated(const std::vector<Transition> &txs, const ExtraGateRow &row,
+                         std::size_t wantCount, const char *source)
+    {
+        std::size_t landing = 0;
+        std::size_t gated = 0;
+        for (const Transition &t : txs)
+        {
+            if (t.kind != ww::data::TransitionKind::Lodestone || t.destX != row.x
+                || t.destY != row.y)
+            {
+                continue;
+            }
+            ++landing;
+            const bool isGated = hasRequirement(t.requirements, row.unlock)
+                              && hasRequirement(t.requirements, row.extra);
+            gated += isGated ? 1u : 0u;
+            if (!isGated)
+            {
+                printTransition(row.name, t);
+            }
+        }
+        std::printf("lodestones: %s %s -> %zu transitions, %zu carry the extra gate"
+                    " (expect %zu/%zu)\n",
+                    source, row.name, landing, gated, wantCount, wantCount);
+        if (landing != wantCount || gated != wantCount)
+        {
+            return fail("extra gate: a lodestone loaded without its extra gate");
+        }
+        return 0;
+    }
+
+    // The three shipped `extra` shapes, through a fixture: each destination
+    // yields its route and its map, both gated on unlock + extra.
+    int checkExtraGates(const std::filesystem::path &dir)
+    {
+        const ww::data::LoadedDatasets loaded = loadFixture(dir, kExtraGateFixture);
+        int failures = 0;
+        for (const ExtraGateRow &row : kExtraGateRows)
+        {
+            failures += expectExtraGated(loaded.model.transitions, row, 2, "fixture");
+        }
+        return failures;
+    }
+
+    // The shipped datasets/ directory, found by walking up from the working
+    // directory (wwcli runs from inside the checkout). Empty when no ancestor
+    // holds datasets/item_teleports.json.
+    std::filesystem::path findShippedDatasets()
+    {
+        std::error_code ec;
+        std::filesystem::path at = std::filesystem::current_path(ec);
+        while (!ec && !at.empty())
+        {
+            const std::filesystem::path candidate = at / "datasets";
+            if (std::filesystem::exists(candidate / "item_teleports.json", ec))
+            {
+                return candidate;
+            }
+            if (at == at.parent_path())
+            {
+                break;
+            }
+            at = at.parent_path();
+        }
+        return {};
+    }
+
+    // The runtime teleport files as they ship, under Throw: the check that a
+    // bad row fails here, before it can reach a data.zip, rather than being
+    // excluded on a user's machine. The three `extra` lodestones must carry
+    // their gates. A missing datasets/ fails rather than skips: a check that
+    // quietly does not run is how `extra` went unread.
+    int checkShippedTeleports()
+    {
+        const std::filesystem::path dir = findShippedDatasets();
+        if (dir.empty())
+        {
+            return fail("shipped: datasets/item_teleports.json not found above the working"
+                        " directory (run wwcli from inside the checkout)");
+        }
+        std::printf("lodestones: shipped datasets at %s\n", dir.string().c_str());
+        const ww::data::LoadedDatasets loaded = ww::data::loadGlobalTeleports(dir.string());
+        std::printf("lodestones: shipped -> %zu transitions from %zu files, %zu excluded"
+                    " (expect 0)\n",
+                    loaded.model.transitions.size(), loaded.filesFound,
+                    loaded.excludedRows.size());
+        int failures = loaded.excludedRows.empty() && loaded.filesFound == 2
+            ? 0 : fail("shipped: the runtime teleport files did not load whole");
+        for (const ExtraGateRow &row : kExtraGateRows)
+        {
+            failures += expectExtraGated(loaded.model.transitions, row, 2, "shipped");
+        }
+        return failures;
+    }
+
+    // Under ExcludeRow, the runtime policy: the bad route and the bad
+    // destination are left out and named, and the rest still loads.
+    int checkBadRowExcludedAtRuntime(const std::filesystem::path &dir)
+    {
+        stageFixture(dir, kOneBadRowFixture);
+        const ww::data::LoadedDatasets loaded =
+            ww::data::loadGlobalTeleports(dir.string(), ww::data::RowFaultPolicy::ExcludeRow);
+        const std::vector<Transition> &txs = loaded.model.transitions;
+        const std::vector<ww::data::ExcludedRow> &excluded = loaded.excludedRows;
+        std::printf("lodestones: one-bad-row fixture under ExcludeRow -> %zu transitions"
+                    " (expect 1), %zu excluded (expect 2)\n",
+                    txs.size(), excluded.size());
+        for (const ww::data::ExcludedRow &row : excluded)
+        {
+            std::printf("    excluded %s %s: %s\n", row.file.c_str(), row.row.c_str(),
+                        row.reason.c_str());
+        }
+        int failures = 0;
+        if (txs.size() != 1)
+        {
+            return fail("exclude row: expected the Lumbridge map alone to survive");
+        }
+        failures += expectLodestone("exclude row: Lumbridge map", txs[0], kLumbridgeX,
+                                    kLumbridgeY, {kLumbridgeUnlocked},
+                                    {kOpenMap, kOpenWait, kPickLumbridge, kTeleportWait});
+        const bool isNamed = excluded.size() == 2
+            && excluded[0].file == "item_teleports.json"
+            && excluded[0].row == "lodestones.destinations[0].routes[0]"
+            && excluded[0].reason.find("'varbitt'") != std::string::npos
+            && excluded[1].row == "lodestones.destinations[1]"
+            && excluded[1].reason.find("'quest'") != std::string::npos;
+        if (!isNamed)
+        {
+            failures += fail("exclude row: the excluded rows are not named with their key");
+        }
+        return failures;
+    }
+
     // Staging happens outside the try: writeText throws too, and a read-only
     // temp directory used to satisfy every one of these without the loader
     // ever running.
@@ -825,6 +1127,67 @@ namespace
         return failures;
     }
 
+    // Plan Varrock -> Menaphos with the unlock set and the `extra` varbit at
+    // `extraValue`. True when the plan uses the appended lodestone.
+    bool plansMenaphosLodestone(ww::runtime::PathAssembler &assembler, const PlannerQuery &q,
+                                int32_t extraValue, uint32_t lodestoneIndex)
+    {
+        ww::runtime::CapabilitySnapshot snapshot;
+        snapshot.setVarbit(kExtraGateRows[0].unlock.id, 1);
+        snapshot.setVarbit(kExtraGateRows[0].extra.id, extraValue);
+        ww::runtime::Plan plan;
+        const bool isPlanned = assembler.assemble(q.startX, q.startY, kStartPlane, q.goalX,
+                                                  q.goalY, q.goalPlane, &snapshot, plan);
+        const bool isUsed = isPlanned && planUses(plan, lodestoneIndex);
+        std::printf("lodestones: planner extra varbit=%d planned=%d lead=tx%lld uses=%d"
+                    " cost=%.1f\n",
+                    extraValue, isPlanned ? 1 : 0,
+                    static_cast<long long>(isPlanned ? leadTransition(plan) : -1),
+                    isUsed ? 1 : 0, static_cast<double>(plan.cost));
+        return isUsed;
+    }
+
+    // An account below the `extra` minimum must not be routed through the
+    // lodestone; one at it must be.
+    int runExtraGatePlannerChecks(ww::format::ArtifactReader &reader,
+                                  const std::filesystem::path &dir)
+    {
+        stageFixture(dir, kExtraPlannerFixture);
+        if (ww::runtime::loadGlobalTeleportsInto(reader, dir.string()) != 1)
+        {
+            return fail("planner extra: the fixture did not append exactly one map record");
+        }
+        const auto txs = reader.transitions();
+        const uint32_t lodestoneIndex = static_cast<uint32_t>(txs.size() - 1);
+        const ww::format::TransitionRecord &lode = txs[lodestoneIndex];
+        ww::runtime::WorldView view(reader);
+        PlannerQuery q{0, 0, lode.destX, lode.destY, static_cast<int32_t>(lode.destPlane)};
+        const auto standable = [&](int32_t x, int32_t y)
+        {
+            return view.isStandable(x, y, kStartPlane);
+        };
+        if (view.areaAt(lode.destX, lode.destY, q.goalPlane) < 0
+            || !ww::runtime::findNearestTile(kStartX, kStartY, kStartSnapRadius, true, standable,
+                                             kStartX, kStartY, q.startX, q.startY))
+        {
+            return fail("planner extra: artifact has no Menaphos landing or Varrock start");
+        }
+        ww::runtime::AreaSearch areaSearch(reader);
+        ww::runtime::TileSearch tileSearch(view);
+        ww::runtime::PathAssembler assembler(reader, view, areaSearch, tileSearch);
+        const int32_t minimum = kExtraGateRows[0].extra.amount;
+        int failures = 0;
+        if (plansMenaphosLodestone(assembler, q, minimum - 1, lodestoneIndex))
+        {
+            failures += fail("planner extra: an account below the minimum took the lodestone");
+        }
+        if (!plansMenaphosLodestone(assembler, q, minimum, lodestoneIndex))
+        {
+            failures += fail("planner extra: an account at the minimum did not take it");
+        }
+        return failures;
+    }
+
     int checkPlanner(const char *artifactPath, const std::filesystem::path &dir)
     {
         if (artifactPath == nullptr)
@@ -835,7 +1198,10 @@ namespace
         try
         {
             ww::format::ArtifactReader reader(artifactPath);
-            return runPlannerChecks(reader, dir);
+            // Each appends its own fixture; loadGlobalTeleportsInto replaces
+            // the previous set, so they do not see each other's records.
+            const int failures = runPlannerChecks(reader, dir);
+            return failures + runExtraGatePlannerChecks(reader, dir);
         }
         catch (const std::exception &e)
         {
@@ -863,6 +1229,19 @@ namespace
             failures += expectLoadThrows(dir, "a scalar varbit gate", kScalarVarbitFixture);
             failures += expectLoadThrows(dir, "a scalar varp_at_least gate",
                                          kScalarVarpAtLeastFixture);
+            failures += checkExtraGates(dir);
+            failures += checkShippedTeleports();
+            failures += checkBadRowExcludedAtRuntime(dir);
+            failures += expectLoadThrows(dir, "the same bad rows under Throw", kOneBadRowFixture);
+            failures += expectLoadThrows(dir, "an unknown requirements key",
+                                         kUnknownRequirementKeyFixture);
+            failures += expectLoadThrows(dir, "an unknown extra key", kUnknownExtraKeyFixture);
+            failures += expectLoadThrows(dir, "an extra without min_value",
+                                         kExtraWithoutMinimumFixture);
+            failures += expectLoadThrows(dir, "an extra naming a varbit and a varp",
+                                         kExtraWithBothIdsFixture);
+            failures += expectLoadThrows(dir, "items as an object", kItemsAsObjectFixture);
+            failures += expectLoadThrows(dir, "a typo inside a gate object", kGateKeyTypoFixture);
             return failures;
         }
         catch (const std::exception &e)

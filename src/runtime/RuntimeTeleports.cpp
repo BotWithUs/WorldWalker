@@ -96,7 +96,13 @@ namespace ww::runtime
     std::size_t loadGlobalTeleportsInto(format::ArtifactReader &reader,
                                         const std::string &directory)
     {
-        const data::LoadedDatasets loaded = data::loadGlobalTeleports(directory);
+        // ExcludeRow: on a user's machine a row with an unparseable gate is
+        // left out (never planned) and named on stderr, rather than failing the
+        // load. Both hosts treat a failed load as "no teleports at all", so one
+        // bad row would otherwise cost every user every teleport. wwbuild and
+        // the wwcli suites load the same files under Throw.
+        const data::LoadedDatasets loaded =
+            data::loadGlobalTeleports(directory, data::RowFaultPolicy::ExcludeRow);
 
         // Drop any previously appended set first so a reload is idempotent, then
         // build records whose pool offsets are relative to the (now baked-only)
