@@ -5,6 +5,7 @@
 #include "build/AreaGraph.h"
 #include "build/CollisionBuilder.h"
 #include "data/DialogZones.h"
+#include "data/F2pZones.h"
 #include "data/TeleportZones.h"
 #include "data/Transitions.h"
 
@@ -33,8 +34,10 @@ namespace ww::build
     // when `abstraction` has areas, an AltLandmarks section when `altLandmarks`
     // has landmarks, a TeleportAllowed section when `teleportZones` has any
     // wilderness region or no-tele zone, a DialogZones section when
-    // `dialogZones` has any zone, and a Provenance section when
-    // `meta.provenanceJson` is non-empty. Throws std::runtime_error on a
+    // `dialogZones` has any zone, a Provenance section when
+    // `meta.provenanceJson` is non-empty, and an F2pZones section when
+    // `f2pZones` has any zone, carrying the boxes and every transition's
+    // `membersOverride` by its index here. Throws std::runtime_error on a
     // compression or I/O failure.
     void writeArtifact(const std::string &path, const CollisionModel &collision,
                        const ww::data::TransitionModel &transitions,
@@ -42,6 +45,7 @@ namespace ww::build
                        const AltLandmarksModel &altLandmarks,
                        const ww::data::TeleportZonesModel &teleportZones,
                        const ww::data::DialogZonesModel &dialogZones,
+                       const ww::data::F2pZonesModel &f2pZones,
                        const ArtifactMeta &meta);
 }
 

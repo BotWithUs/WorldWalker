@@ -3,6 +3,7 @@
 
 #include "data/Transitions.h"
 #include "format/Artifact.h"
+#include "format/MoveCategory.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -50,18 +51,31 @@ namespace ww::runtime
             excludedTransitions.clear();
             disabledMoves = 0;
             moveCategories = {};
+            membersOnly = {};
             isAdmittingAll = false;
         }
 
         // Refuse every transition whose format::MoveCategory bit is set in
         // `mask` (bit n = category n, the WW_MOVE_* numbering), for this query
-        // and every re-plan built on the same settings. `categories` is the
-        // artifact's per-transition table (ArtifactReader::moveCategories),
-        // borrowed: it must outlive the snapshot's use.
-        void disableMoves(uint32_t mask, std::span<const uint8_t> categories)
+        // and every re-plan built on the same settings. With
+        // format::kRestrictFreeToPlay set in `mask` the query plans as a
+        // free-to-play account: every transition `membersOnly` marks is
+        // refused too, and PathAssembler keeps the walks on free-to-play land.
+        // `categories` and `membersOnly` are the artifact's per-transition
+        // tables (ArtifactReader::moveCategories / membersOnly), borrowed:
+        // they must outlive the snapshot's use.
+        void disableMoves(uint32_t mask, std::span<const uint8_t> categories,
+                          std::span<const uint8_t> membersOnlyTable)
         {
             disabledMoves = mask;
             moveCategories = categories;
+            membersOnly = membersOnlyTable;
+        }
+
+        // The query plans as a free-to-play account (format::kRestrictFreeToPlay).
+        bool isRestrictedToFreeToPlay() const
+        {
+            return (disabledMoves & format::kRestrictFreeToPlay) != 0u;
         }
 
         // Admit every requirement gate, as a null snapshot does, while still
@@ -94,10 +108,18 @@ namespace ww::runtime
                              transitionIndex) != excludedTransitions.end();
         }
 
+        // Off by its category, or members-only while the query is free-to-play.
         bool isMoveDisabled(uint32_t transitionIndex) const
         {
-            return disabledMoves != 0u && transitionIndex < moveCategories.size()
+            if (disabledMoves == 0u)
+            {
+                return false;
+            }
+            const bool isCategoryOff = transitionIndex < moveCategories.size()
                 && ((disabledMoves >> moveCategories[transitionIndex]) & 1u) != 0u;
+            const bool isMembersRefused = isRestrictedToFreeToPlay()
+                && transitionIndex < membersOnly.size() && membersOnly[transitionIndex] != 0u;
+            return isCategoryOff || isMembersRefused;
         }
 
         void setSkillLevel(int32_t id, int32_t level)
@@ -251,6 +273,7 @@ namespace ww::runtime
         std::vector<uint32_t> excludedTransitions;
         uint32_t disabledMoves{0};
         std::span<const uint8_t> moveCategories;
+        std::span<const uint8_t> membersOnly;
         bool isAdmittingAll{false};
     };
 

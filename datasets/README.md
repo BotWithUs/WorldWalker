@@ -20,6 +20,7 @@ vanished on a clean and weren't tracked. They now live here, in the source tree.
 | `item_teleports.json`  | build + run  | same as above (`lodestones` + generic item `teleports`) |
 | `teleport_chains.json` | build time   | *(optional, currently absent)* — the loader skips it if missing |
 | `dialog_zones.json`    | build time   | `wwbuild build` → baked as the DialogZones section; see below |
+| `f2p_zones.json`       | build time   | `wwbuild build` → baked as the F2pZones section; see "Free-to-play" below |
 
 ## Dialog zones
 
@@ -37,6 +38,65 @@ so a link across it would be an intra-area edge the bake drops.
 
 Picking by text is done by the host (the `DialogueAnswer` chain step, kind 5),
 which needs the framework bridge to support it.
+
+## Free-to-play
+
+A host that walks a free-to-play account sets `WW_RESTRICT_FREE_TO_PLAY` in the
+`disabledMoves` mask (`c_api/worldwalker_c.h`). The planner then refuses every
+members-only transition, keeps walks on free-to-play land, and fails a goal off
+that land at once. Members accounts never set the bit and plan as before.
+
+**The land is an allowlist.** `f2p_zones.json` lists the boxes of free-to-play
+land (`zones`) and the members pockets inside them (`members_holes`), each
+`{name, source, min_x, min_y, max_x, max_y, plane | plane_min + plane_max}`,
+inclusive. Every tile no zone covers is members land, so land nobody vouched
+for keeps a free player out rather than in. The cache has no members map (the
+gates are server-side), so every box is drawn from the RS3 wiki and the
+loader refuses a box without a `source`. The evidence for each box, and the
+borders that are inferred rather than read, are in `docs/f2p-zones.md`. A
+change here needs a re-bake: the boxes travel in the artifact.
+
+A transition is members-only when (format::isMembersOnly, in this order):
+
+- its row says `"members": true` (or it is never members when the row says
+  `"members": false`);
+- it is a charter ship, gnome glider, fairy ring, spirit tree or magic carpet,
+  wherever it stands;
+- it starts (a local transition) or lands off free-to-play land.
+
+**The `"members"` row flag** may sit on any `transport_links`,
+`spell_teleports` or `item_teleports` row and on a lodestone destination (its
+routes inherit it). It is a row-level key, so a loader older than it ignores
+it; anything but `true` or `false` faults the row like a bad requirement. Use
+it for what geography cannot see: a members teleport that lands on free land.
+
+**The teleport flags are generated, not typed.** `tools/f2p/gen_members_flags.py
+<item.json> <struct.json>` (NXTCacheLibrary dumper output) rewrites them:
+
+- a spell is members when its ability struct (param 2794 is its name) has
+  param 2809 `COMBATV2_ABILITY_IS_MEMBERS` = 1, or any rune it uses is a
+  members item (item opcode 16); this is what catches Ancient Magicks landing
+  on Ice Mountain and House Teleport landing in Rimmington;
+- an item teleport is members when every item that can cast it is a members
+  item;
+- a lodestone is free when cache enum 12260 lists it, members when 12261 does,
+  and otherwise takes `CURATED_LODESTONES` in the script (Fort Forinthry
+  members; City of Um and Wendlewick free).
+
+The script writes `true` and never `false` on spells and item teleports, so
+their landing still decides through `f2p_zones.json`; lodestones get both. Re-run
+it after editing either file or after a game update; `--check` exits 1 if a
+file would change.
+
+**The bake checks it.** `wwbuild build` reopens the artifact with the runtime
+teleports appended, prints members / total per family and every flag that
+overrides geography, and fails (removing the artifact) when a charter row
+classifies free, a free lodestone (enum 12260) classifies members or lands off
+free land, a members lodestone (12261) classifies free, or another lodestone
+has no flag. `wwcli f2p [<artifact> [<datasets>]]` tests the rest.
+
+What it does not do yet: options that are members-only on a loc free players
+can otherwise use (`members_action_N`), and a members account on a free world.
 
 ## Gates and routes
 

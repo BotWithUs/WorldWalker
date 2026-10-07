@@ -7,6 +7,7 @@
 #include "cli/HarnessPicks.h"
 #include "cli/InstanceTests.h"
 #include "cli/LodestoneTests.h"
+#include "cli/F2pTests.h"
 #include "cli/MoveTests.h"
 #include "cli/PathExport.h"
 #include "cli/ScriptedPaths.h"
@@ -1066,6 +1067,11 @@ namespace
         return runInstanceTests();
     }
 
+    int runF2pTestsCmd(int argc, char **argv)
+    {
+        return runF2pTests(argc >= 1 ? argv[0] : nullptr, argc >= 2 ? argv[1] : nullptr);
+    }
+
     int runLodestoneTestsCmd(int argc, char **argv)
     {
         return runLodestoneTests(argc >= 1 ? argv[0] : nullptr);
@@ -1271,6 +1277,7 @@ namespace
         {"walltest",   0, "wwcli walltest", runWallShapeTestsCmd},
         {"instance",   0, "wwcli instance", runInstanceTestsCmd},
         {"lodestones", 0, "wwcli lodestones [<artifact.wwa>]", runLodestoneTestsCmd},
+        {"f2p",        0, "wwcli f2p [<artifact.wwa> [<dataset_dir>]]", runF2pTestsCmd},
         {"scripted",   1, "wwcli scripted <artifact.wwa>", runScriptedPathsCmd},
         {"doors",      1, "wwcli doors <artifact.wwa>", runDoorPathsCmd},
         {"bench",      1, "wwcli bench <artifact.wwa>", runBenchCmd},

@@ -82,6 +82,20 @@ jobs:
           .\build\Release\wwcli.exe lodestones
           if ($LASTEXITCODE -ne 0) { exit 1 }
 
+      # Free-to-play routing without an artifact: land geometry, the members
+      # rule, the bit in a snapshot, the loader's "members" flag, and the
+      # shipped f2p_zones.json + teleport flags. The planner layer needs a bake
+      # with the F2pZones section and prints "planner SKIP" here.
+      - name: wwcli f2p (zones, members rule, datasets)
+        run: |
+          .\build\Release\wwcli.exe f2p
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: members-flag generator tests
+        run: |
+          python -m unittest tools/f2p/test_gen_members_flags.py
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
@@ -149,6 +163,20 @@ jobs:
           if ($out -match 'planner SKIP') {
             Write-Host "::error::the lodestone planner layer skipped against the released artifact"
             exit 1
+          }
+
+      # Free-to-play planner layer. A released artifact baked before the
+      # F2pZones section prints "planner SKIP": that is a skip, not a pass,
+      # and the step says so in a warning rather than going green silently.
+      - name: wwcli f2p <artifact> datasets (planner layer)
+        if: steps.fetch.outputs.found == 'true'
+        run: |
+          $out = & .\bin\wwcli.exe f2p worldwalker.wwa datasets
+          $code = $LASTEXITCODE
+          $out | ForEach-Object { Write-Host $_ }
+          if ($code -ne 0) { exit 1 }
+          if ($out -match 'planner SKIP') {
+            Write-Host "::warning::the free-to-play planner layer SKIPPED: the released artifact has no F2pZones section"
           }
 
   # CMakeLists.txt is generated from cmake.toml and both are committed. Nothing

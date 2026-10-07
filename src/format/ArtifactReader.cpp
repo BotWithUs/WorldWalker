@@ -115,6 +115,11 @@ namespace ww::format
         // After both abstraction + transitions are decoded, build the
         // near-goal edge bucket index. No-op when either section is absent.
         buildNearGoalEdgeBuckets();
+        // Sections arrive in any order, so the members tables wait until the
+        // transitions, the areas and the F2pZones section are all in.
+        applyBakedMembersOverrides();
+        rebuildAreaLandClasses();
+        rebuildMembersOnly();
     }
 
     void ArtifactReader::parseDirectory()
@@ -179,6 +184,9 @@ namespace ww::format
             break;
         case SectionId::DialogZones:
             decodeDialogZones(entry);
+            break;
+        case SectionId::F2pZones:
+            decodeF2pZones(entry);
             break;
         default:
             break;  // in-range but unmapped id — skip
@@ -270,6 +278,9 @@ namespace ww::format
         rebuildGlobalOriginIndex();
         rebuildRequirementIdLists();
         rebuildMoveCategories();
+        // No overrides yet: the F2pZones section may come later in the file.
+        // The constructor applies them and builds membersOnlyTable.
+        membersOverrideTable.assign(transitionTable.size(), kNoMembersOverride);
     }
 
     void ArtifactReader::truncateToBaked()
@@ -277,15 +288,25 @@ namespace ww::format
         transitionTable.resize(bakedTransitionCount);
         requirementPool.resize(bakedRequirementCount);
         chainStepPool.resize(bakedChainCount);
+        membersOverrideTable.resize(bakedTransitionCount);
         rebuildGlobalOriginIndex();
         rebuildRequirementIdLists();
         rebuildMoveCategories();
+        rebuildMembersOnly();
     }
 
     void ArtifactReader::appendTransitions(std::span<const TransitionRecord> transitions,
                                            std::span<const RequirementRecord> requirements,
-                                           std::span<const ChainStepRecord> chainSteps)
+                                           std::span<const ChainStepRecord> chainSteps,
+                                           std::span<const int8_t> membersOverrides)
     {
+        // Checked before anything is appended, so a mismatch leaves the
+        // reader exactly as it was.
+        if (!membersOverrides.empty() && membersOverrides.size() != transitions.size())
+        {
+            throw std::invalid_argument(
+                "ArtifactReader::appendTransitions: one members override per transition");
+        }
         // Callers (RuntimeTeleports) build the appended records with
         // requirementStart / chainStart already offset by the CURRENT pool
         // sizes, so a straight concatenation keeps every range valid.
@@ -308,6 +329,17 @@ namespace ww::format
         // append happens at most a handful of times per process.
         rebuildRequirementIdLists();
         rebuildMoveCategories();
+        if (membersOverrides.empty())
+        {
+            membersOverrideTable.insert(membersOverrideTable.end(), transitions.size(),
+                                        kNoMembersOverride);
+        }
+        else
+        {
+            membersOverrideTable.insert(membersOverrideTable.end(), membersOverrides.begin(),
+                                        membersOverrides.end());
+        }
+        rebuildMembersOnly();
     }
 
     void ArtifactReader::rebuildGlobalOriginIndex()
@@ -653,6 +685,72 @@ namespace ww::format
         provenanceDocSchema = header.schema;
         const auto *first = reinterpret_cast<const char *>(bytes.data() + bodyOffset);
         provenanceDoc.assign(first, static_cast<std::size_t>(header.jsonLength));
+    }
+
+    void ArtifactReader::decodeF2pZones(const SectionEntry &entry)
+    {
+        requireRange(entry.offset, sizeof(F2pZonesSectionHeader), bytes.size(), "f2p zones header");
+        const F2pZonesSectionHeader header = readPod<F2pZonesSectionHeader>(bytes, entry.offset);
+        uint64_t cursor = entry.offset + sizeof(F2pZonesSectionHeader);
+        const uint64_t zoneBytes = static_cast<uint64_t>(header.zoneCount) * sizeof(F2pBoxRecord);
+        requireRange(cursor, zoneBytes, bytes.size(), "f2p zones");
+        const std::vector<F2pBoxRecord> zones =
+            readPodArray<F2pBoxRecord>(bytes, cursor, header.zoneCount);
+        cursor += zoneBytes;
+        const uint64_t holeBytes = static_cast<uint64_t>(header.holeCount) * sizeof(F2pBoxRecord);
+        requireRange(cursor, holeBytes, bytes.size(), "f2p holes");
+        const std::vector<F2pBoxRecord> holes =
+            readPodArray<F2pBoxRecord>(bytes, cursor, header.holeCount);
+        cursor += holeBytes;
+        const uint64_t overrideBytes =
+            static_cast<uint64_t>(header.overrideCount) * sizeof(MembersOverrideRecord);
+        requireRange(cursor, overrideBytes, bytes.size(), "members overrides");
+        bakedMembersOverrides =
+            readPodArray<MembersOverrideRecord>(bytes, cursor, header.overrideCount);
+        f2pLandModel = F2pLand(zones, holes);
+    }
+
+    // An override naming a transition the file does not have is a corrupt
+    // section, refused like an out-of-range dialog answer: guessing which
+    // transition it meant could let a free player onto a members crossing.
+    void ArtifactReader::applyBakedMembersOverrides()
+    {
+        for (const MembersOverrideRecord &o : bakedMembersOverrides)
+        {
+            if (o.transitionIndex >= bakedTransitionCount || o.isMembers > 1u)
+            {
+                throw std::runtime_error("ArtifactReader: members override out of range");
+            }
+            membersOverrideTable[o.transitionIndex] = static_cast<int8_t>(o.isMembers);
+        }
+    }
+
+    void ArtifactReader::rebuildAreaLandClasses()
+    {
+        areaLandClassTable.clear();
+        if (!hasF2pZones())
+        {
+            return;
+        }
+        areaLandClassTable.reserve(areaNodeTable.size());
+        for (const AreaNodeRecord &node : areaNodeTable)
+        {
+            areaLandClassTable.push_back(static_cast<uint8_t>(f2pLandModel.classify(
+                node.minX, node.minY, node.maxX, node.maxY, static_cast<int32_t>(node.plane))));
+        }
+    }
+
+    void ArtifactReader::rebuildMembersOnly()
+    {
+        const F2pLand *land = hasF2pZones() ? &f2pLandModel : nullptr;
+        membersOnlyTable.clear();
+        membersOnlyTable.reserve(transitionTable.size());
+        for (std::size_t i = 0; i < transitionTable.size(); ++i)
+        {
+            const auto category = static_cast<MoveCategory>(moveCategoryTable[i]);
+            membersOnlyTable.push_back(
+                isMembersOnly(transitionTable[i], category, membersOverrideTable[i], land) ? 1u : 0u);
+        }
     }
 
     void ArtifactReader::decodeDialogZones(const SectionEntry &entry)

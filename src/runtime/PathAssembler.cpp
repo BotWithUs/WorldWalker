@@ -406,6 +406,31 @@ namespace ww::runtime
         return {};
     }
 
+    void PathAssembler::decideFreeToPlay(const CapabilitySnapshot *capabilities)
+    {
+        const bool isFreeToPlay = capabilities != nullptr
+            && capabilities->isRestrictedToFreeToPlay() && artifact->hasF2pZones();
+        freeToPlayLand = isFreeToPlay ? &artifact->f2pLand() : nullptr;
+    }
+
+    bool PathAssembler::isGoalRefused(int32_t goalX, int32_t goalY, int32_t goalPlane) const
+    {
+        return freeToPlayLand != nullptr && !freeToPlayLand->isFreeToPlay(goalX, goalY, goalPlane);
+    }
+
+    const format::F2pLand *PathAssembler::freeToPlayFenceFor(int32_t area) const
+    {
+        const std::span<const uint8_t> classes = artifact->areaLandClasses();
+        if (freeToPlayLand == nullptr)
+        {
+            return nullptr;
+        }
+        const bool isWhollyFree = area >= 0 && static_cast<std::size_t>(area) < classes.size()
+            && classes[static_cast<std::size_t>(area)]
+                   == static_cast<uint8_t>(format::LandClass::FreeToPlay);
+        return isWhollyFree ? nullptr : freeToPlayLand;
+    }
+
     bool PathAssembler::appendWalkSegment(int32_t fromX, int32_t fromY, int32_t toX, int32_t toY,
                                           int32_t plane, int32_t area, Plan &outPlan)
     {
@@ -413,8 +438,8 @@ namespace ww::runtime
         {
             return false;
         }
-        if (!tileSearch->findPath(fromX, fromY, toX, toY, plane, area,
-                                  wildernessFenceFor(area), tilePath))
+        const WalkFence fence{wildernessFenceFor(area), freeToPlayFenceFor(area)};
+        if (!tileSearch->findPath(fromX, fromY, toX, toY, plane, area, fence, tilePath))
         {
             return false;
         }
@@ -703,6 +728,7 @@ namespace ww::runtime
         outPlan.steps.clear();
         outPlan.cost = 0.0f;
         isWildernessAvoided = false;
+        decideFreeToPlay(capabilities);
         if (!isLegalPlane(startPlane) || !isLegalPlane(goalPlane))
         {
             return false;
@@ -787,6 +813,10 @@ namespace ww::runtime
                                        int32_t goalPlane, const CapabilitySnapshot *capabilities,
                                        Plan &outPlan)
     {
+        if (isGoalRefused(goalX, goalY, goalPlane))
+        {
+            return false;
+        }
         int32_t goalArea = view->areaAt(goalX, goalY, goalPlane);
         if (goalArea < 0)
         {
@@ -843,6 +873,10 @@ namespace ww::runtime
         outPlan.steps.clear();
         outPlan.cost = 0.0f;
         if (!isLegalPlane(startPlane) || isInCombat(capabilities))
+        {
+            return false;
+        }
+        if (isGoalRefused(goalX, goalY, goalPlane))
         {
             return false;
         }

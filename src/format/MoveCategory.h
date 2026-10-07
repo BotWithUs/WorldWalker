@@ -31,6 +31,13 @@ namespace ww::format
 
     inline constexpr uint32_t kMoveCategoryCount = 13;
 
+    // Not a category: a reserved bit of the same disabled-moves mask asking the
+    // planner to plan as a free-to-play account (WW_RESTRICT_FREE_TO_PLAY).
+    // The top bit, far above any category, so a reader that predates it shifts
+    // by categories 0..12 only and never sees it.
+    inline constexpr uint32_t kRestrictFreeToPlay = 1u << 31;
+    static_assert(kMoveCategoryCount < 31u, "categories must stay clear of kRestrictFreeToPlay");
+
     // Short fixed name, for reports.
     const char *moveCategoryName(MoveCategory category);
 

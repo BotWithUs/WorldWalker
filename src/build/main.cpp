@@ -4,6 +4,7 @@
 #include "build/CacheClient.h"
 #include "build/CollisionBuilder.h"
 #include "build/CollisionLookup.h"
+#include "build/MembersReport.h"
 #include "build/Provenance.h"
 #include "build/TerrainFloor.h"
 #include "data/CrossingDeriver.h"
@@ -13,6 +14,8 @@
 #include "data/TeleportZones.h"
 #include "data/TransitionBuilder.h"
 #include "data/Transitions.h"
+#include "format/ArtifactReader.h"
+#include "runtime/RuntimeTeleports.h"
 
 #include <cctype>
 #include <chrono>
@@ -244,6 +247,7 @@ namespace
                       const ww::build::AltLandmarksModel &landmarks,
                       const ww::data::TeleportZonesModel &teleportZones,
                       const ww::data::DialogZonesModel &dialogZones,
+                      const ww::data::F2pZonesModel &f2pZones,
                       uint32_t cacheRevision, uint32_t datasetHash)
     {
         ww::build::ArtifactMeta meta;
@@ -252,7 +256,7 @@ namespace
         meta.provenanceJson = ww::build::renderProvenanceJson(provenance);
 
         ww::build::writeArtifact(outPath, collision, transitions, abstraction, landmarks,
-                                 teleportZones, dialogZones, meta);
+                                 teleportZones, dialogZones, f2pZones, meta);
         if (flags.writeSidecar)
         {
             ww::build::writeProvenanceSidecar(outPath + ".json", meta.provenanceJson);
@@ -302,7 +306,7 @@ namespace
             emitArtifact(outPath, flags, provenance, model, ww::data::TransitionModel{},
                          ww::build::AreaGraphModel{}, ww::build::AltLandmarksModel{},
                          ww::data::TeleportZonesModel{}, ww::data::DialogZonesModel{},
-                         deriveCacheRevision(cacheDir), 0u);
+                         ww::data::F2pZonesModel{}, deriveCacheRevision(cacheDir), 0u);
             std::printf("collision: %zu squares written to %s (%d archives skipped)\n",
                         model.squares.size(), outPath.c_str(), decoded.skippedArchives);
             reportProvenance(outPath, flags, provenance);
@@ -465,6 +469,52 @@ namespace
         return true;
     }
 
+    // Reopen the artifact just written, append the runtime teleports from
+    // `datasetDir` the way a host does, and hold the free-to-play
+    // classification to what the cache says independently of f2p_zones.json
+    // (MembersReport). False when it disagrees; the caller then removes the
+    // artifact, so a bake that fails the check leaves nothing to ship.
+    bool checkFreeToPlay(const std::string &outPath, const std::string &datasetDir,
+                         const ww::data::TransitionModel &baked)
+    {
+        ww::format::ArtifactReader reader(outPath);
+        ww::runtime::loadGlobalTeleportsInto(reader, datasetDir);
+        std::vector<std::string> labels;
+        labels.reserve(reader.transitions().size());
+        for (const ww::data::Transition &t : baked.transitions)
+        {
+            labels.push_back(t.label);
+        }
+        const ww::data::LoadedDatasets globals = ww::data::loadGlobalTeleports(datasetDir);
+        for (const ww::data::Transition &t : globals.model.transitions)
+        {
+            labels.push_back(t.label);
+        }
+        const ww::build::MembersCheck check = ww::build::checkMembers(reader, labels);
+        ww::build::printMembersCheck(check);
+        return check.failures.empty();
+    }
+
+    // The bake's last word: report the zones, run checkFreeToPlay, and on a
+    // failure remove the artifact and its sidecar so nothing failed can ship.
+    bool passesFreeToPlayCheck(const std::string &outPath, const std::string &datasetDir,
+                               const ww::data::F2pZonesModel &zones,
+                               const ww::data::TransitionModel &baked)
+    {
+        std::printf("  f2p zones: %zu zones, %zu members holes\n", zones.zones.size(),
+                    zones.holes.size());
+        if (checkFreeToPlay(outPath, datasetDir, baked))
+        {
+            return true;
+        }
+        std::error_code ignored;
+        std::filesystem::remove(outPath, ignored);
+        std::filesystem::remove(outPath + ".json", ignored);
+        std::fprintf(stderr, "wwbuild build: the free-to-play check failed; %s was removed\n",
+                     outPath.c_str());
+        return false;
+    }
+
     // `wwbuild opcheck <dataset_dir> <defs_dir>`: the op check alone, with no
     // cache decode, for reviewing a dataset change in seconds. Exits 1 when any
     // enabled row clicks an option its origin lacks.
@@ -572,10 +622,14 @@ namespace
             provenance.teleportZones = teleportZones.wilderness.size() + teleportZones.noTele.size();
 
             emitArtifact(outPath, flags, provenance, collision, tr.transitions, abstraction,
-                         landmarks, teleportZones, datasets.dialogZones,
+                         landmarks, teleportZones, datasets.dialogZones, datasets.f2pZones,
                          deriveCacheRevision(cacheDir), tr.datasetHash);
 
             reportBuild(outPath, collision, tr, ag, alt, teleportZones);
+            if (!passesFreeToPlayCheck(outPath, datasetDir, datasets.f2pZones, tr.transitions))
+            {
+                return 1;
+            }
             const ww::build::VoidFenceReport &fence = decoded.voidFence;
             std::printf("  void fence: %zu unpainted upper-plane stretches blocked (%zu tiles),"
                         " %zu pockets kept (largest %zu tiles)\n",

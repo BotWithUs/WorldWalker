@@ -426,6 +426,36 @@ namespace ww::data
             }
         }
 
+        // A row's optional `"members": true | false` (-1 when absent). Anything
+        // but a boolean is a fault scoped to the row like a bad requirement: a
+        // flag nobody can read must not decide for the whole file. True when
+        // `out` holds the flag; false when the row must be left out, which only
+        // ExcludeRow returns.
+        bool parseRowMembers(const json &node, const RowSink &sink, const std::string &row,
+                             int8_t &out)
+        {
+            out = -1;
+            if (!node.contains("members"))
+            {
+                return true;
+            }
+            const json &flag = node.at("members");
+            if (flag.is_boolean())
+            {
+                out = flag.get<bool>() ? 1 : 0;
+                return true;
+            }
+            const std::string reason = "'members' must be true or false";
+            if (sink.policy == RowFaultPolicy::Throw)
+            {
+                throw std::runtime_error(std::string(sink.file) + " " + row + ": " + reason);
+            }
+            sink.excluded->push_back({sink.file, row, reason});
+            std::fprintf(stderr, "worldwalker: excluded %s %s: %s\n", sink.file, row.c_str(),
+                         reason.c_str());
+            return false;
+        }
+
         // One parser per chain-step shape. Each recognises its own key, appends
         // exactly one ChainStep and returns true, or returns false untouched so
         // the next parser gets a look. Splitting the old else-if ladder this way
@@ -674,7 +704,8 @@ namespace ww::data
                 t.optionIndex = static_cast<uint8_t>(
                     readOptionalInt(e, "option_index", 0, "transport_links"));
                 t.extraCost = readExtraCost(e);
-                if (!parseRowRequirements(e, sink, rowPath("", row), t.requirements))
+                if (!parseRowRequirements(e, sink, rowPath("", row), t.requirements)
+                    || !parseRowMembers(e, sink, rowPath("", row), t.membersOverride))
                 {
                     continue;
                 }
@@ -710,7 +741,8 @@ namespace ww::data
                 // ring / teleport chain landed in the artifact with empty
                 // requirements + empty chain, leaving the executor with
                 // nothing to run.
-                if (!parseRowRequirements(e, sink, rowPath("", row), t.requirements))
+                if (!parseRowRequirements(e, sink, rowPath("", row), t.requirements)
+                    || !parseRowMembers(e, sink, rowPath("", row), t.membersOverride))
                 {
                     continue;
                 }
@@ -731,6 +763,7 @@ namespace ww::data
                 const json &e = rows[row];
                 Transition t;
                 t.kind = TransitionKind::Spell;
+                t.label = e.value("name", std::string{});
                 t.isGlobalOrigin = e.value("global", true);
                 t.destX = readRequiredInt(e, "dest_x", "spell_teleports");
                 t.destY = readRequiredInt(e, "dest_y", "spell_teleports");
@@ -746,7 +779,8 @@ namespace ww::data
                     t.originY = readRequiredInt(e, "origin_y", "spell_teleports(non-global)");
                     t.originPlane = readPlane(e, "origin_plane", "spell_teleports(non-global)");
                 }
-                if (!parseRowRequirements(e, sink, rowPath("teleports", row), t.requirements))
+                if (!parseRowRequirements(e, sink, rowPath("teleports", row), t.requirements)
+                    || !parseRowMembers(e, sink, rowPath("teleports", row), t.membersOverride))
                 {
                     continue;
                 }
@@ -864,12 +898,15 @@ namespace ww::data
         {
             Transition map;
             map.kind = TransitionKind::Lodestone;
+            map.label = d.value("name", std::string{});
             map.isGlobalOrigin = true;
             map.destX = readRequiredInt(d, "x", "lodestones.destination");
             map.destY = readRequiredInt(d, "y", "lodestones.destination");
             map.destPlane = readPlane(d, "plane", "lodestones.destination");
-            // Left out whole, routes included: they inherit these gates.
-            if (!parseRowRequirements(d, sink, row, map.requirements))
+            // Left out whole, routes included: they inherit these gates, and
+            // the destination's members flag.
+            if (!parseRowRequirements(d, sink, row, map.requirements)
+                || !parseRowMembers(d, sink, row, map.membersOverride))
             {
                 return;
             }
@@ -935,11 +972,13 @@ namespace ww::data
                 const json &e = rows[row];
                 Transition t;
                 t.kind = TransitionKind::ItemTeleport;
+                t.label = e.value("name", std::string{});
                 t.isGlobalOrigin = e.value("global", true);
                 t.destX = readRequiredInt(e, "dest_x", "item_teleports.teleport");
                 t.destY = readRequiredInt(e, "dest_y", "item_teleports.teleport");
                 t.destPlane = readPlane(e, "dest_plane", "item_teleports.teleport");
-                if (!parseRowRequirements(e, sink, rowPath("teleports", row), t.requirements))
+                if (!parseRowRequirements(e, sink, rowPath("teleports", row), t.requirements)
+                    || !parseRowMembers(e, sink, rowPath("teleports", row), t.membersOverride))
                 {
                     continue;
                 }
@@ -996,10 +1035,11 @@ namespace ww::data
 
         uint8_t readPlane(const json &node, const char *key, int32_t fallback)
         {
-            const int32_t plane = readOptionalInt(node, key, fallback, "dialog_zones");
+            // Shared by dialog_zones.json and f2p_zones.json boxes.
+            const int32_t plane = readOptionalInt(node, key, fallback, "zone box");
             if (plane < 0 || plane > 3)
             {
-                throw std::runtime_error("dialog_zones: plane must be 0..3");
+                throw std::runtime_error(std::string("zone box: '") + key + "' must be 0..3");
             }
             return static_cast<uint8_t>(plane);
         }
@@ -1040,6 +1080,67 @@ namespace ww::data
                     zone.answers.push_back(text);
                 }
                 out.dialogZones.zones.push_back(std::move(zone));
+            }
+        }
+
+        F2pBox readF2pBox(const json &node, const char *context)
+        {
+            F2pBox box;
+            box.name = node.value("name", std::string());
+            if (!node.contains("source") || !node.at("source").is_string()
+                || node.at("source").get<std::string>().empty())
+            {
+                throw std::runtime_error(std::string(context) + ": box '" + box.name
+                                         + "' needs a 'source' citing where it was drawn from");
+            }
+            box.source = node.at("source").get<std::string>();
+            box.minX = readRequiredInt(node, "min_x", context);
+            box.minY = readRequiredInt(node, "min_y", context);
+            box.maxX = readRequiredInt(node, "max_x", context);
+            box.maxY = readRequiredInt(node, "max_y", context);
+            const int32_t plane = readOptionalInt(node, "plane", 0, context);
+            box.planeMin = readPlane(node, "plane_min", plane);
+            box.planeMax = readPlane(node, "plane_max", plane);
+            if (box.minX > box.maxX || box.minY > box.maxY || box.planeMin > box.planeMax)
+            {
+                throw std::runtime_error(std::string(context) + ": box '" + box.name
+                                         + "' has a minimum above its maximum");
+            }
+            return box;
+        }
+
+        void readF2pBoxes(const json &j, const char *key, const char *context,
+                          std::vector<F2pBox> &out)
+        {
+            if (!j.contains(key))
+            {
+                return;
+            }
+            if (!j.at(key).is_array())
+            {
+                throw std::runtime_error(std::string(context) + ": must be an array");
+            }
+            for (const json &node : j.at(key))
+            {
+                out.push_back(readF2pBox(node, context));
+            }
+        }
+
+        // f2p_zones.json: {"zones": [box, ...], "members_holes": [box, ...]},
+        // each box {name, source, min_x, min_y, max_x, max_y, plane |
+        // plane_min + plane_max}. A file with no zone is refused: it would bake
+        // a section that makes every tile members land.
+        void loadF2pZones(const json &j, const RowSink &, LoadedDatasets &out)
+        {
+            if (!j.is_object())
+            {
+                throw std::runtime_error("f2p_zones: must be an object");
+            }
+            readF2pBoxes(j, "zones", "f2p_zones.zones", out.f2pZones.zones);
+            readF2pBoxes(j, "members_holes", "f2p_zones.members_holes", out.f2pZones.holes);
+            if (out.f2pZones.zones.empty())
+            {
+                throw std::runtime_error("f2p_zones: 'zones' must list at least one box");
             }
         }
 
@@ -1084,6 +1185,7 @@ namespace ww::data
         loadOne(directory, "spell_teleports.json", &loadSpellTeleports, kBake, result);
         loadOne(directory, "item_teleports.json", &loadItemTeleports, kBake, result);
         loadOne(directory, "dialog_zones.json", &loadDialogZones, kBake, result);
+        loadOne(directory, "f2p_zones.json", &loadF2pZones, kBake, result);
         return result;
     }
 

@@ -2,6 +2,7 @@
 #define WORLDWALKER_FORMAT_ARTIFACTREADER_H
 
 #include "format/Artifact.h"
+#include "format/F2pLand.h"
 
 #include <array>
 #include <cstddef>
@@ -145,6 +146,45 @@ namespace ww::format
             return {moveCategoryTable.data(), moveCategoryTable.size()};
         }
 
+        // ---- Free-to-play ---------------------------------------------------
+        // 1 for every transition a free-to-play account must not take
+        // (format::isMembersOnly over the transition's override, its category
+        // and, when the artifact has the F2pZones section, its geography), by
+        // index. Rebuilt in lockstep with moveCategories().
+        std::span<const uint8_t> membersOnly() const
+        {
+            return {membersOnlyTable.data(), membersOnlyTable.size()};
+        }
+
+        // Each transition's dataset `"members"` flag: -1 none, 0 free to play,
+        // 1 members. Baked rows take theirs from the F2pZones section, runtime
+        // teleports from appendTransitions.
+        std::span<const int8_t> membersOverrides() const
+        {
+            return {membersOverrideTable.data(), membersOverrideTable.size()};
+        }
+
+        bool hasF2pZones() const
+        {
+            return hasSection(SectionId::F2pZones);
+        }
+
+        // Free-to-play land. Without the F2pZones section it holds no zones,
+        // so every tile reads as members land; callers that must tell "no
+        // land" from "unknown land" test hasF2pZones() first.
+        const F2pLand &f2pLand() const
+        {
+            return f2pLandModel;
+        }
+
+        // The format::LandClass of every area's bounding box, by area id, so a
+        // walk inside an area wholly on free-to-play land skips the per-tile
+        // test. Empty when the artifact has no F2pZones section.
+        std::span<const uint8_t> areaLandClasses() const
+        {
+            return {areaLandClassTable.data(), areaLandClassTable.size()};
+        }
+
         // ---- Runtime teleports (appended after bake) ------------------------
         // Global teleports (spell + lodestone) are loaded from editable JSON at
         // runtime and appended onto the baked transition / requirement / chain
@@ -161,9 +201,15 @@ namespace ww::format
         // Append POD records onto the owned pools. Each appended TransitionRecord
         // must already carry requirementStart / chainStart offsets relative to
         // the pools' CURRENT sizes (i.e. the post-truncate state).
+        //
+        // `membersOverrides` is each appended transition's dataset `"members"`
+        // flag (-1 none, 0 free to play, 1 members), one per transition, or
+        // empty for none at all. Throws std::invalid_argument, appending
+        // nothing, when it is neither.
         void appendTransitions(std::span<const TransitionRecord> transitions,
                                std::span<const RequirementRecord> requirements,
-                               std::span<const ChainStepRecord> chainSteps);
+                               std::span<const ChainStepRecord> chainSteps,
+                               std::span<const int8_t> membersOverrides = {});
 
         // Drop everything appended since load, restoring the baked prefix. Makes
         // a reload (truncate + re-append) idempotent.
@@ -316,6 +362,7 @@ namespace ww::format
         void decodeTeleportAllowed(const SectionEntry &entry);
         void decodeProvenance(const SectionEntry &entry);
         void decodeDialogZones(const SectionEntry &entry);
+        void decodeF2pZones(const SectionEntry &entry);
         std::vector<float> decompressFloatTable(const AltTableDescriptor &desc, uint64_t sectionOffset) const;
         // Rescan transitionTable and rebuild globalOriginIndices. Called
         // after any change to the transition pool (decodeTransitions,
@@ -331,6 +378,19 @@ namespace ww::format
         // points as rebuildRequirementIdLists.
         void rebuildMoveCategories();
 
+        // Copy the F2pZones section's overrides onto the baked prefix of
+        // membersOverrideTable. Once, at the end of construction.
+        void applyBakedMembersOverrides();
+
+        // Reclassify every area's bounding box against f2pLandModel. Once, at
+        // the end of construction; areas never change after load.
+        void rebuildAreaLandClasses();
+
+        // Recompute membersOnlyTable from the transitions, their categories
+        // and overrides. Same entry points as rebuildMoveCategories, except
+        // that construction calls it once everything is decoded.
+        void rebuildMembersOnly();
+
         // Build the near-goal edge bucket index from the baked area edges +
         // baked transition table. Called once at end of construction, after
         // both abstraction and transitions sections have been decoded; the
@@ -340,7 +400,7 @@ namespace ww::format
 
         std::vector<uint8_t> bytes;
         ArtifactInfo metadata{};
-        std::array<bool, 8> sectionPresent{};
+        std::array<bool, kSectionIdLimit> sectionPresent{};
 
         std::vector<CollisionSquareEntry> collisionSquareTable;
         std::unordered_map<uint32_t, std::size_t> collisionIndex;
@@ -362,6 +422,14 @@ namespace ww::format
         std::vector<int32_t> requirementItemIdList;
         // One MoveCategory per transitionTable entry (rebuildMoveCategories).
         std::vector<uint8_t> moveCategoryTable;
+        // One entry per transitionTable entry: the dataset override (-1 none)
+        // and the resulting members-only verdict.
+        static constexpr int8_t kNoMembersOverride = -1;
+        std::vector<int8_t> membersOverrideTable;
+        std::vector<uint8_t> membersOnlyTable;
+        std::vector<MembersOverrideRecord> bakedMembersOverrides;
+        F2pLand f2pLandModel;
+        std::vector<uint8_t> areaLandClassTable;
         // Baked prefix lengths, captured after decodeTransitions; runtime
         // teleport appends sit past these and truncateToBaked() rewinds to them.
         std::size_t bakedTransitionCount{};

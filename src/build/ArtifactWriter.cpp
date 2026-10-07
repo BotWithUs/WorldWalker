@@ -372,6 +372,59 @@ namespace ww::build
             return section;
         }
 
+        ww::format::F2pBoxRecord encodeF2pBox(const ww::data::F2pBox &box)
+        {
+            ww::format::F2pBoxRecord rec{};
+            rec.minX = box.minX;
+            rec.minY = box.minY;
+            rec.maxX = box.maxX;
+            rec.maxY = box.maxY;
+            rec.planeMin = box.planeMin;
+            rec.planeMax = box.planeMax;
+            return rec;
+        }
+
+        // F2pZones section payload: header, zone boxes, hole boxes, then one
+        // override per transition whose row carried `"members"`, by its index
+        // in `transitions` (the order the Transitions section is written in).
+        std::vector<uint8_t> buildF2pZonesSection(const ww::data::F2pZonesModel &model,
+                                                  const ww::data::TransitionModel &transitions)
+        {
+            using namespace ww::format;
+            std::vector<MembersOverrideRecord> overrides;
+            for (std::size_t i = 0; i < transitions.transitions.size(); ++i)
+            {
+                const int8_t flag = transitions.transitions[i].membersOverride;
+                if (flag >= 0)
+                {
+                    MembersOverrideRecord rec{};
+                    rec.transitionIndex = static_cast<uint32_t>(i);
+                    rec.isMembers = static_cast<uint8_t>(flag != 0 ? 1u : 0u);
+                    overrides.push_back(rec);
+                }
+            }
+            F2pZonesSectionHeader header{};
+            header.zoneCount = static_cast<uint32_t>(model.zones.size());
+            header.holeCount = static_cast<uint32_t>(model.holes.size());
+            header.overrideCount = static_cast<uint32_t>(overrides.size());
+
+            std::vector<uint8_t> section;
+            appendPod(section, header);
+            for (const ww::data::F2pBox &box : model.zones)
+            {
+                appendPod(section, encodeF2pBox(box));
+            }
+            for (const ww::data::F2pBox &box : model.holes)
+            {
+                appendPod(section, encodeF2pBox(box));
+            }
+            for (const MembersOverrideRecord &rec : overrides)
+            {
+                appendPod(section, rec);
+            }
+            return section;
+        }
+
         // Provenance section payload: header + the UTF-8 JSON body, stored
         // uncompressed (under a kilobyte, and a record nobody can read without
         // running code is a worse record).
@@ -461,6 +514,7 @@ namespace ww::build
                        const AltLandmarksModel &altLandmarks,
                        const ww::data::TeleportZonesModel &teleportZones,
                        const ww::data::DialogZonesModel &dialogZones,
+                       const ww::data::F2pZonesModel &f2pZones,
                        const ArtifactMeta &meta)
     {
         using namespace ww::format;
@@ -490,6 +544,12 @@ namespace ww::build
         if (!meta.provenanceJson.empty())
         {
             sections.push_back({SectionId::Provenance, buildProvenanceSection(meta.provenanceJson)});
+        }
+        // Last, so every section before it lands where an artifact without it
+        // puts it, apart from the one directory entry it adds.
+        if (!f2pZones.zones.empty())
+        {
+            sections.push_back({SectionId::F2pZones, buildF2pZonesSection(f2pZones, transitions)});
         }
 
         const uint32_t sectionCount = static_cast<uint32_t>(sections.size());
