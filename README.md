@@ -116,6 +116,21 @@ on its own when it drifts or gets stuck. You never re-implement the interpreter
 ([ADR 0008](docs/adr/0008-shared-c-executor-with-callback-primitives.md),
 [ADR 0010](docs/adr/0010-blocking-executor-live-state-via-callbacks.md)).
 
+To find out what a transition *is* (a `WwStep` or `WwEvent` only carries its
+index), describe it. `origin` says how the walk starts it (a loc, an NPC or a
+teleport), and the rest is what the artifact holds: tiles, the loc or NPC, the
+option, the requirements and the chain exactly as baked. It is safe to call at
+any time, including from inside an executor callback.
+
+```c
+WwTransitionInfo info;
+if (ww_transition_describe(art, step.transitionIndex, &info) == WW_OK
+    && info.origin == WW_TRANSITION_ORIGIN_LOC) {
+    /* info.objectId at info.originTile, option info.optionIndex,
+       info.requirementCount gates in info.requirements[] */
+}
+```
+
 ## Contributing
 
 **Editing a teleport needs no cache, no private dependency, and no bake.**
