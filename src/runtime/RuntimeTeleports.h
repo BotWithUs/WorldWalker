@@ -25,7 +25,9 @@ namespace ww::runtime
     //
     // Returns the number of teleport transitions appended. Throws
     // std::exception (nlohmann json) on malformed JSON in a present file;
-    // missing files are skipped (zero appended).
+    // missing files are skipped (zero appended). A row whose requirements do
+    // not parse is left out and named on stderr instead of failing the load
+    // (data::RowFaultPolicy::ExcludeRow).
     std::size_t loadGlobalTeleportsInto(format::ArtifactReader &reader,
                                          const std::string &directory);
 }

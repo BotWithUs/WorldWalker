@@ -25,12 +25,20 @@
 //   * schema:   `requirements.varbit` in both its spellings — one object and
 //     an array — and that a scalar there throws rather than silently leaving
 //     the transition ungated. The minimum-value gates `varbit_at_least` and
-//     `varp_at_least` likewise, and that a varp gate is a minimum.
+//     `varp_at_least` likewise, and that a varp gate is a minimum. The older
+//     `extra` spelling ({varbit_id | varplayer_id, min_value}) on the three
+//     lodestones that ship with it, both from a fixture and from the shipped
+//     datasets/ (found above the working directory; loaded under Throw, so a
+//     bad row fails here before it can ship). An unknown key anywhere in
+//     `requirements` throws under Throw and, under the runtime's ExcludeRow,
+//     drops only its own row and names it.
 //   * planner:  a fixture appended onto a real artifact through
 //     loadGlobalTeleportsInto, then one query planned at three filter values:
 //     0 must lead with the cast, 1 must lead with the map, and an
 //     unexpected 7 must still lead with the map rather than leaving the
-//     destination unreachable. Skipped when no artifact is given.
+//     destination unreachable. Then Menaphos with its `extra` gate: an
+//     account one below the minimum must not plan through it, one at the
+//     minimum must. Skipped when no artifact is given.
 //
 // Expected chains and gates are written out as literals. Nothing here rebuilds
 // them from a config the way the loader does.

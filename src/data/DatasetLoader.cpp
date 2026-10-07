@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <initializer_list>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
@@ -26,7 +27,6 @@ namespace ww::data
     namespace
     {
         using json = nlohmann::json;
-        using LoaderFn = void (*)(const json &, LoadedDatasets &);
 
         bool readFileBytes(const std::string &path, std::string &out)
         {
@@ -202,11 +202,37 @@ namespace ww::data
             const char *context;
         };
 
+        // Refuse any key of `node` outside `allowed`. A gate object with a typo
+        // in it (`"vaule": 3`) used to load with the field defaulted, so the
+        // row asked for something other than what the dataset said.
+        void requireKnownKeys(const json &node, std::initializer_list<const char *> allowed,
+                              const char *context)
+        {
+            if (!node.is_object())
+            {
+                throw std::runtime_error(std::string(context) + ": must be an object");
+            }
+            for (const auto &[key, value] : node.items())
+            {
+                bool isKnown = false;
+                for (const char *name : allowed)
+                {
+                    isKnown = isKnown || key == name;
+                }
+                if (!isKnown)
+                {
+                    throw std::runtime_error(std::string(context) + ": unknown key '" + key
+                                             + "'");
+                }
+            }
+        }
+
         // One `{id, value}` (or `{id, bit}`, or a skill's `{id, level}`) gate,
         // appended as `gate.kind`.
         void pushVarRequirement(const json &v, const VarGateKey &gate,
                                 std::vector<Requirement> &out)
         {
+            requireKnownKeys(v, {"id", gate.valueKey}, gate.context);
             const int32_t amount =
                 readOptionalInt(v, gate.valueKey, gate.defaultValue, gate.context);
             // A bit past 31 names nothing in a 32-bit varp; refuse the bake
@@ -217,6 +243,27 @@ namespace ww::data
                                          + ": bit must be 0..31");
             }
             out.push_back({gate.kind, readRequiredInt(v, "id", gate.context), amount});
+        }
+
+        // Visit `node` as one object, or each element of an array of them: the
+        // two spellings every gate key accepts. A scalar throws.
+        template <typename Fn>
+        void forEachGateEntry(const json &node, const char *context, Fn &&visit)
+        {
+            if (node.is_object())
+            {
+                visit(node);
+                return;
+            }
+            if (!node.is_array())
+            {
+                throw std::runtime_error(std::string(context)
+                                         + ": must be an object or an array of objects");
+            }
+            for (const json &v : node)
+            {
+                visit(v);
+            }
         }
 
         // Every var gate is either one `{id, value}` object or an array of
@@ -232,23 +279,10 @@ namespace ww::data
             {
                 return;
             }
-            const json &node = req.at(gate.key);
-            if (node.is_object())
-            {
-                pushVarRequirement(node, gate, out);
-                return;
-            }
-            // Anything else is a typo (`"varbit": 50990`) that used to be
-            // dropped in silence, leaving the transition ungated.
-            if (!node.is_array())
-            {
-                throw std::runtime_error(std::string(gate.context)
-                                         + ": must be an object or an array of objects");
-            }
-            for (const json &v : node)
-            {
-                pushVarRequirement(v, gate, out);
-            }
+            // A scalar is a typo (`"varbit": 50990`) that used to be dropped
+            // in silence, leaving the transition ungated; it throws.
+            forEachGateEntry(req.at(gate.key), gate.context,
+                             [&](const json &v) { pushVarRequirement(v, gate, out); });
         }
 
         // `varbit_at_least` used to be read only when it was an object, so an
@@ -267,6 +301,36 @@ namespace ww::data
              "requirements.varp_at_least"},
             {"varp_bit", RequirementKind::VarpBit, "bit", 0, "requirements.varp_bit"},
         };
+
+        // One `extra` gate: the older spelling of a minimum-value gate,
+        // `{varbit_id, min_value}` or `{varplayer_id, min_value}`, as the
+        // lodestone rows for Menaphos, Tirannwn and Prifddinas carry it. These
+        // were dropped unread until now, so those lodestones loaded gated on
+        // their unlock varbit alone.
+        void pushExtraRequirement(const json &v, std::vector<Requirement> &out)
+        {
+            constexpr const char *kContext = "requirements.extra";
+            requireKnownKeys(v, {"varbit_id", "varplayer_id", "min_value"}, kContext);
+            const bool isVarbit = v.contains("varbit_id");
+            if (isVarbit == v.contains("varplayer_id"))
+            {
+                throw std::runtime_error(std::string(kContext)
+                                         + ": needs exactly one of varbit_id / varplayer_id");
+            }
+            const RequirementKind kind =
+                isVarbit ? RequirementKind::VarbitAtLeast : RequirementKind::VarpAtLeast;
+            const char *idKey = isVarbit ? "varbit_id" : "varplayer_id";
+            const int32_t id = readRequiredInt(v, idKey, kContext);
+            out.push_back({kind, id, readRequiredInt(v, "min_value", kContext)});
+        }
+
+        void pushItemRequirement(const json &v, std::vector<Requirement> &out)
+        {
+            constexpr const char *kContext = "requirements.item";
+            requireKnownKeys(v, {"id", "count"}, kContext);
+            out.push_back({RequirementKind::Item, readRequiredInt(v, "id", kContext),
+                           readOptionalInt(v, "count", 1, kContext)});
+        }
 
         void parseRequirements(const json &node, std::vector<Requirement> &out)
         {
@@ -291,18 +355,74 @@ namespace ww::data
             // meaningless, and the silent -1 default used to flow through to
             // the executor as a varbit / item probe of id -1.
             const json &req = node.at("requirements");
+            // Every key a `requirements` object may hold. Anything else is
+            // refused: an unread key is a gate the dataset meant and the
+            // artifact drops, which is how `extra` went unnoticed.
+            requireKnownKeys(req,
+                             {"skill", "varbit", "varbit_at_least", "varp", "varp_at_least",
+                              "varp_bit", "items", "extra"},
+                             "requirements");
             for (const VarGateKey &gate : kVarGateKeys)
             {
                 readVarRequirements(req, gate, out);
             }
-            if (req.contains("items") && req.at("items").is_array())
+            // `items` is an array; anything else used to be skipped in silence.
+            if (req.contains("items"))
             {
+                if (!req.at("items").is_array())
+                {
+                    throw std::runtime_error("requirements.items: must be an array");
+                }
                 for (const json &it : req.at("items"))
                 {
-                    out.push_back({RequirementKind::Item,
-                                   readRequiredInt(it, "id", "requirements.item"),
-                                   readOptionalInt(it, "count", 1, "requirements.item")});
+                    pushItemRequirement(it, out);
                 }
+            }
+            if (req.contains("extra"))
+            {
+                forEachGateEntry(req.at("extra"), "requirements.extra",
+                                 [&out](const json &v) { pushExtraRequirement(v, out); });
+            }
+        }
+
+        // Where a row that fails its requirements goes: the whole load fails
+        // (Throw) or the row is left out and recorded (ExcludeRow). See
+        // RowFaultPolicy.
+        struct RowSink
+        {
+            RowFaultPolicy policy{};
+            const char *file{};
+            std::vector<ExcludedRow> *excluded{};
+        };
+
+        std::string rowPath(const char *section, std::size_t index)
+        {
+            return std::string(section) + "[" + std::to_string(index) + "]";
+        }
+
+        // parseRequirements for one row. True when the row's requirements are
+        // in `out`; false when the row must be left out, which only ExcludeRow
+        // returns. `out` may then hold a partial list, so the caller discards
+        // the row rather than keep it with fewer gates than it asked for.
+        bool parseRowRequirements(const json &node, const RowSink &sink, const std::string &row,
+                                  std::vector<Requirement> &out)
+        {
+            try
+            {
+                parseRequirements(node, out);
+                return true;
+            }
+            catch (const std::exception &e)
+            {
+                if (sink.policy == RowFaultPolicy::Throw)
+                {
+                    throw std::runtime_error(std::string(sink.file) + " " + row + ": "
+                                             + e.what());
+                }
+                sink.excluded->push_back({sink.file, row, e.what()});
+                std::fprintf(stderr, "worldwalker: excluded %s %s: %s\n", sink.file,
+                             row.c_str(), e.what());
+                return false;
             }
         }
 
@@ -521,14 +641,15 @@ namespace ww::data
             return static_cast<float>(extra);
         }
 
-        void parseTransportLinks(const json &j, TransitionModel &model)
+        void parseTransportLinks(const json &j, const RowSink &sink, TransitionModel &model)
         {
             if (!j.is_array())
             {
                 return;
             }
-            for (const json &e : j)
+            for (std::size_t row = 0; row < j.size(); ++row)
             {
+                const json &e = j[row];
                 // Kept in the file so the facts gathered for it survive, but
                 // not baked: a link that cannot yet be executed is worse than
                 // none, since the planner would route through it.
@@ -553,21 +674,25 @@ namespace ww::data
                 t.optionIndex = static_cast<uint8_t>(
                     readOptionalInt(e, "option_index", 0, "transport_links"));
                 t.extraCost = readExtraCost(e);
-                parseRequirements(e, t.requirements);
+                if (!parseRowRequirements(e, sink, rowPath("", row), t.requirements))
+                {
+                    continue;
+                }
                 parseChain(e, t.chain);
                 parseNpcOrigin(e, t);
                 model.transitions.push_back(std::move(t));
             }
         }
 
-        void parseTeleportChains(const json &j, TransitionModel &model)
+        void parseTeleportChains(const json &j, const RowSink &sink, TransitionModel &model)
         {
             if (!j.is_array())
             {
                 return;
             }
-            for (const json &e : j)
+            for (std::size_t row = 0; row < j.size(); ++row)
             {
+                const json &e = j[row];
                 Transition t;
                 const std::string type = e.value("type", std::string{});
                 t.kind = (type == "fairy_ring") ? TransitionKind::FairyRing
@@ -585,20 +710,25 @@ namespace ww::data
                 // ring / teleport chain landed in the artifact with empty
                 // requirements + empty chain, leaving the executor with
                 // nothing to run.
-                parseRequirements(e, t.requirements);
+                if (!parseRowRequirements(e, sink, rowPath("", row), t.requirements))
+                {
+                    continue;
+                }
                 parseChain(e, t.chain);
                 model.transitions.push_back(std::move(t));
             }
         }
 
-        void parseSpellTeleports(const json &j, TransitionModel &model)
+        void parseSpellTeleports(const json &j, const RowSink &sink, TransitionModel &model)
         {
             if (!j.contains("teleports") || !j.at("teleports").is_array())
             {
                 return;
             }
-            for (const json &e : j.at("teleports"))
+            const json &rows = j.at("teleports");
+            for (std::size_t row = 0; row < rows.size(); ++row)
             {
+                const json &e = rows[row];
                 Transition t;
                 t.kind = TransitionKind::Spell;
                 t.isGlobalOrigin = e.value("global", true);
@@ -616,7 +746,10 @@ namespace ww::data
                     t.originY = readRequiredInt(e, "origin_y", "spell_teleports(non-global)");
                     t.originPlane = readPlane(e, "origin_plane", "spell_teleports(non-global)");
                 }
-                parseRequirements(e, t.requirements);
+                if (!parseRowRequirements(e, sink, rowPath("teleports", row), t.requirements))
+                {
+                    continue;
+                }
                 parseChain(e, t.chain);
                 model.transitions.push_back(std::move(t));
             }
@@ -674,8 +807,8 @@ namespace ww::data
         //
         // Collected into `out` rather than straight into the model so a
         // malformed route leaves the model untouched.
-        void parseLodestoneRoutes(const json &d, const Transition &base,
-                                  std::vector<Transition> &out)
+        void parseLodestoneRoutes(const json &d, const Transition &base, const RowSink &sink,
+                                  const std::string &destRow, std::vector<Transition> &out)
         {
             if (!d.contains("routes"))
             {
@@ -685,10 +818,18 @@ namespace ww::data
             {
                 throw std::runtime_error("lodestones.destination: 'routes' must be an array");
             }
-            for (const json &r : d.at("routes"))
+            const json &routes = d.at("routes");
+            for (std::size_t index = 0; index < routes.size(); ++index)
             {
+                const json &r = routes[index];
                 Transition t = base;
-                parseRequirements(r, t.requirements);
+                // A route left out costs only that route: the destination and
+                // its map fallback keep their own gates.
+                if (!parseRowRequirements(r, sink, destRow + "." + rowPath("routes", index),
+                                          t.requirements))
+                {
+                    continue;
+                }
                 parseChain(r, t.chain);
                 // parseChain ignores a step whose shape it does not recognise,
                 // so a typo'd step key would otherwise yield an edge the
@@ -718,6 +859,7 @@ namespace ww::data
         // means a route gated on whatever distinguishes the player (the split
         // magic books, say), which is a dataset edit.
         void parseLodestoneDestination(const LodestoneConfig &cfg, const json &d,
+                                       const RowSink &sink, const std::string &row,
                                        TransitionModel &model)
         {
             Transition map;
@@ -726,7 +868,11 @@ namespace ww::data
             map.destX = readRequiredInt(d, "x", "lodestones.destination");
             map.destY = readRequiredInt(d, "y", "lodestones.destination");
             map.destPlane = readPlane(d, "plane", "lodestones.destination");
-            parseRequirements(d, map.requirements);
+            // Left out whole, routes included: they inherit these gates.
+            if (!parseRowRequirements(d, sink, row, map.requirements))
+            {
+                return;
+            }
             // Required: a destination without its map component used to
             // default to component 0 and bake a teleport that clicks the
             // wrong widget while the planner sees a perfectly valid edge.
@@ -736,7 +882,7 @@ namespace ww::data
             // Taken before the map chain is appended: routes share the
             // destination's identity and gates, not its chain.
             std::vector<Transition> built;
-            parseLodestoneRoutes(d, map, built);
+            parseLodestoneRoutes(d, map, sink, row, built);
             buildLodestoneChain(cfg, comp, sub, map.chain);
             built.push_back(std::move(map));
             // A destination's transitions differ only in their chain, and
@@ -751,7 +897,7 @@ namespace ww::data
             }
         }
 
-        void parseLodestones(const json &j, TransitionModel &model)
+        void parseLodestones(const json &j, const RowSink &sink, TransitionModel &model)
         {
             if (!j.contains("lodestones") || !j.at("lodestones").is_object())
             {
@@ -764,9 +910,11 @@ namespace ww::data
             }
             const json cfgNode = lode.contains("config") ? lode.at("config") : json::object();
             const LodestoneConfig cfg = readLodestoneConfig(cfgNode);
-            for (const json &d : lode.at("destinations"))
+            const json &destinations = lode.at("destinations");
+            for (std::size_t row = 0; row < destinations.size(); ++row)
             {
-                parseLodestoneDestination(cfg, d, model);
+                parseLodestoneDestination(cfg, destinations[row], sink,
+                                          rowPath("lodestones.destinations", row), model);
             }
         }
 
@@ -775,21 +923,26 @@ namespace ww::data
         // object in the same file (parseLodestones handles that). Each entry is
         // a global-origin teleport with an explicit dest + a chain that clicks
         // the item and works the resulting dialog.
-        void parseItemTeleports(const json &j, TransitionModel &model)
+        void parseItemTeleports(const json &j, const RowSink &sink, TransitionModel &model)
         {
             if (!j.contains("teleports") || !j.at("teleports").is_array())
             {
                 return;
             }
-            for (const json &e : j.at("teleports"))
+            const json &rows = j.at("teleports");
+            for (std::size_t row = 0; row < rows.size(); ++row)
             {
+                const json &e = rows[row];
                 Transition t;
                 t.kind = TransitionKind::ItemTeleport;
                 t.isGlobalOrigin = e.value("global", true);
                 t.destX = readRequiredInt(e, "dest_x", "item_teleports.teleport");
                 t.destY = readRequiredInt(e, "dest_y", "item_teleports.teleport");
                 t.destPlane = readPlane(e, "dest_plane", "item_teleports.teleport");
-                parseRequirements(e, t.requirements);
+                if (!parseRowRequirements(e, sink, rowPath("teleports", row), t.requirements))
+                {
+                    continue;
+                }
                 parseChain(e, t.chain);
                 model.transitions.push_back(std::move(t));
             }
@@ -798,10 +951,10 @@ namespace ww::data
         // item_teleports.json carries two independent sections — the lodestone
         // network (`lodestones`) and the generic item teleports (`teleports`).
         // Parse both from the one file.
-        void parseItemTeleportsFile(const json &j, TransitionModel &model)
+        void parseItemTeleportsFile(const json &j, const RowSink &sink, TransitionModel &model)
         {
-            parseLodestones(j, model);
-            parseItemTeleports(j, model);
+            parseLodestones(j, sink, model);
+            parseItemTeleports(j, sink, model);
         }
 
         void fnv1a64(uint64_t &hash, const std::string &bytes)
@@ -821,24 +974,24 @@ namespace ww::data
         // the hash to disagree about which files were actually read.
         // Adapters from the transition parsers to LoaderFn, which hands each file
         // the whole result so a non-transition dataset has somewhere to go.
-        void loadTransportLinks(const json &j, LoadedDatasets &out)
+        void loadTransportLinks(const json &j, const RowSink &sink, LoadedDatasets &out)
         {
-            parseTransportLinks(j, out.model);
+            parseTransportLinks(j, sink, out.model);
         }
 
-        void loadTeleportChains(const json &j, LoadedDatasets &out)
+        void loadTeleportChains(const json &j, const RowSink &sink, LoadedDatasets &out)
         {
-            parseTeleportChains(j, out.model);
+            parseTeleportChains(j, sink, out.model);
         }
 
-        void loadSpellTeleports(const json &j, LoadedDatasets &out)
+        void loadSpellTeleports(const json &j, const RowSink &sink, LoadedDatasets &out)
         {
-            parseSpellTeleports(j, out.model);
+            parseSpellTeleports(j, sink, out.model);
         }
 
-        void loadItemTeleports(const json &j, LoadedDatasets &out)
+        void loadItemTeleports(const json &j, const RowSink &sink, LoadedDatasets &out)
         {
-            parseItemTeleportsFile(j, out.model);
+            parseItemTeleportsFile(j, sink, out.model);
         }
 
         uint8_t readPlane(const json &node, const char *key, int32_t fallback)
@@ -854,7 +1007,7 @@ namespace ww::data
         // dialog_zones.json: an array of {name, min_x, min_y, max_x, max_y,
         // plane | plane_min + plane_max, answers: [text, ...]}. Every answer
         // must be non-empty and fit the 36 bytes it travels to the host in.
-        void loadDialogZones(const json &j, LoadedDatasets &out)
+        void loadDialogZones(const json &j, const RowSink &, LoadedDatasets &out)
         {
             if (!j.is_array())
             {
@@ -890,8 +1043,10 @@ namespace ww::data
             }
         }
 
+        using LoaderFn = void (*)(const json &, const RowSink &, LoadedDatasets &);
+
         void loadOne(const std::string &directory, const char *filename, LoaderFn parser,
-                     LoadedDatasets &result)
+                     RowFaultPolicy policy, LoadedDatasets &result)
         {
             std::string text;
             const std::string path = directory + "/" + filename;
@@ -905,7 +1060,7 @@ namespace ww::data
             // here, and `result` should not be left claiming it read a file it
             // could not use.
             const json j = json::parse(text);
-            parser(j, result);
+            parser(j, RowSink{policy, filename, &result.excludedRows}, result);
 
             fnv1a(result.datasetHash, text);
             DatasetFileInfo info;
@@ -920,25 +1075,27 @@ namespace ww::data
 
     LoadedDatasets loadDatasets(const std::string &directory)
     {
+        // A bake is read by a human before anything ships: any row fault fails it.
+        constexpr RowFaultPolicy kBake = RowFaultPolicy::Throw;
         LoadedDatasets result;
         result.datasetHash = 2166136261u;
-        loadOne(directory, "transport_links.json", &loadTransportLinks, result);
-        loadOne(directory, "teleport_chains.json", &loadTeleportChains, result);
-        loadOne(directory, "spell_teleports.json", &loadSpellTeleports, result);
-        loadOne(directory, "item_teleports.json", &loadItemTeleports, result);
-        loadOne(directory, "dialog_zones.json", &loadDialogZones, result);
+        loadOne(directory, "transport_links.json", &loadTransportLinks, kBake, result);
+        loadOne(directory, "teleport_chains.json", &loadTeleportChains, kBake, result);
+        loadOne(directory, "spell_teleports.json", &loadSpellTeleports, kBake, result);
+        loadOne(directory, "item_teleports.json", &loadItemTeleports, kBake, result);
+        loadOne(directory, "dialog_zones.json", &loadDialogZones, kBake, result);
         return result;
     }
 
-    LoadedDatasets loadGlobalTeleports(const std::string &directory)
+    LoadedDatasets loadGlobalTeleports(const std::string &directory, RowFaultPolicy policy)
     {
         LoadedDatasets result;
         result.datasetHash = 2166136261u;
         // Only the global-origin teleport datasets. transport_links /
         // teleport_chains are local transitions wired into the baked area graph
         // and cannot be supplied at runtime, so they are deliberately skipped.
-        loadOne(directory, "spell_teleports.json", &loadSpellTeleports, result);
-        loadOne(directory, "item_teleports.json", &loadItemTeleports, result);
+        loadOne(directory, "spell_teleports.json", &loadSpellTeleports, policy, result);
+        loadOne(directory, "item_teleports.json", &loadItemTeleports, policy, result);
 
         // Defensive: keep only global-origin transitions. The two files above
         // produce global teleports today, but a non-global spell (origin_x set)
