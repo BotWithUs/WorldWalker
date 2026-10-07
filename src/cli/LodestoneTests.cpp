@@ -1,5 +1,6 @@
 #include "cli/LodestoneTests.h"
 
+#include "c_api/worldwalker_c.h"
 #include "data/DatasetLoader.h"
 #include "data/TransitionCost.h"
 #include "data/Transitions.h"
@@ -889,6 +890,51 @@ namespace
         return failures;
     }
 
+    // The exact report ww_artifact_load_teleports publishes for the
+    // one-bad-row fixture, spelled out rather than rebuilt from the rows.
+    const char *const kOneBadRowReport =
+        "ww_artifact_load_teleports: 2 teleport row(s) excluded: "
+        "item_teleports.json lodestones.destinations[0].routes[0]: "
+        "requirements: unknown key 'varbitt'; "
+        "item_teleports.json lodestones.destinations[1]: "
+        "requirements: unknown key 'quest'";
+
+    // describeExcludedRows: empty for none, every row for a few, and a
+    // bounded line that counts the rest for many.
+    int checkExcludedRowReport()
+    {
+        int failures = 0;
+        if (!ww::runtime::describeExcludedRows({}).empty())
+        {
+            failures += fail("load report: no excluded rows did not describe as empty");
+        }
+        std::vector<ww::data::ExcludedRow> rows;
+        const std::size_t total = ww::runtime::kMaxDescribedExcludedRows + 4;
+        for (std::size_t i = 0; i < total; ++i)
+        {
+            rows.push_back({"item_teleports.json", "teleports[" + std::to_string(i) + "]",
+                            "requirements: unknown key 'k'"});
+        }
+        const std::string many = ww::runtime::describeExcludedRows(rows);
+        const std::string lastNamed =
+            "teleports[" + std::to_string(ww::runtime::kMaxDescribedExcludedRows - 1) + "]";
+        const std::string firstUnnamed =
+            "teleports[" + std::to_string(ww::runtime::kMaxDescribedExcludedRows) + "]";
+        std::printf("lodestones: report for %zu excluded rows is %zu bytes\n", total,
+                    many.size());
+        const bool isBounded = many.starts_with(std::to_string(total) + " teleport row(s)")
+                            && many.find(lastNamed) != std::string::npos
+                            && many.find(firstUnnamed) == std::string::npos
+                            && many.ends_with("; ... and 4 more");
+        if (!isBounded)
+        {
+            std::printf("    got: %s\n", many.c_str());
+            failures += fail("load report: many excluded rows are not named up to the cap"
+                             " and counted after it");
+        }
+        return failures;
+    }
+
     // Staging happens outside the try: writeText throws too, and a read-only
     // temp directory used to satisfy every one of these without the loader
     // ever running.
@@ -1188,6 +1234,80 @@ namespace
         return failures;
     }
 
+    // Leave a stale error on this thread, the way an unrelated failed call
+    // would, so a load that forgot to reset ww_last_error is caught.
+    void primeStaleError()
+    {
+        static_cast<void>(ww_artifact_open(nullptr));
+    }
+
+    // One ww_artifact_load_teleports call on `fixture`: its result and the
+    // ww_last_error text it leaves.
+    struct LoadReport
+    {
+        ww_result result{};
+        std::string text;
+    };
+
+    LoadReport loadThroughCApi(ww_artifact *artifact, const std::filesystem::path &dir,
+                               const char *fixture)
+    {
+        stageFixture(dir, fixture);
+        primeStaleError();
+        LoadReport report;
+        report.result = ww_artifact_load_teleports(artifact, dir.string().c_str());
+        report.text = ww_last_error();
+        std::printf("lodestones: C ABI load rc=%d last_error=\"%s\"\n",
+                    static_cast<int>(report.result), report.text.c_str());
+        return report;
+    }
+
+    // Through the C ABI: excluded rows come back as WW_OK plus a report naming
+    // each one, a clean load as WW_OK plus "", and a malformed file as an
+    // error. The excluded rows' transitions are absent from the reader.
+    int checkLoadReportThroughCApi(const char *artifactPath, ww::format::ArtifactReader &reader,
+                                   const std::filesystem::path &dir)
+    {
+        ww_artifact *artifact = ww_artifact_open(artifactPath);
+        if (artifact == nullptr)
+        {
+            return fail("load report: ww_artifact_open failed");
+        }
+        int failures = 0;
+        const LoadReport bad = loadThroughCApi(artifact, dir, kOneBadRowFixture);
+        if (bad.result != WW_OK || bad.text != kOneBadRowReport)
+        {
+            std::printf("    want: %s\n", kOneBadRowReport);
+            failures += fail("load report: excluded rows did not come back as WW_OK + report");
+        }
+        const LoadReport clean = loadThroughCApi(artifact, dir, kNoRoutesFixture);
+        if (clean.result != WW_OK || !clean.text.empty())
+        {
+            failures += fail("load report: a clean load left a non-empty ww_last_error");
+        }
+        const LoadReport broken = loadThroughCApi(artifact, dir, "{ \"lodestones\": ");
+        if (broken.result == WW_OK || !broken.text.starts_with("ww_artifact_load_teleports: ")
+            || broken.text.find("excluded") != std::string::npos)
+        {
+            failures += fail("load report: malformed JSON did not fail the load");
+        }
+        ww_artifact_close(artifact);
+
+        // The same fixture through the runtime seam the C ABI wraps: only the
+        // Lumbridge map is appended, and both bad rows are handed back.
+        stageFixture(dir, kOneBadRowFixture);
+        std::vector<ww::data::ExcludedRow> excluded;
+        const std::size_t appended =
+            ww::runtime::loadGlobalTeleportsInto(reader, dir.string(), &excluded);
+        std::printf("lodestones: runtime load appended=%zu (expect 1) excluded=%zu (expect 2)\n",
+                    appended, excluded.size());
+        if (appended != 1 || excluded.size() != 2)
+        {
+            failures += fail("load report: the runtime load kept a bad row or lost a good one");
+        }
+        return failures;
+    }
+
     int checkPlanner(const char *artifactPath, const std::filesystem::path &dir)
     {
         if (artifactPath == nullptr)
@@ -1200,8 +1320,9 @@ namespace
             ww::format::ArtifactReader reader(artifactPath);
             // Each appends its own fixture; loadGlobalTeleportsInto replaces
             // the previous set, so they do not see each other's records.
-            const int failures = runPlannerChecks(reader, dir);
-            return failures + runExtraGatePlannerChecks(reader, dir);
+            int failures = runPlannerChecks(reader, dir);
+            failures += runExtraGatePlannerChecks(reader, dir);
+            return failures + checkLoadReportThroughCApi(artifactPath, reader, dir);
         }
         catch (const std::exception &e)
         {
@@ -1232,6 +1353,7 @@ namespace
             failures += checkExtraGates(dir);
             failures += checkShippedTeleports();
             failures += checkBadRowExcludedAtRuntime(dir);
+            failures += checkExcludedRowReport();
             failures += expectLoadThrows(dir, "the same bad rows under Throw", kOneBadRowFixture);
             failures += expectLoadThrows(dir, "an unknown requirements key",
                                          kUnknownRequirementKeyFixture);
