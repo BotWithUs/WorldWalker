@@ -95,6 +95,15 @@ WW_API void ww_artifact_close(ww_artifact *artifact);
    skipped. Returns WW_OK on success (including zero teleports), an error code
    on malformed JSON (call ww_last_error).
 
+   A row whose requirements cannot be parsed (an unknown key, an incomplete
+   `extra`, ...) does not fail the load: that row alone is left out, so it is
+   never planned. On WW_OK, ww_last_error() is therefore a load report rather
+   than an error: "" when every row loaded, otherwise one line beginning
+   "ww_artifact_load_teleports: N teleport row(s) excluded: " and naming each
+   row by file, JSON path and offending key (the first 16; the rest counted).
+   Hosts should log a non-empty report: those teleports are unavailable until
+   the file is fixed.
+
    MUTATES the artifact, and serialises itself: the call takes the artifact's
    lifecycle lock exclusively, so it waits for every in-flight ww_query /
    ww_executor_run on the same artifact to return (a run lasts the whole walk)

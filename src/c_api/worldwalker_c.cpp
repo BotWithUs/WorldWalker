@@ -22,6 +22,7 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <vector>
 
 // WwStep on the wire must be byte-for-byte identical to ww::runtime::Step so
 // the query path can memcpy across the FFI boundary without re-packing. The
@@ -313,7 +314,13 @@ ww_result ww_artifact_load_teleports(ww_artifact *artifact, const char *dir)
         // Exclusive: blocks until every in-flight query / run has released
         // its shared hold, and keeps new ones out until the pools are stable.
         const std::unique_lock<std::shared_mutex> exclusive(artifact->lifecycle);
-        ww::runtime::loadGlobalTeleportsInto(artifact->reader, std::string(dir));
+        std::vector<ww::data::ExcludedRow> excluded;
+        ww::runtime::loadGlobalTeleportsInto(artifact->reader, std::string(dir), &excluded);
+        // Set on every WW_OK, empty included: an earlier failure's text left
+        // on this thread would otherwise read as rows this load excluded.
+        const std::string report = ww::runtime::describeExcludedRows(excluded);
+        setLastError(report.empty() ? std::string()
+                                    : "ww_artifact_load_teleports: " + report);
         return WW_OK;
     }
     catch (const std::exception &e)

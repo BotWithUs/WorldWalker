@@ -68,7 +68,6 @@ namespace
         std::string source;    // "transport_links[949] Charter ship - Brimhaven"
         Shape       expected;
         std::string oracleError;  // non-empty: the row holds something the oracle cannot express
-        std::string loaderGap;    // non-empty: the row states a gate the loader does not read
         bool        hasNoLoc{false};  // object_id 0 and no NPC: the bake drops it (NoLoc)
     };
 
@@ -77,11 +76,6 @@ namespace
     // standable tile. The description reports the snapped tile, the real
     // landing spot; checkEveryRecord pins it to the record exactly.
     constexpr int32_t kDestSnapRadius = 5;
-
-    // Requirement keys present in the datasets that data/DatasetLoader.cpp
-    // has never parsed, so no artifact carries them. Reported, not failed:
-    // the description is faithful to the artifact, and the gap is upstream.
-    constexpr const char *kLoaderGapKeys[] = {"extra"};
 
     // ---- Oracle: JSON -> Shape ---------------------------------------------
 
@@ -131,11 +125,17 @@ namespace
         std::string &outError = ioRow.oracleError;
         for (const auto &[key, value] : node.at("requirements").items())
         {
-            const bool isLoaderGap = std::any_of(std::begin(kLoaderGapKeys), std::end(kLoaderGapKeys),
-                                                 [&key](const char *k) { return key == k; });
-            if (isLoaderGap)
+            // The older spelling of a minimum-value gate: {varbit_id | varplayer_id, min_value}.
+            if (key == "extra")
             {
-                ioRow.loaderGap = "'" + key + "': " + value.dump();
+                const json list = value.is_array() ? value : json::array({value});
+                for (const json &v : list)
+                {
+                    const bool isVarbit = v.contains("varbit_id");
+                    out.push_back({isVarbit ? WW_REQUIREMENT_VARBIT_AT_LEAST : WW_REQUIREMENT_VARP_AT_LEAST,
+                                   v.at(isVarbit ? "varbit_id" : "varplayer_id").get<int32_t>(),
+                                   v.at("min_value").get<int32_t>()});
+                }
                 continue;
             }
             if (key == "items")
@@ -641,7 +641,6 @@ namespace
         std::size_t matched{};
         std::size_t notBaked{};
         std::size_t noLoc{};
-        std::size_t loaderGaps{};
         std::size_t superseded{};
         std::size_t mismatched{};
         std::size_t oracleErrors{};
@@ -698,12 +697,6 @@ namespace
             ++counts.oracleErrors;
             check(tally, false, row.source + ": " + row.oracleError);
             return;
-        }
-        if (!row.loaderGap.empty())
-        {
-            ++counts.loaderGaps;
-            std::printf("describe: LOADER GAP  %s states %s, which the loader never reads\n",
-                        row.source.c_str(), row.loaderGap.c_str());
         }
         const auto [first, last] = index.equal_range(keyOf(row.expected));
         if (first == last && row.hasNoLoc)
@@ -765,9 +758,9 @@ namespace
             checkRow(row, rows, index, artifact, counts, tally);
         }
         std::printf("describe: rows %zu: matched %zu, dropped for object_id 0 %zu, otherwise not baked %zu, "
-                    "lost bake dedup %zu, mismatched %zu, oracle errors %zu, loader gaps %zu\n", rows.size(),
+                    "lost bake dedup %zu, mismatched %zu, oracle errors %zu\n", rows.size(),
                     counts.matched, counts.noLoc, counts.notBaked, counts.superseded, counts.mismatched,
-                    counts.oracleErrors, counts.loaderGaps);
+                    counts.oracleErrors);
         // Every spotlight was seen at all (a typo in kSpotlights would otherwise pass silently).
         for (const char *name : kSpotlights)
         {

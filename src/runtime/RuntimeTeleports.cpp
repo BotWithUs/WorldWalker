@@ -8,6 +8,7 @@
 #include "runtime/WorldView.h"
 
 #include <cstring>
+#include <string>
 #include <vector>
 
 namespace ww::runtime
@@ -94,7 +95,8 @@ namespace ww::runtime
     }
 
     std::size_t loadGlobalTeleportsInto(format::ArtifactReader &reader,
-                                        const std::string &directory)
+                                        const std::string &directory,
+                                        std::vector<data::ExcludedRow> *outExcluded)
     {
         // ExcludeRow: on a user's machine a row with an unparseable gate is
         // left out (never planned) and named on stderr, rather than failing the
@@ -127,6 +129,33 @@ namespace ww::runtime
         }
 
         reader.appendTransitions(txRecords, reqPool, chainPool);
+        // Only once the load has succeeded: a throw above leaves the caller's
+        // list as it was rather than describing rows of a load that failed.
+        if (outExcluded != nullptr)
+        {
+            *outExcluded = loaded.excludedRows;
+        }
         return txRecords.size();
+    }
+
+    std::string describeExcludedRows(const std::vector<data::ExcludedRow> &rows)
+    {
+        if (rows.empty())
+        {
+            return {};
+        }
+        std::string text = std::to_string(rows.size()) + " teleport row(s) excluded: ";
+        const std::size_t described =
+            rows.size() < kMaxDescribedExcludedRows ? rows.size() : kMaxDescribedExcludedRows;
+        for (std::size_t i = 0; i < described; ++i)
+        {
+            const data::ExcludedRow &row = rows[i];
+            text += (i == 0 ? "" : "; ") + row.file + " " + row.row + ": " + row.reason;
+        }
+        if (described < rows.size())
+        {
+            text += "; ... and " + std::to_string(rows.size() - described) + " more";
+        }
+        return text;
     }
 }
