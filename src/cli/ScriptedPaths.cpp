@@ -42,6 +42,8 @@
 //                      pocket no edge touches plans to a linked stand-in.
 //   intra_area_ride  — the longest same-area edge is ridden, not walked, from
 //                      beside its origin to its landing.
+//   port_sarim_boat  — Port Sarim to Musa Point takes Captain Tobias's boat
+//                      (a named route; skips on an artifact without the row).
 namespace
 {
     enum class Outcome { Pass, Fail, Skip };
@@ -673,6 +675,58 @@ namespace
         }
         return {"intra_area_ride", Outcome::Fail, "walked the area instead of riding"};
     }
+
+    // The Port Sarim -> Musa Point boat: Captain Tobias (NPC 376) on the
+    // Port Sarim dock, a ClickNpc origin. The row once named object_id 0 and
+    // no NPC, so the bake dropped it and nothing sailed to Karamja but the
+    // charter. True when `tx` is that row as baked.
+    bool isMusaBoat(const ww::format::ArtifactReader &reader, const ww::format::TransitionRecord &tx)
+    {
+        const bool isPlace = std::abs(tx.originX - 3027) <= 2 && std::abs(tx.originY - 3219) <= 2
+                          && std::abs(tx.destX - 2956) <= 5 && std::abs(tx.destY - 3146) <= 5;
+        if (!isPlace || tx.chainCount == 0u)
+        {
+            return false;
+        }
+        const ww::format::ChainStepRecord &first = reader.chainSteps()[tx.chainStart];
+        return static_cast<ww::data::ChainStepKind>(first.kind) == ww::data::ChainStepKind::ClickNpc
+            && first.f <= 376 && first.g >= 376;
+    }
+
+    // Category 7 — a named route: Port Sarim to Musa Point sails with
+    // Captain Tobias. Skips on an artifact baked before the row could be.
+    CaseResult portSarimBoat(const ww::format::ArtifactReader &reader,
+                             ww::runtime::PathAssembler &assembler)
+    {
+        const auto txs = reader.transitions();
+        std::vector<std::uint32_t> boats;
+        for (std::uint32_t i = 0; i < reader.bakedTransitions(); ++i)
+        {
+            if (isMusaBoat(reader, txs[i]))
+            {
+                boats.push_back(i);
+            }
+        }
+        if (boats.empty())
+        {
+            return {"port_sarim_boat", Outcome::Skip, "the artifact predates the Captain Tobias row"};
+        }
+        ww::runtime::Plan plan;
+        if (!assembler.assemble(3010, 3220, 0, 2918, 3176, 0, plan))
+        {
+            return {"port_sarim_boat", Outcome::Fail, "no route from Port Sarim to Musa Point"};
+        }
+        for (const ww::runtime::Step &s : plan.steps)
+        {
+            const bool isBoat = s.kind == ww::runtime::StepKind::Transition
+                && std::find(boats.begin(), boats.end(), s.transitionIndex) != boats.end();
+            if (isBoat)
+            {
+                return {"port_sarim_boat", Outcome::Pass, nullptr};
+            }
+        }
+        return {"port_sarim_boat", Outcome::Fail, "the route does not take the boat"};
+    }
 }
 
 int runScriptedPaths(const char *wwaPath)
@@ -693,6 +747,7 @@ int runScriptedPaths(const char *wwaPath)
             capabilityGate(reader, view, assembler),
             sealedPocketGoal(reader, view, assembler),
             intraAreaRide(reader, view, assembler),
+            portSarimBoat(reader, assembler),
         };
         int passed  = 0;
         int failed  = 0;

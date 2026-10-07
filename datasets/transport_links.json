@@ -18024,7 +18024,16 @@
     "option_index": 0,
     "dest_x": 2956,
     "dest_y": 3146,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 376,
+      "last_id": 376
+    },
+    "chain": [
+      {
+        "wait": 10
+      }
+    ]
   },
   {
     "name": "Boats",

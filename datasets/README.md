@@ -1255,6 +1255,22 @@ the varbit reads 0 even after the rope is tied, and a roped account also
 gets "no route". Also not verified live: that the climb is accepted from
 3164,3169 with no extra step.
 
+## Port Sarim to Musa Point boat (2026-10-07)
+
+The "Boats" row from the Port Sarim dock (3027,3219) to Musa Point
+(2956,3146) named `object_id` 0 and no NPC, so the bake dropped it (no-loc) and
+nothing reached Karamja from Port Sarim but the charter. The boat is crewed:
+Captain Tobias (NPC 376, op 0 "Travel (Karamja)", standing at 3028,3216 per
+the NPC location dump), so the row is now an `npc` origin with a 10-tick
+wait for the crossing. The free-to-play routing needs it: north Karamja is
+free land, and the charter is members-only.
+
+Left as they were, and still dropped: the near-duplicate row one tile east
+(3028,3219), and both rows back from Musa Point, whose Customs officer (NPC
+380, "Travel (Port Sarim)") may ask questions on the way that no dialog zone
+answers yet. Not run against a live client: the wait and whether the fare
+raises a conversation are unverified.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a
