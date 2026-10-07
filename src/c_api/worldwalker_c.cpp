@@ -1,5 +1,6 @@
 #include "worldwalker_c.h"
 
+#include "data/Transitions.h"
 #include "exec/Callbacks.h"
 #include "exec/Executor.h"
 #include "format/ArtifactReader.h"
@@ -10,12 +11,15 @@
 #include "runtime/RuntimeTeleports.h"
 #include "runtime/SearchContext.h"
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <mutex>
 #include <optional>
 #include <shared_mutex>
+#include <span>
 #include <string>
 #include <utility>
 
@@ -46,6 +50,28 @@ static_assert(WW_MOVE_CHARTERS      == static_cast<uint32_t>(ww::format::MoveCat
 static_assert(WW_MOVE_MAGIC_CARPETS == static_cast<uint32_t>(ww::format::MoveCategory::MagicCarpets));
 static_assert(WW_MOVE_OTHER_CHAINS  == static_cast<uint32_t>(ww::format::MoveCategory::OtherChains));
 static_assert(WW_MOVE_COUNT == ww::format::kMoveCategoryCount);
+
+// ww_transition_describe hands out the internal enums' values as they are.
+static_assert(WW_TRANSITION_KIND_TRANSPORT      == static_cast<int>(ww::data::TransitionKind::Transport));
+static_assert(WW_TRANSITION_KIND_FAIRY_RING     == static_cast<int>(ww::data::TransitionKind::FairyRing));
+static_assert(WW_TRANSITION_KIND_TELEPORT_CHAIN == static_cast<int>(ww::data::TransitionKind::TeleportChain));
+static_assert(WW_TRANSITION_KIND_SPELL          == static_cast<int>(ww::data::TransitionKind::Spell));
+static_assert(WW_TRANSITION_KIND_LODESTONE      == static_cast<int>(ww::data::TransitionKind::Lodestone));
+static_assert(WW_TRANSITION_KIND_ITEM_TELEPORT  == static_cast<int>(ww::data::TransitionKind::ItemTeleport));
+static_assert(WW_REQUIREMENT_SKILL           == static_cast<int>(ww::data::RequirementKind::Skill));
+static_assert(WW_REQUIREMENT_ITEM            == static_cast<int>(ww::data::RequirementKind::Item));
+static_assert(WW_REQUIREMENT_VARBIT          == static_cast<int>(ww::data::RequirementKind::Varbit));
+static_assert(WW_REQUIREMENT_VARP            == static_cast<int>(ww::data::RequirementKind::Varp));
+static_assert(WW_REQUIREMENT_VARBIT_AT_LEAST == static_cast<int>(ww::data::RequirementKind::VarbitAtLeast));
+static_assert(WW_REQUIREMENT_VARP_AT_LEAST   == static_cast<int>(ww::data::RequirementKind::VarpAtLeast));
+static_assert(WW_REQUIREMENT_VARP_BIT        == static_cast<int>(ww::data::RequirementKind::VarpBit));
+static_assert(WW_CHAIN_STEP_CLICK           == static_cast<int>(ww::data::ChainStepKind::Click));
+static_assert(WW_CHAIN_STEP_WAIT            == static_cast<int>(ww::data::ChainStepKind::Wait));
+static_assert(WW_CHAIN_STEP_WAIT_INTERFACE  == static_cast<int>(ww::data::ChainStepKind::WaitInterface));
+static_assert(WW_CHAIN_STEP_DIALOGUE_SELECT == static_cast<int>(ww::data::ChainStepKind::DialogueSelect));
+static_assert(WW_CHAIN_STEP_CLICK_ITEM      == static_cast<int>(ww::data::ChainStepKind::ClickItem));
+static_assert(WW_CHAIN_STEP_DIALOGUE_ANSWER == static_cast<int>(ww::data::ChainStepKind::DialogueAnswer));
+static_assert(WW_CHAIN_STEP_CLICK_NPC       == static_cast<int>(ww::data::ChainStepKind::ClickNpc));
 
 // Backs the opaque ww_artifact handle with the loaded, validated artifact.
 //
@@ -86,6 +112,156 @@ namespace
     void setLastError(std::string message)
     {
         g_lastError = std::move(message);
+    }
+
+    // The artifacts whose lifecycle lock this thread holds shared for a
+    // running ww_executor_run, innermost first: a list threaded through the
+    // runs' own stack frames, so a callback that starts a nested walk needs no
+    // allocation and the list unwinds in order. ww_transition_describe reads
+    // it to tell "called from inside a run's callback" (lock already held on
+    // this thread; taking it again would be a recursive shared acquire, which
+    // deadlocks behind a queued reload) from every other call.
+    struct HeldRun
+    {
+        const ww_artifact *artifact;
+        const HeldRun     *outer;
+    };
+
+    thread_local const HeldRun *g_heldRuns = nullptr;
+
+    class HeldRunScope
+    {
+    public:
+        explicit HeldRunScope(const ww_artifact *artifact) : node{artifact, g_heldRuns}
+        {
+            g_heldRuns = &node;
+        }
+
+        ~HeldRunScope()
+        {
+            g_heldRuns = node.outer;
+        }
+
+        HeldRunScope(const HeldRunScope &) = delete;
+        HeldRunScope &operator=(const HeldRunScope &) = delete;
+
+    private:
+        HeldRun node;
+    };
+
+    bool isHeldByThisThread(const ww_artifact *artifact)
+    {
+        for (const HeldRun *run = g_heldRuns; run != nullptr; run = run->outer)
+        {
+            if (run->artifact == artifact)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool opensWithNpc(const ww::format::TransitionRecord &tx,
+                      std::span<const ww::format::ChainStepRecord> chain)
+    {
+        return tx.chainCount > 0
+            && chain[tx.chainStart].kind
+                   == static_cast<uint8_t>(ww::data::ChainStepKind::ClickNpc);
+    }
+
+    // The origin fields. Everything not set here keeps the -1 / zero that
+    // describeInto put there for "does not apply".
+    void describeOrigin(const ww::format::TransitionRecord &tx,
+                        std::span<const ww::format::ChainStepRecord> chain,
+                        WwTransitionInfo &outInfo)
+    {
+        if ((tx.flags & ww::format::kTransitionFlagGlobalOrigin) != 0u)
+        {
+            outInfo.origin = WW_TRANSITION_ORIGIN_GLOBAL;
+            return;
+        }
+        outInfo.originTile = WwTile{tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane)};
+        if (opensWithNpc(tx, chain))
+        {
+            // ClickNpc: a=option, b..d=search centre, e=radius, f..g=type range.
+            const ww::format::ChainStepRecord &npc = chain[tx.chainStart];
+            outInfo.origin          = WW_TRANSITION_ORIGIN_NPC;
+            outInfo.npcTypeMin      = npc.f;
+            outInfo.npcTypeMax      = npc.g;
+            outInfo.npcSearchRadius = npc.e;
+            outInfo.optionIndex     = npc.a;
+            return;
+        }
+        outInfo.origin      = WW_TRANSITION_ORIGIN_LOC;
+        outInfo.objectId    = tx.objectId;
+        outInfo.optionIndex = static_cast<int32_t>(tx.optionIndex);
+        outInfo.shape       = tx.shape;
+        outInfo.rotation    = tx.rotation;
+    }
+
+    // Requirements and chain, copied up to capacity. Entries past the copied
+    // ones stay as describeInto zeroed them.
+    void describeArrays(const ww::format::TransitionRecord &tx,
+                        std::span<const ww::format::RequirementRecord> reqs,
+                        std::span<const ww::format::ChainStepRecord> chain,
+                        WwTransitionInfo &outInfo)
+    {
+        outInfo.requirementCount = tx.requirementCount;
+        outInfo.chainStepCount   = tx.chainCount;
+        const uint32_t reqCopy = std::min<uint32_t>(tx.requirementCount, WW_TRANSITION_MAX_REQUIREMENTS);
+        for (uint32_t i = 0; i < reqCopy; ++i)
+        {
+            const ww::format::RequirementRecord &r = reqs[tx.requirementStart + i];
+            outInfo.requirements[i] = WwRequirement{static_cast<int32_t>(r.kind), r.id, r.amount};
+        }
+        const uint32_t chainCopy = std::min<uint32_t>(tx.chainCount, WW_TRANSITION_MAX_CHAIN_STEPS);
+        for (uint32_t i = 0; i < chainCopy; ++i)
+        {
+            const ww::format::ChainStepRecord &c = chain[tx.chainStart + i];
+            outInfo.chain[i] = WwChainStep{static_cast<int32_t>(c.kind),
+                                           c.a, c.b, c.c, c.d, c.e, c.f, c.g, c.h, c.i};
+        }
+    }
+
+    // Caller holds the lifecycle lock shared (or is a run that does) and has
+    // zeroed outInfo.
+    ww_result describeInto(const ww::format::ArtifactReader &reader, uint32_t transitionIndex,
+                           WwTransitionInfo &outInfo)
+    {
+        const auto txs   = reader.transitions();
+        const auto reqs  = reader.requirements();
+        const auto chain = reader.chainSteps();
+        const auto moves = reader.moveCategories();
+        if (transitionIndex >= txs.size())
+        {
+            setLastError("ww_transition_describe: transition index out of range");
+            return WW_ERR_NOT_FOUND;
+        }
+        const ww::format::TransitionRecord &tx = txs[transitionIndex];
+        const bool isInBounds =
+            std::size_t{tx.requirementStart} + tx.requirementCount <= reqs.size()
+            && std::size_t{tx.chainStart} + tx.chainCount <= chain.size()
+            && transitionIndex < moves.size();
+        if (!isInBounds)
+        {
+            setLastError("ww_transition_describe: record points outside its pools");
+            return WW_ERR_INTERNAL;
+        }
+
+        outInfo.kind            = static_cast<int32_t>(tx.kind);
+        outInfo.moveCategory    = static_cast<int32_t>(moves[transitionIndex]);
+        outInfo.isRuntimeLoaded = transitionIndex >= reader.bakedTransitions() ? 1 : 0;
+        outInfo.destTile        = WwTile{tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane)};
+        outInfo.objectId        = -1;
+        outInfo.npcTypeMin      = -1;
+        outInfo.npcTypeMax      = -1;
+        outInfo.npcSearchRadius = -1;
+        outInfo.optionIndex     = -1;
+        std::memcpy(outInfo.code, tx.code, sizeof(outInfo.code));
+        outInfo.cost = tx.cost;
+        describeOrigin(tx, chain, outInfo);
+        describeArrays(tx, reqs, chain, outInfo);
+        return WW_OK;
     }
 }
 
@@ -233,6 +409,9 @@ int32_t ww_executor_run_ex(ww_artifact       *artifact,
         // Shared for the whole walk: the Executor borrows requirement-id spans
         // and transition records from the reader for its entire run.
         const std::shared_lock<std::shared_mutex> shared(artifact->lifecycle);
+        // Declared after the lock so it unwinds first: the thread is marked as
+        // holding the lock only while it actually does.
+        const HeldRunScope held(artifact);
         ww::exec::Executor executor(artifact->reader, pool->pool, *callbacks, std::nullopt,
                                     disabledMoves);
         return static_cast<int32_t>(executor.run(goal));
@@ -365,6 +544,51 @@ void ww_path_free(WwPath *path)
     }
     std::free(path->steps);
     *path = WwPath{};
+}
+
+ww_result ww_transition_describe(const ww_artifact *artifact,
+                                 uint32_t           transitionIndex,
+                                 WwTransitionInfo  *outInfo)
+{
+    if (outInfo == nullptr)
+    {
+        setLastError("ww_transition_describe: outInfo is null");
+        return WW_ERR_INVALID;
+    }
+    // Zeroed up front: every error leaves it zero, and on success every array
+    // entry past the copied ones stays zero (a documented guarantee).
+    *outInfo = WwTransitionInfo{};
+    if (artifact == nullptr)
+    {
+        setLastError("ww_transition_describe: artifact is null");
+        return WW_ERR_INVALID;
+    }
+    try
+    {
+        ww_result result = WW_OK;
+        if (isHeldByThisThread(artifact))
+        {
+            // Inside a run's callback: the run holds the lock shared on this
+            // thread, so no reload can touch the pools until it returns.
+            result = describeInto(artifact->reader, transitionIndex, *outInfo);
+        }
+        else
+        {
+            const std::shared_lock<std::shared_mutex> shared(artifact->lifecycle);
+            result = describeInto(artifact->reader, transitionIndex, *outInfo);
+        }
+        if (result != WW_OK)
+        {
+            *outInfo = WwTransitionInfo{};
+        }
+        return result;
+    }
+    catch (const std::exception &e)
+    {
+        *outInfo = WwTransitionInfo{};
+        setLastError(std::string("ww_transition_describe: ") + e.what());
+        return WW_ERR_INTERNAL;
+    }
 }
 
 }  // extern "C"

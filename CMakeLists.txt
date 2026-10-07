@@ -269,6 +269,7 @@ set(wwcli_SOURCES
 	cmake.toml
 	"src/cli/Bench.cpp"
 	"src/cli/CrossCheck.cpp"
+	"src/cli/DescribeTests.cpp"
 	"src/cli/DoorPaths.cpp"
 	"src/cli/ExecutorTests.cpp"
 	"src/cli/HarnessPicks.cpp"

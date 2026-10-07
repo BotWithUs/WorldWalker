@@ -87,6 +87,14 @@ namespace ww::format
             return {transitionTable.data(), transitionTable.size()};
         }
 
+        // How many leading transitions() came from the artifact file; the rest
+        // were appended at runtime (appendTransitions) and are reassigned by
+        // every reload.
+        std::size_t bakedTransitions() const
+        {
+            return bakedTransitionCount;
+        }
+
         std::span<const RequirementRecord> requirements() const
         {
             return {requirementPool.data(), requirementPool.size()};

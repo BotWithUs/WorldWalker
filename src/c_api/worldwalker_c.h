@@ -23,6 +23,8 @@
  * Surfaces published here:
  *   Phase 4e — executor (ww_executor_run, WwCallbacks, WwEvent, WwGoal, …)
  *   Phase 5a — query    (ww_query, ww_path_free, WwStep, WwPath)
+ *   describe            (ww_transition_describe, WwTransitionInfo) — what a
+ *                       WwStep / WwEvent transitionIndex refers to
  */
 
 #ifndef WORLDWALKER_C_H
@@ -489,6 +491,150 @@ WW_API ww_result ww_query_moves(ww_artifact                *artifact,
    a zero-initialised WwPath or with path == NULL. */
 WW_API void ww_path_free(WwPath *path);
 
+/* ---- Transition description --------------------------------------------- */
+
+/* How the executor starts a transition, and the field a consumer branches on.
+   Each value is the first thing ww_executor_run does with the record:
+     LOC    -> interact(objectId, originTile, optionIndex), then the chain
+     NPC    -> no loc; chain[0] is a ClickNpc step (npcType* and npcSearchRadius
+               below repeat its slots; originTile is the search centre)
+     GLOBAL -> a teleport usable from (almost) anywhere: TELEPORT_INITIATED,
+               then the chain. originTile is unused and reads zero. */
+#define WW_TRANSITION_ORIGIN_LOC    0
+#define WW_TRANSITION_ORIGIN_NPC    1
+#define WW_TRANSITION_ORIGIN_GLOBAL 2
+
+/* Transition kind, value for value with ww::data::TransitionKind. Every baked
+   record of a current artifact is TRANSPORT (charters, gliders, fairy rings
+   and the like arrive as transport links and are told apart by moveCategory);
+   SPELL, LODESTONE and ITEM_TELEPORT are the runtime-loaded globals. */
+#define WW_TRANSITION_KIND_TRANSPORT      0
+#define WW_TRANSITION_KIND_FAIRY_RING     1
+#define WW_TRANSITION_KIND_TELEPORT_CHAIN 2
+#define WW_TRANSITION_KIND_SPELL          3
+#define WW_TRANSITION_KIND_LODESTONE      4
+#define WW_TRANSITION_KIND_ITEM_TELEPORT  5
+
+/* Requirement predicate kind, value for value with ww::data::RequirementKind. */
+#define WW_REQUIREMENT_SKILL           0  /* id = skill, amount = level */
+#define WW_REQUIREMENT_ITEM            1  /* id = item, amount = count (worn + carried) */
+#define WW_REQUIREMENT_VARBIT          2  /* amount = value, matched exactly */
+#define WW_REQUIREMENT_VARP            3  /* amount = value, matched exactly */
+#define WW_REQUIREMENT_VARBIT_AT_LEAST 4  /* amount = minimum value */
+#define WW_REQUIREMENT_VARP_AT_LEAST   5  /* amount = minimum value */
+#define WW_REQUIREMENT_VARP_BIT        6  /* amount = bit index (0..31) that must be set */
+
+/* Chain-step kind, value for value with ww::data::ChainStepKind — the same
+   `kind` runChainStep receives. */
+#define WW_CHAIN_STEP_CLICK           0
+#define WW_CHAIN_STEP_WAIT            1
+#define WW_CHAIN_STEP_WAIT_INTERFACE  2
+#define WW_CHAIN_STEP_DIALOGUE_SELECT 3
+#define WW_CHAIN_STEP_CLICK_ITEM      4
+#define WW_CHAIN_STEP_DIALOGUE_ANSWER 5  /* never baked; the executor sends it itself */
+#define WW_CHAIN_STEP_CLICK_NPC       6
+
+/* Capacity of WwTransitionInfo's arrays. Generous: the largest record in the
+   artifact shipped 2026-10-05 has 4 requirements and 5 chain steps, and the
+   runtime teleport datasets 2 and 4. */
+#define WW_TRANSITION_MAX_REQUIREMENTS 16
+#define WW_TRANSITION_MAX_CHAIN_STEPS  16
+
+/* One requirement predicate. Every listed predicate must hold for the planner
+   to admit the transition. */
+typedef struct WwRequirement
+{
+    int32_t kind;    /* WW_REQUIREMENT_* */
+    int32_t id;
+    int32_t amount;
+} WwRequirement;
+
+/* One chain step, exactly as baked: the record's nine slots verbatim, keyed on
+   `kind` as documented at WwRunChainStepFn and in format/Artifact.h. This is
+   NOT always the call a host's runChainStep sees: WAIT and WAIT_INTERFACE are
+   handled inside the executor and never reach the host, and a CLICK_ITEM
+   carries both variants here (a..d worn, e..h backpack, i backpack special)
+   where the executor forwards only the one isItemWorn picks. */
+typedef struct WwChainStep
+{
+    int32_t kind;    /* WW_CHAIN_STEP_* */
+    int32_t a;
+    int32_t b;
+    int32_t c;
+    int32_t d;
+    int32_t e;
+    int32_t f;
+    int32_t g;
+    int32_t h;
+    int32_t i;
+} WwChainStep;
+
+/* Everything the artifact holds about one transition. `origin` is the
+   predicate; the rest is payload. Fields that do not apply to the origin read
+   -1 (ids, option, radius) or zero (tiles, shape, rotation, code).
+
+   Entries of requirements[] at and past min(requirementCount,
+   WW_TRANSITION_MAX_REQUIREMENTS), and of chain[] at and past
+   min(chainStepCount, WW_TRANSITION_MAX_CHAIN_STEPS), are zero — guaranteed,
+   so a consumer may hash or compare the whole struct. The counts are the
+   record's true totals: a count above the capacity means the array was
+   truncated, never that entries were invented.
+
+   Not held by the artifact, so not described: the dataset row's name, a
+   charter's fare surcharge (folded into cost), and rows the dataset marks
+   disabled (never baked). Name locs and NPCs through NXTCache instead. */
+typedef struct WwTransitionInfo
+{
+    int32_t  origin;            /* WW_TRANSITION_ORIGIN_* — the predicate */
+    int32_t  kind;              /* WW_TRANSITION_KIND_* */
+    int32_t  moveCategory;      /* WW_MOVE_* bit number, as disabledMoves sees it */
+    int32_t  isRuntimeLoaded;   /* 1: appended by ww_artifact_load_teleports; 0: baked */
+    WwTile   originTile;        /* LOC: the loc's tile; NPC: search centre; GLOBAL: zero */
+    WwTile   destTile;
+    int32_t  objectId;          /* LOC: loc id; otherwise -1 */
+    int32_t  npcTypeMin;        /* NPC: inclusive NPC type id range; otherwise -1 */
+    int32_t  npcTypeMax;
+    int32_t  npcSearchRadius;   /* NPC: Chebyshev radius around originTile; otherwise -1 */
+    int32_t  optionIndex;       /* 0-based. LOC: loc option; NPC: NPC option; GLOBAL: -1 */
+    uint8_t  shape;             /* LOC: loc shape and rotation as baked; otherwise 0 */
+    uint8_t  rotation;
+    uint8_t  pad[2];            /* zero */
+    char     code[4];           /* fairy-ring code, NUL-padded; all zero otherwise */
+    float    cost;              /* tick cost the planner charges for the transition */
+    uint32_t requirementCount;  /* true total; > WW_TRANSITION_MAX_REQUIREMENTS = truncated */
+    uint32_t chainStepCount;    /* true total; > WW_TRANSITION_MAX_CHAIN_STEPS = truncated */
+    WwRequirement requirements[WW_TRANSITION_MAX_REQUIREMENTS];
+    WwChainStep   chain[WW_TRANSITION_MAX_CHAIN_STEPS];
+} WwTransitionInfo;
+
+/* Describe the transition at `transitionIndex` — the index WwStep and WwEvent
+   carry (WwEvent's int32_t -1 casts to UINT32_MAX, which is never valid).
+
+   Returns WW_OK and fills *outInfo; WW_ERR_INVALID when artifact or outInfo is
+   NULL; WW_ERR_NOT_FOUND when the index is out of range (UINT32_MAX, the Walk
+   step sentinel, included); WW_ERR_INTERNAL on a corrupt record. On any error
+   other than a NULL outInfo, *outInfo is zeroed.
+
+   INDEX STABILITY: indices of baked records (isRuntimeLoaded == 0) are fixed
+   for the artifact's life. Runtime-loaded indices are reassigned by every
+   ww_artifact_load_teleports call, so describe one before the next reload.
+
+   LOCKING, and safe from inside an executor callback. Like ww_query it holds
+   the artifact's lifecycle lock shared — except when the calling thread is
+   already inside ww_executor_run / ww_executor_run_ex on the SAME artifact,
+   i.e. it is called from one of that run's callbacks. The run already holds the
+   lock shared on this thread, and a reload cannot proceed while it does, so
+   describe reads without acquiring it again. Acquiring it again would be a
+   recursive shared lock, which with a ww_artifact_load_teleports writer
+   queued deadlocks. So the call is safe from any thread, inside a callback
+   included, and from a callback it never waits on a reload. From any other
+   thread it waits only as ww_query does: behind a reload that holds or is
+   queued for the lock. Verified by `wwcli describe`, which describes from
+   inside a run's readPosition while a reload is queued. */
+WW_API ww_result ww_transition_describe(const ww_artifact *artifact,
+                                         uint32_t           transitionIndex,
+                                         WwTransitionInfo  *outInfo);
+
 #ifdef __cplusplus
 }  /* extern "C" */
 
@@ -509,6 +655,36 @@ static_assert(sizeof(WwInstanceChunks)    == 32, "WwInstanceChunks must be 32 by
 static_assert(sizeof(WwCallbacks)         == 120, "WwCallbacks must be 120 bytes (wire) — 15 ptrs of 8 bytes each on x64");
 static_assert(sizeof(WwStep)              == 16, "WwStep must be 16 bytes (wire)");
 static_assert(sizeof(WwPath)              == 24, "WwPath must be 24 bytes (wire) — ptr+size_t+float+pad");
+static_assert(sizeof(WwRequirement)       == 12, "WwRequirement must be 12 bytes (wire)");
+static_assert(sizeof(WwChainStep)         == 40, "WwChainStep must be 40 bytes (wire)");
+static_assert(sizeof(WwTransitionInfo)    == 912, "WwTransitionInfo must be 912 bytes (wire)");
+
+/* Every WwTransitionInfo offset, pinned so a host mirror can assert the same
+   numbers. No pointers or size_t inside, so they hold on any target. */
+static_assert(offsetof(WwTransitionInfo, origin)           == 0);
+static_assert(offsetof(WwTransitionInfo, kind)             == 4);
+static_assert(offsetof(WwTransitionInfo, moveCategory)     == 8);
+static_assert(offsetof(WwTransitionInfo, isRuntimeLoaded)  == 12);
+static_assert(offsetof(WwTransitionInfo, originTile)       == 16);
+static_assert(offsetof(WwTransitionInfo, destTile)         == 28);
+static_assert(offsetof(WwTransitionInfo, objectId)         == 40);
+static_assert(offsetof(WwTransitionInfo, npcTypeMin)       == 44);
+static_assert(offsetof(WwTransitionInfo, npcTypeMax)       == 48);
+static_assert(offsetof(WwTransitionInfo, npcSearchRadius)  == 52);
+static_assert(offsetof(WwTransitionInfo, optionIndex)      == 56);
+static_assert(offsetof(WwTransitionInfo, shape)            == 60);
+static_assert(offsetof(WwTransitionInfo, rotation)         == 61);
+static_assert(offsetof(WwTransitionInfo, pad)              == 62);
+static_assert(offsetof(WwTransitionInfo, code)             == 64);
+static_assert(offsetof(WwTransitionInfo, cost)             == 68);
+static_assert(offsetof(WwTransitionInfo, requirementCount) == 72);
+static_assert(offsetof(WwTransitionInfo, chainStepCount)   == 76);
+static_assert(offsetof(WwTransitionInfo, requirements)     == 80);
+static_assert(offsetof(WwTransitionInfo, chain)            == 272);
+static_assert(offsetof(WwRequirement, kind) == 0 && offsetof(WwRequirement, id) == 4
+              && offsetof(WwRequirement, amount) == 8);
+static_assert(offsetof(WwChainStep, kind) == 0 && offsetof(WwChainStep, a) == 4
+              && offsetof(WwChainStep, i) == 36);
 #endif
 
 #endif  /* WORLDWALKER_C_H */
