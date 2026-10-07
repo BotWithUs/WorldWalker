@@ -2,6 +2,7 @@
   "teleports": [
     {
       "name": "South Feldip Hills Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2413,
       "dest_y": 2847,
@@ -242,6 +243,7 @@
     },
     {
       "name": "House Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2953,
       "dest_y": 3224,
@@ -282,6 +284,7 @@
     },
     {
       "name": "Camelot Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2757,
       "dest_y": 3478,
@@ -318,6 +321,7 @@
     },
     {
       "name": "Ardougne Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2661,
       "dest_y": 3302,
@@ -354,6 +358,7 @@
     },
     {
       "name": "Watchtower Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2933,
       "dest_y": 4712,
@@ -390,6 +395,7 @@
     },
     {
       "name": "God Wars Dungeon Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2910,
       "dest_y": 3713,
@@ -426,6 +432,7 @@
     },
     {
       "name": "Trollheim Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2882,
       "dest_y": 3668,
@@ -462,6 +469,7 @@
     },
     {
       "name": "Ape Atoll Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2797,
       "dest_y": 2798,
@@ -506,6 +514,7 @@
     },
     {
       "name": "Anachronia Teleport",
+      "members": true,
       "global": true,
       "dest_x": 3219,
       "dest_y": 3248,
@@ -546,6 +555,7 @@
     },
     {
       "name": "North-western Anachronia Teleport",
+      "members": true,
       "global": true,
       "dest_x": 5316,
       "dest_y": 2494,
@@ -582,6 +592,7 @@
     },
     {
       "name": "Eastern Anachronia Teleport",
+      "members": true,
       "global": true,
       "dest_x": 5600,
       "dest_y": 2331,
@@ -618,6 +629,7 @@
     },
     {
       "name": "Northern Lost Grove Teleport",
+      "members": true,
       "global": true,
       "dest_x": 1404,
       "dest_y": 5725,
@@ -654,6 +666,7 @@
     },
     {
       "name": "Paddewwa Teleport",
+      "members": true,
       "global": true,
       "dest_x": 3098,
       "dest_y": 9882,
@@ -694,6 +707,7 @@
     },
     {
       "name": "Senntisten Teleport",
+      "members": true,
       "global": true,
       "dest_x": 3377,
       "dest_y": 3402,
@@ -730,6 +744,7 @@
     },
     {
       "name": "Kharyrll Teleport",
+      "members": true,
       "global": true,
       "dest_x": 3501,
       "dest_y": 3484,
@@ -766,6 +781,7 @@
     },
     {
       "name": "Lassar Teleport",
+      "members": true,
       "global": true,
       "dest_x": 3004,
       "dest_y": 3470,
@@ -802,6 +818,7 @@
     },
     {
       "name": "Dareeyak Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2968,
       "dest_y": 3696,
@@ -842,6 +859,7 @@
     },
     {
       "name": "Carrallangar Teleport",
+      "members": true,
       "global": true,
       "dest_x": 3222,
       "dest_y": 3666,
@@ -878,6 +896,7 @@
     },
     {
       "name": "Annakarl Teleport",
+      "members": true,
       "global": true,
       "dest_x": 3288,
       "dest_y": 3886,
@@ -914,6 +933,7 @@
     },
     {
       "name": "Ghorrock Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2976,
       "dest_y": 3872,
@@ -950,6 +970,7 @@
     },
     {
       "name": "Moonclan Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2114,
       "dest_y": 3915,
@@ -990,6 +1011,7 @@
     },
     {
       "name": "Tele-group Moonclan",
+      "members": true,
       "global": true,
       "dest_x": 2114,
       "dest_y": 3915,
@@ -1030,6 +1052,7 @@
     },
     {
       "name": "Ourania Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2467,
       "dest_y": 3245,
@@ -1070,6 +1093,7 @@
     },
     {
       "name": "South Falador Teleport",
+      "members": true,
       "global": true,
       "dest_x": 3055,
       "dest_y": 3310,
@@ -1110,6 +1134,7 @@
     },
     {
       "name": "Waterbirth Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2546,
       "dest_y": 3756,
@@ -1150,6 +1175,7 @@
     },
     {
       "name": "Tele-group Waterbirth",
+      "members": true,
       "global": true,
       "dest_x": 2546,
       "dest_y": 3756,
@@ -1190,6 +1216,7 @@
     },
     {
       "name": "Barbarian Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2543,
       "dest_y": 3569,
@@ -1230,6 +1257,7 @@
     },
     {
       "name": "North Ardougne Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2665,
       "dest_y": 3375,
@@ -1270,6 +1298,7 @@
     },
     {
       "name": "Tele-group Barbarian",
+      "members": true,
       "global": true,
       "dest_x": 2543,
       "dest_y": 3569,
@@ -1310,6 +1339,7 @@
     },
     {
       "name": "Khazard Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2636,
       "dest_y": 3167,
@@ -1350,6 +1380,7 @@
     },
     {
       "name": "Tele-group Khazard",
+      "members": true,
       "global": true,
       "dest_x": 2636,
       "dest_y": 3167,
@@ -1390,6 +1421,7 @@
     },
     {
       "name": "Western Kharazi Jungle Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2803,
       "dest_y": 2917,
@@ -1426,6 +1458,7 @@
     },
     {
       "name": "Mountain Camp Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2785,
       "dest_y": 3664,
@@ -1462,6 +1495,7 @@
     },
     {
       "name": "Fishing Guild Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2613,
       "dest_y": 3383,
@@ -1502,6 +1536,7 @@
     },
     {
       "name": "Tele-group Fishing Guild",
+      "members": true,
       "global": true,
       "dest_x": 2613,
       "dest_y": 3383,
@@ -1542,6 +1577,7 @@
     },
     {
       "name": "Catherby Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2790,
       "dest_y": 3452,
@@ -1582,6 +1618,7 @@
     },
     {
       "name": "Tele-group Catherby",
+      "members": true,
       "global": true,
       "dest_x": 2790,
       "dest_y": 3452,
@@ -1622,6 +1659,7 @@
     },
     {
       "name": "Ice Plateau Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2975,
       "dest_y": 3938,
@@ -1662,6 +1700,7 @@
     },
     {
       "name": "Tele-group Ice Plateau",
+      "members": true,
       "global": true,
       "dest_x": 2975,
       "dest_y": 3938,
@@ -1702,6 +1741,7 @@
     },
     {
       "name": "Tele-group Trollheim Farm",
+      "members": true,
       "global": true,
       "dest_x": 2817,
       "dest_y": 3676,
@@ -1742,6 +1782,7 @@
     },
     {
       "name": "Trollheim Farm Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2817,
       "dest_y": 3676,
@@ -1809,6 +1850,7 @@
     },
     {
       "name": "Max guild Teleport",
+      "members": true,
       "global": true,
       "dest_x": 2276,
       "dest_y": 3311,

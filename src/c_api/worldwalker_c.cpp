@@ -51,6 +51,7 @@ static_assert(WW_MOVE_CHARTERS      == static_cast<uint32_t>(ww::format::MoveCat
 static_assert(WW_MOVE_MAGIC_CARPETS == static_cast<uint32_t>(ww::format::MoveCategory::MagicCarpets));
 static_assert(WW_MOVE_OTHER_CHAINS  == static_cast<uint32_t>(ww::format::MoveCategory::OtherChains));
 static_assert(WW_MOVE_COUNT == ww::format::kMoveCategoryCount);
+static_assert(WW_RESTRICT_FREE_TO_PLAY == ww::format::kRestrictFreeToPlay);
 
 // ww_transition_describe hands out the internal enums' values as they are.
 static_assert(WW_TRANSITION_KIND_TRANSPORT      == static_cast<int>(ww::data::TransitionKind::Transport));
@@ -495,7 +496,8 @@ ww_result ww_query_moves(ww_artifact                *artifact,
         {
             snapshot.admitEveryRequirement();
         }
-        snapshot.disableMoves(disabledMoves, artifact->reader.moveCategories());
+        snapshot.disableMoves(disabledMoves, artifact->reader.moveCategories(),
+                              artifact->reader.membersOnly());
         const bool hasSnapshot = capabilities != nullptr || disabledMoves != 0u;
         const ww::runtime::CapabilitySnapshot *snapshotPtr = hasSnapshot ? &snapshot : nullptr;
 

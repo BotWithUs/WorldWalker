@@ -228,6 +228,21 @@ namespace ww::runtime
         // most walks pay nothing for it.
         std::span<const format::WildernessRegion> wildernessFenceFor(int32_t area) const;
 
+        // The query's free-to-play rule, set by decideFreeToPlay: the land a
+        // free-to-play query is held to, or null when the query is not
+        // free-to-play or the artifact knows no free-to-play land. Members-only
+        // transitions need no rule here; the snapshot already refuses them.
+        void decideFreeToPlay(const CapabilitySnapshot *capabilities);
+
+        // A free-to-play query to a goal off its land: nothing can reach it,
+        // so the plan fails before any search runs.
+        bool isGoalRefused(int32_t goalX, int32_t goalY, int32_t goalPlane) const;
+
+        // The free-to-play land a walk inside `area` must not step off: null
+        // when the rule is off or the area lies wholly on that land, so such
+        // walks pay nothing for it.
+        const format::F2pLand *freeToPlayFenceFor(int32_t area) const;
+
         // Refine (fromX, fromY) -> (toX, toY) inside `area` and append WALK
         // steps to outPlan. Each step's target advances at most kWalkStepTiles
         // along the refined path; the final step always lands on the end tile.
@@ -387,6 +402,7 @@ namespace ww::runtime
         std::vector<TeleCandidate> teleCandidateScratch;  // reusable scratch for goal-area teleport ranking
         std::vector<NearGoalEdge> nearGoalEdgeScratch;   // reusable scratch for near-goal baked edges (idx + fromArea + closingBound)
         bool isWildernessAvoided{false};                 // the query in flight stays out of the Wilderness
+        const format::F2pLand *freeToPlayLand{nullptr};  // the query in flight is held to this land
         std::vector<uint8_t> isAreaLinked;               // per area: some baked edge starts or ends in it
     };
 }

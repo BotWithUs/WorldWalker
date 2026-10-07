@@ -136,7 +136,9 @@ namespace
             const std::size_t comma = text.find(',', begin);
             const std::size_t end = comma == std::string::npos ? text.size() : comma;
             const std::string name = text.substr(begin, end - begin);
-            bool isKnown = false;
+            // "f2p" is not a category but the free-to-play bit of the same mask.
+            bool isKnown = name == "f2p";
+            outMask |= isKnown ? ww::format::kRestrictFreeToPlay : 0u;
             for (uint32_t c = 0; c < ww::format::kMoveCategoryCount; ++c)
             {
                 const auto category = static_cast<ww::format::MoveCategory>(c);
@@ -468,7 +470,7 @@ int runPathExport(int argc, char **argv)
             ww::runtime::applyPermissiveRequirements(reader.requirements(), snapshot);
         }
         applyOverrides(args.overrides, snapshot);
-        snapshot.disableMoves(args.disabledMoves, reader.moveCategories());
+        snapshot.disableMoves(args.disabledMoves, reader.moveCategories(), reader.membersOnly());
 
         ww::runtime::Plan plan;
         const bool ok =

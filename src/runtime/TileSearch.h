@@ -2,6 +2,7 @@
 #define WORLDWALKER_RUNTIME_TILESEARCH_H
 
 #include "format/Artifact.h"
+#include "format/F2pLand.h"
 #include "runtime/WorldView.h"
 
 #include <cstddef>
@@ -28,6 +29,28 @@ namespace ww::runtime
     {
         std::vector<TilePoint> tiles;
         float cost{};
+    };
+
+    // Ground one walk must keep off. Empty (the default) fences nothing.
+    //   wilderness  never step onto a tile inside any of these boxes: a walk
+    //               that must stay out of the Wilderness. An area can reach
+    //               across a box edge with no transition in the way (the
+    //               mainland walks north of the wall east of Varrock), so
+    //               refusing the crossings alone does not keep a walk out.
+    //   freeToPlay  when set, never step from a tile on this free-to-play land
+    //               onto one off it: a free-to-play account's walk. One way
+    //               only, so a start the land does not cover can still walk
+    //               onto it; and the goal must be on it unless the start is
+    //               off it too.
+    struct WalkFence
+    {
+        std::span<const format::WildernessRegion> wilderness;
+        const format::F2pLand *freeToPlay{nullptr};
+
+        bool isEmpty() const
+        {
+            return wilderness.empty() && freeToPlay == nullptr;
+        }
     };
 
     // A priority-queue entry: an open node index keyed by its A* f-score.
@@ -73,14 +96,11 @@ namespace ww::runtime
         bool findPath(int32_t startX, int32_t startY, int32_t goalX, int32_t goalY,
                       int32_t plane, int32_t areaConstraint, TilePath &outPath);
 
-        // As above, but never steps onto a tile inside any of the fence boxes:
-        // a walk that must stay out of the Wilderness. An area can reach
-        // across a box edge with no transition in the way (the mainland walks
-        // north of the wall east of Varrock), so refusing the crossings alone
-        // does not keep a walk out. An empty fence is the plain search.
+        // As above, but never crossing `fence` (WalkFence). An empty fence is
+        // the plain search.
         bool findPath(int32_t startX, int32_t startY, int32_t goalX, int32_t goalY,
-                      int32_t plane, int32_t areaConstraint,
-                      std::span<const format::WildernessRegion> fence, TilePath &outPath);
+                      int32_t plane, int32_t areaConstraint, const WalkFence &fence,
+                      TilePath &outPath);
 
     private:
         struct Node
@@ -94,6 +114,10 @@ namespace ww::runtime
 
         bool acceptsEndpoints(int32_t startX, int32_t startY, int32_t goalX, int32_t goalY,
                               int32_t plane, int32_t areaConstraint);
+
+        // currentFence's free-to-play side, for one tile. True when there is
+        // no free-to-play fence.
+        bool isOnFreeToPlayLand(int32_t x, int32_t y, int32_t plane) const;
 
         // Legality + neighbor coordinates + neighbor clip word for direction
         // `dir` off (fx, fy) given the already-fetched fromFlags. Reads the
@@ -127,7 +151,8 @@ namespace ww::runtime
         // the current value for this findPath; isTileClosed / markTileClosed
         // on WorldView use it as the comparison key.
         uint32_t visitedEpoch{0};
-        std::span<const format::WildernessRegion> currentFence;  // borrowed for one findPath
+        WalkFence currentFence;                  // borrowed for one findPath
+        bool isExpandingFromFreeToPlay{false};   // expand()'s source tile is free-to-play land
     };
 }
 

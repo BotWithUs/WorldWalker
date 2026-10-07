@@ -393,6 +393,25 @@ typedef struct WwCallbacks
 #define WW_MOVE_OTHER_CHAINS  12u  /* any other teleport_chains network */
 #define WW_MOVE_COUNT         13u
 
+/* NOT a movement category: a reserved bit of the same `disabledMoves` mask.
+   With it set the planner plans as a free-to-play account, on the first plan
+   and every re-plan:
+     - every members-only transition is refused: one whose dataset row says
+       "members": true, any charter ship, gnome glider, fairy ring, spirit tree
+       or magic carpet, and any whose origin (local) or destination is not
+       free-to-play land; a row saying "members": false is never refused for
+       membership;
+     - walks never step from free-to-play land onto members land (a start on
+       members land may still walk off it);
+     - a goal that is not on free-to-play land fails at once with no route.
+   Free-to-play land is the artifact's F2pZones section (datasets/
+   f2p_zones.json): every tile it does not list is members land. An artifact
+   baked before that section knows no land, so with this bit set it refuses
+   only the flagged rows and the members networks, and walks and goals are
+   not restricted. Clear (0) is exactly the behaviour before this bit existed,
+   and a library older than this bit ignores it and plans as a member. */
+#define WW_RESTRICT_FREE_TO_PLAY (1u << 31)
+
 /* ---- Executor entry ----------------------------------------------------- */
 
 /* Block the calling thread, plan a route from the player's live position to

@@ -1004,7 +1004,7 @@ namespace ww::exec
         {
             snapshot.excludeTransition(transitionIndex);
         }
-        snapshot.disableMoves(disabledMoves, artifact->moveCategories());
+        snapshot.disableMoves(disabledMoves, artifact->moveCategories(), artifact->membersOnly());
 
         // Re-derive the scene's dynamic-region grid on every (re-)plan, for the
         // same reason the capability snapshot is re-pulled: a single run can

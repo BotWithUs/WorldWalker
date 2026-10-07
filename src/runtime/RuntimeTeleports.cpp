@@ -7,6 +7,7 @@
 #include "runtime/TileScan.h"
 #include "runtime/WorldView.h"
 
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -120,15 +121,18 @@ namespace ww::runtime
         std::vector<format::TransitionRecord> txRecords;
         std::vector<format::RequirementRecord> reqPool;
         std::vector<format::ChainStepRecord> chainPool;
+        std::vector<int8_t> membersOverrides;
         txRecords.reserve(loaded.model.transitions.size());
+        membersOverrides.reserve(loaded.model.transitions.size());
         for (const data::Transition &source : loaded.model.transitions)
         {
             data::Transition t = source;
             snapDestToStandable(view, t.destX, t.destY, static_cast<int32_t>(t.destPlane));
             txRecords.push_back(encode(t, reqBase, chainBase, reqPool, chainPool));
+            membersOverrides.push_back(t.membersOverride);
         }
 
-        reader.appendTransitions(txRecords, reqPool, chainPool);
+        reader.appendTransitions(txRecords, reqPool, chainPool, membersOverrides);
         // Only once the load has succeeded: a throw above leaves the caller's
         // list as it was rather than describing rows of a load that failed.
         if (outExcluded != nullptr)

@@ -182,6 +182,11 @@ namespace ww::data
         // actually stand still for it.
         float extraCost{};
 
+        // The dataset row's `"members"` flag: -1 when it has none, 0 for
+        // `false` (free to play whatever its geography says), 1 for `true`.
+        // Baked as a MembersOverrideRecord; see format::isMembersOnly.
+        int8_t membersOverride{-1};
+
         std::vector<Requirement> requirements;
         std::vector<ChainStep> chain;
 

@@ -40,7 +40,13 @@ namespace ww::format
         TeleportAllowed = 5,   // wilderness regions + curated no-teleport zones
         Provenance      = 6,   // what this artifact was baked from (JSON; see below)
         DialogZones     = 7,   // where walking raises a question, and its answers
+        F2pZones        = 8,   // free-to-play land, its members holes, members overrides
     };
+
+    // One past the highest SectionId this build understands. ArtifactReader
+    // sizes its presence table with it and skips any id at or above it, which
+    // is how a reader older than a section ignores it.
+    inline constexpr uint32_t kSectionIdLimit = 9;
 
     // File header at offset 0, fixed 64 bytes. formatVersion is a hard gate.
     //
@@ -423,6 +429,57 @@ namespace ww::format
         char text[36];
     };
 
+    // ---- F2pZones section -----------------------------------------------------
+    //
+    // Where a free-to-play account may go (data/F2pZones.h). Free-to-play land
+    // is the union of the zone boxes minus the union of the hole boxes, each box
+    // inclusive on planes [planeMin, planeMax]; every other tile is members
+    // land. The override list pins single baked transitions to members
+    // (isMembers 1) or to free-to-play (0), whatever their geography says.
+    //
+    // Like DialogZones this needs no format bump: a reader that predates it
+    // skips the id (it is at or past that reader's kSectionIdLimit), and an
+    // artifact without it knows no free-to-play land; see
+    // WW_RESTRICT_FREE_TO_PLAY in c_api/worldwalker_c.h for what the planner
+    // does then.
+    //
+    // Payload layout (all offsets relative to the section start):
+    //   F2pZonesSectionHeader
+    //   F2pBoxRecord[zoneCount]
+    //   F2pBoxRecord[holeCount]
+    //   MembersOverrideRecord[overrideCount]   (ascending transitionIndex)
+
+    struct F2pZonesSectionHeader
+    {
+        uint32_t zoneCount;
+        uint32_t holeCount;
+        uint32_t overrideCount;
+        uint32_t reserved;
+    };
+
+    struct F2pBoxRecord
+    {
+        int32_t  minX;       // bounding box, inclusive tile coordinates
+        int32_t  minY;
+        int32_t  maxX;
+        int32_t  maxY;
+        uint8_t  planeMin;
+        uint8_t  planeMax;
+        uint8_t  pad[2];     // zero-filled
+    };
+
+    // A dataset row's `"members": true | false`, under the index the bake gave
+    // its transition. Runtime-loaded teleports carry theirs in memory instead.
+    struct MembersOverrideRecord
+    {
+        uint32_t transitionIndex;
+        uint8_t  isMembers;  // 1 = members only, 0 = free to play
+        uint8_t  pad[3];     // zero-filled
+    };
+
+    static_assert(sizeof(F2pZonesSectionHeader) == 16, "F2pZonesSectionHeader must be 16 bytes");
+    static_assert(sizeof(F2pBoxRecord) == 20, "F2pBoxRecord must be 20 bytes");
+    static_assert(sizeof(MembersOverrideRecord) == 8, "MembersOverrideRecord must be 8 bytes");
     static_assert(sizeof(ArtifactHeader) == 64, "ArtifactHeader must be 64 bytes");
     static_assert(sizeof(DialogZonesSectionHeader) == 8, "DialogZonesSectionHeader must be 8 bytes");
     static_assert(sizeof(DialogZoneRecord) == 24, "DialogZoneRecord must be 24 bytes");

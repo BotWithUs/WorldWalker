@@ -2,6 +2,7 @@
 #define WORLDWALKER_DATA_DATASETLOADER_H
 
 #include "data/DialogZones.h"
+#include "data/F2pZones.h"
 #include "data/Transitions.h"
 
 #include <cstdint>
@@ -54,6 +55,7 @@ namespace ww::data
     {
         TransitionModel model;     // raw transitions: pre-snap, pre-dedup, pre-cost
         DialogZonesModel dialogZones;  // dialog_zones.json, baked as-is
+        F2pZonesModel f2pZones;        // f2p_zones.json, baked as-is
         uint32_t datasetHash{};    // FNV-1a over the bytes of the files that were present
         std::size_t filesFound{};   // dataset files that were present and parsed
         std::size_t filesMissing{}; // dataset files that were not found (warned + skipped)
@@ -66,7 +68,8 @@ namespace ww::data
 
     // Parse the four transition datasets in `directory` (transport_links.json,
     // teleport_chains.json, spell_teleports.json, item_teleports.json) into a raw
-    // transition model, and dialog_zones.json into `dialogZones`. A missing
+    // transition model, dialog_zones.json into `dialogZones` and f2p_zones.json
+    // into `f2pZones`. A missing
     // file is warned about (stderr), skipped, and
     // counted in filesMissing (present ones in filesFound) so the caller can tell
     // a partial dataset from a wrong directory (wwbuild refuses the latter). Throws (a nlohmann json

@@ -2346,7 +2346,7 @@ namespace ww::cli
             runtime::TileSearch    tileSearch(ctx.view);
             runtime::PathAssembler assembler(ctx.reader, ctx.view, areaSearch, tileSearch);
             runtime::CapabilitySnapshot none;
-            none.disableMoves(disabledMoves, ctx.reader.moveCategories());
+            none.disableMoves(disabledMoves, ctx.reader.moveCategories(), ctx.reader.membersOnly());
             return assembler.assemble(start.x, start.y, start.plane, goal.x, goal.y, goal.plane,
                                       &none, outPlan)
                 && !outPlan.steps.empty();

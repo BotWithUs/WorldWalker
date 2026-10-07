@@ -69,6 +69,14 @@ _Avoid_: link, jump, warp, shortcut (a shortcut is one *kind* of Transition).
 A property of a Tile/area: whether a Global teleport may be initiated from it. False in the deep Wilderness (above the cutoff) and designated no-teleport areas. Gates query-time frontier seeding.
 _Avoid_: teleblock (a specific PvP mechanic), no-port.
 
+**Free-to-play land**:
+The Tiles a free-to-play account may walk on, as `datasets/f2p_zones.json` lists them: the union of curated zone boxes minus their members holes, baked as the F2pZones section. An allowlist, so every Tile it does not list is members land. A query with `WW_RESTRICT_FREE_TO_PLAY` set keeps its walks on it, refuses every **Members-only** Transition, and fails a Goal off it at once.
+_Avoid_: F2P area (the game's word for a region, not a tile set), non-members zone.
+
+**Members-only**:
+A Transition a free-to-play account must not take: its dataset row says `"members": true`, it belongs to a members network (charters, gliders, fairy rings, spirit trees, magic carpets), or it starts or lands off Free-to-play land. Computed per Transition when the artifact loads, never baked as a field.
+_Avoid_: members transition (ambiguous with a transition that merely sits in members land), P2P.
+
 **Transition kind**:
 The category of a Transition (fairy ring, ladder, stair, door, agility shortcut, boat, lodestone, spell teleport, item teleport, ...). Drives per-kind enable/disable toggles in the Capability snapshot and the Transition's cost, complementing the structured Requirement predicate.
 _Avoid_: type (overloaded with config types), group, category.

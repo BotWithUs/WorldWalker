@@ -78,12 +78,24 @@ namespace ww::runtime
         {
             return false;
         }
+        // A free-to-play walk that starts on its land can never step off it,
+        // so a goal off it is refused here rather than after the whole
+        // expansion budget is spent proving it.
+        if (isOnFreeToPlayLand(startX, startY, plane) && !isOnFreeToPlayLand(goalX, goalY, plane))
+        {
+            return false;
+        }
         if (areaConstraint < 0)
         {
             return true;
         }
         return view->areaAt(startX, startY, plane) == areaConstraint
             && view->areaAt(goalX, goalY, plane) == areaConstraint;
+    }
+
+    bool TileSearch::isOnFreeToPlayLand(int32_t x, int32_t y, int32_t plane) const
+    {
+        return currentFence.freeToPlay == nullptr || currentFence.freeToPlay->isFreeToPlay(x, y, plane);
     }
 
     bool TileSearch::tryStep(int32_t fx, int32_t fy, uint32_t fromFlags, int dir,
@@ -111,7 +123,12 @@ namespace ww::runtime
         {
             return false;
         }
-        return currentFence.empty() || !isInWilderness(currentFence, outNx, outNy, plane);
+        if (!currentFence.wilderness.empty()
+            && isInWilderness(currentFence.wilderness, outNx, outNy, plane))
+        {
+            return false;
+        }
+        return !isExpandingFromFreeToPlay || isOnFreeToPlayLand(outNx, outNy, plane);
     }
 
     void TileSearch::enqueueNeighbor(int32_t curIndex, float curG, int32_t nx, int32_t ny,
@@ -142,6 +159,8 @@ namespace ww::runtime
         // Source clip word is the same for every direction off this tile —
         // hoist it once instead of having each tryStep call refetch.
         const uint32_t fromFlags = view->clipAt(fx, fy, plane);
+        isExpandingFromFreeToPlay =
+            currentFence.freeToPlay != nullptr && isOnFreeToPlayLand(fx, fy, plane);
 
         // Pre-compute the four cardinal verdicts up front WITHOUT emitting
         // them yet. A diagonal step is legal only when both flanking
@@ -209,12 +228,12 @@ namespace ww::runtime
     bool TileSearch::findPath(int32_t startX, int32_t startY, int32_t goalX, int32_t goalY,
                               int32_t plane, int32_t areaConstraint, TilePath &outPath)
     {
-        return findPath(startX, startY, goalX, goalY, plane, areaConstraint, {}, outPath);
+        return findPath(startX, startY, goalX, goalY, plane, areaConstraint, WalkFence{}, outPath);
     }
 
     bool TileSearch::findPath(int32_t startX, int32_t startY, int32_t goalX, int32_t goalY,
-                              int32_t plane, int32_t areaConstraint,
-                              std::span<const format::WildernessRegion> fence, TilePath &outPath)
+                              int32_t plane, int32_t areaConstraint, const WalkFence &fence,
+                              TilePath &outPath)
     {
         currentFence = fence;
         outPath.tiles.clear();
