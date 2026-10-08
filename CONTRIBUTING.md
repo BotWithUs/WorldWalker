@@ -112,6 +112,7 @@ author intended.
 .\build\Release\wwcli.exe instance              # dynamic-region chunk remap
 .\build\Release\wwcli.exe scripted <artifact>   # end-to-end path categories
 .\build\Release\wwcli.exe doors <artifact>      # door/crossing traversal
+.\build\Release\wwcli.exe exclude <artifact> [<teleport_dir>]  # excluded transitions (WwPlanOptions)
 .\build\Release\wwcli.exe bench <artifact>      # planner latency
 ```
 

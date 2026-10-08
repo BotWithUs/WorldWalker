@@ -29,6 +29,7 @@
 #include <limits>
 #include <random>
 #include <span>
+#include <string>
 #include <system_error>
 #include <thread>
 #include <vector>
@@ -3011,6 +3012,101 @@ namespace ww::cli
             return failures;
         }
 
+        // How many of the run's announced Transition steps are one of `indices`.
+        int crossingsOf(const ExecHarness &h, std::span<const std::uint32_t> indices)
+        {
+            int n = 0;
+            for (const StepRecord &rec : h.steps)
+            {
+                const bool isListed = rec.isTransition && rec.transitionIndex >= 0
+                    && std::find(indices.begin(), indices.end(),
+                                 static_cast<std::uint32_t>(rec.transitionIndex)) != indices.end();
+                n += isListed ? 1 : 0;
+            }
+            return n;
+        }
+
+        // Test 4z2: ww_executor_run_opts keeps every plan of the run, the first
+        // and each re-plan, off the transitions the caller excluded. The door
+        // walk of test 4z: with no options the run goes through the door; with
+        // exactly the plan's transitions excluded, and the first two walk clicks
+        // dropped (a stall, so a Stuck and a re-plan), it arrives without
+        // announcing any of them. An out-of-range index fails the run before
+        // anything is clicked.
+        std::size_t testExcludedTransitions(ExecContext &ctx, const char *artifactPath)
+        {
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            runtime::Plan direct;
+            if (artifactPath == nullptr || !pickDetouredDoor(ctx, start, goal)
+                || !planLikeExecutor(ctx, start, goal, direct))
+            {
+                std::printf("  exec:   excluded-transitions test skipped (no door with a way round)\n");
+                return 0;
+            }
+            std::vector<std::uint32_t> excluded;
+            for (const runtime::Step &s : direct.steps)
+            {
+                if (s.kind == runtime::StepKind::Transition)
+                {
+                    excluded.push_back(s.transitionIndex);
+                }
+            }
+            ww_artifact *cArt = ww_artifact_open(artifactPath);
+            ww_context_pool *cPool = cArt != nullptr ? ww_context_pool_create(cArt, 1) : nullptr;
+            if (cPool == nullptr)
+            {
+                std::printf("  exec:   excluded-transitions could not open the C ABI: %s\n",
+                            ww_last_error());
+                ww_artifact_close(cArt);
+                return 1;
+            }
+            ExecHarness open = makeHarness(ExecHarnessMode::SimulateTransition,
+                                           start.x, start.y, start.plane);
+            open.landingRecords = ctx.reader.transitions();
+            ExecHarness shut = open;
+            shut.droppedWalkClicks = 2;
+            ExecHarness refused = open;
+
+            WwPlanOptions options{};
+            options.structSize = sizeof(WwPlanOptions);
+            options.excludedTransitions = excluded.data();
+            options.excludedTransitionCount = excluded.size();
+            const std::uint32_t pastEnd = static_cast<std::uint32_t>(ctx.reader.transitions().size());
+            WwPlanOptions outOfRange = options;
+            outOfRange.excludedTransitions = &pastEnd;
+            outOfRange.excludedTransitionCount = 1;
+
+            WwCallbacks cb = kCallbackPrototype;
+            cb.user = &open;
+            const std::int32_t openStatus = ww_executor_run_opts(cArt, cPool, goal, &cb, nullptr);
+            cb.user = &shut;
+            const std::int32_t shutStatus = ww_executor_run_opts(cArt, cPool, goal, &cb, &options);
+            cb.user = &refused;
+            const std::int32_t refusedStatus = ww_executor_run_opts(cArt, cPool, goal, &cb, &outOfRange);
+            const std::string refusal = ww_last_error();
+            ww_context_pool_destroy(cPool);
+            ww_artifact_close(cArt);
+
+            const int openUses = crossingsOf(open, excluded);
+            const int shutUses = crossingsOf(shut, excluded);
+            const int refusedActions = refused.walkToCalls + refused.interactCalls + refused.runChainStepCalls;
+            std::printf("  exec:   excluded-transitions door walk (%d,%d,p%d)->(%d,%d,p%d) excluded=%zu"
+                        " none: status=%d uses=%d (expect 0, >= 1) excluded: status=%d uses=%d"
+                        " (expect 0, 0) stucks=%d replans=%d (expect >= 1) out-of-range: status=%d"
+                        " actions=%d (expect 1, 0) \"%s\"\n",
+                        start.x, start.y, start.plane, goal.x, goal.y, goal.plane, excluded.size(),
+                        openStatus, openUses, shutStatus, shutUses, shut.stuckEvents,
+                        shut.replanStartedEvents, refusedStatus, refusedActions, refusal.c_str());
+            std::size_t failures = (openStatus == WW_STATUS_ARRIVED && openUses >= 1) ? 0u : 1u;
+            failures += (shutStatus == WW_STATUS_ARRIVED && shutUses == 0
+                         && shut.replanStartedEvents >= 1) ? 0u : 1u;
+            failures += (refusedStatus == WW_STATUS_FAILED && refusedActions == 0
+                         && !refusal.empty()) ? 0u : 1u;
+            failures += (open.unexpectedActions == 0 && shut.unexpectedActions == 0) ? 0u : 1u;
+            return failures;
+        }
+
         // Test 4aa: the live hang of 2026-09-30. FortWithUs walked from the
         // Varrock lodestone to Fort Forinthry's hub; after the hop clicked at
         // (3292,3474) the run went quiet for minutes with the player standing on
@@ -3820,6 +3916,7 @@ namespace ww::cli
         failures += testStuckDeadline(ctx);
         failures += testInteractionHint(ctx);
         failures += testDisabledMoves(ctx);
+        failures += testExcludedTransitions(ctx, artifactPath);
         failures += testFortWalkReplay(ctx);
         failures += testLeadClicks(ctx, kRunTilesPerTick, "run");
         failures += testLeadClicks(ctx, kWalkTilesPerTick, "walk");

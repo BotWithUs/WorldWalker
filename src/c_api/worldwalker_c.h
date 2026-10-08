@@ -25,6 +25,8 @@
  *   Phase 5a — query    (ww_query, ww_path_free, WwStep, WwPath)
  *   describe            (ww_transition_describe, WwTransitionInfo) — what a
  *                       WwStep / WwEvent transitionIndex refers to
+ *   plan options        (ww_executor_run_opts, ww_query_opts, WwPlanOptions) —
+ *                       disabledMoves plus transitions excluded by index
  */
 
 #ifndef WORLDWALKER_C_H
@@ -412,6 +414,59 @@ typedef struct WwCallbacks
    and a library older than this bit ignores it and plans as a member. */
 #define WW_RESTRICT_FREE_TO_PLAY (1u << 31)
 
+/* ---- Plan options ------------------------------------------------------- */
+
+/* WwPlanOptions.flags bits. Any other bit set is refused (see WwPlanOptions). */
+#define WW_PLAN_EXCLUDE_LOC_SIBLINGS (1u << 0)  /* each excluded index also excludes its loc's
+                                                   other rows: same loc id at the same origin
+                                                   tile, as the executor does for a dead origin */
+#define WW_PLAN_KNOWN_FLAGS          (WW_PLAN_EXCLUDE_LOC_SIBLINGS)
+
+/* Per-call planning options for ww_executor_run_opts and ww_query_opts.
+   Zero-initialise it, then set structSize = sizeof(WwPlanOptions).
+
+   GROWTH: later fields are appended and structSize says which ones the caller
+   knows. A structSize below 32 (the first published size), or above the size
+   this library was built with (a newer header whose fields it would silently
+   ignore), is refused. So is a flag bit outside WW_PLAN_KNOWN_FLAGS, a non-zero
+   `pad` (reserved for a later field), and a NULL `excludedTransitions` with a
+   non-zero count. A refusal
+   is WW_ERR_INVALID from ww_query_opts and WW_STATUS_FAILED from
+   ww_executor_run_opts, with ww_last_error saying why.
+
+   EXCLUDED TRANSITIONS are indices as WwStep / WwEvent / ww_transition_describe
+   carry them. Each is refused the way the executor refuses a transition whose
+   loc it could not find: it is never an edge of a plan and never a global
+   teleport seed, on the first plan and on every re-plan of the run. With flags
+   0 exactly the listed indices are excluded; WW_PLAN_EXCLUDE_LOC_SIBLINGS widens
+   each local one to its loc (a global teleport has no loc, so only its own row
+   goes). Duplicates are harmless. An index at or past the artifact's transition
+   count is refused, not ignored: runtime-loaded indices are reassigned by every
+   ww_artifact_load_teleports, so an out-of-range index is the visible sign of a
+   stale list (whose in-range entries now name other transitions). The check is
+   made under the same lock the plan holds, so a concurrent reload cannot move
+   the count between the check and the plan.
+
+   The executor's own reroute exclusions (a missing loc, an off-course landing)
+   are kept apart from these and stack on top of them; nothing the executor
+   does during a run can put a caller's exclusion back.
+
+   BORROWING: `excludedTransitions` only has to outlive the call it is passed to
+   (the library copies it before planning). It may be NULL when the count is 0.
+
+   An empty options struct (structSize set, everything else 0) behaves exactly
+   like ww_executor_run / ww_query_ex; the older entry points are implemented as
+   these with the given disabledMoves and no exclusions. */
+typedef struct WwPlanOptions
+{
+    uint32_t        structSize;               /* sizeof(WwPlanOptions) */
+    uint32_t        disabledMoves;            /* WW_MOVE_* bits | WW_RESTRICT_FREE_TO_PLAY */
+    uint32_t        flags;                    /* WW_PLAN_* bits */
+    uint32_t        pad;                      /* zero; reserved */
+    const uint32_t *excludedTransitions;      /* NULL allowed when the count is 0 */
+    size_t          excludedTransitionCount;
+} WwPlanOptions;
+
 /* ---- Executor entry ----------------------------------------------------- */
 
 /* Block the calling thread, plan a route from the player's live position to
@@ -431,6 +486,16 @@ WW_API int32_t ww_executor_run_ex(ww_artifact       *artifact,
                                    WwGoal             goal,
                                    const WwCallbacks *callbacks,
                                    uint32_t           disabledMoves);
+
+/* ww_executor_run with WwPlanOptions: movement categories switched off, plus
+   transitions excluded by index for every plan of the run. `options` may be
+   NULL, which is exactly ww_executor_run. An invalid `options` (see
+   WwPlanOptions) fails the run before anything is planned or clicked. */
+WW_API int32_t ww_executor_run_opts(ww_artifact         *artifact,
+                                     ww_context_pool     *pool,
+                                     WwGoal               goal,
+                                     const WwCallbacks   *callbacks,
+                                     const WwPlanOptions *options);
 
 /* ---- Query result shapes ----------------------------------------------- */
 
@@ -514,6 +579,21 @@ WW_API ww_result ww_query_moves(ww_artifact                *artifact,
                                  const WwInstanceChunks     *instance,
                                  WwPath                     *outPath,
                                  uint32_t                    disabledMoves);
+
+/* ww_query_ex with WwPlanOptions: ww_query_ex's parameters plus `options`
+   (movement categories and excluded transitions). `options` may be NULL, which
+   is exactly ww_query_ex. `capabilities` may still be NULL, which admits every
+   requirement gate while the disabled categories and excluded transitions stay
+   refused. Returns WW_ERR_INVALID for an invalid `options` (see WwPlanOptions)
+   and WW_ERR_NOT_FOUND when the exclusions leave no route. */
+WW_API ww_result ww_query_opts(ww_artifact                *artifact,
+                                ww_context_pool            *pool,
+                                WwTile                      start,
+                                WwGoal                      goal,
+                                const WwCapabilitySnapshot *capabilities,
+                                const WwInstanceChunks     *instance,
+                                const WwPlanOptions        *options,
+                                WwPath                     *outPath);
 
 /* Release a path produced by ww_query and zero its fields. Safe to call on
    a zero-initialised WwPath or with path == NULL. */
@@ -686,6 +766,13 @@ static_assert(sizeof(WwPath)              == 24, "WwPath must be 24 bytes (wire)
 static_assert(sizeof(WwRequirement)       == 12, "WwRequirement must be 12 bytes (wire)");
 static_assert(sizeof(WwChainStep)         == 40, "WwChainStep must be 40 bytes (wire)");
 static_assert(sizeof(WwTransitionInfo)    == 912, "WwTransitionInfo must be 912 bytes (wire)");
+static_assert(sizeof(WwPlanOptions)       == 32, "WwPlanOptions must be 32 bytes (wire) — 4 u32 + ptr + size_t");
+static_assert(offsetof(WwPlanOptions, structSize)              == 0);
+static_assert(offsetof(WwPlanOptions, disabledMoves)           == 4);
+static_assert(offsetof(WwPlanOptions, flags)                   == 8);
+static_assert(offsetof(WwPlanOptions, pad)                     == 12);
+static_assert(offsetof(WwPlanOptions, excludedTransitions)     == 16);
+static_assert(offsetof(WwPlanOptions, excludedTransitionCount) == 24);
 
 /* Every WwTransitionInfo offset, pinned so a host mirror can assert the same
    numbers. No pointers or size_t inside, so they hold on any target. */

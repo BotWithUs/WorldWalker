@@ -3,6 +3,7 @@
 #include "cli/CrossCheck.h"
 #include "cli/DescribeTests.h"
 #include "cli/DoorPaths.h"
+#include "cli/ExcludeTests.h"
 #include "cli/ExecutorTests.h"
 #include "cli/HarnessPicks.h"
 #include "cli/InstanceTests.h"
@@ -1135,6 +1136,11 @@ namespace
         return runMoveTests(argv[0], argc > 1 ? argv[1] : nullptr);
     }
 
+    int runExcludeTestsCmd(int argc, char **argv)
+    {
+        return runExcludeTests(argv[0], argc > 1 ? argv[1] : nullptr);
+    }
+
     struct Subcommand
     {
         const char *name;
@@ -1284,6 +1290,7 @@ namespace
         {"categories", 1, "wwcli categories <artifact.wwa> [<teleport_dir>]",
          runMoveCategoriesCmd},
         {"moves",      1, "wwcli moves <artifact.wwa> [<teleport_dir>]", runMoveTestsCmd},
+        {"exclude",    1, "wwcli exclude <artifact.wwa> [<teleport_dir>]", runExcludeTestsCmd},
         {"describe",   2, "wwcli describe <artifact.wwa> <dataset_dir>", runDescribeTestsCmd},
         {"teleports",  2, "wwcli teleports <artifact.wwa> <dataset_dir>"
                           " [<sx> <sy> <sp> <gx> <gy> <gp>]", runTeleports},

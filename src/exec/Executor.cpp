@@ -208,7 +208,8 @@ namespace ww::exec
                        runtime::ContextPool &pool,
                        const Callbacks &callbacks,
                        std::optional<uint32_t> fixedSeed,
-                       uint32_t disabledMoves)
+                       uint32_t disabledMoves,
+                       std::vector<uint32_t> excludedTransitions)
         : artifact(&reader),
           pool(&pool),
           callbacks(&callbacks),
@@ -216,7 +217,8 @@ namespace ww::exec
                         reader.requirementVarbitIds().end()),
           requirementItemIds(reader.requirementItemIds()),
           fixedSeed(fixedSeed),
-          disabledMoves(disabledMoves)
+          disabledMoves(disabledMoves),
+          callerExcludedTransitions(std::move(excludedTransitions))
     {
         if (std::find(planVarbitIds.begin(), planVarbitIds.end(), runtime::kInCombatVarbitId)
             == planVarbitIds.end())
@@ -1004,6 +1006,10 @@ namespace ww::exec
         {
             snapshot.excludeTransition(transitionIndex);
         }
+        for (const uint32_t transitionIndex : callerExcludedTransitions)
+        {
+            snapshot.excludeTransition(transitionIndex);
+        }
         snapshot.disableMoves(disabledMoves, artifact->moveCategories(), artifact->membersOnly());
 
         // Re-derive the scene's dynamic-region grid on every (re-)plan, for the
@@ -1073,7 +1079,13 @@ namespace ww::exec
     void Executor::excludeTransitionsOfLoc(const format::TransitionRecord &missing,
                                            std::vector<uint32_t> &ioExcluded) const
     {
-        const auto txs = artifact->transitions();
+        appendTransitionsOfLoc(artifact->transitions(), missing, ioExcluded);
+    }
+
+    void appendTransitionsOfLoc(std::span<const format::TransitionRecord> txs,
+                                const format::TransitionRecord &missing,
+                                std::vector<uint32_t> &ioExcluded)
+    {
         for (std::size_t i = 0; i < txs.size(); ++i)
         {
             const format::TransitionRecord &tx = txs[i];

@@ -30,6 +30,16 @@ namespace ww::runtime
 
 namespace ww::exec
 {
+    // Append to `ioExcluded` the index of every local-origin transition in
+    // `transitions` on the same loc as `missing`: same loc id at the same origin
+    // tile. `missing` itself is included when it is local; a global-origin
+    // `missing` has no loc and matches nothing. The executor's dead-origin
+    // exclusion and WW_PLAN_EXCLUDE_LOC_SIBLINGS share this one definition of
+    // "the loc's rows".
+    void appendTransitionsOfLoc(std::span<const format::TransitionRecord> transitions,
+                                const format::TransitionRecord &missing,
+                                std::vector<uint32_t> &ioExcluded);
+
     // Drives one walk to completion (ADR 0008, 0010). Constructed with the
     // borrowed artifact, the borrowed search-context pool, and the host's
     // callback vtable; run(goal) owns the calling thread until arrival,
@@ -109,7 +119,11 @@ namespace ww::exec
     // SearchContext without re-entering the blocking acquire path.
     //
     // `disabledMoves` (WW_MOVE_* bits) keeps every plan of the run off those
-    // movement categories.
+    // movement categories, and `excludedTransitions` (indices the caller has
+    // already validated against the artifact) off those transitions. The
+    // caller's exclusions are held apart from RunState::excludedTransitions,
+    // the run's own reroute accumulator, which a refused detour truncates back,
+    // so nothing in a run can put a caller's exclusion back.
     //
     // Stride, handoff radius and idle are drawn from a generator the Executor
     // owns and seeds at every run() entry: from std::random_device, or from
@@ -125,7 +139,8 @@ namespace ww::exec
                  runtime::ContextPool &pool,
                  const Callbacks &callbacks,
                  std::optional<uint32_t> fixedSeed = std::nullopt,
-                 uint32_t disabledMoves = 0);
+                 uint32_t disabledMoves = 0,
+                 std::vector<uint32_t> excludedTransitions = {});
 
         // Wall-clock budget of a walk hop covering `pathTiles` path tiles:
         // a fixed base plus a per-tile allowance, so a long click is not
@@ -696,6 +711,11 @@ namespace ww::exec
         // Movement categories (format::MoveCategory bits) every plan and
         // re-plan of this run refuses; see ww_executor_run_ex.
         uint32_t disabledMoves{0};
+
+        // Transitions the caller excluded for the whole run (ww_executor_run_opts).
+        // Every plan refuses them alongside RunState::excludedTransitions; see
+        // the class comment for why the two lists are never merged.
+        std::vector<uint32_t> callerExcludedTransitions;
     };
 }
 
