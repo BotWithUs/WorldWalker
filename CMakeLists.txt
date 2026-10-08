@@ -275,6 +275,7 @@ set(wwcli_SOURCES
 	"src/cli/CrossCheck.cpp"
 	"src/cli/DescribeTests.cpp"
 	"src/cli/DoorPaths.cpp"
+	"src/cli/ExcludeTests.cpp"
 	"src/cli/ExecutorTests.cpp"
 	"src/cli/F2pPlannerTests.cpp"
 	"src/cli/F2pTests.cpp"

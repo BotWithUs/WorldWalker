@@ -359,6 +359,100 @@ void ww_context_pool_destroy(ww_context_pool *pool)
     delete pool;
 }
 
+namespace
+{
+    // The first published sizeof(WwPlanOptions). A caller's structSize below
+    // it predates the struct; above sizeof(WwPlanOptions) it comes from a newer
+    // header. Both are refused (see WwPlanOptions).
+    constexpr uint32_t kPlanOptionsMinSize = 32u;
+    static_assert(sizeof(WwPlanOptions) >= kPlanOptionsMinSize);
+
+    // A WwPlanOptions after its structural checks, with the index list copied
+    // out of the caller's memory so nothing retains the host pointer.
+    struct PlanOptions
+    {
+        uint32_t              disabledMoves{0};
+        uint32_t              flags{0};
+        std::vector<uint32_t> excludedTransitions;
+    };
+
+    // The structural half of the WwPlanOptions contract: size, flags, pad and
+    // the pointer/count pair. Needs no artifact, so it runs before the lock.
+    // NULL options is valid and reads as all-zero. False with the last error set
+    // (prefixed with `fn`) on a refusal.
+    bool readPlanOptions(const WwPlanOptions *options, const char *fn, PlanOptions &out)
+    {
+        out = PlanOptions{};
+        if (options == nullptr)
+        {
+            return true;
+        }
+        if (options->structSize < kPlanOptionsMinSize || options->structSize > sizeof(WwPlanOptions))
+        {
+            setLastError(std::string(fn) + ": options->structSize " + std::to_string(options->structSize)
+                         + " is not one this library knows (expected "
+                         + std::to_string(sizeof(WwPlanOptions)) + ")");
+            return false;
+        }
+        if ((options->flags & ~static_cast<uint32_t>(WW_PLAN_KNOWN_FLAGS)) != 0u)
+        {
+            setLastError(std::string(fn) + ": options->flags has unknown bits "
+                         + std::to_string(options->flags & ~static_cast<uint32_t>(WW_PLAN_KNOWN_FLAGS)));
+            return false;
+        }
+        if (options->pad != 0u)
+        {
+            setLastError(std::string(fn) + ": options->pad must be zero");
+            return false;
+        }
+        if (options->excludedTransitions == nullptr && options->excludedTransitionCount != 0u)
+        {
+            setLastError(std::string(fn) + ": options->excludedTransitions is null with a non-zero count");
+            return false;
+        }
+        out.disabledMoves = options->disabledMoves;
+        out.flags = options->flags;
+        if (options->excludedTransitionCount != 0u)
+        {
+            out.excludedTransitions.assign(options->excludedTransitions,
+                                           options->excludedTransitions + options->excludedTransitionCount);
+        }
+        return true;
+    }
+
+    // The artifact half: every index must name a transition of `reader`, and
+    // with WW_PLAN_EXCLUDE_LOC_SIBLINGS each local one widens to its loc's
+    // rows. MUST run under the artifact's lifecycle lock, the same hold the
+    // plan runs under, so a reload cannot move the transition count between
+    // this check and the plan. False with the last error set on an index out of
+    // range; `io` is then unusable.
+    bool resolveExclusions(const ww::format::ArtifactReader &reader, const char *fn, PlanOptions &io)
+    {
+        const std::span<const ww::format::TransitionRecord> txs = reader.transitions();
+        for (const uint32_t transitionIndex : io.excludedTransitions)
+        {
+            if (transitionIndex >= txs.size())
+            {
+                setLastError(std::string(fn) + ": excluded transition " + std::to_string(transitionIndex)
+                             + " is out of range (the artifact has " + std::to_string(txs.size())
+                             + " transitions; runtime-loaded indices change on every teleport reload)");
+                return false;
+            }
+        }
+        if ((io.flags & WW_PLAN_EXCLUDE_LOC_SIBLINGS) != 0u)
+        {
+            const std::size_t listedCount = io.excludedTransitions.size();
+            for (std::size_t i = 0; i < listedCount; ++i)
+            {
+                // By value: the append below may reallocate the vector.
+                const uint32_t transitionIndex = io.excludedTransitions[i];
+                ww::exec::appendTransitionsOfLoc(txs, txs[transitionIndex], io.excludedTransitions);
+            }
+        }
+        return true;
+    }
+}
+
 int32_t ww_executor_run(ww_artifact      *artifact,
                          ww_context_pool *pool,
                          WwGoal           goal,
@@ -372,6 +466,18 @@ int32_t ww_executor_run_ex(ww_artifact       *artifact,
                             WwGoal             goal,
                             const WwCallbacks *callbacks,
                             uint32_t           disabledMoves)
+{
+    WwPlanOptions options{};
+    options.structSize = sizeof(WwPlanOptions);
+    options.disabledMoves = disabledMoves;
+    return ww_executor_run_opts(artifact, pool, goal, callbacks, &options);
+}
+
+int32_t ww_executor_run_opts(ww_artifact         *artifact,
+                              ww_context_pool     *pool,
+                              WwGoal               goal,
+                              const WwCallbacks   *callbacks,
+                              const WwPlanOptions *options)
 {
     if (artifact == nullptr)
     {
@@ -414,14 +520,23 @@ int32_t ww_executor_run_ex(ww_artifact       *artifact,
     }
     try
     {
+        PlanOptions opts;
+        if (!readPlanOptions(options, "ww_executor_run", opts))
+        {
+            return WW_STATUS_FAILED;
+        }
         // Shared for the whole walk: the Executor borrows requirement-id spans
         // and transition records from the reader for its entire run.
         const std::shared_lock<std::shared_mutex> shared(artifact->lifecycle);
+        if (!resolveExclusions(artifact->reader, "ww_executor_run", opts))
+        {
+            return WW_STATUS_FAILED;
+        }
         // Declared after the lock so it unwinds first: the thread is marked as
         // holding the lock only while it actually does.
         const HeldRunScope held(artifact);
         ww::exec::Executor executor(artifact->reader, pool->pool, *callbacks, std::nullopt,
-                                    disabledMoves);
+                                    opts.disabledMoves, std::move(opts.excludedTransitions));
         return static_cast<int32_t>(executor.run(goal));
     }
     catch (const std::exception &e)
@@ -461,6 +576,21 @@ ww_result ww_query_moves(ww_artifact                *artifact,
                           WwPath                     *outPath,
                           uint32_t                    disabledMoves)
 {
+    WwPlanOptions options{};
+    options.structSize = sizeof(WwPlanOptions);
+    options.disabledMoves = disabledMoves;
+    return ww_query_opts(artifact, pool, start, goal, capabilities, instance, &options, outPath);
+}
+
+ww_result ww_query_opts(ww_artifact                *artifact,
+                         ww_context_pool            *pool,
+                         WwTile                      start,
+                         WwGoal                      goal,
+                         const WwCapabilitySnapshot *capabilities,
+                         const WwInstanceChunks     *instance,
+                         const WwPlanOptions        *options,
+                         WwPath                     *outPath)
+{
     if (outPath == nullptr)
     {
         setLastError("ww_query: outPath is null");
@@ -482,23 +612,37 @@ ww_result ww_query_moves(ww_artifact                *artifact,
     }
     try
     {
+        PlanOptions opts;
+        if (!readPlanOptions(options, "ww_query", opts))
+        {
+            return WW_ERR_INVALID;
+        }
         const std::shared_lock<std::shared_mutex> shared(artifact->lifecycle);
+        if (!resolveExclusions(artifact->reader, "ww_query", opts))
+        {
+            return WW_ERR_INVALID;
+        }
         ww::runtime::CapabilitySnapshot snapshot;
         if (capabilities != nullptr)
         {
             ww::exec::copyCapabilities(*capabilities, snapshot);
         }
-        // No capabilities admits every gate. With moves disabled the planner
-        // still needs a snapshot to carry the mask, so it gets one that
-        // admits every gate the way a null one would; with none disabled the
-        // call is exactly the old one.
-        if (capabilities == nullptr && disabledMoves != 0u)
+        // No capabilities admits every gate. With moves disabled or
+        // transitions excluded the planner still needs a snapshot to carry
+        // them, so it gets one that admits every gate the way a null one
+        // would; with neither the call is exactly the old one.
+        const bool hasRefusals = opts.disabledMoves != 0u || !opts.excludedTransitions.empty();
+        if (capabilities == nullptr && hasRefusals)
         {
             snapshot.admitEveryRequirement();
         }
-        snapshot.disableMoves(disabledMoves, artifact->reader.moveCategories(),
+        for (const uint32_t transitionIndex : opts.excludedTransitions)
+        {
+            snapshot.excludeTransition(transitionIndex);
+        }
+        snapshot.disableMoves(opts.disabledMoves, artifact->reader.moveCategories(),
                               artifact->reader.membersOnly());
-        const bool hasSnapshot = capabilities != nullptr || disabledMoves != 0u;
+        const bool hasSnapshot = capabilities != nullptr || hasRefusals;
         const ww::runtime::CapabilitySnapshot *snapshotPtr = hasSnapshot ? &snapshot : nullptr;
 
         // RAII lease — released on scope exit even when assemble() throws. The
