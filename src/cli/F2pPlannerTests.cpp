@@ -290,6 +290,33 @@ namespace
         return failures + checkFreeToPlayPlan(f, freeToPlay, what);
     }
 
+    // The entrance a free account was sent to live on 2026-10-07 (by an old
+    // walker with no F2pZones section): loc 66991, the stairs south of
+    // Taverley (wiki: Taverley Dungeon, members = Yes). Its origin is free
+    // land, so only the members-land destination makes the row members-only,
+    // and a plan from Draynor bank to the inside must be refused at once
+    // instead of clicking the stairs.
+    int checkTaverleyStairs(const Fixture &f, CHandles &h)
+    {
+        int failures = 0;
+        std::size_t found = 0;
+        const auto txs = f.reader.transitions();
+        for (uint32_t i = 0; i < txs.size(); ++i)
+        {
+            const auto &tx = txs[i];
+            if (tx.objectId == 66991 && tx.originX == 2885 && tx.originY == 3395 && tx.destY > 6400)
+            {
+                ++found;
+                failures += expect(f.isMembersOnly(i), "loc 66991: #" + std::to_string(i)
+                                                           + " into Taverley Dungeon is not members-only");
+            }
+        }
+        failures += expect(found > 0, "loc 66991: the Taverley Dungeon stairs are not in the artifact");
+        std::printf("f2p: test 2 loc 66991 -> Taverley Dungeon: %zu transition(s), members-only\n", found);
+        return failures + checkRefused(h, WwTile{3092, 3242, 0}, WwTile{2884, 9798, 0},
+                                       "test 2 Draynor bank -> Taverley Dungeon");
+    }
+
     int checkGoals(const Fixture &f, CHandles &h)
     {
         const WwTile lumbridge{3222, 3218, 0};
@@ -505,6 +532,7 @@ namespace
         int failures = 0;
         failures += checkCharters(f, h);
         failures += checkTaverleyDungeon(f);
+        failures += checkTaverleyStairs(f, h);
         failures += checkGoals(f, h);
         failures += checkControls(f, h);
         failures += checkSeedableLodestones(f);
