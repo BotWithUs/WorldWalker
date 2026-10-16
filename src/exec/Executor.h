@@ -496,8 +496,18 @@ namespace ww::exec
         // (isShortOfCrossing) is clicked once more (retryUnmovedCrossing): a
         // door like Draynor Manor's walks the player through itself, and a
         // walk clicked before that starts cancels it.
+        //
+        // A long local hop (runtime::isLongLocalHop) holds the player still
+        // before it moves them; standing still mid-crossing (isMidCrossing)
+        // does not end its wait, and its budget grows by a tick per tile.
         void awaitLanding(const format::TransitionRecord &tx, const WwTile &start,
-                          WwTile &ioPosition);
+                          WwTile &ioPosition, runtime::WorldView &view);
+
+        // True when `at` is still inside a crossing of tx begun from `start`:
+        // short of it (isShortOfCrossing), or, outside an instance, on a tile
+        // the baked grid gives no area (the obstacle's own solid footprint).
+        static bool isMidCrossing(const format::TransitionRecord &tx, const WwTile &start,
+                                  const WwTile &at, runtime::WorldView &view);
 
         // A same-floor crossing that left the player short of it (on `start`
         // or its origin): click it once more, running its chain again after
@@ -507,7 +517,7 @@ namespace ww::exec
         // closed loc the host clicked to no effect; a shut one holds them, and
         // the caller's landing judgement refuses the crossing.
         void retryUnmovedCrossing(const format::TransitionRecord &tx, const WwTile &start,
-                                  WwTile &ioPosition);
+                                  WwTile &ioPosition, runtime::WorldView &view);
 
         // Deal with one open conversation page, if any, while the player is at
         // `at`: answer the option list inside a dialog zone, else continue a

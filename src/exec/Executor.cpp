@@ -118,7 +118,11 @@ namespace ww::exec
         // walk click issued during that forced move, so the executor waits for
         // the player to land: near the destination, or standing still for
         // kLandingStillPolls ticks somewhere else (a failed jump drops you in a
-        // pit), within kLandingMaxTicks.
+        // pit), within kLandingMaxTicks. A long local hop holds the player
+        // still for several ticks before the move (Everlight's bridge, live
+        // 2026-10-16: still at 3s, across at 4.5s), so for one stillness
+        // mid-crossing is not a landing, and the budget gets a tick per tile
+        // of the hop on top.
         constexpr int32_t kLandingMaxTicks   = 8;   // ~4.8s past the fixed settle
         constexpr int32_t kLandingStillPolls = 3;
 
@@ -662,10 +666,10 @@ namespace ww::exec
         callbacks->readPosition(callbacks->user, &outPosition);
         if (!isGlobal && hasIssuedAction)
         {
-            awaitLanding(tx, start, outPosition);
+            awaitLanding(tx, start, outPosition, view);
             if (runtime::isSameFloorCrossing(tx) && isShortOfCrossing(tx, start, outPosition))
             {
-                retryUnmovedCrossing(tx, start, outPosition);
+                retryUnmovedCrossing(tx, start, outPosition, view);
             }
         }
         outReport.isOffCourse = didAct && hasMissedLanding(tx, start, outPosition, view);
@@ -673,7 +677,7 @@ namespace ww::exec
     }
 
     void Executor::retryUnmovedCrossing(const format::TransitionRecord &tx, const WwTile &start,
-                                        WwTile &ioPosition)
+                                        WwTile &ioPosition, runtime::WorldView &view)
     {
         // Still short of the crossing: the click was dropped, a door that
         // walks you through (Draynor Manor) has not started, or the click
@@ -692,7 +696,7 @@ namespace ww::exec
             }
             callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
             callbacks->readPosition(callbacks->user, &ioPosition);
-            awaitLanding(tx, start, ioPosition);
+            awaitLanding(tx, start, ioPosition, view);
         }
         if (!isShortOfCrossing(tx, start, ioPosition))
         {
@@ -709,7 +713,7 @@ namespace ww::exec
         callbacks->walkTo(callbacks->user, dest);
         callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
         callbacks->readPosition(callbacks->user, &ioPosition);
-        awaitLanding(tx, start, ioPosition);
+        awaitLanding(tx, start, ioPosition, view);
     }
 
     bool Executor::isSameTile(const WwTile &a, const WwTile &b)
@@ -815,11 +819,14 @@ namespace ww::exec
     }
 
     void Executor::awaitLanding(const format::TransitionRecord &tx, const WwTile &start,
-                                WwTile &ioPosition)
+                                WwTile &ioPosition, runtime::WorldView &view)
     {
+        const bool isLongHop = runtime::isLongLocalHop(tx);
+        const int32_t maxTicks =
+            isLongHop ? kLandingMaxTicks + runtime::transitionHop(tx) : kLandingMaxTicks;
         int32_t stillPolls = 0;
         int32_t tick = 0;
-        while (tick < kLandingMaxTicks)
+        while (tick < maxTicks)
         {
             // A conversation holds the player where they are until it is
             // answered, so it neither spends the landing budget nor counts as
@@ -834,7 +841,9 @@ namespace ww::exec
                 stillPolls = 0;
                 continue;
             }
-            if (hasLanded(tx, start, ioPosition) || stillPolls >= kLandingStillPolls)
+            const bool isAtRest = stillPolls >= kLandingStillPolls
+                               && !(isLongHop && isMidCrossing(tx, start, ioPosition, view));
+            if (hasLanded(tx, start, ioPosition) || isAtRest)
             {
                 return;
             }
@@ -845,6 +854,16 @@ namespace ww::exec
             stillPolls = isSameTile(pos, ioPosition) ? stillPolls + 1 : 0;
             ioPosition = pos;
         }
+    }
+
+    bool Executor::isMidCrossing(const format::TransitionRecord &tx, const WwTile &start,
+                                 const WwTile &at, runtime::WorldView &view)
+    {
+        if (isShortOfCrossing(tx, start, at))
+        {
+            return true;
+        }
+        return !view.isInstanced() && view.areaAt(at.x, at.y, at.plane) < 0;
     }
 
     bool Executor::isOffCourse(const format::TransitionRecord &tx, const WwTile &at)
