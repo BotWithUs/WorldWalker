@@ -3641,6 +3641,70 @@ namespace ww::cli
             failures += harness.unexpectedActions == 0 ? 0u : 1u;
             return failures;
         }
+
+        // The live walk of 2026-10-16 at Everlight: from the bridge's south end
+        // 3740,3253 to the Amphitheatre 3750,3296 over loc 116631 Bridge
+        // [Traverse] (row 3740,3253 -> 3740,3259, a 6-tile hop). The game held
+        // the player on the south end for 3s after the click; the executor took
+        // three still ticks for a landing 6 tiles short, re-planned, clicked the
+        // bridge again, and that queued click carried the player back south.
+        constexpr exec::WwTile kEverlightBridgeSouth{ 3740, 3253, 0 };
+        constexpr exec::WwTile kEverlightBridgeNorth{ 3740, 3259, 0 };
+        constexpr exec::WwGoal kEverlightAmphitheatre{ 3750, 3296, 0, 0 };
+        constexpr std::int32_t kEverlightBridgeLoc = 116631;
+        constexpr std::int32_t kEverlightWindupTicks = 7;
+
+        bool hasEverlightBridge(const format::ArtifactReader &reader)
+        {
+            for (const format::TransitionRecord &tx : reader.transitions())
+            {
+                const exec::WwTile origin{ tx.originX, tx.originY,
+                                           static_cast<std::int32_t>(tx.originPlane) };
+                if (tx.objectId == kEverlightBridgeLoc && isSameTile(origin, kEverlightBridgeSouth))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Test 9: the bridge lands kEverlightWindupTicks ticks after one click,
+        // with walls between areas. The run must cross on that click and walk
+        // on without a re-plan.
+        std::size_t testLongHopWindup(ExecContext &ctx)
+        {
+            if (!hasEverlightBridge(ctx.reader))
+            {
+                std::printf("  exec:   long-hop windup test skipped (no Everlight bridge)\n");
+                return 0;
+            }
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition,
+                                              kEverlightBridgeSouth.x, kEverlightBridgeSouth.y,
+                                              kEverlightBridgeSouth.plane);
+            harness.transitionDest    = kEverlightBridgeNorth;
+            harness.landingDelayTicks = kEverlightWindupTicks;
+            harness.areaWalls         = &ctx.view;
+            harness.watchedObjectId   = kEverlightBridgeLoc;
+            harness.watchedOrigin     = kEverlightBridgeSouth;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwStatus status = executor.run(kEverlightAmphitheatre);
+
+            std::printf("  exec:   long-hop windup status=%d (expect 0) bridge-clicks=%d"
+                        " (expect 1) replans=%d stucks=%d cancelled=%d (expect 0, 0, 0)\n",
+                        static_cast<int>(status), harness.watchedInteracts,
+                        harness.replanStartedEvents, harness.stuckEvents,
+                        harness.cancelledLandings);
+            printCallPattern("long-hop windup ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.watchedInteracts == 1 ? 0u : 1u;
+            failures += harness.replanStartedEvents == 0 ? 0u : 1u;
+            failures += harness.stuckEvents == 0 ? 0u : 1u;
+            failures += harness.cancelledLandings == 0 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
     }
 
     std::size_t runExecutorTests(const format::ArtifactReader &reader, const char *artifactPath)
@@ -3713,6 +3777,7 @@ namespace ww::cli
         failures += testRefusedTeleport(artifactPath);
         failures += testDoorOpensShort(ctx, true);
         failures += testDoorOpensShort(ctx, false);
+        failures += testLongHopWindup(ctx);
         failures += testAbsurdDetour(artifactPath);
         return failures;
     }
