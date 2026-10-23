@@ -1,0 +1,52 @@
+{
+    "builtAtUtc":  "2026-10-23T02:16:32Z",
+    "cacheDirMtime":  134369071039967372,
+    "cacheId":  "RuneScape",
+    "cacheIndexVersion":  null,
+    "cacheKind":  "local+live",
+    "collisionFingerprint":  "0x6BAFA48B3C7EB141",
+    "command":  "build",
+    "counts":  {
+                   "areas":  52591,
+                   "edges":  12701,
+                   "landmarks":  16,
+                   "squares":  8715,
+                   "teleportZones":  6,
+                   "transitions":  13635
+               },
+    "datasetFiles":  [
+                         {
+                             "bytes":  832009,
+                             "fnv1a64":  "0xD6DD6FE740DEC0C3",
+                             "name":  "transport_links.json"
+                         },
+                         {
+                             "bytes":  33783,
+                             "fnv1a64":  "0xAAEFE8F3721107FD",
+                             "name":  "spell_teleports.json"
+                         },
+                         {
+                             "bytes":  102035,
+                             "fnv1a64":  "0x5455569AC67FC2C9",
+                             "name":  "item_teleports.json"
+                         },
+                         {
+                             "bytes":  2690,
+                             "fnv1a64":  "0x85FF91E543FC9363",
+                             "name":  "dialog_zones.json"
+                         },
+                         {
+                             "bytes":  26619,
+                             "fnv1a64":  "0x7D2312DCEBAB2CF5",
+                             "name":  "f2p_zones.json"
+                         }
+                     ],
+    "datasetHash":  "0x8E7009C9",
+    "datasetVersion":  "7b394ae",
+    "schema":  1,
+    "serverVersion":  null,
+    "sourceVersion":  "v0.1.2-106-g2d1a293",
+    "wwbuildBuiltAt":  "Oct 22 2026 19:11:13",
+    "artifactSha256":  "43f20fef0f072865ce9c24e7b8ffdf31939aad7604676c39f10af08036215c46",
+    "artifactBytes":  9734901
+}
