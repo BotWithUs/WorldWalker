@@ -43580,10 +43580,10 @@
     "dest_plane": 0
   },
   {
-    "name": "Dungeon entrances",
-    "object_id": 0,
+    "name": "Climb-up",
+    "object_id": 30575,
     "x": 3405,
-    "y": 9906,
+    "y": 9907,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
@@ -45863,7 +45863,13 @@
     "option_index": 0,
     "dest_x": 3440,
     "dest_y": 9884,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 31173,
+        "value": 220
+      }
+    }
   },
   {
     "name": "Pass-through",
@@ -45887,8 +45893,73 @@
     "shape": 10,
     "rotation": 1,
     "option_index": 0,
-    "dest_x": 3440,
-    "dest_y": 9885,
+    "dest_x": 3428,
+    "dest_y": 3485,
+    "dest_plane": 0,
+    "chain": [
+      {
+        "wait": 2
+      },
+      {
+        "action": [
+          57,
+          1,
+          -1,
+          82706434
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Open",
+    "object_id": 3444,
+    "x": 3405,
+    "y": 9895,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 3405,
+    "dest_y": 9894,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 3444,
+    "x": 3405,
+    "y": 9894,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 3405,
+    "dest_y": 9895,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 3445,
+    "x": 3432,
+    "y": 9897,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 3433,
+    "dest_y": 9897,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
+    "object_id": 3445,
+    "x": 3433,
+    "y": 9897,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 3432,
+    "dest_y": 9897,
     "dest_plane": 0
   },
   {
