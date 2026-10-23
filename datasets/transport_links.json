@@ -41423,7 +41423,13 @@
     "option_index": 0,
     "dest_x": 3405,
     "dest_y": 9906,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2171,
+        "value": 4
+      }
+    }
   },
   {
     "name": "Dungeon entrances",
@@ -45882,7 +45888,13 @@
     "option_index": 0,
     "dest_x": 3440,
     "dest_y": 9887,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2171,
+        "value": 60
+      }
+    }
   },
   {
     "name": "Pass-through",
@@ -45896,6 +45908,12 @@
     "dest_x": 3428,
     "dest_y": 3485,
     "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2171,
+        "value": 60
+      }
+    },
     "chain": [
       {
         "wait": 2
@@ -45921,7 +45939,13 @@
     "option_index": 0,
     "dest_x": 3405,
     "dest_y": 9894,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2171,
+        "value": 4
+      }
+    }
   },
   {
     "name": "Open",
@@ -45934,7 +45958,13 @@
     "option_index": 0,
     "dest_x": 3405,
     "dest_y": 9895,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2171,
+        "value": 4
+      }
+    }
   },
   {
     "name": "Open",
@@ -45947,7 +45977,13 @@
     "option_index": 0,
     "dest_x": 3433,
     "dest_y": 9897,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2171,
+        "value": 7
+      }
+    }
   },
   {
     "name": "Open",
@@ -45960,7 +45996,13 @@
     "option_index": 0,
     "dest_x": 3432,
     "dest_y": 9897,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2171,
+        "value": 7
+      }
+    }
   },
   {
     "name": "Walk through",

@@ -1375,15 +1375,31 @@ left it standing in the yard, and on 2026-10-23 five walker walks reached
 the tunnel step and never landed. It is now gated on varbit 31173
 (`MYQ7_MAIN`) >= 220, the quest's end value in the cs2 dump's quests.json.
 
-`wwcli path ... --varbit 31173=0`, before -> after: the landing to Drezel, no
-route -> both gates (cost 66.6); 3407,9898 to Lumbridge Castle's bank
-(3208,3220,2) with no teleport, no route -> up the ladder; Lumbridge to Drezel,
-the tunnel -> the trapdoor and both gates; Drezel to Mazchna and Achtryn
-(3510,3504) with no teleport, through the barrier (cost 114.7). `wwcli
-scripted` covers the first and the last as `paterdomus_passage`.
+**Gated on Priest in Peril.** The quest is varp 2171 (`PRIESTPERIL`, complete
+at 60 in the cs2 dump's quests.json); no player varbit sits over it. The
+stages are PathWithUs's `PriestInPerilQuest` (2 kills Cerberus in the
+Mausoleum, 4 works the monuments behind gate 3444, 7 goes back down through
+the gate to Drezel), so: the trapdoor 30571 and gate 3444 need varp 2171 >= 4,
+gate 3445 into Drezel's room >= 7, and both barrier rows >= 60 (the barrier
+lets the player into Morytania only once the quest is done). The ladder out
+is not gated: it only takes a player already in the passage out of it.
+
+**The host must report varp 2171.** A varp gate is denied live until the host
+reads the varp (see "Gates and routes"). The Java host reads a fixed list,
+`REQUIREMENT_VARPS` in `WorldWalkerCallbackBridge`; until 2171 is on it,
+every walk through the passage is refused, as if the quest were not done.
+
+`wwcli path ... --varbit 31173=0 --varp 2171=60`, before -> after: the landing
+to Drezel, no route -> both gates (cost 66.6); 3407,9898 to Lumbridge Castle's
+bank (3208,3220,2) with no teleport, no route -> up the ladder; Lumbridge to
+Drezel, the tunnel -> the trapdoor and both gates; Drezel to Mazchna and
+Achtryn (3510,3504) with no teleport, no route -> through the barrier (cost
+114.7). With `--varp 2171=0` there is no route to Drezel and none through the
+barrier, and the ladder still takes the player out. `wwcli scripted` checks
+both as `paterdomus_passage`.
 
 **Not verified live:** the barrier's landing tile and that its warning is
-1262 here, and the ladder's landing.
+1262 here, the ladder's landing, and the stage thresholds below 60.
 
 ## How they're consumed
 
