@@ -284,9 +284,10 @@ bake derives from the cache:
   loc has `interactType > 0` (`MapSquare.cpp`), and some doors with an `Open`
   option carry none: 2546 and 2548 (Ardougne castle, Bravek's house), 34825,
   21814 (Tower of Life), 25638 (Camelot), 31808 (the Clock Tower dungeon),
-  5183, 5186 and 5172 (Fenkenstrain's castle), and 34819 and 34822, the
+  5183, 5186 and 5172 (Fenkenstrain's castle), 34819 and 34822, the
   double front door of the East Ardougne church at 2615-2616,3303, whose
-  interior could not be reached at all (live 2026-09-29). Each crossing has a
+  interior could not be reached at all (live 2026-09-29), and 3444 and 3445,
+  the gates in the passage under Paterdomus (2026-10-23). Each crossing has a
   row per direction with the door's own shape and rotation. Fixing the
   library would derive these and probably others: the decoder defaults
   `interactType` to 0 and sets it only from opcode 19, where the client
@@ -1270,6 +1271,68 @@ Left as they were, and still dropped: the near-duplicate row one tile east
 380, "Travel (Port Sarim)") may ask questions on the way that no dialog zone
 answers yet. Not run against a live client: the wait and whether the fare
 raises a conversation are unverified.
+
+## The passage under Paterdomus (2026-10-23)
+
+The Mausoleum trapdoor 30571 (3405,3505) lands the player at 3405,9906, in a
+room the bake had joined to nothing else. With no teleport the walker found no
+route from it, to Drezel (3438,9895) or out (`wwcli path 3405 9906 0 3438 9895
+0`: no route). Live, Nature Spirit's walk to Drezel looped and the Mazchna and
+Achtryn slayer walks failed from 3407,9898. The passage runs: landing, gate
+3444, the mausoleum, gate 3445, Drezel's room, Holy barrier 3443, and out onto
+the bridge over the Salve. The cache decode lost three links in it:
+
+- **The gates.** 3444 (`PIP_UNDERGROUND_DOOR1`, 3405,9895, shape 0 rot 3) and
+  3445 (`PIP_UNDERGROUND_DOOR2`, 3432,9897, shape 0 rot 2) have `Open` but no
+  opcode 19, so they are doors the bake skips (see "Quest floors and
+  entrances" above). A row per direction each. Live, SkillingWithUs opened
+  3444 and stood at 3405,9894 next, the south row's landing.
+- **The ladder out.** 30575 (`MYQ4_LADDER_FROM_CELLAR`, 3405,9907) is
+  derived as a climb-up crossing, but nothing pairs it: the surface is 6400
+  tiles north on the same plane. The Gibson row for it named `object_id` 0
+  and was dropped. It now names 30575 at its anchor, landing at 3405,3504.
+- **The barrier.** The row from Drezel's side (3440,9887) landed at
+  3440,9885, a pocket with no exit. The barrier puts the player on the
+  bridge (the RS wiki; SkillingWithUs's Salve crossing), whose west end
+  3428,3485 is Morytania's area and the landing of the Gibson row for the
+  barrier, which also named `object_id` 0. The row lands there now and
+  confirms the warning it raises, interface 1262, with a blind
+  `COMPONENT` click on 1262:2 (`action [57, 1, -1, 82706434]`, the click
+  PathWithUs sends) two ticks after the barrier.
+
+The tunnel 102095 east of the temple (`MYQ7_PATERDOMUS_TUNNEL_ENTRANCE`,
+3422,3485, landing 3440,9884 south of the barrier) is cheaper than the
+trapdoor, so every walk to Drezel took it. It opens only once River of Blood
+is done: on 2026-10-20 three Enter clicks by an account without the quest
+left it standing in the yard, and on 2026-10-23 five walker walks reached
+the tunnel step and never landed. It is now gated on varbit 31173
+(`MYQ7_MAIN`) >= 220, the quest's end value in the cs2 dump's quests.json.
+
+**Gated on Priest in Peril.** The quest is varp 2171 (`PRIESTPERIL`, complete
+at 60 in the cs2 dump's quests.json); no player varbit sits over it. The
+stages are PathWithUs's `PriestInPerilQuest` (2 kills Cerberus in the
+Mausoleum, 4 works the monuments behind gate 3444, 7 goes back down through
+the gate to Drezel), so: the trapdoor 30571 and gate 3444 need varp 2171 >= 4,
+gate 3445 into Drezel's room >= 7, and both barrier rows >= 60 (the barrier
+lets the player into Morytania only once the quest is done). The ladder out
+is not gated: it only takes a player already in the passage out of it.
+
+**The host must report varp 2171.** A varp gate is denied live until the host
+reads the varp (see "Gates and routes"). The Java host reads a fixed list,
+`REQUIREMENT_VARPS` in `WorldWalkerCallbackBridge`; until 2171 is on it,
+every walk through the passage is refused, as if the quest were not done.
+
+`wwcli path ... --varbit 31173=0 --varp 2171=60`, before -> after: the landing
+to Drezel, no route -> both gates (cost 66.6); 3407,9898 to Lumbridge Castle's
+bank (3208,3220,2) with no teleport, no route -> up the ladder; Lumbridge to
+Drezel, the tunnel -> the trapdoor and both gates; Drezel to Mazchna and
+Achtryn (3510,3504) with no teleport, no route -> through the barrier (cost
+114.7). With `--varp 2171=0` there is no route to Drezel and none through the
+barrier, and the ladder still takes the player out. `wwcli scripted` checks
+both as `paterdomus_passage`.
+
+**Not verified live:** the barrier's landing tile and that its warning is
+1262 here, the ladder's landing, and the stage thresholds below 60.
 
 ## How they're consumed
 
