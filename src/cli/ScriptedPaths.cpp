@@ -44,6 +44,10 @@
 //                      beside its origin to its landing.
 //   port_sarim_boat  — Port Sarim to Musa Point takes Captain Tobias's boat
 //                      (a named route; skips on an artifact without the row).
+//   paterdomus_passage - without River of Blood, the Mausoleum landing reaches
+//                      Drezel through gates 3444 and 3445, and Drezel's room
+//                      reaches Canifis through the Holy barrier (a named
+//                      route; skips on an artifact without the gate rows).
 namespace
 {
     enum class Outcome { Pass, Fail, Skip };
@@ -727,6 +731,71 @@ namespace
         }
         return {"port_sarim_boat", Outcome::Fail, "the route does not take the boat"};
     }
+
+    // The object ids of `plan`'s transition steps, in order.
+    std::vector<std::int32_t> planObjects(const ww::format::ArtifactReader &reader,
+                                          const ww::runtime::Plan &plan)
+    {
+        const auto txs = reader.transitions();
+        std::vector<std::int32_t> objects;
+        for (const ww::runtime::Step &s : plan.steps)
+        {
+            if (s.kind == ww::runtime::StepKind::Transition && s.transitionIndex < txs.size())
+            {
+                objects.push_back(txs[s.transitionIndex].objectId);
+            }
+        }
+        return objects;
+    }
+
+    // True when `objects` holds `first` and, somewhere after it, `second`.
+    bool takesInOrder(const std::vector<std::int32_t> &objects, std::int32_t first,
+                      std::int32_t second)
+    {
+        const auto at = std::find(objects.begin(), objects.end(), first);
+        return at != objects.end() && std::find(at + 1, objects.end(), second) != objects.end();
+    }
+
+    // Category 8 - a named route: the passage under Paterdomus for an account
+    // without River of Blood (an empty snapshot denies the tunnel 102095). The
+    // Mausoleum trapdoor's landing reaches Drezel through the gates 3444 then
+    // 3445, and Drezel's room reaches Canifis through the Holy barrier 3443.
+    // Skips on an artifact baked before the gate rows.
+    CaseResult paterdomusPassage(const ww::format::ArtifactReader &reader,
+                                 ww::runtime::PathAssembler &assembler)
+    {
+        constexpr std::int32_t kFirstGate = 3444;
+        constexpr std::int32_t kSecondGate = 3445;
+        constexpr std::int32_t kHolyBarrier = 3443;
+        const auto txs = reader.transitions();
+        const bool hasGates = std::any_of(txs.begin(), txs.begin() + reader.bakedTransitions(),
+            [](const ww::format::TransitionRecord &tx) { return tx.objectId == kFirstGate; });
+        if (!hasGates)
+        {
+            return {"paterdomus_passage", Outcome::Skip, "the artifact predates the gate rows"};
+        }
+        ww::runtime::CapabilitySnapshot noRiverOfBlood;
+        ww::runtime::Plan toDrezel;
+        if (!assembler.assemble(3405, 9906, 0, 3438, 9895, 0, &noRiverOfBlood, toDrezel))
+        {
+            return {"paterdomus_passage", Outcome::Fail, "no route from the landing to Drezel"};
+        }
+        if (!takesInOrder(planObjects(reader, toDrezel), kFirstGate, kSecondGate))
+        {
+            return {"paterdomus_passage", Outcome::Fail, "the route to Drezel skips the gates"};
+        }
+        ww::runtime::Plan toCanifis;
+        if (!assembler.assemble(3438, 9895, 0, 3510, 3504, 0, &noRiverOfBlood, toCanifis))
+        {
+            return {"paterdomus_passage", Outcome::Fail, "no route from Drezel to Canifis"};
+        }
+        const std::vector<std::int32_t> out = planObjects(reader, toCanifis);
+        if (std::find(out.begin(), out.end(), kHolyBarrier) == out.end())
+        {
+            return {"paterdomus_passage", Outcome::Fail, "the route to Canifis skips the barrier"};
+        }
+        return {"paterdomus_passage", Outcome::Pass, nullptr};
+    }
 }
 
 int runScriptedPaths(const char *wwaPath)
@@ -748,6 +817,7 @@ int runScriptedPaths(const char *wwaPath)
             sealedPocketGoal(reader, view, assembler),
             intraAreaRide(reader, view, assembler),
             portSarimBoat(reader, assembler),
+            paterdomusPassage(reader, assembler),
         };
         int passed  = 0;
         int failed  = 0;
