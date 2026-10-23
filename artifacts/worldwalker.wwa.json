@@ -1,18 +1,18 @@
 {
-    "builtAtUtc":  "2026-10-23T02:16:32Z",
+    "builtAtUtc":  "2026-10-23T05:03:21Z",
     "cacheDirMtime":  134369071039967372,
     "cacheId":  "RuneScape",
     "cacheIndexVersion":  null,
     "cacheKind":  "local+live",
-    "collisionFingerprint":  "0x6BAFA48B3C7EB141",
+    "collisionFingerprint":  "0x68751F0DE3866D49",
     "command":  "build",
     "counts":  {
                    "areas":  52591,
-                   "edges":  12701,
+                   "edges":  12920,
                    "landmarks":  16,
                    "squares":  8715,
                    "teleportZones":  6,
-                   "transitions":  13635
+                   "transitions":  13878
                },
     "datasetFiles":  [
                          {
@@ -45,8 +45,9 @@
     "datasetVersion":  "7b394ae",
     "schema":  1,
     "serverVersion":  null,
-    "sourceVersion":  "v0.1.2-106-g2d1a293",
-    "wwbuildBuiltAt":  "Oct 22 2026 19:11:13",
-    "artifactSha256":  "43f20fef0f072865ce9c24e7b8ffdf31939aad7604676c39f10af08036215c46",
-    "artifactBytes":  9734901
+    "sourceVersion":  "v0.1.2-108-gac67b34",
+    "wwbuildBuiltAt":  "Oct 22 2026 22:02:20",
+    "artifactSha256":  "da57e0412050b284771cf1d4fdf72dc0fcec5d604fa70015ac625ad5d202aaef",
+    "artifactBytes":  9752016,
+    "releaseTag":  "wwa-2026-10-22"
 }
