@@ -12,6 +12,7 @@
 #include "cli/MoveTests.h"
 #include "cli/PathExport.h"
 #include "cli/ScriptedPaths.h"
+#include "cli/SosTests.h"
 #include "cli/WallShapeTests.h"
 #include "data/Transitions.h"
 #include "format/Artifact.h"
@@ -1083,6 +1084,11 @@ namespace
         return runScriptedPaths(argv[0]);
     }
 
+    int runSosTestsCmd(int, char **argv)
+    {
+        return runSosTests(argv[0]);
+    }
+
     int runDoorPathsCmd(int, char **argv)
     {
         return runDoorPaths(argv[0]);
@@ -1286,6 +1292,7 @@ namespace
         {"f2p",        0, "wwcli f2p [<artifact.wwa> [<dataset_dir>]]", runF2pTestsCmd},
         {"scripted",   1, "wwcli scripted <artifact.wwa>", runScriptedPathsCmd},
         {"doors",      1, "wwcli doors <artifact.wwa>", runDoorPathsCmd},
+        {"sos",        1, "wwcli sos <artifact.wwa>", runSosTestsCmd},
         {"bench",      1, "wwcli bench <artifact.wwa>", runBenchCmd},
         {"categories", 1, "wwcli categories <artifact.wwa> [<teleport_dir>]",
          runMoveCategoriesCmd},

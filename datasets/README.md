@@ -1271,6 +1271,73 @@ Left as they were, and still dropped: the near-duplicate row one tile east
 answers yet. Not run against a live client: the wait and whether the fare
 raises a conversation are unverified.
 
+## Stronghold of Security (2026-10-24)
+
+Nothing reached the Stronghold of Security (entrance 16154 `SOS_DUNG_ENT_OPEN`,
+`Climb-down`, at 3081,3420 in Barbarian Village) before these rows. Worse,
+inside it the bake's own vertical pairs climbed every ladder, chain, rope and
+vine onto plane 1 (16148 at 1859,5244,0 -> 1859,5243,1, and so on). The
+stronghold's squares carry floor on planes 1..3 above the levels, so that sky
+survives the void fence, and the planner walked it: War's start room to its
+reward room went up the start ladder, across the sky and down a chain.
+
+**Doors need no rows.** Every door half on all four levels (War 16123/16124,
+Famine 16065/16066, Pestilence 16089/16090, Death 16043/16044) is derived from
+the cache already, one hop per half and direction: 144, 152, 120 and 144 hops,
+the same counts as V1's navigation data has links for those locs. Each
+level's route crosses 12 of them (10 from the Death start room to 2341,5219,
+where its portal lands), the gate pairs the decoded map in BotWithUs-Scripts'
+`activities/stronghold` (`Floor`) walks.
+
+**The rows.** 21, one per loc placement, each on its anchor, so it suppresses
+the derived climb from that tile (`freshness: ... suppressed by datasets` went
+13 -> 26). Anchors and rotations are the cache's placements (all type 10 but
+the entrance, type 11 rotation 3). Every loc has the one option the row clicks
+(op 0, rs3-cs2-dumps `locations.json`). Landings are V1's (`rs3-nav-api`
+`mapdata.zip`, `areas.dat`), which link every one of these locs:
+
+| Level | Down (to the next start room) | Up | Portal (start room -> reward room) |
+|---|---|---|---|
+| Surface | 16154 3081,3420 -> 1859,5243 | | |
+| War | 16149 1902,5222 -> 2042,5245 | 16148 1859,5244 and 1913,5226 -> 3081,3421; chain 16146 1881,5232 -> 1859,5243 | 16150 1863,5238 -> 1914,5222, varbit 16023 = 1 |
+| Famine | 16081 2026,5218 -> 2123,5252 | 16080 2042,5246 -> 1859,5243; ropes 16078 at 2011,5192, 2031,5189, 2017,5210, 2040,5208 -> 2042,5245 | 16082 2039,5240 -> 2021,5223, varbit 16024 = 1 |
+| Pestilence | 16115 2148,5284 -> 2357,5216 | 16114 2123,5251 -> 2042,5245; vine 16112 2150,5278 -> 2123,5252 | 16116 2120,5258 -> 2146,5287, varbit 16025 = 1 |
+| Death | | 16049 2358,5216 -> 2123,5252; chains 16048 2309,5240 and 2350,5215 -> 3081,3421 | 16050 2365,5212 -> 2341,5219, varbit 16026 = 1 |
+
+The up ladders lead to the previous level's start room and the chains, ropes
+and vine to their own level's, as V1 has them. The plane-1..3 copies of the
+same locs keep their derived climbs, but nothing on plane 0 leads up to them
+any more.
+
+**Portals.** A start-room portal takes a player whose reward is claimed to the
+reward room (V1 gates its links on the same varbits). The varbits are
+`SOS_WAR_REWARD`, `SOS_FAM_REWARD`, `SOS_PEST_REWARD` and `SOS_DEATH_REWARD`
+(varp 3108, one bit per level), so `value 1` is exact.
+
+**The climb warning.** The ladders raise the Content Warning System modal,
+interface 1262 `CWS_WARNING_MAIN` ("Are you sure you want to climb down?").
+The executor confirms it wherever it is open, for any loc: it clicks
+`CWS_WARNING_MAIN__YES_TEXT` (1262:2) and never the "Don't ask me this again"
+toggle (1262:5). No row carries a chain for it.
+
+**Security questions.** The doors may ask one. A dialog zone per level box
+(War 1856..1919 x 5184..5247, Famine 1984..2047 x 5184..5247, Pestilence
+2112..2175 x 5248..5311, Death 2304..2367 x 5184..5247) carries the 26 safe
+answer fragments of BotWithUs-Scripts' `StrongholdOfSecurity.SAFE_ANSWERS`,
+in its order. The executor's dialog budget is per transition, so a level of
+twelve doors does not run it out.
+
+**Checked offline:** `wwcli sos <artifact>` plans the descent from Barbarian
+Village through War, Famine and Pestilence, the climb back out, and each
+portal with and without its varbit.
+
+**Not verified live:** every landing (V1's, not observed by this walker);
+whether the up ladders raise a warning too; that every door question is
+answered by a fragment in the list; and that the portals refuse a player
+before the claim rather than only being unplanned. Free-to-play: the
+stronghold is not in `f2p_zones.json`, so a free account is refused every
+row here until a sourced box is added.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a
