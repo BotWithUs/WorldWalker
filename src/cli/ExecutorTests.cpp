@@ -203,6 +203,7 @@ namespace ww::cli
             // on its first click and lets the player through only once that
             // page is continued. continueClicks counts the continues.
             bool              hasEntryChat;
+            bool              isEntryChatDone;  // the first click has raised it
             bool              isChatOpen;
             int               continueClicks;
             // The next walk click opens a message box (chatOnNextWalk) or the
@@ -264,6 +265,23 @@ namespace ww::cli
             int                     earlyConfirmsLeft;
             int                     warningConfirms;
             int                     closedWarnings;
+            // SimulateTransition, with hasContentWarning: every loc click
+            // raises the Content Warning System modal (1262) and holds the
+            // player (no walk moves them) until a COMPONENT click with option
+            // 1 on 1262:2 confirms it, which lands them on transitionDest.
+            // cwsClicks counts every click on any 1262 component, cwsConfirms
+            // the confirms that closed an open modal, and cwsForbiddenClicks
+            // the clicks on No (1262:3), the "don't ask again" toggle (1262:5)
+            // or Yes with the wrong arguments, each also an unexpected action.
+            bool                    hasContentWarning;
+            bool                    isContentWarningOpen;
+            int                     cwsClicks;
+            int                     cwsConfirms;
+            int                     cwsForbiddenClicks;
+            // A chat page opened by chatOnNextWalk or hasEntryChat closes only
+            // after this many continues (0 or 1: the first one).
+            int                     chatPages;
+            int                     chatPagesLeft;
         };
 
         // Every callback that can surprise the harness. The class each one
@@ -393,7 +411,32 @@ namespace ww::cli
             static_cast<std::int32_t>(data::ChainStepKind::DialogueAnswer);
         constexpr std::int32_t kClickNpcKind =
             static_cast<std::int32_t>(data::ChainStepKind::ClickNpc);
-        constexpr int kMaxDialogActionsPerRun = 20;  // the executor's per-run budget
+        // The Content Warning System modal and its components (gameval names):
+        // 1262:2 CWS_WARNING_MAIN__YES_TEXT, 1262:3 NO_TEXT, 1262:5
+        // CWS_TOGGLE_BUTTON. The confirm is GameAction(COMPONENT=57, 1, -1, Yes).
+        constexpr std::int32_t kContentWarning = 1262;
+        constexpr std::int32_t kContentWarningYes = 82706434;
+        constexpr std::int32_t kContentWarningNo = 82706435;
+        constexpr std::int32_t kContentWarningToggle = 82706437;
+        constexpr std::int32_t kComponentAction = 57;
+        constexpr std::int32_t kClickKind = static_cast<std::int32_t>(data::ChainStepKind::Click);
+        static_assert(kContentWarningYes == ((kContentWarning << 16) | 2));
+        static_assert(kContentWarningNo == ((kContentWarning << 16) | 3));
+        static_assert(kContentWarningToggle == ((kContentWarning << 16) | 5));
+
+        // The executor's dialog budget for one stretch of a run (the walks
+        // before the first transition, or one transition step and the walks
+        // after it), as specified: 20 plain actions plus one try at every
+        // answer of the artifact's largest dialog zone.
+        int dialogActionsPerStep(const format::ArtifactReader &reader)
+        {
+            int largest = 0;
+            for (const format::DialogZoneRecord &zone : reader.dialogZones())
+            {
+                largest = std::max<int>(largest, zone.answerCount);
+            }
+            return 20 + largest;
+        }
 
         bool isChatInterface(std::int32_t interfaceId)
         {
@@ -418,6 +461,10 @@ namespace ww::cli
             if (interfaceId == kOptionList)
             {
                 return h->isOptionListOpen ? 1 : 0;
+            }
+            if (interfaceId == kContentWarning)
+            {
+                return h->isContentWarningOpen ? 1 : 0;
             }
             if (h->mode == ExecHarnessMode::SimulateTransition)
             {
@@ -447,7 +494,7 @@ namespace ww::cli
                 h->hops.back().target = target;
                 h->hops.back().isClicked = true;
             }
-            if (h->isChatOpen || h->isOptionListOpen)
+            if (h->isChatOpen || h->isOptionListOpen || h->isContentWarningOpen)
             {
                 return;
             }
@@ -461,6 +508,7 @@ namespace ww::cli
             {
                 h->chatOnNextWalk = false;
                 h->isChatOpen = true;
+                h->chatPagesLeft = h->chatPages;
                 return;
             }
             if (h->optionListOnNextWalk)
@@ -594,6 +642,10 @@ namespace ww::cli
             {
                 h->isWarningOpen = true;
             }
+            else if (h->hasContentWarning)
+            {
+                h->isContentWarningOpen = true;
+            }
             else if (h->isClickStoppingShort)
             {
                 if (h->isDoorShutUntilClicked && h->isDoorOpened)
@@ -619,9 +671,11 @@ namespace ww::cli
             {
                 --h->droppedInteracts;
             }
-            else if (h->hasEntryChat && h->continueClicks == 0)
+            else if (h->hasEntryChat && !h->isEntryChatDone)
             {
+                h->isEntryChatDone = true;
                 h->isChatOpen = true;
+                h->chatPagesLeft = h->chatPages;
             }
             else if (h->landingDelayTicks > 0)
             {
@@ -682,6 +736,33 @@ namespace ww::cli
             h->hasWalkGoal = false;
         }
 
+        // A click on any 1262 component. Only the confirm (a Click step of
+        // GameAction(COMPONENT, 1, -1, 1262:2)) is legitimate: with the modal
+        // up it closes it and carries the player across; with none up the game
+        // drops it. Anything else (No, the "don't ask again" toggle, Yes sent
+        // with other arguments) is a click the walker must never make.
+        void clickContentWarning(ExecHarness *h, std::int32_t kind, std::int32_t a,
+                                 std::int32_t b, std::int32_t c, std::int32_t d)
+        {
+            ++h->cwsClicks;
+            const bool isConfirm = kind == kClickKind && a == kComponentAction && b == 1
+                                && c == -1 && d == kContentWarningYes;
+            if (!isConfirm)
+            {
+                ++h->cwsForbiddenClicks;
+                recordUnexpected(h, HarnessCallback::RunChainStep);
+                return;
+            }
+            if (!h->isContentWarningOpen)
+            {
+                return;
+            }
+            h->isContentWarningOpen = false;
+            ++h->cwsConfirms;
+            h->position = h->transitionDest;
+            h->hasWalkGoal = false;
+        }
+
         extern "C" void harnessRunChainStep(void *user, std::int32_t kind, std::int32_t a,
                                             std::int32_t b, std::int32_t c, std::int32_t d,
                                             std::int32_t e, std::int32_t f, std::int32_t g,
@@ -698,7 +779,8 @@ namespace ww::cli
                 // The page closes (and a walk-through door starts carrying the
                 // player in), unless the test wants a page that never does.
                 ++h->continueClicks;
-                if (!h->chatNeverCloses)
+                --h->chatPagesLeft;
+                if (!h->chatNeverCloses && h->chatPagesLeft <= 0)
                 {
                     h->isChatOpen = false;
                     h->pendingLandingTicks = h->landingDelayTicks;
@@ -708,6 +790,11 @@ namespace ww::cli
             if (h->warningConfirm != 0 && a == kDialogueAction && d == h->warningConfirm)
             {
                 confirmWarning(h);
+                return;
+            }
+            if ((d >> 16) == kContentWarning)
+            {
+                clickContentWarning(h, kind, a, b, c, d);
                 return;
             }
             ++h->runChainStepCalls;
@@ -1347,10 +1434,13 @@ namespace ww::cli
             return failures;
         }
 
-        // Test 4h: a chat page that never closes. The run spends its dialog
-        // budget and no more, then fails like any other stuck walk.
+        // Test 4h: a chat page that never closes. The route is walk-only, so
+        // the run has one stretch and one dialog budget (no transition step
+        // refills it): it spends that budget and no more, then fails like any
+        // other stuck walk rather than continuing the page forever.
         std::size_t testChatNeverCloses(ExecContext &ctx)
         {
+            const int wantContinues = dialogActionsPerStep(ctx.reader);
             ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
                                               ctx.node.centroidX, ctx.node.centroidY, ctx.plane);
             harness.chatOnNextWalk = true;
@@ -1363,10 +1453,198 @@ namespace ww::cli
             const exec::WwStatus status = executor.run(goal);
 
             std::printf("  exec:   stuck-chat status=%d (expect 1) continues=%d (expect %d)\n",
-                        static_cast<int>(status), harness.continueClicks,
-                        kMaxDialogActionsPerRun);
+                        static_cast<int>(status), harness.continueClicks, wantContinues);
             std::size_t failures = status == exec::WwStatus::Failed ? 0u : 1u;
-            failures += harness.continueClicks == kMaxDialogActionsPerRun ? 0u : 1u;
+            failures += harness.continueClicks == wantContinues ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // The Transition steps the executor announced in one run.
+        int countTransitionSteps(const ExecHarness &h)
+        {
+            int count = 0;
+            for (const StepRecord &step : h.steps)
+            {
+                count += step.isTransition ? 1 : 0;
+            }
+            return count;
+        }
+
+        // A standable tile in `pick`'s start area a few tiles from its start,
+        // so the run walks to the crossing before clicking it; false when the
+        // start is the only tile in reach.
+        bool pickApproachStart(ExecContext &ctx, const CrossAreaPick &pick,
+                               runtime::TilePoint &outStart)
+        {
+            const std::int32_t area = ctx.view.areaAt(pick.start.x, pick.start.y, pick.startPlane);
+            if (area < 0)
+            {
+                return false;
+            }
+            outStart = farthestInArea(ctx.view, pick.start.x, pick.start.y, pick.startPlane,
+                                      area, 6);
+            return outStart.x != pick.start.x || outStart.y != pick.start.y;
+        }
+
+        // An ungated loc crossing with no chain, off the floor (a ladder, like
+        // the Stronghold of Security's) or on it: only the loc click and
+        // whatever dialog it raises can move the player, so the harness cannot
+        // land them through a chain click that skipped the dialog.
+        bool acceptPlainLocClimb(const format::TransitionRecord &tx)
+        {
+            return acceptUngatedNonDoor(tx) && tx.objectId > 0 && tx.chainCount == 0u;
+        }
+
+        bool acceptPlainLocDoor(const format::TransitionRecord &tx)
+        {
+            return acceptUngatedDoor(tx) && tx.objectId > 0 && tx.chainCount == 0u;
+        }
+
+        // Test 4ad: the dialog budget is per transition, not per run (the
+        // Stronghold of Security's doors each ask their own question). The
+        // walk up to a crossing raises a conversation of just over half a
+        // budget, and the crossing's click raises another: more than one
+        // budget in all, which a per-run budget could not continue, so the
+        // run arrives only if the transition step refilled it. Every
+        // continue still comes from a bounded stretch: at most one budget for
+        // the walks before the first transition and one per transition step.
+        std::size_t testDialogBudgetPerTransition(ExecContext &ctx)
+        {
+            CrossAreaPick pick{};
+            runtime::TilePoint start{};
+            // A climb, not a door: a walk from a few tiles back can go round
+            // or through an open doorway without the crossing, but not up a
+            // floor.
+            if (!pickCrossAreaPair(ctx.reader, ctx.view, acceptPlainLocClimb, pick)
+                || !pickApproachStart(ctx, pick, start))
+            {
+                std::printf("  exec:   dialog-budget test skipped (no plain climb to walk to)\n");
+                return 0;
+            }
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            const auto &tx   = ctx.reader.transitions()[edge.transitionIndex];
+            const int budget = dialogActionsPerStep(ctx.reader);
+            const int pages  = budget / 2 + 1;
+
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, start.x,
+                                              start.y, pick.startPlane);
+            harness.transitionDest =
+                exec::WwTile{ tx.destX, tx.destY, static_cast<std::int32_t>(tx.destPlane) };
+            harness.landingDelayTicks = 1;
+            harness.chatOnNextWalk    = true;
+            harness.hasEntryChat      = true;
+            harness.chatPages         = pages;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            const int crossings = countTransitionSteps(harness);
+            const int bound = budget * (1 + crossings);
+            std::printf("  exec:   dialog-budget tx%u status=%d (expect 0) continues=%d"
+                        " (expect %d, > budget %d, <= %d) crossings=%d (expect 1)\n",
+                        edge.transitionIndex, static_cast<int>(status), harness.continueClicks,
+                        2 * pages, budget, bound, crossings);
+            printCallPattern("dialog-budget ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.continueClicks == 2 * pages ? 0u : 1u;
+            failures += harness.continueClicks > budget ? 0u : 1u;
+            failures += harness.continueClicks <= bound ? 0u : 1u;
+            failures += crossings == 1 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4ae: a transition whose click raises a chat page that never
+        // closes. Every transition step refills the dialog budget, but the
+        // steps themselves are bounded (re-plans, reroutes), so the run still
+        // ends, and no stretch spends more than one budget.
+        std::size_t testChatNeverClosesAtCrossing(ExecContext &ctx)
+        {
+            CrossAreaPick pick{};
+            if (!pickCrossAreaPair(ctx.reader, ctx.view, acceptUngatedOneTileDoor, pick))
+            {
+                std::printf("  exec:   stuck-chat crossing test skipped (no one-tile door)\n");
+                return 0;
+            }
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            const auto &tx   = ctx.reader.transitions()[edge.transitionIndex];
+            const int budget = dialogActionsPerStep(ctx.reader);
+
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, pick.start.x,
+                                              pick.start.y, pick.startPlane);
+            harness.transitionDest =
+                exec::WwTile{ tx.destX, tx.destY, static_cast<std::int32_t>(tx.destPlane) };
+            harness.hasEntryChat    = true;
+            harness.chatNeverCloses = true;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            const int crossings = countTransitionSteps(harness);
+            const int bound = budget * (1 + crossings);
+            std::printf("  exec:   stuck-chat crossing tx%u status=%d (expect not 2=Cancelled)"
+                        " continues=%d (expect >= %d, <= %d) crossings=%d (expect >= 1)\n",
+                        edge.transitionIndex, static_cast<int>(status), harness.continueClicks,
+                        budget, bound, crossings);
+            printCallPattern("stuck-chat crossing ", harness);
+            std::size_t failures = status != exec::WwStatus::Cancelled ? 0u : 1u;
+            failures += harness.continueClicks >= budget ? 0u : 1u;
+            failures += harness.continueClicks <= bound ? 0u : 1u;
+            failures += crossings >= 1 ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4ac: a crossing whose click raises the Content Warning System
+        // modal (1262, the Stronghold of Security's ladders). With the warning
+        // up, the landing wait confirms it with exactly one Yes and the run
+        // arrives; with it switched off on the account (`hasWarning` false,
+        // "don't ask me this again" ticked), no 1262 click is ever sent. In
+        // neither case is No or the toggle clicked.
+        std::size_t testContentWarning(ExecContext &ctx, bool hasWarning)
+        {
+            CrossAreaPick pick{};
+            if (!pickCrossAreaPair(ctx.reader, ctx.view, acceptPlainLocClimb, pick)
+                && !pickCrossAreaPair(ctx.reader, ctx.view, acceptPlainLocDoor, pick))
+            {
+                std::printf("  exec:   content warning test skipped (no ungated crossing)\n");
+                return 0;
+            }
+            const auto &edge = ctx.reader.areaEdges()[pick.edgeIndex];
+            const auto &tx   = ctx.reader.transitions()[edge.transitionIndex];
+
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, pick.start.x,
+                                              pick.start.y, pick.startPlane);
+            harness.transitionDest =
+                exec::WwTile{ tx.destX, tx.destY, static_cast<std::int32_t>(tx.destPlane) };
+            harness.hasContentWarning = hasWarning;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(ctx.reader, ctx.pool, cb);
+            const exec::WwGoal goal{ pick.goal.x, pick.goal.y, pick.goalPlane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            const int wantConfirms = hasWarning ? 1 : 0;
+            std::printf("  exec:   content warning tx%u up=%d status=%d (expect 0) confirms=%d"
+                        " clicks=%d (expect %d, %d) forbidden=%d replans=%d (expect 0, 0)\n",
+                        edge.transitionIndex, hasWarning ? 1 : 0, static_cast<int>(status),
+                        harness.cwsConfirms, harness.cwsClicks, wantConfirms, wantConfirms,
+                        harness.cwsForbiddenClicks, harness.replanStartedEvents);
+            printCallPattern("content-warning ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.cwsConfirms == wantConfirms ? 0u : 1u;
+            failures += harness.cwsClicks == wantConfirms ? 0u : 1u;
+            failures += harness.cwsForbiddenClicks == 0 ? 0u : 1u;
+            failures += harness.isContentWarningOpen ? 1u : 0u;
+            failures += harness.replanStartedEvents == 0 ? 0u : 1u;
             failures += harness.unexpectedActions == 0 ? 0u : 1u;
             return failures;
         }
@@ -3970,6 +4248,10 @@ namespace ww::cli
         failures += testShantayWarning(ctx, 1);
         failures += testChatDuringWalk(ctx);
         failures += testChatNeverCloses(ctx);
+        failures += testDialogBudgetPerTransition(ctx);
+        failures += testChatNeverClosesAtCrossing(ctx);
+        failures += testContentWarning(ctx, true);
+        failures += testContentWarning(ctx, false);
         failures += testZoneAnswer(ctx);
         failures += testNoZoneNeverAnswers(ctx);
         failures += testStrideCap(ctx);

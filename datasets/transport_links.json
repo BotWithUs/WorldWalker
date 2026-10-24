@@ -46597,5 +46597,302 @@
         "value": 15
       }
     }
+  },
+  {
+    "name": "Climb-down",
+    "object_id": 16154,
+    "x": 3081,
+    "y": 3420,
+    "plane": 0,
+    "shape": 11,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 1859,
+    "dest_y": 5243,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 16148,
+    "x": 1859,
+    "y": 5244,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 3081,
+    "dest_y": 3421,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 16148,
+    "x": 1913,
+    "y": 5226,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 3081,
+    "dest_y": 3421,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 16146,
+    "x": 1881,
+    "y": 5232,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 1859,
+    "dest_y": 5243,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-down",
+    "object_id": 16149,
+    "x": 1902,
+    "y": 5222,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 2042,
+    "dest_y": 5245,
+    "dest_plane": 0
+  },
+  {
+    "name": "Enter",
+    "object_id": 16150,
+    "x": 1863,
+    "y": 5238,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 1914,
+    "dest_y": 5222,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": {
+        "id": 16023,
+        "value": 1
+      }
+    }
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 16080,
+    "x": 2042,
+    "y": 5246,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 1859,
+    "dest_y": 5243,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 16078,
+    "x": 2011,
+    "y": 5192,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2042,
+    "dest_y": 5245,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 16078,
+    "x": 2031,
+    "y": 5189,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2042,
+    "dest_y": 5245,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 16078,
+    "x": 2017,
+    "y": 5210,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2042,
+    "dest_y": 5245,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 16078,
+    "x": 2040,
+    "y": 5208,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2042,
+    "dest_y": 5245,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-down",
+    "object_id": 16081,
+    "x": 2026,
+    "y": 5218,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 2123,
+    "dest_y": 5252,
+    "dest_plane": 0
+  },
+  {
+    "name": "Enter",
+    "object_id": 16082,
+    "x": 2039,
+    "y": 5240,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 2021,
+    "dest_y": 5223,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": {
+        "id": 16024,
+        "value": 1
+      }
+    }
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 16114,
+    "x": 2123,
+    "y": 5251,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2042,
+    "dest_y": 5245,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 16112,
+    "x": 2150,
+    "y": 5278,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2123,
+    "dest_y": 5252,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-down",
+    "object_id": 16115,
+    "x": 2148,
+    "y": 5284,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2357,
+    "dest_y": 5216,
+    "dest_plane": 0
+  },
+  {
+    "name": "Enter",
+    "object_id": 16116,
+    "x": 2120,
+    "y": 5258,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 2146,
+    "dest_y": 5287,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": {
+        "id": 16025,
+        "value": 1
+      }
+    }
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 16049,
+    "x": 2358,
+    "y": 5216,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2123,
+    "dest_y": 5252,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 16048,
+    "x": 2309,
+    "y": 5240,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3081,
+    "dest_y": 3421,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 16048,
+    "x": 2350,
+    "y": 5215,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3081,
+    "dest_y": 3421,
+    "dest_plane": 0
+  },
+  {
+    "name": "Enter",
+    "object_id": 16050,
+    "x": 2365,
+    "y": 5212,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2341,
+    "dest_y": 5219,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit": {
+        "id": 16026,
+        "value": 1
+      }
+    }
   }
 ]

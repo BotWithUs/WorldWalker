@@ -490,7 +490,11 @@ namespace ww::exec
         // the click, and a walk clicked during that move is dropped by the
         // game; the next walk must start from where the player came to rest.
         //
-        // Any plain chat page open meanwhile is continued (continueOpenChat).
+        // Any dialog open meanwhile is dealt with (handleOpenDialog): a
+        // Content Warning System modal confirmed, an option list answered in a
+        // dialog zone, a plain chat page continued. Each gets the click's
+        // settle and starts the still count over, since it is what lets the
+        // transition go ahead.
         //
         // A same-floor crossing whose player is still short of it after this
         // (isShortOfCrossing) is clicked once more (retryUnmovedCrossing): a
@@ -520,11 +524,18 @@ namespace ww::exec
                                   WwTile &ioPosition, runtime::WorldView &view);
 
         // Deal with one open conversation page, if any, while the player is at
-        // `at`: answer the option list inside a dialog zone, else continue a
-        // plain chat page. Spends one of the run's dialog actions; false (and
-        // nothing done) when nothing was open or the budget is gone. Called
-        // from every walk poll and every landing wait.
+        // `at`: confirm the Content Warning System modal (confirmContentWarning),
+        // else answer the option list inside a dialog zone, else continue a
+        // plain chat page. Spends one dialog action of the current step's
+        // budget; false (and nothing done) when nothing was open or the budget
+        // is gone. Called from every walk poll and every landing wait.
         bool handleOpenDialog(const WwTile &at);
+
+        // When the Content Warning System modal (1262) is open, click its Yes
+        // (1262:2) through runChainStep. Generic: any loc that raises it is
+        // confirmed, with no dataset field. True when one was sent. Never
+        // clicks No or the "don't ask again" toggle.
+        bool confirmContentWarning() const;
 
         // When the option list (1188) is open and `at` is inside a dialog zone,
         // send the host the zone's next answer to pick (a DialogueAnswer
@@ -703,8 +714,20 @@ namespace ww::exec
         std::vector<int32_t> varbitValues;
         std::vector<int32_t> itemValues;
 
-        // Dialog actions left in this run, and which answer of the current
-        // zone the next option-list pick sends. Both reset at run() entry.
+        // The dialog actions one stretch of the run may spend: kMaxDialogActions
+        // plus the largest dialog zone's answer count, fixed at construction,
+        // so a single transition can try every answer of any zone once and
+        // still continue the plain pages around them.
+        int32_t dialogBudget{0};
+
+        // Dialog actions left in the current stretch: refilled to dialogBudget
+        // at run() entry (the walks before the first transition) and at every
+        // Transition step (it and the walks after it). Bounded per step so a
+        // page that never closes cannot pin the run, while a route through many
+        // talking doors (Stronghold of Security) does not run dry at the
+        // second one. answerCursor is which answer of the current zone the
+        // next option-list pick sends; it resets only at run() entry, since
+        // any answerCount consecutive picks cover a zone whatever it starts at.
         int32_t dialogActionsLeft{0};
         std::size_t answerCursor{0};
 

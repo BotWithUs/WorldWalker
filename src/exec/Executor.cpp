@@ -176,11 +176,44 @@ namespace ww::exec
         // CHOICE_V2). Answered only inside a dialog zone.
         constexpr int32_t kOptionListInterface = 1188;
 
-        // Dialog actions (continues and answers) one run may spend, across
-        // every walk and landing. A route that keeps talking past this is a
-        // conversation the walker should not be holding, and a page that
-        // never closes must not pin the run forever.
+        // RS3's Content Warning System modal (1262 CWS_WARNING_MAIN, "Are you
+        // sure you want to climb down?"), raised by locs such as the
+        // Stronghold of Security ladders. Until Yes is clicked the player
+        // stands still, so the landing wait judged the climb refused. Yes is
+        // 1262:2 (CWS_WARNING_MAIN__YES_TEXT), clicked as a COMPONENT action
+        // with option 1, no sub component: the same GameAction(COMPONENT, 1,
+        // -1, 82706434) BotWithUs-Scripts' WarningModal.confirm sends. 1262:3
+        // is No, and 1262:5 (CWS_TOGGLE_BUTTON, "Don't ask me this again")
+        // changes the account's settings; the walker deliberately never
+        // touches either.
+        constexpr int32_t kContentWarningInterface = 1262;
+        constexpr int32_t kContentWarningYes       = (kContentWarningInterface << 16) | 2;
+        constexpr int32_t kContentWarningOption    = 1;
+        static_assert(kContentWarningYes == 82706434, "1262:2 CWS_WARNING_MAIN__YES_TEXT");
+
+        // Dialog actions (continues, answers and warning confirms) a stretch
+        // of the run may spend: the walks before the first transition, then
+        // each transition step with the walks after it, until the next one
+        // refills it. Per transition rather than per run, because the
+        // Stronghold of Security crosses ~12 doors a level and each can ask a
+        // question; a per-run 20 failed the walk at the second or third door.
+        // The Executor adds the largest dialog zone's answer count to this
+        // (dialogBudget), so one step can try every answer once and still
+        // continue the pages around them. Still bounded per step, so a page
+        // that never closes cannot pin the run: the steps themselves are
+        // bounded by the re-plan and reroute budgets.
         constexpr int32_t kMaxDialogActions = 20;
+
+        // The most answers any one dialog zone carries.
+        int32_t largestAnswerCount(std::span<const format::DialogZoneRecord> zones)
+        {
+            int32_t largest = 0;
+            for (const format::DialogZoneRecord &zone : zones)
+            {
+                largest = std::max<int32_t>(largest, zone.answerCount);
+            }
+            return largest;
+        }
 
         // Chebyshev distance on the same plane; INT32_MAX on plane mismatch so
         // a teleport mid-walk reads as "infinitely far": never within an
@@ -220,6 +253,7 @@ namespace ww::exec
           planVarbitIds(reader.requirementVarbitIds().begin(),
                         reader.requirementVarbitIds().end()),
           requirementItemIds(reader.requirementItemIds()),
+          dialogBudget(kMaxDialogActions + largestAnswerCount(reader.dialogZones())),
           fixedSeed(fixedSeed),
           disabledMoves(disabledMoves),
           callerExcludedTransitions(std::move(excludedTransitions))
@@ -590,6 +624,10 @@ namespace ww::exec
                                              StepReport &outReport)
     {
         outReport = StepReport{};
+        // Every transition may raise its own conversation (a Stronghold of
+        // Security door's question), so each starts with a full dialog budget
+        // rather than what the doors before it left (see kMaxDialogActions).
+        dialogActionsLeft = dialogBudget;
         // outPosition arrives holding the live position the prior step left,
         // which is where the player clicks this transition from.
         const WwTile start = outPosition;
@@ -762,13 +800,29 @@ namespace ww::exec
         return false;
     }
 
+    bool Executor::confirmContentWarning() const
+    {
+        if (callbacks->isInterfaceOpen(callbacks->user, kContentWarningInterface) == 0)
+        {
+            return false;
+        }
+        callbacks->runChainStep(callbacks->user,
+                                static_cast<int32_t>(data::ChainStepKind::Click),
+                                kComponentActionId, kContentWarningOption, kNoSubComponent,
+                                kContentWarningYes, 0, 0, 0, 0, 0);
+        return true;
+    }
+
     bool Executor::handleOpenDialog(const WwTile &at)
     {
         if (dialogActionsLeft <= 0)
         {
             return false;
         }
-        const bool isHandled = answerOptionList(at) || continueOpenChat();
+        // The warning first: it sits over whatever raised it, and nothing
+        // behind it moves until it is confirmed.
+        const bool isHandled =
+            confirmContentWarning() || answerOptionList(at) || continueOpenChat();
         if (isHandled)
         {
             --dialogActionsLeft;
@@ -1438,7 +1492,7 @@ namespace ww::exec
     WwStatus Executor::run(WwGoal goal)
     {
         RunState st;
-        dialogActionsLeft = kMaxDialogActions;
+        dialogActionsLeft = dialogBudget;
         answerCursor = 0;
         tilesPerTick = kRunTilesPerTick;
         rng.seed(fixedSeed.has_value() ? *fixedSeed : std::random_device{}());
