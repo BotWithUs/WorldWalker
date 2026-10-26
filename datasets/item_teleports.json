@@ -1246,7 +1246,7 @@
   },
   "teleports": [
     {
-      "name": "Item 39784 - Activate",
+      "name": "Crystal teleport seed: Lletya",
       "members": true,
       "global": true,
       "dest_x": 2330,
@@ -1255,12 +1255,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            1,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 0
+          }
         },
         {
           "wait": 12
@@ -1276,7 +1293,7 @@
       }
     },
     {
-      "name": "Item 39784 - Activate",
+      "name": "Crystal teleport seed: Temple of Light",
       "members": true,
       "global": true,
       "dest_x": 1938,
@@ -1285,12 +1302,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            20,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 1
+          }
         },
         {
           "wait": 12
@@ -1306,7 +1340,7 @@
       }
     },
     {
-      "name": "Item 39784 - Activate",
+      "name": "Crystal teleport seed: Amlodd",
       "members": true,
       "global": true,
       "dest_x": 2157,
@@ -1315,12 +1349,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            23,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 2
+          }
         },
         {
           "wait": 12
@@ -1336,7 +1387,7 @@
       }
     },
     {
-      "name": "Item 39784 - Activate",
+      "name": "Crystal teleport seed: Cadarn",
       "members": true,
       "global": true,
       "dest_x": 2260,
@@ -1345,12 +1396,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            26,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 3
+          }
         },
         {
           "wait": 12
@@ -1366,7 +1434,7 @@
       }
     },
     {
-      "name": "Item 39784 - Activate",
+      "name": "Crystal teleport seed: Crwys",
       "members": true,
       "global": true,
       "dest_x": 2260,
@@ -1375,12 +1443,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            29,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 4
+          }
         },
         {
           "wait": 12
@@ -1396,7 +1481,7 @@
       }
     },
     {
-      "name": "Item 39784 - Activate",
+      "name": "Crystal teleport seed: Hefin",
       "members": true,
       "global": true,
       "dest_x": 2188,
@@ -1405,12 +1490,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            32,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 5
+          }
         },
         {
           "wait": 12
@@ -1426,7 +1528,7 @@
       }
     },
     {
-      "name": "Item 39784 - Activate",
+      "name": "Crystal teleport seed: Iorwerth",
       "members": true,
       "global": true,
       "dest_x": 2186,
@@ -1435,12 +1537,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            35,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 6
+          }
         },
         {
           "wait": 12
@@ -1456,7 +1575,7 @@
       }
     },
     {
-      "name": "Item 39784 - Activate",
+      "name": "Crystal teleport seed: Ithell",
       "members": true,
       "global": true,
       "dest_x": 2155,
@@ -1465,12 +1584,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            38,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 7
+          }
         },
         {
           "wait": 12
@@ -1486,7 +1622,7 @@
       }
     },
     {
-      "name": "Item 39784 - Activate",
+      "name": "Crystal teleport seed: Meilyr",
       "members": true,
       "global": true,
       "dest_x": 2230,
@@ -1495,12 +1631,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            41,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 8
+          }
         },
         {
           "wait": 12
@@ -1516,7 +1669,7 @@
       }
     },
     {
-      "name": "Item 39784 - Activate",
+      "name": "Crystal teleport seed: Trahaearn",
       "members": true,
       "global": true,
       "dest_x": 2230,
@@ -1525,12 +1678,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            44,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 9
+          }
         },
         {
           "wait": 12
@@ -1546,7 +1716,7 @@
       }
     },
     {
-      "name": "Item 9013 - Teleport",
+      "name": "Skull sceptre: Stronghold of Security",
       "global": true,
       "dest_x": 3081,
       "dest_y": 3421,
@@ -1554,12 +1724,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            1,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              4,
+              3
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 0
+          }
         },
         {
           "wait": 12
@@ -1575,7 +1762,7 @@
       }
     },
     {
-      "name": "Item 21576 - Teleport",
+      "name": "Drakan's medallion: Barrows",
       "members": true,
       "global": true,
       "dest_x": 3565,
@@ -1584,12 +1771,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            1,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 0
+          }
         },
         {
           "wait": 12
@@ -1605,7 +1809,7 @@
       }
     },
     {
-      "name": "Item 21576 - Teleport",
+      "name": "Drakan's medallion: Burgh de Rott",
       "members": true,
       "global": true,
       "dest_x": 3499,
@@ -1614,12 +1818,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            20,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 1
+          }
         },
         {
           "wait": 12
@@ -1635,7 +1856,7 @@
       }
     },
     {
-      "name": "Item 21576 - Teleport",
+      "name": "Drakan's medallion: Meiyerditch",
       "members": true,
       "global": true,
       "dest_x": 3627,
@@ -1644,12 +1865,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            23,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 2
+          }
         },
         {
           "wait": 12
@@ -1665,7 +1903,7 @@
       }
     },
     {
-      "name": "Item 21576 - Teleport",
+      "name": "Drakan's medallion: Darkmeyer",
       "members": true,
       "global": true,
       "dest_x": 3623,
@@ -1674,12 +1912,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            26,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 3
+          }
         },
         {
           "wait": 12
@@ -1695,7 +1950,7 @@
       }
     },
     {
-      "name": "Item 21576 - Teleport",
+      "name": "Drakan's medallion: Meiyerditch Laboratories",
       "members": true,
       "global": true,
       "dest_x": 3634,
@@ -1704,12 +1959,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            29,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 4
+          }
         },
         {
           "wait": 12
@@ -1725,7 +1997,7 @@
       }
     },
     {
-      "name": "Item 27096 - Teleport",
+      "name": "Desert amulet: Nardah",
       "members": true,
       "global": true,
       "dest_x": 3435,
@@ -1734,12 +2006,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            1,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              4,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 0
+          }
         },
         {
           "wait": 12
@@ -1755,7 +2044,7 @@
       }
     },
     {
-      "name": "Item 27096 - Teleport",
+      "name": "Desert amulet: Uzer",
       "members": true,
       "global": true,
       "dest_x": 3478,
@@ -1764,12 +2053,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            20,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              6,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 1
+          }
         },
         {
           "wait": 12
@@ -1785,7 +2091,7 @@
       }
     },
     {
-      "name": "Games necklace (",
+      "name": "Games necklace: Troll Invasion",
       "global": true,
       "dest_x": 2875,
       "dest_y": 3564,
@@ -1793,12 +2099,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            1,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 0
+          }
         },
         {
           "wait": 12
@@ -1846,20 +2169,37 @@
       }
     },
     {
-      "name": "Games necklace (",
+      "name": "Games necklace: Barbarian Outpost",
       "global": true,
-      "dest_x": 3020,
+      "dest_x": 2520,
       "dest_y": 3571,
       "dest_plane": 0,
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            20,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 1
+          }
         },
         {
           "wait": 12
@@ -1907,7 +2247,7 @@
       }
     },
     {
-      "name": "Games necklace (",
+      "name": "Games necklace: Gamer's Grotto",
       "global": true,
       "dest_x": 2969,
       "dest_y": 9679,
@@ -1915,12 +2255,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            23,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              4,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 2
+          }
         },
         {
           "wait": 12
@@ -1968,7 +2325,7 @@
       }
     },
     {
-      "name": "Combat Bracelet (",
+      "name": "Combat bracelet: Warriors' Guild",
       "members": true,
       "global": true,
       "dest_x": 2879,
@@ -1977,12 +2334,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            1,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              9
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 0
+          }
         },
         {
           "wait": 12
@@ -2007,10 +2381,6 @@
             "count": 1
           },
           {
-            "id": 11126,
-            "count": 1
-          },
-          {
             "id": 41072,
             "count": 1
           }
@@ -2018,7 +2388,7 @@
       }
     },
     {
-      "name": "Combat Bracelet (",
+      "name": "Combat bracelet: Champions' Guild",
       "members": true,
       "global": true,
       "dest_x": 3191,
@@ -2027,12 +2397,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            20,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              9
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 1
+          }
         },
         {
           "wait": 12
@@ -2057,10 +2444,6 @@
             "count": 1
           },
           {
-            "id": 11126,
-            "count": 1
-          },
-          {
             "id": 41072,
             "count": 1
           }
@@ -2068,7 +2451,7 @@
       }
     },
     {
-      "name": "Combat Bracelet (",
+      "name": "Combat bracelet: Monastery",
       "members": true,
       "global": true,
       "dest_x": 3051,
@@ -2077,12 +2460,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            23,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              4,
+              9
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 2
+          }
         },
         {
           "wait": 12
@@ -2107,10 +2507,6 @@
             "count": 1
           },
           {
-            "id": 11126,
-            "count": 1
-          },
-          {
             "id": 41072,
             "count": 1
           }
@@ -2118,7 +2514,7 @@
       }
     },
     {
-      "name": "Combat Bracelet (",
+      "name": "Combat bracelet: Ranging Guild",
       "members": true,
       "global": true,
       "dest_x": 2655,
@@ -2127,12 +2523,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            26,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              5,
+              9
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 3
+          }
         },
         {
           "wait": 12
@@ -2157,10 +2570,6 @@
             "count": 1
           },
           {
-            "id": 11126,
-            "count": 1
-          },
-          {
             "id": 41072,
             "count": 1
           }
@@ -2168,7 +2577,7 @@
       }
     },
     {
-      "name": "Ring of duelling (",
+      "name": "Ring of duelling: Het's Oasis",
       "members": true,
       "global": true,
       "dest_x": 3315,
@@ -2177,12 +2586,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            1,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              12
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 0
+          }
         },
         {
           "wait": 12
@@ -2230,7 +2656,7 @@
       }
     },
     {
-      "name": "Ring of duelling (",
+      "name": "Ring of duelling: Castle Wars",
       "members": true,
       "global": true,
       "dest_x": 2443,
@@ -2239,12 +2665,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            20,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              12
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 1
+          }
         },
         {
           "wait": 12
@@ -2292,7 +2735,7 @@
       }
     },
     {
-      "name": "Ring of duelling (",
+      "name": "Ring of duelling: The Warforge",
       "members": true,
       "global": true,
       "dest_x": 2413,
@@ -2301,12 +2744,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            23,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              4,
+              12
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 2
+          }
         },
         {
           "wait": 12
@@ -2354,7 +2814,7 @@
       }
     },
     {
-      "name": "Ring of duelling (",
+      "name": "Ring of duelling: Fist of Guthix",
       "members": true,
       "global": true,
       "dest_x": 1691,
@@ -2363,12 +2823,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            26,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              5,
+              12
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 3
+          }
         },
         {
           "wait": 12
@@ -2416,7 +2893,7 @@
       }
     },
     {
-      "name": "Skills Necklace (",
+      "name": "Skills necklace: Fishing Guild",
       "members": true,
       "global": true,
       "dest_x": 2613,
@@ -2425,12 +2902,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            1,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 0
+          }
         },
         {
           "wait": 12
@@ -2455,10 +2949,6 @@
             "count": 1
           },
           {
-            "id": 11113,
-            "count": 1
-          },
-          {
             "id": 41071,
             "count": 1
           }
@@ -2466,7 +2956,7 @@
       }
     },
     {
-      "name": "Skills Necklace (",
+      "name": "Skills necklace: Mining Guild",
       "members": true,
       "global": true,
       "dest_x": 3016,
@@ -2475,12 +2965,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            20,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 1
+          }
         },
         {
           "wait": 12
@@ -2505,10 +3012,6 @@
             "count": 1
           },
           {
-            "id": 11113,
-            "count": 1
-          },
-          {
             "id": 41071,
             "count": 1
           }
@@ -2516,7 +3019,7 @@
       }
     },
     {
-      "name": "Skills Necklace (",
+      "name": "Skills necklace: Crafting Guild",
       "members": true,
       "global": true,
       "dest_x": 2935,
@@ -2525,12 +3028,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            23,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              4,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 2
+          }
         },
         {
           "wait": 12
@@ -2555,10 +3075,6 @@
             "count": 1
           },
           {
-            "id": 11113,
-            "count": 1
-          },
-          {
             "id": 41071,
             "count": 1
           }
@@ -2566,7 +3082,7 @@
       }
     },
     {
-      "name": "Skills Necklace (",
+      "name": "Skills necklace: Cooking Guild",
       "members": true,
       "global": true,
       "dest_x": 3143,
@@ -2575,12 +3091,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            26,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              5,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 3
+          }
         },
         {
           "wait": 12
@@ -2605,10 +3138,6 @@
             "count": 1
           },
           {
-            "id": 11113,
-            "count": 1
-          },
-          {
             "id": 41071,
             "count": 1
           }
@@ -2616,7 +3145,7 @@
       }
     },
     {
-      "name": "Skills Necklace (",
+      "name": "Skills necklace: Invention Guild",
       "members": true,
       "global": true,
       "dest_x": 2997,
@@ -2625,12 +3154,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            29,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              6,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 4
+          }
         },
         {
           "wait": 12
@@ -2655,10 +3201,6 @@
             "count": 1
           },
           {
-            "id": 11113,
-            "count": 1
-          },
-          {
             "id": 41071,
             "count": 1
           }
@@ -2666,7 +3208,7 @@
       }
     },
     {
-      "name": "Skills Necklace (",
+      "name": "Skills necklace: Farming Guild",
       "members": true,
       "global": true,
       "dest_x": 2646,
@@ -2675,12 +3217,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            32,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              7,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 5
+          }
         },
         {
           "wait": 12
@@ -2702,10 +3261,6 @@
           },
           {
             "id": 11111,
-            "count": 1
-          },
-          {
-            "id": 11113,
             "count": 1
           },
           {
@@ -2716,7 +3271,7 @@
       }
     },
     {
-      "name": "Skills Necklace (",
+      "name": "Skills necklace: Runecrafting Guild",
       "members": true,
       "global": true,
       "dest_x": 3102,
@@ -2725,12 +3280,29 @@
       "cost": 360.0,
       "chain": [
         {
-          "click": [
-            720,
-            35,
-            0,
-            -1
-          ]
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              8,
+              2
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 3
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 6
+          }
         },
         {
           "wait": 12
@@ -2752,10 +3324,6 @@
           },
           {
             "id": 11111,
-            "count": 1
-          },
-          {
-            "id": 11113,
             "count": 1
           },
           {
@@ -5274,7 +5842,7 @@
       }
     },
     {
-      "name": "Item 33722 - Teleport",
+      "name": "Tirannwn quiver: Lletya",
       "members": true,
       "global": true,
       "dest_x": 2344,
@@ -5282,6 +5850,25 @@
       "dest_plane": 0,
       "cost": 360.0,
       "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              13
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 1572
+        },
         {
           "click": [
             1572,
@@ -5304,7 +5891,7 @@
       }
     },
     {
-      "name": "Item 33722 - Teleport",
+      "name": "Tirannwn quiver: mushroom patch",
       "members": true,
       "global": true,
       "dest_x": 2227,
@@ -5312,6 +5899,25 @@
       "dest_plane": 0,
       "cost": 360.0,
       "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              13
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 1572
+        },
         {
           "click": [
             1572,
@@ -5334,7 +5940,7 @@
       }
     },
     {
-      "name": "Item 33722 - Teleport",
+      "name": "Tirannwn quiver: Tyras Camp",
       "members": true,
       "global": true,
       "dest_x": 2184,
@@ -5342,6 +5948,25 @@
       "dest_plane": 0,
       "cost": 360.0,
       "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              13
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 1572
+        },
         {
           "click": [
             1572,
@@ -5364,7 +5989,7 @@
       }
     },
     {
-      "name": "Item 33722 - Teleport",
+      "name": "Tirannwn quiver: Poison Waste",
       "members": true,
       "global": true,
       "dest_x": 1990,
@@ -5372,6 +5997,25 @@
       "dest_plane": 0,
       "cost": 360.0,
       "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              13
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 1572
+        },
         {
           "click": [
             1572,
@@ -5403,6 +6047,25 @@
       "cost": 360.0,
       "chain": [
         {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              13
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 1572
+        },
+        {
           "click": [
             1572,
             17,
@@ -5424,7 +6087,7 @@
       }
     },
     {
-      "name": "Item 33722 - Teleport",
+      "name": "Tirannwn quiver: Elf Camp",
       "members": true,
       "global": true,
       "dest_x": 2202,
@@ -5432,6 +6095,25 @@
       "dest_plane": 0,
       "cost": 360.0,
       "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              13
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 1572
+        },
         {
           "click": [
             1572,
@@ -5462,6 +6144,25 @@
       "dest_plane": 1,
       "cost": 360.0,
       "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              13
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 1572
+        },
         {
           "click": [
             1572,
