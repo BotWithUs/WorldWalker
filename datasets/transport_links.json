@@ -2150,7 +2150,13 @@
     "option_index": 0,
     "dest_x": 2868,
     "dest_y": 2953,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2793,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Open",
@@ -2163,7 +2169,13 @@
     "option_index": 0,
     "dest_x": 2867,
     "dest_y": 2953,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2793,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Open",
@@ -2176,7 +2188,13 @@
     "option_index": 0,
     "dest_x": 2875,
     "dest_y": 2953,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2793,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Open",
@@ -2189,7 +2207,13 @@
     "option_index": 0,
     "dest_x": 2874,
     "dest_y": 2953,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2793,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Climb-over",
@@ -2202,7 +2226,13 @@
     "option_index": 0,
     "dest_x": 2880,
     "dest_y": 2952,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2793,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Climb-over",
@@ -2215,7 +2245,13 @@
     "option_index": 0,
     "dest_x": 2876,
     "dest_y": 2952,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2793,
+        "value": 15
+      }
+    }
   },
   {
     "name": "Enter",
@@ -4754,7 +4790,19 @@
     "option_index": 0,
     "dest_x": 2595,
     "dest_y": 3608,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 11415,
+          "value": 1
+        },
+        {
+          "id": 11416,
+          "value": 1
+        }
+      ]
+    }
   },
   {
     "name": "Cross",
@@ -4767,7 +4815,19 @@
     "option_index": 0,
     "dest_x": 2598,
     "dest_y": 3608,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": [
+        {
+          "id": 11415,
+          "value": 1
+        },
+        {
+          "id": 11416,
+          "value": 1
+        }
+      ]
+    }
   },
   {
     "name": "Jump-across",
@@ -25561,18 +25621,30 @@
   },
   {
     "name": "NPCs",
-    "object_id": 1314,
-    "x": 2774,
-    "y": 3203,
+    "object_id": 0,
+    "x": 2779,
+    "y": 3212,
     "plane": 0,
     "shape": 10,
     "rotation": 0,
-    "option_index": 0,
+    "option_index": 2,
     "dest_x": 2834,
     "dest_y": 2951,
     "dest_plane": 0,
-    "disabled": true,
-    "disabled_reason": "no loc near the origin has an option; the crossing starts at an NPC whose id and option are not in the row"
+    "npc": {
+      "first_id": 510
+    },
+    "chain": [
+      {
+        "wait": 6
+      }
+    ],
+    "requirements": {
+      "varp_at_least": {
+        "id": 2793,
+        "value": 15
+      }
+    }
   },
   {
     "name": "NPCs",
@@ -25663,7 +25735,9 @@
     "option_index": 0,
     "dest_x": 2866,
     "dest_y": 2952,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "disabled": true,
+    "disabled_reason": "duplicate of the two Climb-over rows on the same broken cart 2216: its origin is in no area and its landing 2866,2952 lies past both closed gates, which a climb over the cart cannot reach"
   },
   {
     "name": "NPCs",
@@ -46595,6 +46669,82 @@
       "varp_at_least": {
         "id": 2618,
         "value": 15
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 2262,
+    "x": 2867,
+    "y": 2952,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 2868,
+    "dest_y": 2952,
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2793,
+        "value": 15
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 2262,
+    "x": 2868,
+    "y": 2952,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 2867,
+    "dest_y": 2952,
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2793,
+        "value": 15
+      }
+    }
+  },
+  {
+    "name": "Walk-through",
+    "object_id": 4577,
+    "x": 2509,
+    "y": 3635,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 2509,
+    "dest_y": 3636,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 11414,
+        "value": 1
+      }
+    }
+  },
+  {
+    "name": "Walk-through",
+    "object_id": 4577,
+    "x": 2509,
+    "y": 3636,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 2509,
+    "dest_y": 3635,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 11414,
+        "value": 1
       }
     }
   }
