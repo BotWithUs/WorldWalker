@@ -1455,6 +1455,68 @@ gate instead of the fence.
 trapdoor row to 3519,3285 needs more than In Search of the Myreque, and
 the landing tiles.
 
+## Draynor - City of Um portal (2026-10-26)
+
+The portal pair was already baked and the planner already routed an account
+without lodestones through it (Draynor 3104,3312 -> Lupe 1094,1795,1, 109.9),
+but the live host never clicked it: on 2026-10-26 every attempt logged
+`interact: loc 127139 absent at (3104,3312,0)`, the executor banned the edge,
+and with the Um lodestone locked the walk ended "found no way there".
+
+**The loc.** Draynor's portal is placed as loc 127139 (`UNDERWORLD_ENTRANCE`,
+no name, no ops) at 3104,3313 on level 1 of a bridge column (`wwbuild floor`
+square 48,51 marks 3103..3104 x 3311..3314 as bridge), so the client shows it
+on plane 0; the host matched it there on 2026-10-03 and 10-12 ("matched at
+(3104,3313,0)"). 127139 is a multiloc on varbit 53549
+(`QUEST_NECROMANCY_TUTORIAL_MAIN`) over 127140 `UNDERWORLD_ENTRANCE_LOUD`
+and 127141 `UNDERWORLD_ENTRANCE_QUIET`, both "Underworld portal" [Enter]
+(rs3-cs2-dumps `locations.json`); as with 79770's `[79773, 79775, 79773]`,
+the last id is the default, so 0 shows the loud portal and anything else the
+quiet one.
+
+**Why the host lost it.** The live host's `resolveLocTile` matches a row's
+`object_id` on the scene row's `typeId` or `resolvedId`. Since 2026-10-21
+no multiloc row has matched: 48682, 79770 and 127139 all matched from 10-03
+to 10-14 and have only logged "absent" since, while plain locs still match.
+A direct LOCATION's `typeId` is not its loc id (the host's own
+`Location.baseId()` says so), and its `resolvedId` is the morph, so a row
+naming the base id finds nothing. The real fix is host-side (match
+`baseId()` too, as the dev host's WIP `isNamedBy` does); these rows work
+with the host as it is.
+
+**Rows.**
+- Draynor -> Um: `object_id` 127141 (the quiet morph, which the host matches
+  on `resolvedId`), 3104,3312 -> 1025,1762,1, gated on `varbit_at_least`
+  53549 >= 70. 70 is Necromancy! complete (BotWithUs-Scripts `QuestGate`
+  and `QuestRefs`, quest 493). Before that the quest clicks the portal
+  itself (its own `PORTAL` set 127139/127140/127141), and the loud portal
+  starts the quest, so the walker leaves it alone.
+- A fallback naming the base id 127139 from 3103,3312 with the same gate and
+  `extra_cost` 20, for a host that matches the base id. The planner takes it
+  only once the 127141 row has been banned.
+- Um -> Draynor: loc 127269 `NECRO_HUB_EXIT` "Overworld portal" is a 5x5
+  shape 11 rotation 2 anchored at 1020,1755,1. The row now starts at
+  1024,1760, one tile off the footprint; the old 1025,1762 was three tiles
+  off and could only be found by the host's 4-tile fallback. Ungated: anyone
+  in Um may leave.
+
+Um's plane-1 streets need nothing: the landing, Lupe (1094,1795), the bank
+(1107,1739), the soul forge (1146,1805), the ritual walk tile (1038,1775)
+and the unpainted street at 1155,1828 are all area 2973.
+
+`wwcli path`, stage bake, `--teleports datasets`, with every lodestone
+varbit in `item_teleports.json` set to 0 and 53549 = 70 (and again with
+`--ungated --varbit 53549=70`): Draynor 3104,3312 to Lupe 109.9, the bank
+131.5, the soul forge 175.3 and the ritual site 34.1, each through the
+127141 row; from Lumbridge 3222,3218, walking (`--ungated`) 291.6 / 313.2 /
+357.0 / 215.8. With 53549 = 69 and no lodestones there is no route; with
+the Um lodestone (53270 = 1) it is the lodestone. Lupe back to Draynor
+takes the 127269 row (111.0).
+
+**Not verified live:** that today's agent publishes 127141 as the portal's
+`resolvedId`, the landing tiles, and whether a stage below 70 already lets
+the portal through without a cutscene.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a

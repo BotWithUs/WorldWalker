@@ -675,7 +675,7 @@
   },
   {
     "name": "Enter",
-    "object_id": 127139,
+    "object_id": 127141,
     "x": 3104,
     "y": 3312,
     "plane": 0,
@@ -684,16 +684,42 @@
     "option_index": 0,
     "dest_x": 1025,
     "dest_y": 1762,
-    "dest_plane": 1
+    "dest_plane": 1,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 53549,
+        "value": 70
+      }
+    }
+  },
+  {
+    "name": "Enter",
+    "object_id": 127139,
+    "x": 3103,
+    "y": 3312,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 1025,
+    "dest_y": 1762,
+    "dest_plane": 1,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 53549,
+        "value": 70
+      }
+    },
+    "extra_cost": 20
   },
   {
     "name": "Enter",
     "object_id": 127269,
-    "x": 1025,
-    "y": 1762,
+    "x": 1024,
+    "y": 1760,
     "plane": 1,
-    "shape": 10,
-    "rotation": 0,
+    "shape": 11,
+    "rotation": 2,
     "option_index": 0,
     "dest_x": 3104,
     "dest_y": 3311,
