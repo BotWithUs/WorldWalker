@@ -348,7 +348,7 @@ namespace
         const ww::data::DatasetOrigins datasetOrigins =
             ww::data::collectDatasetOrigins(datasets.model);
         ww::data::TransitionModel derived = ww::data::deriveVerticalTransitions(
-            collision, datasets.model, crossings, &out.freshness);
+            collision, lookup, datasets.model, crossings, &out.freshness);
         if (opTable != nullptr)
         {
             ww::data::ClimbOpReport climbOps;
@@ -415,6 +415,10 @@ namespace
                     tr.freshness.droppedDatasetConflict,
                     tr.freshness.droppedClimbMismatch,
                     tr.freshness.droppedNoOption);
+        std::printf("  freshness footprints: %zu offset stair pairs, %zu origins moved onto an "
+                    "approach, %zu on a curated footprint\n",
+                    tr.freshness.footprintPairs, tr.freshness.originMoved,
+                    tr.freshness.droppedFootprintDataset);
         if (tr.climbOps.has_value())
         {
             std::printf("  climb ops: %zu derived vertical -> %zu retargeted to their direction's "
