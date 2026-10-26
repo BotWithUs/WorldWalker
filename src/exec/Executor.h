@@ -622,7 +622,9 @@ namespace ww::exec
 
         // Run every chain step of `tx` in order with a cancel poll between
         // steps. Arrived when the whole chain ran; the first non-Arrived
-        // step result otherwise.
+        // step result otherwise. After a ClickItem that sent a worn-direct
+        // variant, the dialog steps (WaitInterface, DialogueSelect) are
+        // skipped: the worn op teleported without opening one.
         WwStatus runChain(const format::TransitionRecord &tx) const;
 
         // Whether `tx` starts at an NPC rather than a loc: its chain opens
@@ -633,9 +635,11 @@ namespace ww::exec
 
         // Perform one chain step: the executor handles Wait / WaitInterface
         // itself and gates a COMPONENT Click on its interface being open; the
-        // host-resolved kinds are forwarded. Arrived means "continue".
+        // host-resolved kinds are forwarded. Arrived means "continue". A
+        // ClickItem sets outSkipsDialog to whether it sent a worn-direct
+        // variant; every other kind leaves it as it was.
         WwStatus runChainStep(const format::TransitionRecord &tx,
-                              const format::ChainStepRecord &cs) const;
+                              const format::ChainStepRecord &cs, bool &outSkipsDialog) const;
 
         // Poll isInterfaceOpen(interfaceId) with sleepTicks between polls until
         // it opens. Returns Arrived when open, Cancelled if shouldCancel trips,
@@ -657,7 +661,8 @@ namespace ww::exec
         // requirements (the candidate item ids) + the isItemWorn callback, then
         // forward the chosen variant (iface, comp, option, sub, special) to the
         // host. The host maps `special` to the COMPONENT_SPECIAL action type.
-        void dispatchClickItem(const format::TransitionRecord &tx,
+        // True when it sent the worn variant.
+        bool dispatchClickItem(const format::TransitionRecord &tx,
                                const format::ChainStepRecord &cs) const;
 
         // Emit one progress event when the host wired onEvent; no-op otherwise.

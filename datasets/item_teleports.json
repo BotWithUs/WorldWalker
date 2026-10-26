@@ -1736,11 +1736,12 @@
               5,
               1,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2018,11 +2019,12 @@
               5,
               3,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2065,11 +2067,12 @@
               5,
               3,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2111,11 +2114,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2189,11 +2193,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2267,11 +2272,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2346,11 +2352,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2409,11 +2416,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2472,11 +2480,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2535,11 +2544,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2598,11 +2608,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2677,11 +2688,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2756,11 +2768,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2835,11 +2848,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2914,11 +2928,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -2977,11 +2992,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -3040,11 +3056,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -3103,11 +3120,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -3166,11 +3184,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -3229,11 +3248,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -3292,11 +3312,12 @@
               5,
               7,
               -1
-            ]
+            ],
+            "worn_direct": true
           }
         },
         {
-          "wait": 3
+          "wait_interface": 720
         },
         {
           "dialogue_select": {
@@ -3353,10 +3374,9 @@
             "backpack": [
               1473,
               5,
-              7,
-              1
-            ],
-            "backpack_special": true
+              3,
+              -1
+            ]
           }
         },
         {
@@ -3389,7 +3409,51 @@
           {
             "id": 53792,
             "count": 1
-          },
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Chaos Druids (hooded cape)",
+      "members": true,
+      "global": true,
+      "dest_x": 3131,
+      "dest_y": 9915,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              7,
+              1
+            ],
+            "backpack_special": true
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 0
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
           {
             "id": 53820,
             "count": 1
@@ -3411,6 +3475,65 @@
     },
     {
       "name": "Dung: Dwarven Mine",
+      "members": true,
+      "global": true,
+      "dest_x": 3037,
+      "dest_y": 9772,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 1
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Dwarven Mine (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3037,
@@ -3451,22 +3574,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -3487,6 +3594,65 @@
     },
     {
       "name": "Dung: Hill Giants",
+      "members": true,
+      "global": true,
+      "dest_x": 3100,
+      "dest_y": 9825,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 2
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Hill Giants (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3100,
@@ -3527,22 +3693,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -3563,6 +3713,65 @@
     },
     {
       "name": "Dung: Lesser Demons",
+      "members": true,
+      "global": true,
+      "dest_x": 2843,
+      "dest_y": 9556,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 3
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Lesser Demons (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 2843,
@@ -3603,22 +3812,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -3639,6 +3832,65 @@
     },
     {
       "name": "Dung: Daemonheim",
+      "members": true,
+      "global": true,
+      "dest_x": 3511,
+      "dest_y": 3666,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 4
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Daemonheim (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3511,
@@ -3679,22 +3931,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -3715,6 +3951,65 @@
     },
     {
       "name": "Dung: Fire Giants",
+      "members": true,
+      "global": true,
+      "dest_x": 2578,
+      "dest_y": 9895,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 5
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Fire Giants (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 2578,
@@ -3755,22 +4050,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -3791,6 +4070,65 @@
     },
     {
       "name": "Dung: Mining Guild",
+      "members": true,
+      "global": true,
+      "dest_x": 3022,
+      "dest_y": 9739,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 6
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Mining Guild (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3022,
@@ -3831,22 +4169,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -3867,6 +4189,65 @@
     },
     {
       "name": "Dung: Braindeath Isle",
+      "members": true,
+      "global": true,
+      "dest_x": 2125,
+      "dest_y": 5146,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 7
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Braindeath Isle (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 2125,
@@ -3907,22 +4288,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -3943,6 +4308,65 @@
     },
     {
       "name": "Dung: Hellhounds",
+      "members": true,
+      "global": true,
+      "dest_x": 2855,
+      "dest_y": 9840,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 8
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Hellhounds (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 2855,
@@ -3983,22 +4407,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -4019,6 +4427,65 @@
     },
     {
       "name": "Slayer cape: Mandrith",
+      "members": true,
+      "global": true,
+      "dest_x": 3050,
+      "dest_y": 3949,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 0
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Slayer cape: Mandrith (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3050,
@@ -4059,22 +4526,6 @@
       "requirements": {
         "items": [
           {
-            "id": 9786,
-            "count": 1
-          },
-          {
-            "id": 9787,
-            "count": 1
-          },
-          {
-            "id": 31282,
-            "count": 1
-          },
-          {
-            "id": 53782,
-            "count": 1
-          },
-          {
             "id": 53810,
             "count": 1
           },
@@ -4095,6 +4546,65 @@
     },
     {
       "name": "Slayer cape: Laniakea",
+      "members": true,
+      "global": true,
+      "dest_x": 5667,
+      "dest_y": 2136,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 1
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Slayer cape: Laniakea (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 5667,
@@ -4135,22 +4645,6 @@
       "requirements": {
         "items": [
           {
-            "id": 9786,
-            "count": 1
-          },
-          {
-            "id": 9787,
-            "count": 1
-          },
-          {
-            "id": 31282,
-            "count": 1
-          },
-          {
-            "id": 53782,
-            "count": 1
-          },
-          {
             "id": 53810,
             "count": 1
           },
@@ -4171,6 +4665,65 @@
     },
     {
       "name": "Slayer cape: Morvran",
+      "members": true,
+      "global": true,
+      "dest_x": 2195,
+      "dest_y": 3327,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 2
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Slayer cape: Morvran (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 2195,
@@ -4211,22 +4764,6 @@
       "requirements": {
         "items": [
           {
-            "id": 9786,
-            "count": 1
-          },
-          {
-            "id": 9787,
-            "count": 1
-          },
-          {
-            "id": 31282,
-            "count": 1
-          },
-          {
-            "id": 53782,
-            "count": 1
-          },
-          {
             "id": 53810,
             "count": 1
           },
@@ -4247,6 +4784,65 @@
     },
     {
       "name": "Slayer cape: Kuradal",
+      "members": true,
+      "global": true,
+      "dest_x": 1738,
+      "dest_y": 5310,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 3
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Slayer cape: Kuradal (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 1738,
@@ -4287,22 +4883,6 @@
       "requirements": {
         "items": [
           {
-            "id": 9786,
-            "count": 1
-          },
-          {
-            "id": 9787,
-            "count": 1
-          },
-          {
-            "id": 31282,
-            "count": 1
-          },
-          {
-            "id": 53782,
-            "count": 1
-          },
-          {
             "id": 53810,
             "count": 1
           },
@@ -4323,6 +4903,65 @@
     },
     {
       "name": "Slayer cape: Duradel",
+      "members": true,
+      "global": true,
+      "dest_x": 2868,
+      "dest_y": 2979,
+      "dest_plane": 1,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 4
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Slayer cape: Duradel (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 2868,
@@ -4363,22 +5002,6 @@
       "requirements": {
         "items": [
           {
-            "id": 9786,
-            "count": 1
-          },
-          {
-            "id": 9787,
-            "count": 1
-          },
-          {
-            "id": 31282,
-            "count": 1
-          },
-          {
-            "id": 53782,
-            "count": 1
-          },
-          {
             "id": 53810,
             "count": 1
           },
@@ -4399,6 +5022,65 @@
     },
     {
       "name": "Slayer cape: Sumona",
+      "members": true,
+      "global": true,
+      "dest_x": 3357,
+      "dest_y": 2991,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 5
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Slayer cape: Sumona (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3357,
@@ -4439,22 +5121,6 @@
       "requirements": {
         "items": [
           {
-            "id": 9786,
-            "count": 1
-          },
-          {
-            "id": 9787,
-            "count": 1
-          },
-          {
-            "id": 31282,
-            "count": 1
-          },
-          {
-            "id": 53782,
-            "count": 1
-          },
-          {
             "id": 53810,
             "count": 1
           },
@@ -4475,6 +5141,65 @@
     },
     {
       "name": "Slayer cape: Chaeldar",
+      "members": true,
+      "global": true,
+      "dest_x": 2443,
+      "dest_y": 4429,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 6
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Slayer cape: Chaeldar (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 2443,
@@ -4515,22 +5240,6 @@
       "requirements": {
         "items": [
           {
-            "id": 9786,
-            "count": 1
-          },
-          {
-            "id": 9787,
-            "count": 1
-          },
-          {
-            "id": 31282,
-            "count": 1
-          },
-          {
-            "id": 53782,
-            "count": 1
-          },
-          {
             "id": 53810,
             "count": 1
           },
@@ -4551,6 +5260,65 @@
     },
     {
       "name": "Slayer cape: Mazchna",
+      "members": true,
+      "global": true,
+      "dest_x": 3506,
+      "dest_y": 3504,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 7
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Slayer cape: Mazchna (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3506,
@@ -4591,22 +5359,6 @@
       "requirements": {
         "items": [
           {
-            "id": 9786,
-            "count": 1
-          },
-          {
-            "id": 9787,
-            "count": 1
-          },
-          {
-            "id": 31282,
-            "count": 1
-          },
-          {
-            "id": 53782,
-            "count": 1
-          },
-          {
             "id": 53810,
             "count": 1
           },
@@ -4627,6 +5379,65 @@
     },
     {
       "name": "Slayer cape: The Raptor",
+      "members": true,
+      "global": true,
+      "dest_x": 3290,
+      "dest_y": 3542,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 8
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Slayer cape: The Raptor (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3290,
@@ -4667,22 +5478,6 @@
       "requirements": {
         "items": [
           {
-            "id": 9786,
-            "count": 1
-          },
-          {
-            "id": 9787,
-            "count": 1
-          },
-          {
-            "id": 31282,
-            "count": 1
-          },
-          {
-            "id": 53782,
-            "count": 1
-          },
-          {
             "id": 53810,
             "count": 1
           },
@@ -4703,6 +5498,65 @@
     },
     {
       "name": "Slayer cape: Vannaka",
+      "members": true,
+      "global": true,
+      "dest_x": 3091,
+      "dest_y": 3476,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 9
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Slayer cape: Vannaka (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3091,
@@ -4743,22 +5597,6 @@
       "requirements": {
         "items": [
           {
-            "id": 9786,
-            "count": 1
-          },
-          {
-            "id": 9787,
-            "count": 1
-          },
-          {
-            "id": 31282,
-            "count": 1
-          },
-          {
-            "id": 53782,
-            "count": 1
-          },
-          {
             "id": 53810,
             "count": 1
           },
@@ -4779,6 +5617,65 @@
     },
     {
       "name": "Slayer cape: Jacquelyn",
+      "members": true,
+      "global": true,
+      "dest_x": 3219,
+      "dest_y": 3222,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 10
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Slayer cape: Jacquelyn (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3219,
@@ -4819,22 +5716,6 @@
       "requirements": {
         "items": [
           {
-            "id": 9786,
-            "count": 1
-          },
-          {
-            "id": 9787,
-            "count": 1
-          },
-          {
-            "id": 31282,
-            "count": 1
-          },
-          {
-            "id": 53782,
-            "count": 1
-          },
-          {
             "id": 53810,
             "count": 1
           },
@@ -4855,6 +5736,65 @@
     },
     {
       "name": "Slayer cape: Spria",
+      "members": true,
+      "global": true,
+      "dest_x": 2888,
+      "dest_y": 3545,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 11
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 9786,
+            "count": 1
+          },
+          {
+            "id": 9787,
+            "count": 1
+          },
+          {
+            "id": 31282,
+            "count": 1
+          },
+          {
+            "id": 53782,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Slayer cape: Spria (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 2888,
@@ -4895,22 +5835,6 @@
       "requirements": {
         "items": [
           {
-            "id": 9786,
-            "count": 1
-          },
-          {
-            "id": 9787,
-            "count": 1
-          },
-          {
-            "id": 31282,
-            "count": 1
-          },
-          {
-            "id": 53782,
-            "count": 1
-          },
-          {
             "id": 53810,
             "count": 1
           },
@@ -4931,6 +5855,65 @@
     },
     {
       "name": "Dung: Blue Dragons",
+      "members": true,
+      "global": true,
+      "dest_x": 2909,
+      "dest_y": 9805,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 9
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Blue Dragons (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 2909,
@@ -4971,22 +5954,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -5007,6 +5974,65 @@
     },
     {
       "name": "Dung: Moss Giants",
+      "members": true,
+      "global": true,
+      "dest_x": 3166,
+      "dest_y": 9881,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 10
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Moss Giants (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3166,
@@ -5047,22 +6073,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -5083,6 +6093,65 @@
     },
     {
       "name": "Dung: Celestial Drags",
+      "members": true,
+      "global": true,
+      "dest_x": 3810,
+      "dest_y": 3529,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 11
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Celestial Drags (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3810,
@@ -5123,22 +6192,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -5159,6 +6212,65 @@
     },
     {
       "name": "Dung: Black Demons",
+      "members": true,
+      "global": true,
+      "dest_x": 3161,
+      "dest_y": 5522,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 12
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Black Demons (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3161,
@@ -5199,22 +6311,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -5235,6 +6331,65 @@
     },
     {
       "name": "Dung: Al Kharid Mine",
+      "members": true,
+      "global": true,
+      "dest_x": 3298,
+      "dest_y": 3306,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 13
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Al Kharid Mine (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3298,
@@ -5275,22 +6430,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -5311,6 +6450,65 @@
     },
     {
       "name": "Dung: Metal Dragons",
+      "members": true,
+      "global": true,
+      "dest_x": 2699,
+      "dest_y": 9442,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 14
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Metal Dragons (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 2699,
@@ -5351,22 +6549,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -5387,6 +6569,65 @@
     },
     {
       "name": "Dung: Polypore",
+      "members": true,
+      "global": true,
+      "dest_x": 4658,
+      "dest_y": 5489,
+      "dest_plane": 3,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 15
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Polypore (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 4658,
@@ -5427,22 +6668,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -5463,6 +6688,65 @@
     },
     {
       "name": "Dung: Frost Dragons",
+      "members": true,
+      "global": true,
+      "dest_x": 3032,
+      "dest_y": 9597,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 16
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Frost Dragons (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3032,
@@ -5503,22 +6787,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -5539,6 +6807,65 @@
     },
     {
       "name": "Dung: Kal'gerion",
+      "members": true,
+      "global": true,
+      "dest_x": 3398,
+      "dest_y": 3664,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 17
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Kal'gerion (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3398,
@@ -5579,22 +6906,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -5615,6 +6926,65 @@
     },
     {
       "name": "Dung: Gorajo",
+      "members": true,
+      "global": true,
+      "dest_x": 2230,
+      "dest_y": 3421,
+      "dest_plane": 1,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 18
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Gorajo (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 2230,
@@ -5655,22 +7025,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -5691,6 +7045,65 @@
     },
     {
       "name": "Dung: Slayer Tower",
+      "members": true,
+      "global": true,
+      "dest_x": 3431,
+      "dest_y": 3528,
+      "dest_plane": 0,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 19
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Slayer Tower (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 3431,
@@ -5731,22 +7144,6 @@
       "requirements": {
         "items": [
           {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
-          {
             "id": 53820,
             "count": 1
           },
@@ -5767,6 +7164,65 @@
     },
     {
       "name": "Dung: Edimmu",
+      "members": true,
+      "global": true,
+      "dest_x": 2234,
+      "dest_y": 3396,
+      "dest_plane": 1,
+      "cost": 3.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              3,
+              1
+            ],
+            "backpack": [
+              1473,
+              5,
+              3,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 20
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 18508,
+            "count": 1
+          },
+          {
+            "id": 18509,
+            "count": 1
+          },
+          {
+            "id": 19709,
+            "count": 1
+          },
+          {
+            "id": 53792,
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "Dung: Edimmu (hooded cape)",
       "members": true,
       "global": true,
       "dest_x": 2234,
@@ -5806,22 +7262,6 @@
       ],
       "requirements": {
         "items": [
-          {
-            "id": 18508,
-            "count": 1
-          },
-          {
-            "id": 18509,
-            "count": 1
-          },
-          {
-            "id": 19709,
-            "count": 1
-          },
-          {
-            "id": 53792,
-            "count": 1
-          },
           {
             "id": 53820,
             "count": 1

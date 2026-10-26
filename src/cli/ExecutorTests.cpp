@@ -257,6 +257,22 @@ namespace ww::cli
             // item's dialog does not when nothing operated the item (the
             // Slayer cape rows that only clicked inside 720, BWU-C6QCWA).
             std::vector<std::int32_t> closedInterfaces;
+            // SimulateTransition, when non-zero: the one teleport item the
+            // player holds (read back as count 1), worn when isHeldItemWorn. A
+            // backpack click on it opens its dialog (kItemDialog), which stays
+            // closed for the next itemDialogClosedPolls polls, and a
+            // DialogueSelect on the open dialog lands the player; a worn click
+            // lands them at once and never opens the dialog, as a worn ring of
+            // duelling's own destination op does. itemDialogPolls counts every
+            // poll of the dialog.
+            std::int32_t            heldItem;
+            bool                    isHeldItemWorn;
+            bool                    isItemDialogPending;
+            int                     itemDialogClosedPolls;
+            int                     itemDialogPolls;
+            int                     wornItemClicks;
+            int                     backpackItemClicks;
+            int                     dialogueSelects;
             // SimulateTransition, when non-zero: every loc click raises a
             // warning that holds the player until a DIALOGUE click on this
             // component hash confirms it (Shantay Pass, 565:2), which carries
@@ -339,9 +355,19 @@ namespace ww::cli
             *outChunks = exec::WwInstanceChunks{};
         }
 
-        extern "C" std::int32_t harnessReadItemCount(void *user, std::int32_t)
+        bool isHeldItem(const ExecHarness &h, std::int32_t itemId)
         {
-            recordUnexpected(static_cast<ExecHarness *>(user), HarnessCallback::ReadItemCount);
+            return h.heldItem != 0 && itemId == h.heldItem;
+        }
+
+        extern "C" std::int32_t harnessReadItemCount(void *user, std::int32_t itemId)
+        {
+            ExecHarness *h = static_cast<ExecHarness *>(user);
+            if (isHeldItem(*h, itemId))
+            {
+                return 1;
+            }
+            recordUnexpected(h, HarnessCallback::ReadItemCount);
             return 0;
         }
 
@@ -374,16 +400,20 @@ namespace ww::cli
             }
         }
 
-        extern "C" void harnessReadItemCounts(void *user, const std::int32_t *, size_t count,
+        extern "C" void harnessReadItemCounts(void *user, const std::int32_t *ids, size_t count,
                                               std::int32_t *out)
         {
-            if (count > 0)
+            ExecHarness *h = static_cast<ExecHarness *>(user);
+            bool hasOtherId = false;
+            for (size_t i = 0; i < count; ++i)
             {
-                recordUnexpected(static_cast<ExecHarness *>(user), HarnessCallback::ReadItemCounts);
-                for (size_t i = 0; i < count; ++i)
-                {
-                    out[i] = 0;
-                }
+                const bool isHeld = isHeldItem(*h, ids[i]);
+                out[i] = isHeld ? 1 : 0;
+                hasOtherId = hasOtherId || !isHeld;
+            }
+            if (hasOtherId)
+            {
+                recordUnexpected(h, HarnessCallback::ReadItemCounts);
             }
         }
 
@@ -398,6 +428,12 @@ namespace ww::cli
         constexpr std::int32_t kClickNpcKind =
             static_cast<std::int32_t>(data::ChainStepKind::ClickNpc);
         constexpr int kMaxDialogActionsPerRun = 20;  // the executor's per-run budget
+        // The teleport item dialog (720) and the chain steps that work it.
+        constexpr std::int32_t kItemDialog = 720;
+        constexpr std::int32_t kDialogueSelectKind =
+            static_cast<std::int32_t>(data::ChainStepKind::DialogueSelect);
+        constexpr std::int32_t kClickItemKind =
+            static_cast<std::int32_t>(data::ChainStepKind::ClickItem);
 
         bool isChatInterface(std::int32_t interfaceId)
         {
@@ -405,10 +441,33 @@ namespace ww::cli
                 || interfaceId == 1186 || interfaceId == 1189;
         }
 
-        extern "C" std::int32_t harnessIsItemWorn(void *user, std::int32_t)
+        extern "C" std::int32_t harnessIsItemWorn(void *user, std::int32_t itemId)
         {
-            recordUnexpected(static_cast<ExecHarness *>(user), HarnessCallback::IsItemWorn);
+            ExecHarness *h = static_cast<ExecHarness *>(user);
+            if (isHeldItem(*h, itemId))
+            {
+                return h->isHeldItemWorn ? 1 : 0;
+            }
+            recordUnexpected(h, HarnessCallback::IsItemWorn);
             return 0;
+        }
+
+        bool isItemDialogOpen(const ExecHarness &h)
+        {
+            return h.isItemDialogPending && h.itemDialogClosedPolls == 0;
+        }
+
+        // One poll of the held item's dialog: closed until a backpack click
+        // opened it and its closed polls ran out.
+        std::int32_t pollItemDialog(ExecHarness *h)
+        {
+            ++h->itemDialogPolls;
+            if (h->isItemDialogPending && h->itemDialogClosedPolls > 0)
+            {
+                --h->itemDialogClosedPolls;
+                return 0;
+            }
+            return isItemDialogOpen(*h) ? 1 : 0;
         }
 
         extern "C" std::int32_t harnessIsInterfaceOpen(void *user, std::int32_t interfaceId)
@@ -422,6 +481,11 @@ namespace ww::cli
             if (interfaceId == kOptionList)
             {
                 return h->isOptionListOpen ? 1 : 0;
+            }
+            if (h->mode == ExecHarnessMode::SimulateTransition && h->heldItem != 0
+                && interfaceId == kItemDialog)
+            {
+                return pollItemDialog(h);
             }
             if (h->mode == ExecHarnessMode::SimulateTransition)
             {
@@ -689,6 +753,36 @@ namespace ww::cli
             h->hasWalkGoal = false;
         }
 
+        bool isHeldItemStep(const ExecHarness &h, std::int32_t kind)
+        {
+            return h.heldItem != 0 && (kind == kClickItemKind || kind == kDialogueSelectKind);
+        }
+
+        // A step on the held item: a pick in its dialog, or a click on the
+        // item itself (carriedItem is the backpack variant's item id, 0 for the
+        // worn variant).
+        void workHeldItem(ExecHarness *h, std::int32_t kind, std::int32_t carriedItem)
+        {
+            if (kind == kDialogueSelectKind)
+            {
+                ++h->dialogueSelects;
+                if (isItemDialogOpen(*h))
+                {
+                    h->isItemDialogPending = false;
+                    h->position = h->transitionDest;
+                }
+                return;
+            }
+            if (carriedItem != 0)
+            {
+                ++h->backpackItemClicks;
+                h->isItemDialogPending = true;
+                return;
+            }
+            ++h->wornItemClicks;
+            h->position = h->transitionDest;
+        }
+
         extern "C" void harnessRunChainStep(void *user, std::int32_t kind, std::int32_t a,
                                             std::int32_t b, std::int32_t c, std::int32_t d,
                                             std::int32_t e, std::int32_t f, std::int32_t g,
@@ -730,6 +824,10 @@ namespace ww::cli
             if (h->mode != ExecHarnessMode::SimulateTransition)
             {
                 recordUnexpected(h, HarnessCallback::RunChainStep);
+            }
+            else if (isHeldItemStep(*h, kind))
+            {
+                workHeldItem(h, kind, f);
             }
             else if (isInertClick(*h, kind, d))
             {
@@ -3570,20 +3668,20 @@ namespace ww::cli
             return static_cast<bool>(stream);
         }
 
-        // Stage the fixture in a directory of its own and append it to `reader`;
-        // the number of transitions appended (2 when it loaded).
-        std::size_t appendRefusedTeleportFixture(format::ArtifactReader &reader)
+        // Stage an item_teleports.json fixture in a directory of its own and
+        // append it to `reader`; the number of transitions appended.
+        std::size_t appendTeleportFixture(format::ArtifactReader &reader, const char *itemTeleports)
         {
             std::random_device entropy;
             char name[48];
-            std::snprintf(name, sizeof(name), "wwcli_refused_teleport_%08x%08x",
+            std::snprintf(name, sizeof(name), "wwcli_teleport_fixture_%08x%08x",
                           static_cast<unsigned>(entropy()), static_cast<unsigned>(entropy()));
             const std::filesystem::path dir = std::filesystem::temp_directory_path() / name;
             std::error_code ignored;
             std::filesystem::create_directories(dir, ignored);
             std::size_t appended = 0;
             if (writeFixtureFile(dir / "spell_teleports.json", R"({ "teleports": [] })")
-                && writeFixtureFile(dir / "item_teleports.json", kRefusedTeleportFixture))
+                && writeFixtureFile(dir / "item_teleports.json", itemTeleports))
             {
                 appended = runtime::loadGlobalTeleportsInto(reader, dir.string());
             }
@@ -3650,7 +3748,7 @@ namespace ww::cli
                 return 0;
             }
             format::ArtifactReader reader(artifactPath);
-            if (appendRefusedTeleportFixture(reader) != 2)
+            if (appendTeleportFixture(reader, kRefusedTeleportFixture) != 2)
             {
                 std::printf("  exec:   refused-teleport fixture did not append a cast + map\n");
                 return 1;
@@ -3741,7 +3839,7 @@ namespace ww::cli
                 return 0;
             }
             format::ArtifactReader reader(artifactPath);
-            if (appendRefusedTeleportFixture(reader) != 2)
+            if (appendTeleportFixture(reader, kRefusedTeleportFixture) != 2)
             {
                 std::printf("  exec:   dead-chain fixture did not append a cast + map\n");
                 return 1;
@@ -3767,6 +3865,106 @@ namespace ww::cli
                 { "sole", kOffMapStart, { kAbilityBook, kMinimap }, exec::WwStatus::Failed,
                   mapIndex },
                 landing);
+            return failures;
+        }
+
+        // An amulet whose worn op teleports straight to Lumbridge, while the
+        // carried one opens 720 to pick it, as a ring of duelling's do. 65000
+        // is past the last obj id, so no baked row is gated on it.
+        constexpr std::int32_t kFixtureItem = 65000;
+        const char *const kItemTeleportFixture = R"({
+          "teleports": [
+            { "name": "fixture amulet: Lumbridge", "global": true,
+              "dest_x": 3233, "dest_y": 3222, "dest_plane": 0, "cost": 3.0,
+              "requirements": { "items": [ { "id": 65000, "count": 1 } ] },
+              "chain": [
+                { "click_item": { "worn": [1464, 15, 2, 2], "backpack": [1473, 5, 7, -1],
+                                  "worn_direct": true } },
+                { "wait_interface": 720 },
+                { "dialogue_select": { "interface": 720, "index": 0 } },
+                { "wait": 12 } ] }
+          ]
+        })";
+        // Polls the carried amulet's dialog stays shut after the click.
+        constexpr int kItemDialogClosedPolls = 2;
+
+        // One run of the fixture amulet, worn or carried, and what it must do.
+        struct WornDirectCase
+        {
+            const char *label;
+            bool        isWorn;
+            int         wantWornClicks;
+            int         wantBackpackClicks;
+            int         wantSelects;
+            int         wantDialogPolls;
+        };
+
+        std::size_t runWornDirect(const format::ArtifactReader &reader, runtime::ContextPool &pool,
+                                  const WornDirectCase &c, const exec::WwTile &landing)
+        {
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, kOffMapStart.x,
+                                              kOffMapStart.y, kOffMapStart.plane);
+            harness.transitionDest        = landing;
+            harness.heldItem              = kFixtureItem;
+            harness.isHeldItemWorn        = c.isWorn;
+            harness.itemDialogClosedPolls = kItemDialogClosedPolls;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(reader, pool, cb);
+            const exec::WwGoal goal{ landing.x, landing.y, landing.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            std::printf("  exec:   worn-direct %s status=%d (expect %d) worn=%d (expect %d)"
+                        " backpack=%d (expect %d) selects=%d (expect %d) 720-polls=%d"
+                        " (expect %d)\n",
+                        c.label, static_cast<int>(status), static_cast<int>(exec::WwStatus::Arrived),
+                        harness.wornItemClicks, c.wantWornClicks, harness.backpackItemClicks,
+                        c.wantBackpackClicks, harness.dialogueSelects, c.wantSelects,
+                        harness.itemDialogPolls, c.wantDialogPolls);
+            printCallPattern("worn-direct ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.wornItemClicks == c.wantWornClicks ? 0u : 1u;
+            failures += harness.backpackItemClicks == c.wantBackpackClicks ? 0u : 1u;
+            failures += harness.dialogueSelects == c.wantSelects ? 0u : 1u;
+            failures += harness.itemDialogPolls == c.wantDialogPolls ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 7c: a click_item marked worn_direct. Worn, the amulet's own op
+        // teleports and 720 never opens, so the chain skips its wait for 720
+        // and its pick, and arrives (waiting for 720 would fail the run after
+        // the player had already moved). Carried, the chain still polls until
+        // 720 opens and then picks the destination in it.
+        std::size_t testWornDirectItem(const char *artifactPath)
+        {
+            if (artifactPath == nullptr)
+            {
+                std::printf("  exec:   worn-direct test skipped (no artifact path)\n");
+                return 0;
+            }
+            format::ArtifactReader reader(artifactPath);
+            if (appendTeleportFixture(reader, kItemTeleportFixture) != 1)
+            {
+                std::printf("  exec:   worn-direct fixture did not append the amulet\n");
+                return 1;
+            }
+            const format::TransitionRecord &amulet = reader.transitions().back();
+            const exec::WwTile landing{ amulet.destX, amulet.destY,
+                                        static_cast<std::int32_t>(amulet.destPlane) };
+            runtime::WorldView view(reader);
+            if (view.areaAt(landing.x, landing.y, landing.plane) < 0)
+            {
+                std::printf("  exec:   worn-direct test skipped (no Lumbridge landing)\n");
+                return 0;
+            }
+            runtime::ContextPool pool(reader, 1);
+            std::size_t failures = runWornDirect(reader, pool, { "worn", true, 1, 0, 0, 0 },
+                                                 landing);
+            failures += runWornDirect(reader, pool,
+                                      { "carried", false, 0, 1, 1, kItemDialogClosedPolls + 1 },
+                                      landing);
             return failures;
         }
 
@@ -4015,6 +4213,7 @@ namespace ww::cli
         failures += testFfi(ctx, artifactPath);
         failures += testRefusedTeleport(artifactPath);
         failures += testDeadChainTeleport(artifactPath);
+        failures += testWornDirectItem(artifactPath);
         failures += testDoorOpensShort(ctx, true);
         failures += testDoorOpensShort(ctx, false);
         failures += testAbsurdDetour(artifactPath);

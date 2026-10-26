@@ -190,7 +190,8 @@ namespace ww::format
         //   WaitInterface:  a=interfaceId
         //   DialogueSelect: a=interface, b=index, c=per_page, d=next_comp, e=wait_ticks
         //   ClickItem:      a..d=worn(iface,comp,opt,sub),
-        //                   e..h=backpack(iface,comp,opt,sub), i=backpack_special
+        //                   e..h=backpack(iface,comp,opt,sub), i=flags
+        //                   (data::kClickItemBackpackSpecial / kClickItemWornDirect)
         //   ClickNpc:       a=option, b..d=search centre x,y,plane, e=radius,
         //                   f..g=NPC type id range (inclusive)
         int32_t  a;
