@@ -93,11 +93,13 @@ namespace ww::exec
     // component, option); for each Wait, sleepTicks(ticks). After a short
     // post-chain settle the live position is read out (the engine commits the
     // destination during the settle). Transition Failed is terminal — re-plan
-    // does not retry it — with one exception: a local transition whose loc
+    // does not retry it -- with two exceptions: a local transition whose loc
     // the host cannot find is excluded (with every row on that loc) for the
     // rest of the run, and the run re-plans around it on the reroute budget,
     // so a stale row costs a detour instead of the whole walk and the plan is
-    // not rebuilt onto the same dead edge. After an issued local transition
+    // not rebuilt onto the same dead edge. A global teleport whose chain fails
+    // with the player unmoved (an item whose dialog never opened) is excluded
+    // and re-planned around the same way. After an issued local transition
     // the executor waits for the player to land (awaitLanding) and then judges
     // the landing (hasMissedLanding): by distance to the destination, and for
     // a local transition also by which area of the baked grid the player
@@ -190,13 +192,16 @@ namespace ww::exec
 
         // What a step learned beyond its status: a Transition that did not put
         // the player across it (isOffCourse, see hasMissedLanding()), one that
-        // failed because the host could not find its loc (isLocMissing), or a
+        // failed because the host could not find its loc (isLocMissing), a
+        // global teleport whose chain failed with the player still where it
+        // was clicked from (isChainRefused: its dialog never opened), or a
         // same-floor crossing walked on through because its loc was missing
         // (isCrossingSkipped).
         struct StepReport
         {
             bool isOffCourse{false};
             bool isLocMissing{false};
+            bool isChainRefused{false};
             bool isCrossingSkipped{false};
         };
 
@@ -287,15 +292,23 @@ namespace ww::exec
         void excludeTransitionsOfLoc(const format::TransitionRecord &missing,
                                      std::vector<uint32_t> &ioExcluded) const;
 
-        // The transition at `transitionIndex` failed because its loc is
-        // missing: exclude it, and every row sharing its loc, for the rest of
-        // the run and re-plan from the live position, spending one reroute.
-        // True when a new plan exists and the cursor restarts at 0; false when
-        // the run is over, with Arrived or Failed (on that transition, event
-        // emitted) in outStatus.
-        bool rerouteAroundMissingLoc(uint32_t transitionIndex, const WwGoal &goal,
-                                     runtime::SearchContext &context, int32_t stepIndex,
-                                     RunState &io, WwStatus &outStatus);
+        // Append to ioExcluded what a reroute around `transitionIndex` rules
+        // out: a global transition has no loc, so only its own row; a local
+        // one takes every row on its loc (excludeTransitionsOfLoc).
+        void excludeForReroute(uint32_t transitionIndex,
+                               std::vector<uint32_t> &ioExcluded) const;
+
+        // The transition at `transitionIndex` cannot be taken from here: its
+        // loc is missing, or it is a global teleport whose chain failed before
+        // the player moved (an item whose dialog never opened). Exclude it,
+        // with every row sharing its loc, for the rest of the run and re-plan
+        // from the live position, spending one reroute. True when a new plan
+        // exists and the cursor restarts at 0; false when the run is over,
+        // with Arrived or Failed (on that transition, event emitted) in
+        // outStatus.
+        bool rerouteAroundDeadTransition(uint32_t transitionIndex, const WwGoal &goal,
+                                         runtime::SearchContext &context, int32_t stepIndex,
+                                         RunState &io, WwStatus &outStatus);
 
         // The transition at `transitionIndex` landed the player away from its
         // destination (a map whose destination was never picked, a refused
@@ -312,7 +325,7 @@ namespace ww::exec
         // misjudgement and takes the detour. A global
         // teleport's is kept and the run fails on it: the game refused it on
         // state the walker cannot see, and asks again get the same answer.
-        // Returns as rerouteAroundMissingLoc does.
+        // Returns as rerouteAroundDeadTransition does.
         bool rerouteAroundOffCourse(uint32_t transitionIndex, const WwGoal &goal,
                                     runtime::SearchContext &context, int32_t stepIndex,
                                     RunState &io, WwStatus &outStatus);

@@ -640,6 +640,14 @@ namespace ww::exec
             // rather than end the run on it.
             outReport.isLocMissing = true;
         }
+        if (chainResult == WwStatus::Failed && isGlobal)
+        {
+            // The teleport's dialog never opened, or a pick in it failed. A
+            // player still on the tile it was clicked from can be routed
+            // around it; one who moved anyway (a late teleport) fails the run.
+            callbacks->readPosition(callbacks->user, &outPosition);
+            outReport.isChainRefused = isSameTile(outPosition, start);
+        }
         if (chainResult != WwStatus::Arrived)
         {
             return chainResult;
@@ -1101,9 +1109,21 @@ namespace ww::exec
         }
     }
 
-    bool Executor::rerouteAroundMissingLoc(uint32_t transitionIndex, const WwGoal &goal,
-                                           runtime::SearchContext &context, int32_t stepIndex,
-                                           RunState &io, WwStatus &outStatus)
+    void Executor::excludeForReroute(uint32_t transitionIndex,
+                                     std::vector<uint32_t> &ioExcluded) const
+    {
+        const format::TransitionRecord &tx = artifact->transitions()[transitionIndex];
+        if ((tx.flags & format::kTransitionFlagGlobalOrigin) != 0)
+        {
+            ioExcluded.push_back(transitionIndex);
+            return;
+        }
+        excludeTransitionsOfLoc(tx, ioExcluded);
+    }
+
+    bool Executor::rerouteAroundDeadTransition(uint32_t transitionIndex, const WwGoal &goal,
+                                               runtime::SearchContext &context, int32_t stepIndex,
+                                               RunState &io, WwStatus &outStatus)
     {
         const int32_t txIndex = static_cast<int32_t>(transitionIndex);
         if (io.reroutesUsed >= kMaxReroutes)
@@ -1112,8 +1132,7 @@ namespace ww::exec
             return false;
         }
         ++io.reroutesUsed;
-        excludeTransitionsOfLoc(artifact->transitions()[transitionIndex],
-                                io.excludedTransitions);
+        excludeForReroute(transitionIndex, io.excludedTransitions);
         callbacks->readPosition(callbacks->user, &io.position);
         const ReplanOutcome outcome = replan(goal, context, stepIndex, io);
         if (outcome == ReplanOutcome::Restarted)
@@ -1158,14 +1177,7 @@ namespace ww::exec
         {
             throughCost = planCostFrom(io.position, goal, io.excludedTransitions, context);
         }
-        if (isGlobal)
-        {
-            io.excludedTransitions.push_back(transitionIndex);
-        }
-        else
-        {
-            excludeTransitionsOfLoc(tx, io.excludedTransitions);
-        }
+        excludeForReroute(transitionIndex, io.excludedTransitions);
         ReplanOutcome outcome = replan(goal, context, stepIndex, io);
         if (outcome == ReplanOutcome::Failed && isGlobal)
         {
@@ -1500,12 +1512,12 @@ namespace ww::exec
                 // re-planned onto the same gate until the budget ran out).
                 const bool isHeldBack =
                     isStalledBehindSkip(skipped, step, st.position, context.view);
-                if (report.isLocMissing || isHeldBack)
+                if (report.isLocMissing || report.isChainRefused || isHeldBack)
                 {
-                    const uint32_t missing =
+                    const uint32_t dead =
                         isHeldBack ? skipped->transitionIndex : step.transitionIndex;
                     WwStatus terminal = WwStatus::Failed;
-                    if (!rerouteAroundMissingLoc(missing, goal, context, stepIndex, st, terminal))
+                    if (!rerouteAroundDeadTransition(dead, goal, context, stepIndex, st, terminal))
                     {
                         return terminal;
                     }
