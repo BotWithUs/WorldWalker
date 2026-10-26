@@ -1401,6 +1401,60 @@ both as `paterdomus_passage`.
 **Not verified live:** the barrier's landing tile and that its warning is
 1262 here, the ladder's landing, and the stage thresholds below 60.
 
+## Morytania: the Canifis trapdoor and the Barrows broken fence (2026-10-26)
+
+Both crossings were baked with no gate, so an account without the Myreque
+quests was routed over them.
+
+**Canifis tavern trapdoor (loc 5055 `THRT_TAVERN_TRAP_DOOR`, 3495,3465).**
+Both rows that click it, the one into the hideout (3477,9845) and the one
+to 3519,3285, now need `varp_at_least` 2696 >= 105: In Search of the
+Myreque, varp 2696 (`routequest`), which the cs2 dump's quests.json runs
+from 5 to 105. The evidence is V1's navigation data (`rs3-nav-api`
+`mapdata.zip`, `areas.dat`): its only link on this trapdoor, "Open" 3494,3465
+to 3477,9845, carries exactly that requirement (varp 2696, 105, not exact).
+In Aid of the Myreque starts at Veliaf "in the Myreque hideout, beneath the
+pub in Canifis" and requires In Search of the Myreque (quests.json), which
+agrees. No varbit sits over varp 2696, so this is a varp gate: **the host
+must report varp 2696** (`REQUIREMENT_VARPS`), and until it does every walk
+through the trapdoor is refused live.
+
+**Broken fence (loc 18411 `MYQ3_OLDFENCING_CLIMB`, 3582,3263-3264).** The
+fence south-east of the Barrows into the woods east of Burgh de Rott was a
+derived wall crossing (the bake's own door edges, both ways); two new rows
+with the same endpoints carry the gate and win the dedup. Despite the MYQ3
+name it belongs to In Aid of the Myreque, not The Darkness of Hallowvale:
+the loc dates from 20 September 2006 (Slug Menace), the RS3 wiki's Broken
+fence page lists In Aid of the Myreque as its quest and quotes the refusal
+"Before In Aid of the Myreque" ("Um... those vampyres don't look very nice.
+I'm not going through here."), and the OSRS wiki page (same loc id and
+tile) says the player refuses "if the player has not yet gained entry to
+Burgh de Rott along the course of In Aid of the Myreque". Entry comes when
+the player has put food in Florin's chest and jumps the gate; in the OSRS
+quest helper that is the step from 30 (put food in chest) to 40 (talk to
+Razvan inside) on `MYREQUE_2_QUEST`. RS3's varbit 11498 (`myreque_2_quest`)
+has the same name and the same 20..430 range in quests.json, so the rows
+need `varbit_at_least` 11498 >= 40. A varbit gate is read live.
+
+`wwcli path`, stage bake:
+- 3582,3268 -> 3582,3258: over the fence (14.2) with 11498 = 40 or the
+  permissive snapshot; with 11498 = 39 or `--ungated`, round through the
+  Burgh de Rott gate (266.7).
+- Canifis 3505,3470 -> 3477,9845: the trapdoor (16.8) with 2696 = 105; no
+  route with 2696 = 104.
+- Canifis 3510,3480 -> Burgh de Rott 3495,3205 without teleports: trapdoor
+  row to 3519,3285 (140.3) when allowed; `--ungated` or `--varp 2696=0`
+  takes the swamp boat 6970 (281.2). No route uses the fence.
+
+**Left alone:** the Burgh de Rott gate (17757 / 17760 at 3484-3485,3244)
+is also closed until the same stage of In Aid of the Myreque, and it is
+still ungated, so an account without the quest is now routed through that
+gate instead of the fence.
+
+**Not verified live:** the stage value 40 (taken from OSRS), whether the
+trapdoor row to 3519,3285 needs more than In Search of the Myreque, and
+the landing tiles.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a

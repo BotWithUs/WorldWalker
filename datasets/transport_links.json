@@ -28832,7 +28832,13 @@
     "option_index": 0,
     "dest_x": 3519,
     "dest_y": 3285,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2696,
+        "value": 105
+      }
+    }
   },
   {
     "name": "Interactive scenery",
@@ -41174,7 +41180,13 @@
     "option_index": 0,
     "dest_x": 3477,
     "dest_y": 9845,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "varp_at_least": {
+        "id": 2696,
+        "value": 105
+      }
+    }
   },
   {
     "name": "Dungeon entrances",
@@ -47018,6 +47030,44 @@
       "varbit": {
         "id": 16026,
         "value": 1
+      }
+    }
+  },
+  {
+    "name": "Climb-over",
+    "object_id": 18411,
+    "x": 3582,
+    "y": 3263,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3582,
+    "dest_y": 3264,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 11498,
+        "value": 40
+      }
+    }
+  },
+  {
+    "name": "Climb-over",
+    "object_id": 18411,
+    "x": 3582,
+    "y": 3264,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3582,
+    "dest_y": 3263,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 11498,
+        "value": 40
       }
     }
   }
