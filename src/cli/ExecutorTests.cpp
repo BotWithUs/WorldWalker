@@ -282,6 +282,11 @@ namespace ww::cli
             // after this many continues (0 or 1: the first one).
             int                     chatPages;
             int                     chatPagesLeft;
+            // Every loc click: the tile the player stood on, and the tile the
+            // last walk click before it aimed at (lastWalkClick).
+            std::vector<exec::WwTile> interactFroms;
+            std::vector<exec::WwTile> interactWalkTargets;
+            exec::WwTile            lastWalkClick;
         };
 
         // Every callback that can surprise the harness. The class each one
@@ -488,6 +493,7 @@ namespace ww::cli
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->walkToCalls;
+            h->lastWalkClick = target;
             if (h->isHopClickPending)
             {
                 h->isHopClickPending = false;
@@ -624,6 +630,8 @@ namespace ww::cli
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->interactCalls;
+            h->interactFroms.push_back(h->position);
+            h->interactWalkTargets.push_back(h->lastWalkClick);
             h->hasWalkGoal = false;  // a loc click replaces the walk
             if (objectId == h->watchedObjectId && origin.x == h->watchedOrigin.x
                 && origin.y == h->watchedOrigin.y && origin.plane == h->watchedOrigin.plane)
@@ -2602,6 +2610,8 @@ namespace ww::cli
         constexpr std::int32_t  kMaxClickChebyshev = 32;
         constexpr std::int32_t  kWildernessMargin  = 8;
         constexpr std::int32_t  kOldStepTiles      = 16;  // the fixed click before strides
+        // The farthest planned path a loc is clicked from range over.
+        constexpr std::int32_t  kClickRangeMaxTiles = 12;
 
         std::int32_t tileChebyshev(const exec::WwTile &a, const exec::WwTile &b)
         {
@@ -2840,10 +2850,35 @@ namespace ww::cli
             return false;
         }
 
+        // Planned path tiles from plan.steps[from] to plan.steps[to].
+        std::int32_t planTilesBetween(const runtime::Plan &plan, std::size_t from, std::size_t to)
+        {
+            std::int32_t tiles = 0;
+            for (std::size_t j = from + 1; j <= to; ++j)
+            {
+                tiles += tileChebyshev(stepTile(plan.steps[j - 1]), stepTile(plan.steps[j]));
+            }
+            return tiles;
+        }
+
+        // Whether the Transition at step t was clicked from range: announced
+        // straight after the walk to an earlier step `prev` than its approach,
+        // within kClickRangeMaxTiles of planned path of the approach.
+        bool isClickedFromRange(const runtime::Plan &plan, std::int32_t prev, std::size_t t)
+        {
+            if (prev < 0 || static_cast<std::size_t>(prev) + 1 >= t)
+            {
+                return false;
+            }
+            const std::size_t from = static_cast<std::size_t>(prev);
+            return planTilesBetween(plan, from, t - 1) <= kClickRangeMaxTiles;
+        }
+
         // Whether the first plan's announced steps kept every Transition they
-        // reached: each one announced straight after the step before it, and
-        // no two announced steps with a Transition between them. Counts the
-        // hops that passed over steps into ioSkips.
+        // reached: each one announced straight after the step before it, or
+        // clicked from range (isClickedFromRange), and no two announced steps
+        // with a Transition between them. Counts the hops that passed over
+        // steps into ioSkips.
         bool keepsEveryCrossing(const ExecHarness &h, const runtime::Plan &plan, int &ioSkips)
         {
             std::int32_t prev = -1;
@@ -2861,9 +2896,11 @@ namespace ww::cli
                     }
                 }
                 const std::size_t at = static_cast<std::size_t>(rec.stepIndex);
-                if (rec.isTransition && rec.stepIndex > 0 && prev != rec.stepIndex - 1)
+                const bool isApproached = prev == rec.stepIndex - 1
+                                       || isClickedFromRange(plan, prev, at);
+                if (rec.isTransition && rec.stepIndex > 0 && !isApproached)
                 {
-                    return false;  // its approach walk was not the last thing done
+                    return false;  // neither walked up to nor clicked from range
                 }
                 if (rec.isTransition != (plan.steps[at].kind == runtime::StepKind::Transition))
                 {
@@ -3082,11 +3119,13 @@ namespace ww::cli
             int notFalling{0};
             int transitionNonZero{0};
             int approachOnes{0};
+            int rangeClicks{0};
         };
 
         void tallyHints(const ExecHarness &h, const runtime::Plan &plan, HintTally &io)
         {
             std::int32_t lastHint = 0;  // 0: no walk hop since the last Transition
+            std::int32_t lastWalk = -1;
             for (const StepRecord &rec : h.steps)
             {
                 if (rec.plan != 0)
@@ -3096,9 +3135,11 @@ namespace ww::cli
                 if (rec.isTransition)
                 {
                     io.transitionNonZero += rec.hint != 0 ? 1 : 0;
+                    io.rangeClicks += (lastHint != 0 && lastWalk != rec.stepIndex - 1) ? 1 : 0;
                     lastHint = 0;
                     continue;
                 }
+                lastWalk = rec.stepIndex;
                 const std::size_t at = static_cast<std::size_t>(rec.stepIndex);
                 const bool isBeforeInteraction = at + 1 == plan.steps.size()
                     || plan.steps[at + 1].kind != runtime::StepKind::Walk;
@@ -3113,9 +3154,10 @@ namespace ww::cli
         // and comes before its walkTo (the harness fills each hop's target
         // from the walkTo straight after it, so a click made before its event
         // lands on the wrong hop and fails hopsFollowPlan). On a walk up to a
-        // crossing the hint counts down to 1 on the crossing's approach step,
-        // and the crossing's own StepAdvanced carries 0; on a long walk-only
-        // route it counts down to 1 on the step at the goal.
+        // crossing the hint counts down to 1 on the crossing's approach step
+        // (or the crossing is clicked from range before it), and the
+        // crossing's own StepAdvanced carries 0; on a long walk-only route it
+        // counts down to 1 on the step at the goal.
         std::size_t testInteractionHint(ExecContext &ctx)
         {
             struct Fixture
@@ -3159,13 +3201,14 @@ namespace ww::cli
                 }
                 std::printf("  exec:   hint %s plan=%zu steps over %u seeds: unordered=%d wrong=%d"
                             " not-falling=%d transition-nonzero=%d (expect 0,0,0,0)"
-                            " approach-ones=%d (expect %u)\n",
+                            " approach-ones=%d + from-range=%d (expect %u)\n",
                             f.label, f.plan.steps.size(), kStrideSeeds, unordered, tally.wrong,
                             tally.notFalling, tally.transitionNonZero, tally.approachOnes,
-                            kStrideSeeds);
+                            tally.rangeClicks, kStrideSeeds);
                 failures += (unordered == 0 && tally.wrong == 0 && tally.notFalling == 0
                              && tally.transitionNonZero == 0) ? 0u : 1u;
-                failures += tally.approachOnes >= static_cast<int>(kStrideSeeds) ? 0u : 1u;
+                const int approached = tally.approachOnes + tally.rangeClicks;
+                failures += approached >= static_cast<int>(kStrideSeeds) ? 0u : 1u;
             }
             return failures;
         }
@@ -3590,12 +3633,15 @@ namespace ww::cli
         }
 
         // Whether every Transition the first plan announced found the player
-        // within kApproachChebyshev of the walk clicked straight before it.
+        // within kApproachChebyshev of the walk clicked straight before it,
+        // or, clicked from range (that walk not its approach step), within
+        // that walk's lead at a run.
         bool isEveryCrossingReached(const ExecHarness &h, int &ioCrossings)
         {
             std::size_t hop = 0;
             bool hasHop = false;
             exec::WwTile approach{};
+            std::int32_t approachStep = -1;
             for (const StepRecord &rec : h.steps)
             {
                 if (rec.plan != 0)
@@ -3605,12 +3651,16 @@ namespace ww::cli
                 if (!rec.isTransition)
                 {
                     approach = h.hops[hop].target;
+                    approachStep = h.hops[hop].stepIndex;
                     hasHop = true;
                     ++hop;
                     continue;
                 }
                 ++ioCrossings;
-                if (!hasHop || tileChebyshev(rec.at, approach) > kApproachChebyshev)
+                const bool isRanged = approachStep != rec.stepIndex - 1;
+                const std::int32_t reach =
+                    isRanged ? kLeadMaxTiles + kRunTilesPerTick : kApproachChebyshev;
+                if (!hasHop || tileChebyshev(rec.at, approach) > reach)
                 {
                     return false;
                 }
@@ -3620,7 +3670,8 @@ namespace ww::cli
 
         // Test 4ab (crossing): walked and run up to a crossing, the walk
         // before it still arrives on its approach tile before the loc is
-        // clicked, on every seed, while the hops before that lead; and the
+        // clicked (or within its lead of the tile the loc is clicked from
+        // range at), on every seed, while the hops before that lead; and the
         // run still ends exactly on the goal.
         std::size_t testLeadStopsAtCrossing(ExecContext &ctx, int tilesPerTick, const char *pace)
         {
@@ -3664,6 +3715,127 @@ namespace ww::cli
             failures += crossings > 0 ? 0u : 1u;
             failures += (tally.early == 0 && tally.late == 0) ? 0u : 1u;
             return failures;
+        }
+
+        // The approach step of the first Transition of `plan` (the Walk
+        // straight before it), or plan.steps.size() when there is none.
+        std::size_t firstApproachStep(const runtime::Plan &plan)
+        {
+            for (std::size_t t = 1; t < plan.steps.size(); ++t)
+            {
+                if (plan.steps[t].kind == runtime::StepKind::Transition)
+                {
+                    return t - 1;
+                }
+            }
+            return plan.steps.size();
+        }
+
+        // Test 4ac: run up to a crossing, the loc is clicked from range on
+        // some seeds (from off the approach tile, no walk clicked onto that
+        // tile first, so the game walks the rest) and walked right up to on
+        // others (the executor sometimes does, as a human would), and every
+        // run still ends exactly on the goal.
+        std::size_t testRangeClick(ExecContext &ctx)
+        {
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            runtime::Plan plan;
+            if (!pickWalkToCrossing(ctx, start, goal, plan))
+            {
+                std::printf("  exec:   range-click test skipped (no long walk to a crossing)\n");
+                return 0;
+            }
+            const exec::WwTile approach = stepTile(plan.steps[firstApproachStep(plan)]);
+            const exec::WwTile goalTile{ goal.x, goal.y, goal.plane };
+            int broken = 0;
+            int ranged = 0;
+            int walkedUp = 0;
+            for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition,
+                                                  start.x, start.y, start.plane);
+                harness.landingRecords = ctx.reader.transitions();
+                harness.tilesPerTick = kRunTilesPerTick;
+                const exec::WwStatus status = runSeeded(ctx, harness, goal, seed);
+                const bool isKept = status == exec::WwStatus::Arrived
+                                 && isSameTile(harness.position, goalTile)
+                                 && harness.replanStartedEvents == 0
+                                 && harness.unexpectedActions == 0
+                                 && !harness.interactFroms.empty();
+                broken += isKept ? 0 : 1;
+                if (!isKept)
+                {
+                    continue;
+                }
+                const bool isFar =
+                    tileChebyshev(harness.interactFroms[0], approach) > kApproachChebyshev;
+                const bool isWalkedOn = isSameTile(harness.interactWalkTargets[0], approach);
+                ranged += (isFar && !isWalkedOn) ? 1 : 0;
+                walkedUp += (!isFar && isWalkedOn) ? 1 : 0;
+            }
+            std::printf("  exec:   range-click (%d,%d)->(%d,%d) plan=%zu steps: broken=%d of %u"
+                        " (expect 0) from-range=%d walked-up=%d (expect > 0, > 0)\n",
+                        start.x, start.y, goal.x, goal.y, plan.steps.size(), broken,
+                        kStrideSeeds, ranged, walkedUp);
+            std::size_t failures = broken == 0 ? 0u : 1u;
+            failures += (ranged > 0 && walkedUp > 0) ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4ad: a click from range the game drops (the harness click does
+        // nothing and ends the walk, so the player stands short of the loc)
+        // makes the executor walk the rest onto the approach tile and click
+        // once more from there; the run still ends exactly on the goal. Seeds
+        // that walk right up to the loc are passed over.
+        std::size_t testRangeClickFallback(ExecContext &ctx)
+        {
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            runtime::Plan plan;
+            const bool isPicked = pickWalkToCrossing(ctx, start, goal, plan);
+            const std::size_t approachStep = isPicked ? firstApproachStep(plan) : 0;
+            const auto isTransition = [](const runtime::Step &step)
+            {
+                return step.kind == runtime::StepKind::Transition;
+            };
+            if (!isPicked || std::count_if(plan.steps.begin(), plan.steps.end(), isTransition) != 1)
+            {
+                std::printf("  exec:   range-fallback test skipped (no walk to one crossing)\n");
+                return 0;
+            }
+            const format::TransitionRecord &tx =
+                ctx.reader.transitions()[plan.steps[approachStep + 1].transitionIndex];
+            const exec::WwTile approach = stepTile(plan.steps[approachStep]);
+            const exec::WwTile goalTile{ goal.x, goal.y, goal.plane };
+            int ranged = 0;
+            int fellBack = 0;
+            for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition,
+                                                  start.x, start.y, start.plane);
+                harness.tilesPerTick = kRunTilesPerTick;
+                harness.transitionDest = exec::WwTile{ tx.destX, tx.destY,
+                                                       static_cast<std::int32_t>(tx.destPlane) };
+                harness.droppedInteracts = 1;
+                const exec::WwStatus status = runSeeded(ctx, harness, goal, seed);
+                const auto &froms = harness.interactFroms;
+                if (froms.empty() || tileChebyshev(froms[0], approach) <= kApproachChebyshev)
+                {
+                    continue;
+                }
+                ++ranged;
+                const bool isFellBack = status == exec::WwStatus::Arrived
+                    && isSameTile(harness.position, goalTile) && froms.size() == 2
+                    && tileChebyshev(froms[1], approach) <= kApproachChebyshev
+                    && isSameTile(harness.interactWalkTargets[1], approach)
+                    && harness.replanStartedEvents == 0 && harness.unexpectedActions == 0;
+                fellBack += isFellBack ? 1 : 0;
+            }
+            std::printf("  exec:   range-fallback (%d,%d)->(%d,%d): from-range=%d (expect > 0)"
+                        " fell-back=%d (expect %d)\n",
+                        start.x, start.y, goal.x, goal.y, ranged, fellBack, ranged);
+            return (ranged > 0 && fellBack == ranged) ? 0u : 1u;
         }
 
         // Test 4c: in combat at the first plan, out of it after the first hop.
@@ -4268,6 +4440,8 @@ namespace ww::cli
         failures += testLeadClicks(ctx, kWalkTilesPerTick, "walk");
         failures += testLeadStopsAtCrossing(ctx, kRunTilesPerTick, "run");
         failures += testLeadStopsAtCrossing(ctx, kWalkTilesPerTick, "walk");
+        failures += testRangeClick(ctx);
+        failures += testRangeClickFallback(ctx);
         failures += testFfi(ctx, artifactPath);
         failures += testRefusedTeleport(artifactPath);
         failures += testDoorOpensShort(ctx, true);

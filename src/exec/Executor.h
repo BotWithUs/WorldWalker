@@ -164,6 +164,27 @@ namespace ww::exec
             WwTile   from{};
         };
 
+        // A Transition clicked from range rather than from its approach tile
+        // (planRangeClick): its step, the approach tile its walk would have
+        // ended on, and the planned path tiles to that tile from the Walk
+        // target the hop before the click stops at.
+        struct RangeClick
+        {
+            std::size_t step{0};
+            WwTile      approach{};
+            int32_t     pathTiles{0};
+        };
+
+        // Whether a click from range took (awaitApproach): the player went to
+        // the transition, stood still short of it (the click was dropped or
+        // led nowhere), or the run was cancelled.
+        enum class RangeStart : uint8_t
+        {
+            Started,
+            NotStarted,
+            Cancelled,
+        };
+
         // What one run knows between steps: the last sampled position, how
         // much of the re-plan budget is spent, and whether global teleports
         // were allowed when last checked, by tile and by combat state (so a
@@ -186,6 +207,10 @@ namespace ww::exec
             // loc was missing, and the tile it was skipped from; only the step
             // right after the skip consults it (see isStalledBehindSkip()).
             std::optional<SkippedCrossing> skippedCrossing;
+            // The Transition the hop under way stops short of to click it from
+            // range; the step after that hop is this Transition. Cleared by
+            // every re-plan, whose plan has steps of its own.
+            std::optional<RangeClick> rangeClick;
         };
 
         // What a step learned beyond its status: a Transition that did not put
@@ -334,9 +359,11 @@ namespace ww::exec
         // live position and what the step learned (see StepReport). `view` is
         // the run's context view, which a Transition's landing is judged
         // against.
+        // `rangeClick`, when not null, is the Transition step i clicked from
+        // range (see executeTransitionStep).
         WwStatus executeStep(std::size_t i, int32_t hopTiles, const WwGoal &goal,
-                             runtime::WorldView &view, WwTile &outPosition,
-                             StepReport &outReport);
+                             const RangeClick *rangeClick, runtime::WorldView &view,
+                             WwTile &outPosition, StepReport &outReport);
 
         // One walk click: the index of the Walk step it targets, and the path
         // tiles from the player to that target through every step it passes
@@ -359,6 +386,37 @@ namespace ww::exec
         // is near the Wilderness fence (isNearWildernessFence). Always at
         // least `first`.
         Hop chooseHop(std::size_t first, const WwTile &from, const WwGoal &goal);
+
+        // A human clicks a door, stairs or portal as soon as it is in reach
+        // and lets the game walk the last tiles. When the first step after
+        // the plain Walk run from `first` is a local Transition
+        // (isRangeClickable), cut `ioHop` short at its earliest target whose
+        // planned path to the approach tile is within a range drawn from
+        // [kClickRangeMinTiles, kClickRangeMaxTiles] and that stands at least
+        // kClickRangeMinTiles from the origin, and return the click. Nothing,
+        // and `ioHop` untouched, one draw in kClickWalkUpPercent (walk right
+        // up, as before), near the Wilderness fence, or when no target of
+        // the hop qualifies. Draws from clickRng only.
+        std::optional<RangeClick> planRangeClick(std::size_t first, Hop &ioHop,
+                                                 const WwTile &from, const WwGoal &goal);
+
+        // The earliest Walk target in plan.steps[first, last] (k the
+        // Transition after them) a click from range may be made at: the
+        // target as `last` and its planned path tiles to the approach step
+        // k - 1 as `pathTiles`, within `range` and on the origin's plane, at
+        // least kClickRangeMinTiles from the origin, and with no target from
+        // it to the approach near the Wilderness fence when `isFenced`.
+        std::optional<Hop> findRangeStop(std::size_t first, std::size_t k, std::size_t last,
+                                         int32_t range, bool isFenced) const;
+
+        // Whether `step` is a Transition that may be clicked from range: a
+        // local loc or NPC origin on the plane of `from`, and, on a run
+        // fenced off the Wilderness, not near the fence.
+        bool isRangeClickable(const runtime::Step &step, const WwTile &from,
+                              const WwGoal &goal) const;
+
+        // Path tiles of a hop from `from` through plan.steps[first..last].
+        int32_t hopPathTiles(const WwTile &from, std::size_t first, std::size_t last) const;
 
         // Desired stride of one hop in path tiles, from a mixture that keeps
         // most clicks medium, some long and a few very long.
@@ -480,9 +538,50 @@ namespace ww::exec
         // and TeleportInitiated for global-origin records; the terminal Failed
         // event is emitted by run() so the (stepIndex, transitionIndex) pair
         // carries through.
+        //
+        // With `rangeClick` the player is still short of the approach tile:
+        // the loc (or the NPC chain) is clicked from where they stand and the
+        // game walks them in (clickFromRange). Everything after is judged
+        // from the approach tile, as if the walk had ended there.
         WwStatus executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
-                                       runtime::WorldView &view, WwTile &outPosition,
-                                       StepReport &outReport);
+                                       const RangeClick *rangeClick, runtime::WorldView &view,
+                                       WwTile &outPosition, StepReport &outReport);
+
+        // Click tx from range (issueFromRange). When the click does not take,
+        // walk the rest of the way to the approach tile as before, so the
+        // caller clicks once more from there. Arrived either way, with
+        // `outIsStarted` telling which; Cancelled, or Failed when the
+        // fallback walk is stuck.
+        WwStatus clickFromRange(const format::TransitionRecord &tx, bool isNpcOrigin,
+                                const RangeClick &click, WwTile &ioPosition,
+                                bool &outIsStarted);
+
+        // Issue tx from range, the loc click or the NPC's whole chain, then
+        // wait for it to start (awaitApproach). NotStarted when the host
+        // issued nothing (a loc not found or skipped as an open door, a chain
+        // that failed).
+        RangeStart issueFromRange(const format::TransitionRecord &tx, bool isNpcOrigin,
+                                  const RangeClick &click, WwTile &ioPosition);
+
+        // After a click from range, poll a tick at a time until the player is
+        // at the transition (isAtRangeTarget) or a dialog is up (Started), or
+        // stands still short of it for kRangeStillTicks (NotStarted: the click
+        // was dropped and the walk before it ran out, or it led nowhere). The
+        // budget is a tick a tile of the planned path plus the walk's lead, at
+        // a walk, and a slack; still walking at its end is Started, and the
+        // landing judgement takes it from there.
+        RangeStart awaitApproach(const format::TransitionRecord &tx, const RangeClick &click,
+                                 WwTile &ioPosition);
+
+        // Whether `at` is where a click from range takes the player: within
+        // kRangeNearTiles of the origin or the approach tile, off the origin's
+        // plane (stairs climbed), or landed (hasLanded from the approach).
+        static bool isAtRangeTarget(const format::TransitionRecord &tx, const RangeClick &click,
+                                    const WwTile &at);
+
+        // Whether a chat page, the option list or the Content Warning modal
+        // is open.
+        bool isDialogUp() const;
 
         // After an issued local transition, poll a tick at a time until the
         // player lands near tx's destination or stands still elsewhere, within
@@ -735,6 +834,11 @@ namespace ww::exec
         // handoff and idle is drawn from; reseeded at run() entry.
         std::optional<uint32_t> fixedSeed;
         std::mt19937 rng;
+        // The generator range clicks are drawn from (planRangeClick), seeded
+        // at run() entry from the same seed, salted: one of their own, so a
+        // walk's strides and leads replay as they did whether or not a
+        // transition lies ahead.
+        std::mt19937 clickRng;
 
         // The player's pace in tiles a game tick as the walk polls last saw it
         // (notePace); a leading handoff keeps at least a tick of it in hand.
