@@ -1517,6 +1517,59 @@ takes the 127269 row (111.0).
 `resolvedId`, the landing tiles, and whether a stage below 70 already lets
 the portal through without a cutscene.
 
+## City of Um troll cave (2026-10-27)
+
+Live on 2026-10-27 04:12 Kili's tier-30 upgrade (troll souls) logged "Walk to
+the City of Um troll cave failed 2 times from 1148,1806,1". The cave interior
+was baked (area 3825, 1160..1203 x 2000..2032 on plane 0, holding the
+target 1186,2025 and the cave's fixed npcs 30422/30423/30424), but no row
+joined it to Um, so `wwcli path 1148 1806 1 1186 2025 0` said no route.
+
+**Evidence.** V1's `areas.dat` has no link for the cave (only the Draynor
+portal and the Um boat touch x 1000..1300, y 1700..2200), so the rows come
+from the cache's loc placements (squares 17,26 and 18,31):
+
+- Entrance: loc 126997 `UNDERWORLD_TROLL_CAVE_ENTRANCE` "Large cave opening"
+  [Enter], 4x4, shape 10 rotation 1, at 1135,1707,1: covers 1135..1138 x
+  1707..1710 at the south-west edge of Um.
+- Exits: 126998 `UNDERWORLD_TROLL_CAVE_EXIT` at 1155,2024,0 (rotation 3) and
+  126999 `UNDERWORLD_TROLL_CAVE_EXIT_V2` at 1207,2014,0 (rotation 1), both
+  "Large cave opening" [Enter], 3x3. No other loc with an option is placed in
+  the cave square.
+- None of the three has a morph table, so the cache gives no condition; the
+  rows are ungated. Um itself is already gated (portal on 53549 >= 70, or the
+  Um lodestone).
+
+**Rows.** None of the openings has floor against it: the nearest standable
+tiles are 1133,1706..1708 (Um), 1160,2025..2026 (west exit) and
+1203,2014..2015 (east exit), 1 to 3 tiles off the footprints. Each row tile
+is the blocked tile beside that floor, so the planner approaches from the
+floor and the host finds the loc by footprint (reach 1 for the entrance,
+2 and 3 for the exits, inside the host's 4-tile fallback):
+
+| Row | Origin | Dest |
+|---|---|---|
+| Enter 126997 | 1134,1707,1 | 1160,2025,0 |
+| Enter 126998 | 1159,2025,0 | 1133,1707,1 |
+| Enter 126999 | 1204,2015,0 | 1133,1707,1 |
+
+**Landings (estimates).** Not in the cache or V1. Inside: the floor in front
+of the west exit; outside: the floor in front of the entrance. Both are in
+the right area (3825 / Um's 2973), so a real landing elsewhere in the cave
+is still in the same area. Both exit rows exist so a banned exit has a
+fallback.
+
+`wwcli path`, stage bake, `--teleports datasets`: 1148,1806,1 -> 1186,2025,0
+151.8 (Um lodestone, then 126997); Draynor 3104,3312 -> 1186,2025 214.2 via
+the 127141 portal and 126997, with every lodestone varbit 0 and 53549 = 70,
+and the same with `--ungated`. Out: 1186,2025 -> 1148,1806,1 158.9 via
+126999; 1161,2026 -> the Um bank 71.1 via 126998. The Um portal, Stronghold
+and Paterdomus routes are step-for-step unchanged (transition indices shift
+by 3).
+
+**Not verified live:** that the openings take the click from the floor 1 to
+3 tiles away, the landing tiles, and that both exits lead to Um.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a

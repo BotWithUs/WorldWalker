@@ -726,6 +726,45 @@
     "dest_plane": 0
   },
   {
+    "name": "Enter",
+    "object_id": 126997,
+    "x": 1134,
+    "y": 1707,
+    "plane": 1,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 1160,
+    "dest_y": 2025,
+    "dest_plane": 0
+  },
+  {
+    "name": "Enter",
+    "object_id": 126998,
+    "x": 1159,
+    "y": 2025,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 1133,
+    "dest_y": 1707,
+    "dest_plane": 1
+  },
+  {
+    "name": "Enter",
+    "object_id": 126999,
+    "x": 1204,
+    "y": 2015,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 1133,
+    "dest_y": 1707,
+    "dest_plane": 1
+  },
+  {
     "name": "Board",
     "object_id": 130745,
     "x": 1082,
