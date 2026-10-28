@@ -255,6 +255,14 @@ namespace ww::exec
             return WwTile{ step.targetX, step.targetY, static_cast<int32_t>(step.plane) };
         }
 
+        // The tile `d` Chebyshev steps from `from` on the line to `to`, `len`
+        // steps away (0 < len).
+        WwTile tileAlong(const WwTile &from, const WwTile &to, int32_t d, int32_t len)
+        {
+            return WwTile{ from.x + (to.x - from.x) * d / len, from.y + (to.y - from.y) * d / len,
+                           from.plane };
+        }
+
         // Uniform integer in [lo, hi], both inclusive.
         int32_t drawBetween(std::mt19937 &rng, int32_t lo, int32_t hi)
         {
@@ -1542,7 +1550,8 @@ namespace ww::exec
 
     std::optional<Executor::RangeClick> Executor::planRangeClick(std::size_t first, Hop &ioHop,
                                                                 const WwTile &from,
-                                                                const WwGoal &goal)
+                                                                const WwGoal &goal,
+                                                                runtime::WorldView &view)
     {
         std::size_t k = first;
         while (k < plan.steps.size() && plan.steps[k].kind == runtime::StepKind::Walk)
@@ -1556,40 +1565,61 @@ namespace ww::exec
         // Drawn only ahead of a transition that may be clicked from range, and
         // from clickRng, so the walk's own draws are left as they were.
         const int32_t range = drawBetween(clickRng, kClickRangeMinTiles, kClickRangeMaxTiles);
-        const std::optional<Hop> stop =
-            findRangeStop(first, k, ioHop.last, range, isWildernessFenced(from, goal));
+        const std::optional<Hop> stop = findRangeStop(first, k, ioHop.last, from, range,
+                                                      isWildernessFenced(from, goal), view);
         if (!stop.has_value())
         {
             return std::nullopt;
         }
-        ioHop = Hop{ stop->last, hopPathTiles(from, first, stop->last) };
+        const WwTile target = targetOf(plan.steps[stop->last]);
+        const int32_t stopShort = chebyshev(stop->stopAt.value_or(target), target);
+        ioHop = Hop{ stop->last, hopPathTiles(from, first, stop->last) - stopShort, stop->stopAt };
         return RangeClick{ k, targetOf(plan.steps[k - 1]), stop->pathTiles };
     }
 
     std::optional<Executor::Hop> Executor::findRangeStop(std::size_t first, std::size_t k,
-                                                         std::size_t last, int32_t range,
-                                                         bool isFenced) const
+                                                         std::size_t last, const WwTile &from,
+                                                         int32_t range, bool isFenced,
+                                                         runtime::WorldView &view) const
     {
         const format::TransitionRecord &tx = artifact->transitions()[plan.steps[k].transitionIndex];
         const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
         std::optional<Hop> stop;
-        int32_t toApproach = 0;
-        // Back from the approach along the plan; every target passed is walked
-        // by the game's pathfinder once the click is made, so the Wilderness
-        // fence rules each one out as chooseHop does.
-        for (std::size_t j = k - 1; j-- > first;)
+        int32_t toEnd = 0;  // planned path tiles from plan.steps[e]'s target to the approach
+        // Back from the approach along the plan, tile by tile on the line
+        // between consecutive targets; every tile passed is walked by the
+        // game's pathfinder once the click is made, so the Wilderness fence
+        // rules each one out as chooseHop does.
+        for (std::size_t e = k; e-- > first;)
         {
-            const WwTile at = targetOf(plan.steps[j]);
-            toApproach += chebyshev(at, targetOf(plan.steps[j + 1]));
-            if (toApproach > range || at.plane != origin.plane
-                || (isFenced && isNearWildernessFence(at)))
+            const WwTile end = targetOf(plan.steps[e]);
+            const WwTile start = e == first ? from : targetOf(plan.steps[e - 1]);
+            if (end.plane != origin.plane || start.plane != origin.plane)
             {
-                break;
+                return stop;
             }
-            if (j <= last && chebyshev(at, origin) >= kClickRangeMinTiles)
+            // On the first hop's line `start` is the player's own tile (d ==
+            // len): already in range, the click is made from there.
+            const int32_t len = chebyshev(end, start);
+            const int32_t lastD = e == first ? len : len - 1;
+            for (int32_t d = e + 1 == k ? 1 : 0; d <= lastD; ++d)
             {
-                stop = Hop{ j, toApproach };
+                // Past `range` only while nothing within it qualified (a path
+                // that bends near the loc), and never past kClickRangeMaxTiles.
+                const WwTile at = tileAlong(end, start, d, len);
+                const bool isPastRange = toEnd + d > range;
+                if ((isPastRange && stop.has_value()) || toEnd + d > kClickRangeMaxTiles
+                    || (isFenced && isNearWildernessFence(at)))
+                {
+                    return stop;
+                }
+                if (e <= last && chebyshev(at, origin) >= kClickRangeMinTiles
+                    && view.isStandable(at.x, at.y, at.plane))
+                {
+                    stop = Hop{ e, toEnd + d, d == 0 ? std::nullopt : std::optional<WwTile>{ at } };
+                }
             }
+            toEnd += len;
         }
         return stop;
     }
@@ -1606,6 +1636,7 @@ namespace ww::exec
         const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
         const bool isGlobal = (tx.flags & format::kTransitionFlagGlobalOrigin) != 0;
         return !isGlobal && origin.plane == from.plane
+            && chebyshev(from, origin) >= kClickRangeMinTiles
             && !(isWildernessFenced(from, goal) && isNearWildernessFence(origin));
     }
 
@@ -1634,8 +1665,9 @@ namespace ww::exec
     }
 
     WwStatus Executor::executeStep(std::size_t i, int32_t hopTiles, const WwGoal &goal,
-                                   const RangeClick *rangeClick, runtime::WorldView &view,
-                                   WwTile &outPosition, StepReport &outReport)
+                                   const RangeClick *rangeClick, std::optional<WwTile> stopAt,
+                                   runtime::WorldView &view, WwTile &outPosition,
+                                   StepReport &outReport)
     {
         const runtime::Step &step = plan.steps[i];
         const int32_t stepIndex = static_cast<int32_t>(i);
@@ -1645,8 +1677,14 @@ namespace ww::exec
             return executeTransitionStep(step, stepIndex, rangeClick, view, outPosition,
                                          outReport);
         }
+        runtime::Step walk = step;
+        if (stopAt.has_value())
+        {
+            walk.targetX = stopAt->x;
+            walk.targetY = stopAt->y;
+        }
         const Handoff handoff = handoffFor(i, goal, outPosition);
-        const WwStatus walked = walkOneStep(step, stepIndex, handoff, hopTiles,
+        const WwStatus walked = walkOneStep(walk, stepIndex, handoff, hopTiles,
                                             interactionHintFor(i), outPosition);
         if (walked != WwStatus::Arrived || handoff.idleTicks == 0)
         {
@@ -1759,19 +1797,30 @@ namespace ww::exec
             // then moves straight onto the Transition, and the click goes with
             // it.
             int32_t hopTiles = 0;
+            std::optional<WwTile> stopAt;
             const std::optional<RangeClick> rangeClick = std::exchange(st.rangeClick, std::nullopt);
             if (plan.steps[i].kind == runtime::StepKind::Walk)
             {
                 Hop hop = chooseHop(i, st.position, goal);
-                st.rangeClick = planRangeClick(i, hop, st.position, goal);
+                st.rangeClick = planRangeClick(i, hop, st.position, goal, context.view);
+                const WwTile hopTarget = hop.stopAt.value_or(targetOf(plan.steps[hop.last]));
+                if (st.rangeClick.has_value()
+                    && chebyshev(hopTarget, st.position) <= kArrivalChebyshev)
+                {
+                    // In range where the player stands (or a step from it): no
+                    // walk, the click goes from here.
+                    i = st.rangeClick->step;
+                    continue;
+                }
                 i = hop.last;
                 hopTiles = hop.pathTiles;
+                stopAt = hop.stopAt;
             }
             const int32_t stepIndex = static_cast<int32_t>(i);
             StepReport report{};
             const RangeClick *clicked = rangeClick.has_value() ? &*rangeClick : nullptr;
-            const WwStatus stepResult =
-                executeStep(i, hopTiles, goal, clicked, context.view, st.position, report);
+            const WwStatus stepResult = executeStep(i, hopTiles, goal, clicked, stopAt,
+                                                    context.view, st.position, report);
             // Only the step right after a skip may blame it, so every step
             // takes it off the run state.
             const std::optional<SkippedCrossing> skipped =

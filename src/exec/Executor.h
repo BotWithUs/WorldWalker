@@ -360,19 +360,24 @@ namespace ww::exec
         // the run's context view, which a Transition's landing is judged
         // against.
         // `rangeClick`, when not null, is the Transition step i clicked from
-        // range (see executeTransitionStep).
+        // range (see executeTransitionStep). `stopAt`, when set, is the tile a
+        // Walk step i is clicked to instead of its target (Hop::stopAt).
         WwStatus executeStep(std::size_t i, int32_t hopTiles, const WwGoal &goal,
-                             const RangeClick *rangeClick, runtime::WorldView &view,
-                             WwTile &outPosition, StepReport &outReport);
+                             const RangeClick *rangeClick, std::optional<WwTile> stopAt,
+                             runtime::WorldView &view, WwTile &outPosition,
+                             StepReport &outReport);
 
         // One walk click: the index of the Walk step it targets, and the path
         // tiles from the player to that target through every step it passes
         // over (the Chebyshev hop between consecutive targets stands in for a
-        // step's length, which the plan does not carry).
+        // step's length, which the plan does not carry). `stopAt`, when set,
+        // is a tile short of that target on the line to it the click goes to
+        // instead (a click from range made between two targets).
         struct Hop
         {
-            std::size_t last{0};
-            int32_t     pathTiles{0};
+            std::size_t           last{0};
+            int32_t               pathTiles{0};
+            std::optional<WwTile> stopAt{};
         };
 
         // The hop to click from `from` when plan.steps[first] is a Walk: the
@@ -390,27 +395,36 @@ namespace ww::exec
         // A human clicks a door, stairs or portal as soon as it is in reach
         // and lets the game walk the last tiles. When the first step after
         // the plain Walk run from `first` is a local Transition
-        // (isRangeClickable), cut `ioHop` short at its earliest target whose
-        // planned path to the approach tile is within a range drawn from
-        // [kClickRangeMinTiles, kClickRangeMaxTiles] and that stands at least
-        // kClickRangeMinTiles from the origin, and return the click. Nothing,
-        // and `ioHop` untouched, near the Wilderness fence or when no target
-        // of the hop qualifies. Draws from clickRng only.
+        // (isRangeClickable), cut `ioHop` short at its earliest tile on the
+        // planned path (findRangeStop) whose path to the approach tile is
+        // within a range drawn from [kClickRangeMinTiles, kClickRangeMaxTiles]
+        // and that stands at least kClickRangeMinTiles from the origin, and
+        // return the click. Nothing, and `ioHop` untouched, near the
+        // Wilderness fence or when no tile of the hop qualifies. Draws from
+        // clickRng only.
         std::optional<RangeClick> planRangeClick(std::size_t first, Hop &ioHop,
-                                                 const WwTile &from, const WwGoal &goal);
+                                                 const WwTile &from, const WwGoal &goal,
+                                                 runtime::WorldView &view);
 
-        // The earliest Walk target in plan.steps[first, last] (k the
-        // Transition after them) a click from range may be made at: the
-        // target as `last` and its planned path tiles to the approach step
-        // k - 1 as `pathTiles`, within `range` and on the origin's plane, at
-        // least kClickRangeMinTiles from the origin, and with no target from
-        // it to the approach near the Wilderness fence when `isFenced`.
+        // The earliest standable tile on the planned path from `from` (itself
+        // included: then no walk is made before the click) through
+        // plan.steps[first, last] (k the Transition after them; the path
+        // between consecutive targets taken as the line between them) a click
+        // from range may be made at: the Walk step it lies on the way to as
+        // `last`, the tile as `stopAt` when it is not that step's target, and
+        // its planned path tiles to the approach step k - 1 as `pathTiles`,
+        // within `range` (or, when no tile within it qualifies, the nearest
+        // past it within kClickRangeMaxTiles) and on the origin's plane, at
+        // least kClickRangeMinTiles from the origin, and with no tile from it
+        // to the approach near the Wilderness fence when `isFenced`.
         std::optional<Hop> findRangeStop(std::size_t first, std::size_t k, std::size_t last,
-                                         int32_t range, bool isFenced) const;
+                                         const WwTile &from, int32_t range, bool isFenced,
+                                         runtime::WorldView &view) const;
 
         // Whether `step` is a Transition that may be clicked from range: a
-        // local loc or NPC origin on the plane of `from`, and, on a run
-        // fenced off the Wilderness, not near the fence.
+        // local loc or NPC origin on the plane of `from` and at least
+        // kClickRangeMinTiles from it (nearer, it is walked up to), and, on a
+        // run fenced off the Wilderness, not near the fence.
         bool isRangeClickable(const runtime::Step &step, const WwTile &from,
                               const WwGoal &goal) const;
 

@@ -1479,20 +1479,25 @@ namespace ww::cli
             return count;
         }
 
-        // A standable tile in `pick`'s start area a few tiles from its start,
-        // so the run walks to the crossing before clicking it; false when the
-        // start is the only tile in reach.
+        // A standable tile in `pick`'s start area a few tiles from its start
+        // and within kNoRangeClickTiles of the loc's origin, so the run walks
+        // to the crossing before clicking it (the executor clicks a loc from
+        // range only from 5 tiles out); false when no other tile is in reach.
         bool pickApproachStart(ExecContext &ctx, const CrossAreaPick &pick,
                                runtime::TilePoint &outStart)
         {
+            constexpr std::int32_t kNoRangeClickTiles = 4;
             const std::int32_t area = ctx.view.areaAt(pick.start.x, pick.start.y, pick.startPlane);
             if (area < 0)
             {
                 return false;
             }
-            outStart = farthestInArea(ctx.view, pick.start.x, pick.start.y, pick.startPlane,
-                                      area, 6);
-            return outStart.x != pick.start.x || outStart.y != pick.start.y;
+            const auto &tx = ctx.reader.transitions()[ctx.reader.areaEdges()[pick.edgeIndex]
+                                                          .transitionIndex];
+            outStart = farthestInArea(ctx.view, tx.originX, tx.originY, pick.startPlane, area,
+                                      kNoRangeClickTiles);
+            const bool isOrigin = outStart.x == tx.originX && outStart.y == tx.originY;
+            return !isOrigin && (outStart.x != pick.start.x || outStart.y != pick.start.y);
         }
 
         // An ungated loc crossing with no chain, off the floor (a ladder, like
@@ -2651,8 +2656,36 @@ namespace ww::cli
             return executor.run(goal);
         }
 
+        // Whether `at` is a tile short of `to` on the line to it from `from`,
+        // as the executor walks it.
+        bool isOnLineTo(const exec::WwTile &from, const exec::WwTile &to, const exec::WwTile &at)
+        {
+            const std::int32_t len = tileChebyshev(from, to);
+            for (std::int32_t d = 1; d < len; ++d)
+            {
+                const exec::WwTile t{ to.x + (from.x - to.x) * d / len,
+                                      to.y + (from.y - to.y) * d / len, to.plane };
+                if (isSameTile(t, at))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Whether hop `hop` clicked its step's target, or (a click from range
+        // made between two targets) a tile short of it on the line to it from
+        // the step before or from where the hop was clicked.
+        bool isHopOnPlan(const HopRecord &hop, const runtime::Plan &plan)
+        {
+            const std::size_t at = static_cast<std::size_t>(hop.stepIndex);
+            const exec::WwTile target = stepTile(plan.steps[at]);
+            return isSameTile(target, hop.target) || isOnLineTo(hop.from, target, hop.target)
+                || (at > 0 && isOnLineTo(stepTile(plan.steps[at - 1]), target, hop.target));
+        }
+
         // Whether every hop of the first plan clicked its own step's target
-        // and the hops only ever moved forward.
+        // (isHopOnPlan) and the hops only ever moved forward.
         bool hopsFollowPlan(const ExecHarness &h, const runtime::Plan &plan)
         {
             std::int32_t prev = -1;
@@ -2664,8 +2697,7 @@ namespace ww::cli
                 }
                 const bool isInPlan = hop.isClicked && hop.stepIndex > prev
                     && static_cast<std::size_t>(hop.stepIndex) < plan.steps.size()
-                    && isSameTile(stepTile(plan.steps[static_cast<std::size_t>(hop.stepIndex)]),
-                                  hop.target);
+                    && isHopOnPlan(hop, plan);
                 if (!isInPlan)
                 {
                     return false;
@@ -3731,12 +3763,11 @@ namespace ww::cli
             return plan.steps.size();
         }
 
-        // Test 4ac: run up to a crossing, the loc is clicked from range on
-        // some seeds (from off the approach tile, no walk clicked onto that
-        // tile first, so the game walks the rest) and walked right up to on
-        // others (the range drawn reaches no planned target far enough from
-        // the loc), and every
-        // run still ends exactly on the goal.
+        // Test 4ac: run up to a crossing over a long walk, the loc is clicked
+        // from range on every seed (from off the approach tile, no walk
+        // clicked onto that tile first, so the game walks the rest; the stop
+        // may fall between two planned targets), never walked right up to,
+        // and every run still ends exactly on the goal.
         std::size_t testRangeClick(ExecContext &ctx)
         {
             exec::WwTile start{};
@@ -3776,11 +3807,11 @@ namespace ww::cli
                 walkedUp += (!isFar && isWalkedOn) ? 1 : 0;
             }
             std::printf("  exec:   range-click (%d,%d)->(%d,%d) plan=%zu steps: broken=%d of %u"
-                        " (expect 0) from-range=%d walked-up=%d (expect > 0, > 0)\n",
+                        " (expect 0) from-range=%d walked-up=%d (expect %u, 0)\n",
                         start.x, start.y, goal.x, goal.y, plan.steps.size(), broken,
-                        kStrideSeeds, ranged, walkedUp);
+                        kStrideSeeds, ranged, walkedUp, kStrideSeeds);
             std::size_t failures = broken == 0 ? 0u : 1u;
-            failures += (ranged > 0 && walkedUp > 0) ? 0u : 1u;
+            failures += (ranged == static_cast<int>(kStrideSeeds) && walkedUp == 0) ? 0u : 1u;
             return failures;
         }
 
