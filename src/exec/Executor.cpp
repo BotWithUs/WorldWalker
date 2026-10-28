@@ -82,11 +82,9 @@ namespace ww::exec
         // paths an interaction to any loc in its loaded scene, and the default
         // camera shows about 15 tiles round the player, so 12 tiles of planned
         // path keeps the loc on screen and far inside kMaxClickChebyshev. The
-        // range is drawn per approach, and one approach in
-        // kClickWalkUpPercent walks right up, as every one did before.
+        // range is drawn per approach.
         constexpr int32_t kClickRangeMinTiles = 5;
         constexpr int32_t kClickRangeMaxTiles = 12;
-        constexpr int32_t kClickWalkUpPercent = 15;
         // After a click from range: within kRangeNearTiles of the origin or
         // the approach tile the player is at the loc (a big loc like that
         // portal is used from a ring round its footprint, and its origin is a
@@ -1558,10 +1556,6 @@ namespace ww::exec
         // Drawn only ahead of a transition that may be clicked from range, and
         // from clickRng, so the walk's own draws are left as they were.
         const int32_t range = drawBetween(clickRng, kClickRangeMinTiles, kClickRangeMaxTiles);
-        if (drawBetween(clickRng, 0, 99) < kClickWalkUpPercent)
-        {
-            return std::nullopt;
-        }
         const std::optional<Hop> stop =
             findRangeStop(first, k, ioHop.last, range, isWildernessFenced(from, goal));
         if (!stop.has_value())

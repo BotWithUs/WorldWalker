@@ -394,9 +394,8 @@ namespace ww::exec
         // planned path to the approach tile is within a range drawn from
         // [kClickRangeMinTiles, kClickRangeMaxTiles] and that stands at least
         // kClickRangeMinTiles from the origin, and return the click. Nothing,
-        // and `ioHop` untouched, one draw in kClickWalkUpPercent (walk right
-        // up, as before), near the Wilderness fence, or when no target of
-        // the hop qualifies. Draws from clickRng only.
+        // and `ioHop` untouched, near the Wilderness fence or when no target
+        // of the hop qualifies. Draws from clickRng only.
         std::optional<RangeClick> planRangeClick(std::size_t first, Hop &ioHop,
                                                  const WwTile &from, const WwGoal &goal);
 

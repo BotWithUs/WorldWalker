@@ -3734,7 +3734,8 @@ namespace ww::cli
         // Test 4ac: run up to a crossing, the loc is clicked from range on
         // some seeds (from off the approach tile, no walk clicked onto that
         // tile first, so the game walks the rest) and walked right up to on
-        // others (the executor sometimes does, as a human would), and every
+        // others (the range drawn reaches no planned target far enough from
+        // the loc), and every
         // run still ends exactly on the goal.
         std::size_t testRangeClick(ExecContext &ctx)
         {
