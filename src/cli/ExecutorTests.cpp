@@ -199,6 +199,12 @@ namespace ww::cli
             int               pendingLandingTicks;
             int               cancelledLandings;
             int               droppedInteracts;
+            // SimulateTransition with tilesPerTick: a loc click walks the
+            // player at that pace onto the origin it names and lands them on
+            // transitionDest on arrival, as the game walks a click from range
+            // in. A walk clicked on the way replaces it.
+            bool              isInteractWalkingUp;
+            bool              isWalkingUpToLoc;
             // SimulateTransition: the door raises a plain message box (1186)
             // on its first click and lets the player through only once that
             // page is continued. continueClicks counts the continues.
@@ -555,6 +561,7 @@ namespace ww::cli
             {
                 h->walkGoal = target;
                 h->hasWalkGoal = !isSameTile(h->position, target);
+                h->isWalkingUpToLoc = false;
             }
             else if (isWalkingMode)
             {
@@ -633,6 +640,7 @@ namespace ww::cli
             h->interactFroms.push_back(h->position);
             h->interactWalkTargets.push_back(h->lastWalkClick);
             h->hasWalkGoal = false;  // a loc click replaces the walk
+            h->isWalkingUpToLoc = false;
             if (objectId == h->watchedObjectId && origin.x == h->watchedOrigin.x
                 && origin.y == h->watchedOrigin.y && origin.plane == h->watchedOrigin.plane)
             {
@@ -678,6 +686,12 @@ namespace ww::cli
             else if (h->droppedInteracts > 0)
             {
                 --h->droppedInteracts;
+            }
+            else if (h->isInteractWalkingUp && !isSameTile(h->position, origin))
+            {
+                h->walkGoal = origin;
+                h->hasWalkGoal = true;
+                h->isWalkingUpToLoc = true;
             }
             else if (h->hasEntryChat && !h->isEntryChatDone)
             {
@@ -867,6 +881,11 @@ namespace ww::cli
                 h->position.y += (dy > 0) - (dy < 0);
                 h->position.plane = h->walkGoal.plane;
                 h->hasWalkGoal = !isSameTile(h->position, h->walkGoal);
+            }
+            if (h->isWalkingUpToLoc && !h->hasWalkGoal)
+            {
+                h->isWalkingUpToLoc = false;
+                h->position = h->transitionDest;
             }
         }
 
@@ -3870,6 +3889,54 @@ namespace ww::cli
             return (ranged > 0 && fellBack == ranged) ? 0u : 1u;
         }
 
+        // Test 4ae: a click from range that walks the player in at walking
+        // pace (a tile a tick, the slowest the game walks them) is watched
+        // until they land: no walk clicked onto the approach tile and no
+        // second click on the loc, however far from it the click was made.
+        std::size_t testRangeClickWalkIn(ExecContext &ctx)
+        {
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            runtime::Plan plan;
+            const bool isPicked = pickWalkToCrossing(ctx, start, goal, plan);
+            const std::size_t approachStep = isPicked ? firstApproachStep(plan) : 0;
+            if (!isPicked || approachStep + 1 >= plan.steps.size())
+            {
+                std::printf("  exec:   range-walk-in test skipped (no walk to a crossing)\n");
+                return 0;
+            }
+            const format::TransitionRecord &tx =
+                ctx.reader.transitions()[plan.steps[approachStep + 1].transitionIndex];
+            const exec::WwTile approach = stepTile(plan.steps[approachStep]);
+            const exec::WwTile goalTile{ goal.x, goal.y, goal.plane };
+            int ranged = 0;
+            int walkedIn = 0;
+            for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition,
+                                                  start.x, start.y, start.plane);
+                harness.tilesPerTick = kWalkTilesPerTick;
+                harness.transitionDest = exec::WwTile{ tx.destX, tx.destY,
+                                                       static_cast<std::int32_t>(tx.destPlane) };
+                harness.isInteractWalkingUp = true;
+                const exec::WwStatus status = runSeeded(ctx, harness, goal, seed);
+                const auto &froms = harness.interactFroms;
+                if (froms.empty() || tileChebyshev(froms[0], approach) <= kApproachChebyshev)
+                {
+                    continue;
+                }
+                ++ranged;
+                const bool isWalkedIn = status == exec::WwStatus::Arrived
+                    && isSameTile(harness.position, goalTile) && froms.size() == 1
+                    && harness.replanStartedEvents == 0 && harness.unexpectedActions == 0;
+                walkedIn += isWalkedIn ? 1 : 0;
+            }
+            std::printf("  exec:   range-walk-in (%d,%d)->(%d,%d): from-range=%d (expect > 0)"
+                        " one-click=%d (expect %d)\n",
+                        start.x, start.y, goal.x, goal.y, ranged, walkedIn, ranged);
+            return (ranged > 0 && walkedIn == ranged) ? 0u : 1u;
+        }
+
         // Test 4c: in combat at the first plan, out of it after the first hop.
         // The walk-only goal needs no teleport, but the flip back out of combat
         // must still re-plan once, since that is the moment teleports come
@@ -4474,6 +4541,7 @@ namespace ww::cli
         failures += testLeadStopsAtCrossing(ctx, kWalkTilesPerTick, "walk");
         failures += testRangeClick(ctx);
         failures += testRangeClickFallback(ctx);
+        failures += testRangeClickWalkIn(ctx);
         failures += testFfi(ctx, artifactPath);
         failures += testRefusedTeleport(artifactPath);
         failures += testDoorOpensShort(ctx, true);

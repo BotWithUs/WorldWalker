@@ -1485,15 +1485,19 @@ naming the base id finds nothing. The real fix is host-side (match
 with the host as it is.
 
 **Rows.**
-- Draynor -> Um: `object_id` 127141 (the quiet morph, which the host matches
-  on `resolvedId`), 3104,3312 -> 1025,1762,1, gated on `varbit_at_least`
-  53549 >= 70. 70 is Necromancy! complete (BotWithUs-Scripts `QuestGate`
-  and `QuestRefs`, quest 493). Before that the quest clicks the portal
-  itself (its own `PORTAL` set 127139/127140/127141), and the loud portal
-  starts the quest, so the walker leaves it alone.
-- A fallback naming the base id 127139 from 3103,3312 with the same gate and
-  `extra_cost` 20, for a host that matches the base id. The planner takes it
-  only once the 127141 row has been banned.
+- Draynor -> Um: `object_id` 127139 (the base id), 3103,3312 -> 1025,1762,1,
+  gated on `varbit_at_least` 53549 >= 70. 70 is Necromancy! complete
+  (BotWithUs-Scripts `QuestGate` and `QuestRefs`, quest 493). Before that
+  the quest clicks the portal itself (its own `PORTAL` set
+  127139/127140/127141), and the loud portal starts the quest, so the
+  walker leaves it alone.
+- The 127141 (quiet morph) row from 3104,3312 is gone (2026-10-28). The host
+  matched it on every use from 10-26 to 10-28 (~187 clicks in host.log and
+  host.1.log, from the approach tile and from range alike), and not one
+  landed: each was followed 3-4 s later by an off-course reroute onto the
+  127139 row, whose click landed within 2.4 s every time. 127139 matched at
+  3104,3313,0 on all of those runs, so the host finds the base id again
+  and a second row only cost every trip two dead clicks.
 - Um -> Draynor: loc 127269 `NECRO_HUB_EXIT` "Overworld portal" is a 5x5
   shape 11 rotation 2 anchored at 1020,1755,1. The row now starts at
   1024,1760, one tile off the footprint; the old 1025,1762 was three tiles
@@ -1513,9 +1517,9 @@ varbit in `item_teleports.json` set to 0 and 53549 = 70 (and again with
 the Um lodestone (53270 = 1) it is the lodestone. Lupe back to Draynor
 takes the 127269 row (111.0).
 
-**Not verified live:** that today's agent publishes 127141 as the portal's
-`resolvedId`, the landing tiles, and whether a stage below 70 already lets
-the portal through without a cutscene.
+**Not verified live:** whether a stage below 70 already lets the portal
+through without a cutscene. The routes above went through the 127141 row
+when they were measured; they now go through the 127139 one.
 
 ## City of Um troll cave (2026-10-27)
 
