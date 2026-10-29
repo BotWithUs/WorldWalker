@@ -285,6 +285,7 @@ set(wwcli_SOURCES
 	"src/cli/MoveTests.cpp"
 	"src/cli/PathExport.cpp"
 	"src/cli/ScriptedPaths.cpp"
+	"src/cli/SosTests.cpp"
 	"src/cli/WallShapeTests.cpp"
 	"src/cli/main.cpp"
 )
