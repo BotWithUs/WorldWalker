@@ -47115,5 +47115,43 @@
         "value": 40
       }
     }
+  },
+  {
+    "name": "Climb over",
+    "object_id": 91472,
+    "x": 3672,
+    "y": 3457,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3672,
+    "dest_y": 3458,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 16,
+        "level": 92
+      }
+    }
+  },
+  {
+    "name": "Climb over",
+    "object_id": 91472,
+    "x": 3672,
+    "y": 3458,
+    "plane": 0,
+    "shape": 0,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3672,
+    "dest_y": 3457,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 16,
+        "level": 92
+      }
+    }
   }
 ]

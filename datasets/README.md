@@ -103,7 +103,7 @@ can otherwise use (`members_action_N`), and a members account on a free world.
 Every entry may carry a `requirements` object. `skill` is one `{id, level}` or
 an array of them (all must pass), `id` being the stat id the host reports
 (0 Attack, 2 Strength, 6 Magic, 7 Cooking, 10 Fishing, 12 Crafting,
-14 Mining, ...); `items` is an array of `{id, count}` and passes when **any** of them is held on
+14 Mining, 16 Agility, ...); `items` is an array of `{id, count}` and passes when **any** of them is held on
 an item teleport; `varbit` and `varp` are either one `{id, value}` or an
 **array** of them, and each is an exact-value match; `varbit_at_least` and
 `varp_at_least` take the same two spellings and pass at or above `value`
@@ -1573,6 +1573,40 @@ by 3).
 
 **Not verified live:** that the openings take the click from the floor 1 to
 3 tiles away, the landing tiles, and that both exits lead to Um.
+
+## Port Phasmatys wall shortcut (2026-10-29)
+
+Live on 2026-10-29 12:16 a low-Agility account was routed over the low wall
+south of Port Phasmatys and clicked it every ten seconds without crossing.
+The wall is loc 91472 `AHOY_TOWN_WALL_AGILITY` "Low wall" [Climb over],
+shape 0 rotation 1 at 3672,3457. The bake derived it as a door crossing
+(its own wall edge, both ways), so it carried no gate.
+
+**No level in the cache.** 91472 has no params (`cfgdump loc 91472`) and no
+`agility_obstacle_dbrow` in the 9-29 `locations.json`. The few locs that do
+point at a table-97 dbrow find it empty (see the Amberfell bridge and the
+Exalted Quarry ladders above). So the bake has nothing to gate an agility
+shortcut on. A level has to be typed in a row.
+
+**Rows.** Two rows with the derived endpoints, 3672,3457 -> 3672,3458 and
+back, carry `skill` 16 (Agility) >= 92. They claim both origin tiles, so the
+door deriver drops its two hops.
+
+`wwcli path`, stage bake, 3646,3447 -> 3680,3470: with `--skill 16=92` over
+the wall (62.0); with `--skill 16=1` no route, with or without `--teleports
+datasets`. The wall was the only way into the town. Nothing near the town's
+gates is a transition, so an account under 92 Agility cannot reach Port
+Phasmatys on foot until the gates are rows.
+
+**Other agility crossings left ungated.** The door deriver also makes ungated
+hops for these same-plane climb, jump and squeeze locs. None has a level in
+the cache, so none is gated: 9300 Fence (3230,3331), 12776 Low fence
+(3474,3221), 18976 Hole (2352,4315), 37703 Broken railing (3083,3353 and
+4619,11481), 41684 Roots (2044,5697), 45608/45609/45610/45612 Wall
+(3678..3682,4944 and 3705..3706,4936), 61293 Wall (3610,3265), 85583 Crack
+(2587,5203 and 2588,5199), 93468 Chain (2847..2848,6163).
+
+**Not verified live:** the level 92, and that the climb lands on 3672,3458.
 
 ## How they're consumed
 
