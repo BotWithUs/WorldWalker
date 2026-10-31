@@ -648,9 +648,9 @@ namespace
 
     // Rows named in the PR: each must be found and match. Matched on source.
     constexpr const char *kSpotlights[] = {
-        "transport_links[2483] Gate south of the Wilderness Agility Course",
-        "transport_links[949] Charter ship - Brimhaven",
-        "transport_links[135] View",
+        "transport_links[2487] Gate south of the Wilderness Agility Course",
+        "transport_links[952] Charter ship - Brimhaven",
+        "transport_links[138] View",
         "transport_links[0] Climb-down",
         "spell_teleports[0]",
         "item_teleports[0]",
