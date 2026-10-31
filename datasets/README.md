@@ -103,7 +103,7 @@ can otherwise use (`members_action_N`), and a members account on a free world.
 Every entry may carry a `requirements` object. `skill` is one `{id, level}` or
 an array of them (all must pass), `id` being the stat id the host reports
 (0 Attack, 2 Strength, 6 Magic, 7 Cooking, 10 Fishing, 12 Crafting,
-14 Mining, ...); `items` is an array of `{id, count}` and passes when **any** of them is held on
+14 Mining, 16 Agility, ...); `items` is an array of `{id, count}` and passes when **any** of them is held on
 an item teleport; `varbit` and `varp` are either one `{id, value}` or an
 **array** of them, and each is an exact-value match; `varbit_at_least` and
 `varp_at_least` take the same two spellings and pass at or above `value`
@@ -284,9 +284,10 @@ bake derives from the cache:
   loc has `interactType > 0` (`MapSquare.cpp`), and some doors with an `Open`
   option carry none: 2546 and 2548 (Ardougne castle, Bravek's house), 34825,
   21814 (Tower of Life), 25638 (Camelot), 31808 (the Clock Tower dungeon),
-  5183, 5186 and 5172 (Fenkenstrain's castle), and 34819 and 34822, the
+  5183, 5186 and 5172 (Fenkenstrain's castle), 34819 and 34822, the
   double front door of the East Ardougne church at 2615-2616,3303, whose
-  interior could not be reached at all (live 2026-09-29). Each crossing has a
+  interior could not be reached at all (live 2026-09-29), and 3444 and 3445,
+  the gates in the passage under Paterdomus (2026-10-23). Each crossing has a
   row per direction with the door's own shape and rotation. Fixing the
   library would derive these and probably others: the decoder defaults
   `interactType` to 0 and sets it only from opcode 19, where the client
@@ -1270,6 +1271,342 @@ Left as they were, and still dropped: the near-duplicate row one tile east
 380, "Travel (Port Sarim)") may ask questions on the way that no dialog zone
 answers yet. Not run against a live client: the wait and whether the fare
 raises a conversation are unverified.
+
+## Stronghold of Security (2026-10-24)
+
+Nothing reached the Stronghold of Security (entrance 16154 `SOS_DUNG_ENT_OPEN`,
+`Climb-down`, at 3081,3420 in Barbarian Village) before these rows. Worse,
+inside it the bake's own vertical pairs climbed every ladder, chain, rope and
+vine onto plane 1 (16148 at 1859,5244,0 -> 1859,5243,1, and so on). The
+stronghold's squares carry floor on planes 1..3 above the levels, so that sky
+survives the void fence, and the planner walked it: War's start room to its
+reward room went up the start ladder, across the sky and down a chain.
+
+**Doors need no rows.** Every door half on all four levels (War 16123/16124,
+Famine 16065/16066, Pestilence 16089/16090, Death 16043/16044) is derived from
+the cache already, one hop per half and direction: 144, 152, 120 and 144 hops,
+the same counts as V1's navigation data has links for those locs. Each
+level's route crosses 12 of them (10 from the Death start room to 2341,5219,
+where its portal lands), the gate pairs the decoded map in BotWithUs-Scripts'
+`activities/stronghold` (`Floor`) walks.
+
+**The rows.** 21, one per loc placement, each on its anchor, so it suppresses
+the derived climb from that tile (`freshness: ... suppressed by datasets` went
+13 -> 26). Anchors and rotations are the cache's placements (all type 10 but
+the entrance, type 11 rotation 3). Every loc has the one option the row clicks
+(op 0, rs3-cs2-dumps `locations.json`). Landings are V1's (`rs3-nav-api`
+`mapdata.zip`, `areas.dat`), which link every one of these locs:
+
+| Level | Down (to the next start room) | Up | Portal (start room -> reward room) |
+|---|---|---|---|
+| Surface | 16154 3081,3420 -> 1859,5243 | | |
+| War | 16149 1902,5222 -> 2042,5245 | 16148 1859,5244 and 1913,5226 -> 3081,3421; chain 16146 1881,5232 -> 1859,5243 | 16150 1863,5238 -> 1914,5222, varbit 16023 = 1 |
+| Famine | 16081 2026,5218 -> 2123,5252 | 16080 2042,5246 -> 1859,5243; ropes 16078 at 2011,5192, 2031,5189, 2017,5210, 2040,5208 -> 2042,5245 | 16082 2039,5240 -> 2021,5223, varbit 16024 = 1 |
+| Pestilence | 16115 2148,5284 -> 2357,5216 | 16114 2123,5251 -> 2042,5245; vine 16112 2150,5278 -> 2123,5252 | 16116 2120,5258 -> 2146,5287, varbit 16025 = 1 |
+| Death | | 16049 2358,5216 -> 2123,5252; chains 16048 2309,5240 and 2350,5215 -> 3081,3421 | 16050 2365,5212 -> 2341,5219, varbit 16026 = 1 |
+
+The up ladders lead to the previous level's start room and the chains, ropes
+and vine to their own level's, as V1 has them. The plane-1..3 copies of the
+same locs keep their derived climbs, but nothing on plane 0 leads up to them
+any more.
+
+**Portals.** A start-room portal takes a player whose reward is claimed to the
+reward room (V1 gates its links on the same varbits). The varbits are
+`SOS_WAR_REWARD`, `SOS_FAM_REWARD`, `SOS_PEST_REWARD` and `SOS_DEATH_REWARD`
+(varp 3108, one bit per level), so `value 1` is exact.
+
+**The climb warning.** The ladders raise the Content Warning System modal,
+interface 1262 `CWS_WARNING_MAIN` ("Are you sure you want to climb down?").
+The executor confirms it wherever it is open, for any loc: it clicks
+`CWS_WARNING_MAIN__YES_TEXT` (1262:2) and never the "Don't ask me this again"
+toggle (1262:5). No row carries a chain for it.
+
+**Security questions.** The doors may ask one. A dialog zone per level box
+(War 1856..1919 x 5184..5247, Famine 1984..2047 x 5184..5247, Pestilence
+2112..2175 x 5248..5311, Death 2304..2367 x 5184..5247) carries the 26 safe
+answer fragments of BotWithUs-Scripts' `StrongholdOfSecurity.SAFE_ANSWERS`,
+in its order. The executor's dialog budget is per transition, so a level of
+twelve doors does not run it out.
+
+**Checked offline:** `wwcli sos <artifact>` plans the descent from Barbarian
+Village through War, Famine and Pestilence, the climb back out, and each
+portal with and without its varbit.
+
+**Not verified live:** every landing (V1's, not observed by this walker);
+whether the up ladders raise a warning too; that every door question is
+answered by a fragment in the list; and that the portals refuse a player
+before the claim rather than only being unplanned. Free-to-play: the
+stronghold is not in `f2p_zones.json`, so a free account is refused every
+row here until a sourced box is added.
+
+## The passage under Paterdomus (2026-10-23)
+
+The Mausoleum trapdoor 30571 (3405,3505) lands the player at 3405,9906, in a
+room the bake had joined to nothing else. With no teleport the walker found no
+route from it, to Drezel (3438,9895) or out (`wwcli path 3405 9906 0 3438 9895
+0`: no route). Live, Nature Spirit's walk to Drezel looped and the Mazchna and
+Achtryn slayer walks failed from 3407,9898. The passage runs: landing, gate
+3444, the mausoleum, gate 3445, Drezel's room, Holy barrier 3443, and out onto
+the bridge over the Salve. The cache decode lost three links in it:
+
+- **The gates.** 3444 (`PIP_UNDERGROUND_DOOR1`, 3405,9895, shape 0 rot 3) and
+  3445 (`PIP_UNDERGROUND_DOOR2`, 3432,9897, shape 0 rot 2) have `Open` but no
+  opcode 19, so they are doors the bake skips (see "Quest floors and
+  entrances" above). A row per direction each. Live, SkillingWithUs opened
+  3444 and stood at 3405,9894 next, the south row's landing.
+- **The ladder out.** 30575 (`MYQ4_LADDER_FROM_CELLAR`, 3405,9907) is
+  derived as a climb-up crossing, but nothing pairs it: the surface is 6400
+  tiles north on the same plane. The Gibson row for it named `object_id` 0
+  and was dropped. It now names 30575 at its anchor, landing at 3405,3504.
+- **The barrier.** The row from Drezel's side (3440,9887) landed at
+  3440,9885, a pocket with no exit. The barrier puts the player on the
+  bridge (the RS wiki; SkillingWithUs's Salve crossing), whose west end
+  3428,3485 is Morytania's area and the landing of the Gibson row for the
+  barrier, which also named `object_id` 0. The row lands there now and
+  confirms the warning it raises, interface 1262, with a blind
+  `COMPONENT` click on 1262:2 (`action [57, 1, -1, 82706434]`, the click
+  PathWithUs sends) two ticks after the barrier.
+
+The tunnel 102095 east of the temple (`MYQ7_PATERDOMUS_TUNNEL_ENTRANCE`,
+3422,3485, landing 3440,9884 south of the barrier) is cheaper than the
+trapdoor, so every walk to Drezel took it. It opens only once River of Blood
+is done: on 2026-10-20 three Enter clicks by an account without the quest
+left it standing in the yard, and on 2026-10-23 five walker walks reached
+the tunnel step and never landed. It is now gated on varbit 31173
+(`MYQ7_MAIN`) >= 220, the quest's end value in the cs2 dump's quests.json.
+
+**Gated on Priest in Peril.** The quest is varp 2171 (`PRIESTPERIL`, complete
+at 60 in the cs2 dump's quests.json); no player varbit sits over it. The
+stages are PathWithUs's `PriestInPerilQuest` (2 kills Cerberus in the
+Mausoleum, 4 works the monuments behind gate 3444, 7 goes back down through
+the gate to Drezel), so: the trapdoor 30571 and gate 3444 need varp 2171 >= 4,
+gate 3445 into Drezel's room >= 7, and both barrier rows >= 60 (the barrier
+lets the player into Morytania only once the quest is done). The ladder out
+is not gated: it only takes a player already in the passage out of it.
+
+**The host must report varp 2171.** A varp gate is denied live until the host
+reads the varp (see "Gates and routes"). The Java host reads a fixed list,
+`REQUIREMENT_VARPS` in `WorldWalkerCallbackBridge`; until 2171 is on it,
+every walk through the passage is refused, as if the quest were not done.
+
+`wwcli path ... --varbit 31173=0 --varp 2171=60`, before -> after: the landing
+to Drezel, no route -> both gates (cost 66.6); 3407,9898 to Lumbridge Castle's
+bank (3208,3220,2) with no teleport, no route -> up the ladder; Lumbridge to
+Drezel, the tunnel -> the trapdoor and both gates; Drezel to Mazchna and
+Achtryn (3510,3504) with no teleport, no route -> through the barrier (cost
+114.7). With `--varp 2171=0` there is no route to Drezel and none through the
+barrier, and the ladder still takes the player out. `wwcli scripted` checks
+both as `paterdomus_passage`.
+
+**Not verified live:** the barrier's landing tile and that its warning is
+1262 here, the ladder's landing, and the stage thresholds below 60.
+
+## Morytania: the Canifis trapdoor and the Barrows broken fence (2026-10-26)
+
+Both crossings were baked with no gate, so an account without the Myreque
+quests was routed over them.
+
+**Canifis tavern trapdoor (loc 5055 `THRT_TAVERN_TRAP_DOOR`, 3495,3465).**
+Both rows that click it, the one into the hideout (3477,9845) and the one
+to 3519,3285, now need `varp_at_least` 2696 >= 105: In Search of the
+Myreque, varp 2696 (`routequest`), which the cs2 dump's quests.json runs
+from 5 to 105. The evidence is V1's navigation data (`rs3-nav-api`
+`mapdata.zip`, `areas.dat`): its only link on this trapdoor, "Open" 3494,3465
+to 3477,9845, carries exactly that requirement (varp 2696, 105, not exact).
+In Aid of the Myreque starts at Veliaf "in the Myreque hideout, beneath the
+pub in Canifis" and requires In Search of the Myreque (quests.json), which
+agrees. No varbit sits over varp 2696, so this is a varp gate: **the host
+must report varp 2696** (`REQUIREMENT_VARPS`), and until it does every walk
+through the trapdoor is refused live.
+
+**Broken fence (loc 18411 `MYQ3_OLDFENCING_CLIMB`, 3582,3263-3264).** The
+fence south-east of the Barrows into the woods east of Burgh de Rott was a
+derived wall crossing (the bake's own door edges, both ways); two new rows
+with the same endpoints carry the gate and win the dedup. Despite the MYQ3
+name it belongs to In Aid of the Myreque, not The Darkness of Hallowvale:
+the loc dates from 20 September 2006 (Slug Menace), the RS3 wiki's Broken
+fence page lists In Aid of the Myreque as its quest and quotes the refusal
+"Before In Aid of the Myreque" ("Um... those vampyres don't look very nice.
+I'm not going through here."), and the OSRS wiki page (same loc id and
+tile) says the player refuses "if the player has not yet gained entry to
+Burgh de Rott along the course of In Aid of the Myreque". Entry comes when
+the player has put food in Florin's chest and jumps the gate; in the OSRS
+quest helper that is the step from 30 (put food in chest) to 40 (talk to
+Razvan inside) on `MYREQUE_2_QUEST`. RS3's varbit 11498 (`myreque_2_quest`)
+has the same name and the same 20..430 range in quests.json, so the rows
+need `varbit_at_least` 11498 >= 40. A varbit gate is read live.
+
+`wwcli path`, stage bake:
+- 3582,3268 -> 3582,3258: over the fence (14.2) with 11498 = 40 or the
+  permissive snapshot; with 11498 = 39 or `--ungated`, round through the
+  Burgh de Rott gate (266.7).
+- Canifis 3505,3470 -> 3477,9845: the trapdoor (16.8) with 2696 = 105; no
+  route with 2696 = 104.
+- Canifis 3510,3480 -> Burgh de Rott 3495,3205 without teleports: trapdoor
+  row to 3519,3285 (140.3) when allowed; `--ungated` or `--varp 2696=0`
+  takes the swamp boat 6970 (281.2). No route uses the fence.
+
+**Left alone:** the Burgh de Rott gate (17757 / 17760 at 3484-3485,3244)
+is also closed until the same stage of In Aid of the Myreque, and it is
+still ungated, so an account without the quest is now routed through that
+gate instead of the fence.
+
+**Not verified live:** the stage value 40 (taken from OSRS), whether the
+trapdoor row to 3519,3285 needs more than In Search of the Myreque, and
+the landing tiles.
+
+## Draynor - City of Um portal (2026-10-26)
+
+The portal pair was already baked and the planner already routed an account
+without lodestones through it (Draynor 3104,3312 -> Lupe 1094,1795,1, 109.9),
+but the live host never clicked it: on 2026-10-26 every attempt logged
+`interact: loc 127139 absent at (3104,3312,0)`, the executor banned the edge,
+and with the Um lodestone locked the walk ended "found no way there".
+
+**The loc.** Draynor's portal is placed as loc 127139 (`UNDERWORLD_ENTRANCE`,
+no name, no ops) at 3104,3313 on level 1 of a bridge column (`wwbuild floor`
+square 48,51 marks 3103..3104 x 3311..3314 as bridge), so the client shows it
+on plane 0; the host matched it there on 2026-10-03 and 10-12 ("matched at
+(3104,3313,0)"). 127139 is a multiloc on varbit 53549
+(`QUEST_NECROMANCY_TUTORIAL_MAIN`) over 127140 `UNDERWORLD_ENTRANCE_LOUD`
+and 127141 `UNDERWORLD_ENTRANCE_QUIET`, both "Underworld portal" [Enter]
+(rs3-cs2-dumps `locations.json`); as with 79770's `[79773, 79775, 79773]`,
+the last id is the default, so 0 shows the loud portal and anything else the
+quiet one.
+
+**Why the host lost it.** The live host's `resolveLocTile` matches a row's
+`object_id` on the scene row's `typeId` or `resolvedId`. Since 2026-10-21
+no multiloc row has matched: 48682, 79770 and 127139 all matched from 10-03
+to 10-14 and have only logged "absent" since, while plain locs still match.
+A direct LOCATION's `typeId` is not its loc id (the host's own
+`Location.baseId()` says so), and its `resolvedId` is the morph, so a row
+naming the base id finds nothing. The real fix is host-side (match
+`baseId()` too, as the dev host's WIP `isNamedBy` does); these rows work
+with the host as it is.
+
+**Rows.**
+- Draynor -> Um: `object_id` 127139 (the base id), 3103,3312 -> 1025,1762,1,
+  gated on `varbit_at_least` 53549 >= 70. 70 is Necromancy! complete
+  (BotWithUs-Scripts `QuestGate` and `QuestRefs`, quest 493). Before that
+  the quest clicks the portal itself (its own `PORTAL` set
+  127139/127140/127141), and the loud portal starts the quest, so the
+  walker leaves it alone.
+- The 127141 (quiet morph) row from 3104,3312 is gone (2026-10-28). The host
+  matched it on every use from 10-26 to 10-28 (~187 clicks in host.log and
+  host.1.log, from the approach tile and from range alike), and not one
+  landed: each was followed 3-4 s later by an off-course reroute onto the
+  127139 row, whose click landed within 2.4 s every time. 127139 matched at
+  3104,3313,0 on all of those runs, so the host finds the base id again
+  and a second row only cost every trip two dead clicks.
+- Um -> Draynor: loc 127269 `NECRO_HUB_EXIT` "Overworld portal" is a 5x5
+  shape 11 rotation 2 anchored at 1020,1755,1. The row now starts at
+  1024,1760, one tile off the footprint; the old 1025,1762 was three tiles
+  off and could only be found by the host's 4-tile fallback. Ungated: anyone
+  in Um may leave.
+
+Um's plane-1 streets need nothing: the landing, Lupe (1094,1795), the bank
+(1107,1739), the soul forge (1146,1805), the ritual walk tile (1038,1775)
+and the unpainted street at 1155,1828 are all area 2973.
+
+`wwcli path`, stage bake, `--teleports datasets`, with every lodestone
+varbit in `item_teleports.json` set to 0 and 53549 = 70 (and again with
+`--ungated --varbit 53549=70`): Draynor 3104,3312 to Lupe 109.9, the bank
+131.5, the soul forge 175.3 and the ritual site 34.1, each through the
+127141 row; from Lumbridge 3222,3218, walking (`--ungated`) 291.6 / 313.2 /
+357.0 / 215.8. With 53549 = 69 and no lodestones there is no route; with
+the Um lodestone (53270 = 1) it is the lodestone. Lupe back to Draynor
+takes the 127269 row (111.0).
+
+**Not verified live:** whether a stage below 70 already lets the portal
+through without a cutscene. The routes above went through the 127141 row
+when they were measured; they now go through the 127139 one.
+
+## City of Um troll cave (2026-10-27)
+
+Live on 2026-10-27 04:12 Kili's tier-30 upgrade (troll souls) logged "Walk to
+the City of Um troll cave failed 2 times from 1148,1806,1". The cave interior
+was baked (area 3825, 1160..1203 x 2000..2032 on plane 0, holding the
+target 1186,2025 and the cave's fixed npcs 30422/30423/30424), but no row
+joined it to Um, so `wwcli path 1148 1806 1 1186 2025 0` said no route.
+
+**Evidence.** V1's `areas.dat` has no link for the cave (only the Draynor
+portal and the Um boat touch x 1000..1300, y 1700..2200), so the rows come
+from the cache's loc placements (squares 17,26 and 18,31):
+
+- Entrance: loc 126997 `UNDERWORLD_TROLL_CAVE_ENTRANCE` "Large cave opening"
+  [Enter], 4x4, shape 10 rotation 1, at 1135,1707,1: covers 1135..1138 x
+  1707..1710 at the south-west edge of Um.
+- Exits: 126998 `UNDERWORLD_TROLL_CAVE_EXIT` at 1155,2024,0 (rotation 3) and
+  126999 `UNDERWORLD_TROLL_CAVE_EXIT_V2` at 1207,2014,0 (rotation 1), both
+  "Large cave opening" [Enter], 3x3. No other loc with an option is placed in
+  the cave square.
+- None of the three has a morph table, so the cache gives no condition; the
+  rows are ungated. Um itself is already gated (portal on 53549 >= 70, or the
+  Um lodestone).
+
+**Rows.** None of the openings has floor against it: the nearest standable
+tiles are 1133,1706..1708 (Um), 1160,2025..2026 (west exit) and
+1203,2014..2015 (east exit), 1 to 3 tiles off the footprints. Each row tile
+is the blocked tile beside that floor, so the planner approaches from the
+floor and the host finds the loc by footprint (reach 1 for the entrance,
+2 and 3 for the exits, inside the host's 4-tile fallback):
+
+| Row | Origin | Dest |
+|---|---|---|
+| Enter 126997 | 1134,1707,1 | 1160,2025,0 |
+| Enter 126998 | 1159,2025,0 | 1133,1707,1 |
+| Enter 126999 | 1204,2015,0 | 1133,1707,1 |
+
+**Landings (estimates).** Not in the cache or V1. Inside: the floor in front
+of the west exit; outside: the floor in front of the entrance. Both are in
+the right area (3825 / Um's 2973), so a real landing elsewhere in the cave
+is still in the same area. Both exit rows exist so a banned exit has a
+fallback.
+
+`wwcli path`, stage bake, `--teleports datasets`: 1148,1806,1 -> 1186,2025,0
+151.8 (Um lodestone, then 126997); Draynor 3104,3312 -> 1186,2025 214.2 via
+the 127141 portal and 126997, with every lodestone varbit 0 and 53549 = 70,
+and the same with `--ungated`. Out: 1186,2025 -> 1148,1806,1 158.9 via
+126999; 1161,2026 -> the Um bank 71.1 via 126998. The Um portal, Stronghold
+and Paterdomus routes are step-for-step unchanged (transition indices shift
+by 3).
+
+**Not verified live:** that the openings take the click from the floor 1 to
+3 tiles away, the landing tiles, and that both exits lead to Um.
+
+## Port Phasmatys wall shortcut (2026-10-29)
+
+Live on 2026-10-29 12:16 a low-Agility account was routed over the low wall
+south of Port Phasmatys and clicked it every ten seconds without crossing.
+The wall is loc 91472 `AHOY_TOWN_WALL_AGILITY` "Low wall" [Climb over],
+shape 0 rotation 1 at 3672,3457. The bake derived it as a door crossing
+(its own wall edge, both ways), so it carried no gate.
+
+**No level in the cache.** 91472 has no params (`cfgdump loc 91472`) and no
+`agility_obstacle_dbrow` in the 9-29 `locations.json`. The few locs that do
+point at a table-97 dbrow find it empty (see the Amberfell bridge and the
+Exalted Quarry ladders above). So the bake has nothing to gate an agility
+shortcut on. A level has to be typed in a row.
+
+**Rows.** Two rows with the derived endpoints, 3672,3457 -> 3672,3458 and
+back, carry `skill` 16 (Agility) >= 92. They claim both origin tiles, so the
+door deriver drops its two hops.
+
+`wwcli path`, stage bake, 3646,3447 -> 3680,3470: with `--skill 16=92` over
+the wall (62.0); with `--skill 16=1` no route, with or without `--teleports
+datasets`. The wall was the only way into the town. Nothing near the town's
+gates is a transition, so an account under 92 Agility cannot reach Port
+Phasmatys on foot until the gates are rows.
+
+**Other agility crossings left ungated.** The door deriver also makes ungated
+hops for these same-plane climb, jump and squeeze locs. None has a level in
+the cache, so none is gated: 9300 Fence (3230,3331), 12776 Low fence
+(3474,3221), 18976 Hole (2352,4315), 37703 Broken railing (3083,3353 and
+4619,11481), 41684 Roots (2044,5697), 45608/45609/45610/45612 Wall
+(3678..3682,4944 and 3705..3706,4936), 61293 Wall (3610,3265), 85583 Crack
+(2587,5203 and 2588,5199), 93468 Chain (2847..2848,6163).
+
+**Not verified live:** the level 92, and that the climb lands on 3672,3458.
 
 ## How they're consumed
 
