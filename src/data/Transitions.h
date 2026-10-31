@@ -117,7 +117,7 @@ namespace ww::data
         // dispatches the matching variant:
         //   a..d = worn   (iface, comp, option, sub_component)
         //   e..h = backpack(iface, comp, option, sub_component)
-        //   i    = backpack uses the COMPONENT_SPECIAL action when non-zero.
+        //   i    = flags: kClickItemBackpackSpecial, kClickItemWornDirect.
         ClickItem = 4,
         // Pick the first option in the open option list (1188) whose text
         // contains the answer; do nothing when none does. Never baked into a
@@ -135,6 +135,15 @@ namespace ww::data
         // the origin as missing. Only ever a chain's first step.
         ClickNpc = 6,
     };
+
+    // ClickItem `i` flags. The backpack variant uses the COMPONENT_SPECIAL
+    // action (bit 0, the value the slot held when it was a plain bool).
+    inline constexpr int32_t kClickItemBackpackSpecial = 1 << 0;
+    // The worn variant's op teleports straight to the destination (worn
+    // jewellery lists each destination as its own op), so the dialog the
+    // carried item opens never appears: after a worn click the executor skips
+    // the chain's WaitInterface and DialogueSelect steps.
+    inline constexpr int32_t kClickItemWornDirect = 1 << 1;
 
     // One step of an execution chain, passed through to the executor verbatim.
     // The nine generic slots cover every kind above (see ChainStepKind for the

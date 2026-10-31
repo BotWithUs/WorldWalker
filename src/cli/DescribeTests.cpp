@@ -1,6 +1,7 @@
 #include "cli/DescribeTests.h"
 
 #include "c_api/worldwalker_c.h"
+#include "data/Transitions.h"
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
 #include "runtime/RuntimeTeleports.h"
@@ -168,7 +169,8 @@ namespace
         return {WW_CHAIN_STEP_CLICK_ITEM,
                 at(worn, 0, 0), at(worn, 1, 0), at(worn, 2, 1), at(worn, 3, -1),
                 at(pack, 0, 0), at(pack, 1, 0), at(pack, 2, 1), at(pack, 3, -1),
-                ci.value("backpack_special", false) ? 1 : 0};
+                (ci.value("backpack_special", false) ? ww::data::kClickItemBackpackSpecial : 0)
+                    | (ci.value("worn_direct", false) ? ww::data::kClickItemWornDirect : 0)};
     }
 
     Step dialogueSelectStep(const json &ds)

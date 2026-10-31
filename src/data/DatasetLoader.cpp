@@ -560,7 +560,8 @@ namespace ww::data
         // transition's required item.
         //   a..d = worn(iface, comp, option, sub)
         //   e..h = backpack(iface, comp, option, sub)
-        //   i    = backpack_special (COMPONENT_SPECIAL when non-zero)
+        //   i    = flags: backpack_special (COMPONENT_SPECIAL) and worn_direct
+        //          (the worn op teleports itself; see kClickItemWornDirect)
         bool parseClickItemStep(const json &step, std::vector<ChainStep> &out)
         {
             if (!step.contains("click_item") || !step.at("click_item").is_object())
@@ -577,7 +578,15 @@ namespace ww::data
                 throw std::runtime_error(
                     "chain.click_item worn/backpack need at least [interface, component]");
             }
-            const int special = ci.value("backpack_special", false) ? 1 : 0;
+            // worn_direct names the worn variant's behaviour; with no worn variant
+            // it is a typo that would skip the dialog of a carried item.
+            if (ci.value("worn_direct", false) && w.empty())
+            {
+                throw std::runtime_error("chain.click_item worn_direct needs a worn variant");
+            }
+            const int32_t flags =
+                (ci.value("backpack_special", false) ? kClickItemBackpackSpecial : 0)
+                | (ci.value("worn_direct", false) ? kClickItemWornDirect : 0);
             out.push_back({ChainStepKind::ClickItem,
                            arrInt(w, 0, 0, "chain.click_item.worn[0]"),
                            arrInt(w, 1, 0, "chain.click_item.worn[1]"),
@@ -587,7 +596,7 @@ namespace ww::data
                            arrInt(b, 1, 0, "chain.click_item.backpack[1]"),
                            arrInt(b, 2, 1, "chain.click_item.backpack[2]"),
                            arrInt(b, 3, -1, "chain.click_item.backpack[3]"),
-                           special});
+                           flags});
             return true;
         }
 

@@ -268,6 +268,15 @@ namespace ww::exec
         {
             return std::uniform_int_distribution<int32_t>(lo, hi)(rng);
         }
+
+        // A step that works the dialog a carried teleport item opens, which a
+        // worn-direct click never opens.
+        bool isItemDialogStep(const format::ChainStepRecord &cs)
+        {
+            const auto kind = static_cast<data::ChainStepKind>(cs.kind);
+            return kind == data::ChainStepKind::WaitInterface
+                || kind == data::ChainStepKind::DialogueSelect;
+        }
     }
 
     Executor::Executor(const format::ArtifactReader &reader,
@@ -505,7 +514,7 @@ namespace ww::exec
                                 cs.a, cs.b, cs.c, cs.d, cs.e, cs.f, cs.g, cs.h, cs.i);
     }
 
-    void Executor::dispatchClickItem(const format::TransitionRecord &tx,
+    bool Executor::dispatchClickItem(const format::TransitionRecord &tx,
                                      const format::ChainStepRecord &cs) const
     {
         // Decide worn-vs-backpack and identify the carried item, both from this
@@ -537,13 +546,13 @@ namespace ww::exec
                 }
             }
         }
-        // a..d = worn variant, e..h = backpack variant, i = backpack_special.
+        // a..d = worn variant, e..h = backpack variant, i = flags.
         // The worn variant is a plain component click (never "special").
         const int32_t iface   = isWorn ? cs.a : cs.e;
         const int32_t comp    = isWorn ? cs.b : cs.f;
         const int32_t option  = isWorn ? cs.c : cs.g;
         const int32_t sub     = isWorn ? cs.d : cs.h;
-        const int32_t special = isWorn ? 0 : cs.i;
+        const int32_t special = isWorn ? 0 : (cs.i & data::kClickItemBackpackSpecial);
         // For the backpack variant the baked sub-component (slot) is unreliable —
         // the item can sit in any slot — so pass the carried item id and let the
         // host resolve the live slot (the baked `sub` remains a fallback). The
@@ -553,10 +562,12 @@ namespace ww::exec
         callbacks->runChainStep(callbacks->user,
                                 static_cast<int32_t>(data::ChainStepKind::ClickItem),
                                 iface, comp, option, sub, special, slotItem, 0, 0, 0);
+        return isWorn;
     }
 
     WwStatus Executor::runChainStep(const format::TransitionRecord &tx,
-                                    const format::ChainStepRecord &cs) const
+                                    const format::ChainStepRecord &cs,
+                                    bool &outSkipsDialog) const
     {
         switch (static_cast<data::ChainStepKind>(cs.kind))
         {
@@ -595,8 +606,10 @@ namespace ww::exec
                 // worn-vs-backpack decision needs the transition's item
                 // requirements (the candidate item ids) — which the host does
                 // not have — so resolve it here via the isItemWorn callback and
-                // forward only the chosen variant.
-                dispatchClickItem(tx, cs);
+                // forward only the chosen variant. A worn-direct op has
+                // already teleported, so the dialog steps after it are moot.
+                const bool isWorn = dispatchClickItem(tx, cs);
+                outSkipsDialog = isWorn && (cs.i & data::kClickItemWornDirect) != 0;
                 return WwStatus::Arrived;
             }
             case data::ChainStepKind::ClickNpc:
@@ -633,13 +646,19 @@ namespace ww::exec
     {
         const auto chain = artifact->chainSteps();
         const std::size_t chainStart = tx.chainStart;
+        bool skipsDialog = false;
         for (std::size_t i = 0; i < tx.chainCount; ++i)
         {
             if (callbacks->shouldCancel(callbacks->user) != 0)
             {
                 return WwStatus::Cancelled;
             }
-            const WwStatus st = runChainStep(tx, chain[chainStart + i]);
+            const format::ChainStepRecord &cs = chain[chainStart + i];
+            if (skipsDialog && isItemDialogStep(cs))
+            {
+                continue;
+            }
+            const WwStatus st = runChainStep(tx, cs, skipsDialog);
             if (st != WwStatus::Arrived)
             {
                 return st;
