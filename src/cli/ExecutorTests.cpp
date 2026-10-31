@@ -253,6 +253,10 @@ namespace ww::cli
             std::vector<std::int32_t> inertInterfaces;
             int                     inertClicks;
             int                     teleportEvents;
+            // SimulateTransition: these interfaces never open, as a teleport
+            // item's dialog does not when nothing operated the item (the
+            // Slayer cape rows that only clicked inside 720, BWU-C6QCWA).
+            std::vector<std::int32_t> closedInterfaces;
             // SimulateTransition, when non-zero: every loc click raises a
             // warning that holds the player until a DIALOGUE click on this
             // component hash confirms it (Shantay Pass, 565:2), which carries
@@ -421,7 +425,10 @@ namespace ww::cli
             }
             if (h->mode == ExecHarnessMode::SimulateTransition)
             {
-                return h->isNpcAbsent ? 0 : 1;
+                const bool isClosed = std::find(h->closedInterfaces.begin(),
+                                                h->closedInterfaces.end(), interfaceId)
+                                   != h->closedInterfaces.end();
+                return (h->isNpcAbsent || isClosed) ? 0 : 1;
             }
             recordUnexpected(h, HarnessCallback::IsInterfaceOpen);
             return 0;
@@ -3680,6 +3687,89 @@ namespace ww::cli
             return failures;
         }
 
+        // One dead-chain run: the chains' interfaces in `closed` never open, every
+        // other chain click lands on the lodestone.
+        struct DeadChainCase
+        {
+            const char               *label;
+            exec::WwTile              start;
+            std::vector<std::int32_t> closed;
+            exec::WwStatus            wantStatus;
+            std::int32_t              wantFailedOn;
+        };
+
+        std::size_t runDeadChain(const format::ArtifactReader &reader, runtime::ContextPool &pool,
+                                 const DeadChainCase &c, const exec::WwTile &landing)
+        {
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, c.start.x,
+                                              c.start.y, c.start.plane);
+            harness.transitionDest   = landing;
+            harness.closedInterfaces = c.closed;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(reader, pool, cb);
+            const exec::WwGoal goal{ landing.x, landing.y, landing.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            // Each of the two records is tried once: the cast, then the map.
+            constexpr int kWantTeleports = 2;
+            std::printf("  exec:   dead-chain %s status=%d (expect %d) teleports=%d (expect %d)"
+                        " failedOn=tx%d (expect tx%d)\n",
+                        c.label, static_cast<int>(status), static_cast<int>(c.wantStatus),
+                        harness.teleportEvents, kWantTeleports, harness.failedTransitionIndex,
+                        c.wantFailedOn);
+            printCallPattern("dead-chain ", harness);
+            std::size_t failures = status == c.wantStatus ? 0u : 1u;
+            failures += harness.teleportEvents == kWantTeleports ? 0u : 1u;
+            failures += harness.failedTransitionIndex == c.wantFailedOn ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 7b: a global teleport whose chain fails before the player moves,
+        // its dialog never opening (BWU-C6QCWA: the Slayer cape rows clicked
+        // inside 720 with nothing to open it, and every re-issue picked the
+        // cape again). It is ruled out for the run and the walk re-planned:
+        // with the map beside it the walker takes the map and arrives; with
+        // nothing else left it fails on the map after one try each.
+        std::size_t testDeadChainTeleport(const char *artifactPath)
+        {
+            if (artifactPath == nullptr)
+            {
+                std::printf("  exec:   dead-chain test skipped (no artifact path)\n");
+                return 0;
+            }
+            format::ArtifactReader reader(artifactPath);
+            if (appendRefusedTeleportFixture(reader) != 2)
+            {
+                std::printf("  exec:   dead-chain fixture did not append a cast + map\n");
+                return 1;
+            }
+            const auto txs = reader.transitions();
+            const std::int32_t mapIndex = static_cast<std::int32_t>(txs.size() - 1);
+            const format::TransitionRecord &map = txs[txs.size() - 1];
+            const exec::WwTile landing{ map.destX, map.destY,
+                                        static_cast<std::int32_t>(map.destPlane) };
+            runtime::WorldView view(reader);
+            if (view.areaAt(landing.x, landing.y, landing.plane) < 0)
+            {
+                std::printf("  exec:   dead-chain test skipped (no Lumbridge landing)\n");
+                return 0;
+            }
+            runtime::ContextPool pool(reader, 1);
+            std::size_t failures = runDeadChain(
+                reader, pool,
+                { "spare", kOffMapStart, { kAbilityBook }, exec::WwStatus::Arrived, -1 },
+                landing);
+            failures += runDeadChain(
+                reader, pool,
+                { "sole", kOffMapStart, { kAbilityBook, kMinimap }, exec::WwStatus::Failed,
+                  mapIndex },
+                landing);
+            return failures;
+        }
+
         // The live walk of 2026-09-30 inside Amberfell bank: from 3725,1576 to
         // 3733,1580, 8 tiles, through the one door of a sealed 2x3 pocket (loc
         // 137297, row origin 3726,1576 -> 3727,1576). The approach hop handed
@@ -3924,6 +4014,7 @@ namespace ww::cli
         failures += testLeadStopsAtCrossing(ctx, kWalkTilesPerTick, "walk");
         failures += testFfi(ctx, artifactPath);
         failures += testRefusedTeleport(artifactPath);
+        failures += testDeadChainTeleport(artifactPath);
         failures += testDoorOpensShort(ctx, true);
         failures += testDoorOpensShort(ctx, false);
         failures += testAbsurdDetour(artifactPath);
