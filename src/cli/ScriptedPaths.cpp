@@ -44,6 +44,11 @@
 //                      beside its origin to its landing.
 //   port_sarim_boat  — Port Sarim to Musa Point takes Captain Tobias's boat
 //                      (a named route; skips on an artifact without the row).
+//   paterdomus_passage - with Priest in Peril, the Mausoleum landing reaches
+//                      Drezel through gates 3444 and 3445, and Drezel's room
+//                      reaches Canifis through the Holy barrier; without it,
+//                      neither route uses them (a named route; skips on an
+//                      artifact without the gate rows).
 namespace
 {
     enum class Outcome { Pass, Fail, Skip };
@@ -727,6 +732,106 @@ namespace
         }
         return {"port_sarim_boat", Outcome::Fail, "the route does not take the boat"};
     }
+
+    // The object ids of `plan`'s transition steps, in order.
+    std::vector<std::int32_t> planObjects(const ww::format::ArtifactReader &reader,
+                                          const ww::runtime::Plan &plan)
+    {
+        const auto txs = reader.transitions();
+        std::vector<std::int32_t> objects;
+        for (const ww::runtime::Step &s : plan.steps)
+        {
+            if (s.kind == ww::runtime::StepKind::Transition && s.transitionIndex < txs.size())
+            {
+                objects.push_back(txs[s.transitionIndex].objectId);
+            }
+        }
+        return objects;
+    }
+
+    // True when `objects` holds `first` and, somewhere after it, `second`.
+    bool takesInOrder(const std::vector<std::int32_t> &objects, std::int32_t first,
+                      std::int32_t second)
+    {
+        const auto at = std::find(objects.begin(), objects.end(), first);
+        return at != objects.end() && std::find(at + 1, objects.end(), second) != objects.end();
+    }
+
+    constexpr std::int32_t kPriestInPerilVarp = 2171;      // PRIESTPERIL, complete at 60
+    constexpr std::int32_t kRiverOfBloodVarbit = 31173;    // MYQ7_MAIN, complete at 220
+    constexpr std::int32_t kPassageGate = 3444;
+    constexpr std::int32_t kDrezelGate = 3445;
+    constexpr std::int32_t kHolyBarrier = 3443;
+
+    // An account with Priest in Peril at `stage` and without River of Blood,
+    // which keeps the tunnel 102095 shut.
+    ww::runtime::CapabilitySnapshot priestInPerilAt(std::int32_t stage)
+    {
+        ww::runtime::CapabilitySnapshot caps;
+        caps.setVarp(kPriestInPerilVarp, stage);
+        caps.setVarbit(kRiverOfBloodVarbit, 0);
+        return caps;
+    }
+
+    // The object ids of the plan from (sx,sy,0) to (gx,gy,0) under `caps`;
+    // empty when there is no route.
+    std::vector<std::int32_t> routeObjects(const ww::format::ArtifactReader &reader,
+                                           ww::runtime::PathAssembler &assembler,
+                                           ww::runtime::CapabilitySnapshot &caps,
+                                           std::int32_t sx, std::int32_t sy,
+                                           std::int32_t gx, std::int32_t gy)
+    {
+        ww::runtime::Plan plan;
+        if (!assembler.assemble(sx, sy, 0, gx, gy, 0, &caps, plan))
+        {
+            return {};
+        }
+        return planObjects(reader, plan);
+    }
+
+    // True when `objects` holds `id`.
+    bool takes(const std::vector<std::int32_t> &objects, std::int32_t id)
+    {
+        return std::find(objects.begin(), objects.end(), id) != objects.end();
+    }
+
+    // Category 8 - a named route: the passage under Paterdomus, gated on
+    // Priest in Peril (varp 2171). With the quest done, the Mausoleum
+    // trapdoor's landing reaches Drezel through the gates 3444 then 3445, and
+    // Drezel's room reaches Canifis through the Holy barrier 3443. Without it
+    // (stage 0), neither route goes through the gates or the barrier. Skips on
+    // an artifact baked before the gate rows.
+    CaseResult paterdomusPassage(const ww::format::ArtifactReader &reader,
+                                 ww::runtime::PathAssembler &assembler)
+    {
+        const auto txs = reader.transitions();
+        const bool hasGates = std::any_of(txs.begin(), txs.begin() + reader.bakedTransitions(),
+            [](const ww::format::TransitionRecord &tx) { return tx.objectId == kPassageGate; });
+        if (!hasGates)
+        {
+            return {"paterdomus_passage", Outcome::Skip, "the artifact predates the gate rows"};
+        }
+        ww::runtime::CapabilitySnapshot done = priestInPerilAt(60);
+        if (!takesInOrder(routeObjects(reader, assembler, done, 3405, 9906, 3438, 9895),
+                          kPassageGate, kDrezelGate))
+        {
+            return {"paterdomus_passage", Outcome::Fail, "quest done: no gated route to Drezel"};
+        }
+        if (!takes(routeObjects(reader, assembler, done, 3438, 9895, 3510, 3504), kHolyBarrier))
+        {
+            return {"paterdomus_passage", Outcome::Fail, "quest done: no barrier route to Canifis"};
+        }
+        ww::runtime::CapabilitySnapshot none = priestInPerilAt(0);
+        if (takes(routeObjects(reader, assembler, none, 3405, 9906, 3438, 9895), kPassageGate))
+        {
+            return {"paterdomus_passage", Outcome::Fail, "quest unmet: gate 3444 used"};
+        }
+        if (takes(routeObjects(reader, assembler, none, 3438, 9895, 3510, 3504), kHolyBarrier))
+        {
+            return {"paterdomus_passage", Outcome::Fail, "quest unmet: barrier used"};
+        }
+        return {"paterdomus_passage", Outcome::Pass, nullptr};
+    }
 }
 
 int runScriptedPaths(const char *wwaPath)
@@ -748,6 +853,7 @@ int runScriptedPaths(const char *wwaPath)
             sealedPocketGoal(reader, view, assembler),
             intraAreaRide(reader, view, assembler),
             portSarimBoat(reader, assembler),
+            paterdomusPassage(reader, assembler),
         };
         int passed  = 0;
         int failed  = 0;

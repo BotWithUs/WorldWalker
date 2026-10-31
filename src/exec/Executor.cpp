@@ -76,6 +76,27 @@ namespace ww::exec
         // client resolves a click only inside its loaded scene, and 32 keeps
         // the target well inside it wherever the player stands.
         constexpr int32_t kMaxClickChebyshev  = 32;
+        // A human clicks a portal, door or stairs once it is on screen and
+        // lets the game walk the last tiles (the Draynor Underworld portal,
+        // 2026-10-27: walking right up to it first looked wrong). The client
+        // paths an interaction to any loc in its loaded scene, and the default
+        // camera shows about 15 tiles round the player, so 12 tiles of planned
+        // path keeps the loc on screen and far inside kMaxClickChebyshev. The
+        // range is drawn per approach.
+        constexpr int32_t kClickRangeMinTiles = 5;
+        constexpr int32_t kClickRangeMaxTiles = 12;
+        // After a click from range: within kRangeNearTiles of the origin or
+        // the approach tile the player is at the loc (a big loc like that
+        // portal is used from a ring round its footprint, and its origin is a
+        // corner). The game sets the player walking the tick after a click,
+        // so kRangeStillTicks still anywhere short of it mean the click was
+        // dropped or led nowhere. kRangeSlackTicks on top of the walk.
+        constexpr int32_t kRangeNearTiles     = 3;
+        constexpr int32_t kRangeStillTicks    = 3;
+        constexpr int32_t kRangeSlackTicks    = 4;
+        static_assert(kRangeNearTiles < kClickRangeMinTiles, "a click from range is never at it");
+        // Salts the run's seed for clickRng, so it draws apart from rng.
+        constexpr uint32_t kClickSeedSalt     = 0x9E3779B9U;
         // A click hands the route to the game's pathfinder, which knows
         // nothing of the planner's Wilderness fence. Within this many tiles of
         // a Wilderness box the executor clicks each planned step in turn, so
@@ -118,7 +139,11 @@ namespace ww::exec
         // walk click issued during that forced move, so the executor waits for
         // the player to land: near the destination, or standing still for
         // kLandingStillPolls ticks somewhere else (a failed jump drops you in a
-        // pit), within kLandingMaxTicks.
+        // pit), within kLandingMaxTicks. A long local hop holds the player
+        // still for several ticks before the move (Everlight's bridge, live
+        // 2026-10-16: still at 3s, across at 4.5s), so for one stillness
+        // mid-crossing is not a landing, and the budget gets a tick per tile
+        // of the hop on top.
         constexpr int32_t kLandingMaxTicks   = 8;   // ~4.8s past the fixed settle
         constexpr int32_t kLandingStillPolls = 3;
 
@@ -172,11 +197,44 @@ namespace ww::exec
         // CHOICE_V2). Answered only inside a dialog zone.
         constexpr int32_t kOptionListInterface = 1188;
 
-        // Dialog actions (continues and answers) one run may spend, across
-        // every walk and landing. A route that keeps talking past this is a
-        // conversation the walker should not be holding, and a page that
-        // never closes must not pin the run forever.
+        // RS3's Content Warning System modal (1262 CWS_WARNING_MAIN, "Are you
+        // sure you want to climb down?"), raised by locs such as the
+        // Stronghold of Security ladders. Until Yes is clicked the player
+        // stands still, so the landing wait judged the climb refused. Yes is
+        // 1262:2 (CWS_WARNING_MAIN__YES_TEXT), clicked as a COMPONENT action
+        // with option 1, no sub component: the same GameAction(COMPONENT, 1,
+        // -1, 82706434) BotWithUs-Scripts' WarningModal.confirm sends. 1262:3
+        // is No, and 1262:5 (CWS_TOGGLE_BUTTON, "Don't ask me this again")
+        // changes the account's settings; the walker deliberately never
+        // touches either.
+        constexpr int32_t kContentWarningInterface = 1262;
+        constexpr int32_t kContentWarningYes       = (kContentWarningInterface << 16) | 2;
+        constexpr int32_t kContentWarningOption    = 1;
+        static_assert(kContentWarningYes == 82706434, "1262:2 CWS_WARNING_MAIN__YES_TEXT");
+
+        // Dialog actions (continues, answers and warning confirms) a stretch
+        // of the run may spend: the walks before the first transition, then
+        // each transition step with the walks after it, until the next one
+        // refills it. Per transition rather than per run, because the
+        // Stronghold of Security crosses ~12 doors a level and each can ask a
+        // question; a per-run 20 failed the walk at the second or third door.
+        // The Executor adds the largest dialog zone's answer count to this
+        // (dialogBudget), so one step can try every answer once and still
+        // continue the pages around them. Still bounded per step, so a page
+        // that never closes cannot pin the run: the steps themselves are
+        // bounded by the re-plan and reroute budgets.
         constexpr int32_t kMaxDialogActions = 20;
+
+        // The most answers any one dialog zone carries.
+        int32_t largestAnswerCount(std::span<const format::DialogZoneRecord> zones)
+        {
+            int32_t largest = 0;
+            for (const format::DialogZoneRecord &zone : zones)
+            {
+                largest = std::max<int32_t>(largest, zone.answerCount);
+            }
+            return largest;
+        }
 
         // Chebyshev distance on the same plane; INT32_MAX on plane mismatch so
         // a teleport mid-walk reads as "infinitely far": never within an
@@ -195,6 +253,14 @@ namespace ww::exec
         WwTile targetOf(const runtime::Step &step)
         {
             return WwTile{ step.targetX, step.targetY, static_cast<int32_t>(step.plane) };
+        }
+
+        // The tile `d` Chebyshev steps from `from` on the line to `to`, `len`
+        // steps away (0 < len).
+        WwTile tileAlong(const WwTile &from, const WwTile &to, int32_t d, int32_t len)
+        {
+            return WwTile{ from.x + (to.x - from.x) * d / len, from.y + (to.y - from.y) * d / len,
+                           from.plane };
         }
 
         // Uniform integer in [lo, hi], both inclusive.
@@ -216,6 +282,7 @@ namespace ww::exec
           planVarbitIds(reader.requirementVarbitIds().begin(),
                         reader.requirementVarbitIds().end()),
           requirementItemIds(reader.requirementItemIds()),
+          dialogBudget(kMaxDialogActions + largestAnswerCount(reader.dialogZones())),
           fixedSeed(fixedSeed),
           disabledMoves(disabledMoves),
           callerExcludedTransitions(std::move(excludedTransitions))
@@ -582,13 +649,19 @@ namespace ww::exec
     }
 
     WwStatus Executor::executeTransitionStep(const runtime::Step &step, int32_t stepIndex,
+                                             const RangeClick *rangeClick,
                                              runtime::WorldView &view, WwTile &outPosition,
                                              StepReport &outReport)
     {
         outReport = StepReport{};
+        // Every transition may raise its own conversation (a Stronghold of
+        // Security door's question), so each starts with a full dialog budget
+        // rather than what the doors before it left (see kMaxDialogActions).
+        dialogActionsLeft = dialogBudget;
         // outPosition arrives holding the live position the prior step left,
-        // which is where the player clicks this transition from.
-        const WwTile start = outPosition;
+        // which is where the player clicks this transition from, or, clicked
+        // from range, the approach tile the walk would have left them on.
+        const WwTile start = rangeClick != nullptr ? rangeClick->approach : outPosition;
         // The terminal Failed event is emitted by run() with both stepIndex
         // and transitionIndex; failure paths here just return WwStatus::Failed
         // so the dispatch site can carry the indices through.
@@ -606,11 +679,26 @@ namespace ww::exec
 
         const int32_t transitionIndex = static_cast<int32_t>(step.transitionIndex);
         const bool isGlobal = (tx.flags & format::kTransitionFlagGlobalOrigin) != 0;
+        const bool isNpcOrigin = hasNpcOrigin(tx);
         emit(WwEventKind::StepAdvanced, stepIndex, transitionIndex);
+        if (isGlobal || isNpcOrigin)
+        {
+            emit(WwEventKind::TeleportInitiated, stepIndex, transitionIndex);
+        }
+        // Clicked from range and under way, there is nothing to click again.
+        bool isStarted = false;
+        if (rangeClick != nullptr)
+        {
+            const WwStatus ranged =
+                clickFromRange(tx, isNpcOrigin, *rangeClick, outPosition, isStarted);
+            if (ranged != WwStatus::Arrived)
+            {
+                return ranged;
+            }
+        }
 
         bool hasIssuedAction = true;
-        const bool isNpcOrigin = hasNpcOrigin(tx);
-        if (!isGlobal && !isNpcOrigin)
+        if (!isStarted && !isGlobal && !isNpcOrigin)
         {
             // Click the world object from the interact-tile (the prior Walk
             // step put the player there). The object tile itself may be
@@ -627,12 +715,10 @@ namespace ww::exec
             hasIssuedAction = outcome == LocInteract::Issued;
             outReport.isCrossingSkipped = outcome == LocInteract::SkippedOpenCrossing;
         }
-        else
-        {
-            emit(WwEventKind::TeleportInitiated, stepIndex, transitionIndex);
-        }
 
-        const WwStatus chainResult = runChain(tx);
+        // An NPC clicked from range ran its whole chain already.
+        const bool isChainDone = isStarted && isNpcOrigin;
+        const WwStatus chainResult = isChainDone ? WwStatus::Arrived : runChain(tx);
         if (chainResult == WwStatus::Failed && isNpcOrigin)
         {
             // The NPC was not there to click, or its interface never opened:
@@ -670,18 +756,112 @@ namespace ww::exec
         callbacks->readPosition(callbacks->user, &outPosition);
         if (!isGlobal && hasIssuedAction)
         {
-            awaitLanding(tx, start, outPosition);
+            awaitLanding(tx, start, outPosition, view);
             if (runtime::isSameFloorCrossing(tx) && isShortOfCrossing(tx, start, outPosition))
             {
-                retryUnmovedCrossing(tx, start, outPosition);
+                retryUnmovedCrossing(tx, start, outPosition, view);
             }
         }
         outReport.isOffCourse = didAct && hasMissedLanding(tx, start, outPosition, view);
         return WwStatus::Arrived;
     }
 
+    WwStatus Executor::clickFromRange(const format::TransitionRecord &tx, bool isNpcOrigin,
+                                      const RangeClick &click, WwTile &ioPosition,
+                                      bool &outIsStarted)
+    {
+        outIsStarted = false;
+        const RangeStart started = issueFromRange(tx, isNpcOrigin, click, ioPosition);
+        if (started != RangeStart::NotStarted)
+        {
+            outIsStarted = started == RangeStart::Started;
+            return outIsStarted ? WwStatus::Arrived : WwStatus::Cancelled;
+        }
+        // Nothing took from range: walk the rest as the walk would have, onto
+        // the approach tile, and the click is made once more from there.
+        const std::size_t approachStep = click.step - 1;
+        return walkOneStep(plan.steps[approachStep], static_cast<int32_t>(approachStep),
+                           Handoff{ kArrivalChebyshev, 0, false }, click.pathTiles,
+                           interactionHintFor(approachStep), ioPosition);
+    }
+
+    Executor::RangeStart Executor::issueFromRange(const format::TransitionRecord &tx,
+                                                  bool isNpcOrigin, const RangeClick &click,
+                                                  WwTile &ioPosition)
+    {
+        if (isNpcOrigin)
+        {
+            const WwStatus chained = runChain(tx);
+            if (chained == WwStatus::Cancelled)
+            {
+                return RangeStart::Cancelled;
+            }
+            if (chained != WwStatus::Arrived)
+            {
+                return RangeStart::NotStarted;
+            }
+        }
+        else if (interactWithLoc(tx) != LocInteract::Issued)
+        {
+            return RangeStart::NotStarted;
+        }
+        return awaitApproach(tx, click, ioPosition);
+    }
+
+    Executor::RangeStart Executor::awaitApproach(const format::TransitionRecord &tx,
+                                                 const RangeClick &click, WwTile &ioPosition)
+    {
+        const int32_t maxTicks =
+            (click.pathTiles + kLeadMaxTiles) / kWalkTilesPerTick + kRangeSlackTicks;
+        int32_t stillTicks = 0;
+        for (int32_t tick = 0; tick < maxTicks; ++tick)
+        {
+            if (callbacks->shouldCancel(callbacks->user) != 0)
+            {
+                return RangeStart::Cancelled;
+            }
+            if (isAtRangeTarget(tx, click, ioPosition) || isDialogUp())
+            {
+                return RangeStart::Started;
+            }
+            callbacks->sleepTicks(callbacks->user, 1);
+            WwTile pos{};
+            callbacks->readPosition(callbacks->user, &pos);
+            stillTicks = isSameTile(pos, ioPosition) ? stillTicks + 1 : 0;
+            ioPosition = pos;
+            if (stillTicks >= kRangeStillTicks && !isAtRangeTarget(tx, click, pos))
+            {
+                return RangeStart::NotStarted;
+            }
+        }
+        // Still walking at the end of the budget: the landing wait takes over.
+        return RangeStart::Started;
+    }
+
+    bool Executor::isAtRangeTarget(const format::TransitionRecord &tx, const RangeClick &click,
+                                   const WwTile &at)
+    {
+        const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
+        return at.plane != origin.plane || chebyshev(at, origin) <= kRangeNearTiles
+            || chebyshev(at, click.approach) <= kRangeNearTiles
+            || hasLanded(tx, click.approach, at);
+    }
+
+    bool Executor::isDialogUp() const
+    {
+        for (const ChatPage &page : kChatPages)
+        {
+            if (callbacks->isInterfaceOpen(callbacks->user, page.interfaceId) != 0)
+            {
+                return true;
+            }
+        }
+        return callbacks->isInterfaceOpen(callbacks->user, kOptionListInterface) != 0
+            || callbacks->isInterfaceOpen(callbacks->user, kContentWarningInterface) != 0;
+    }
+
     void Executor::retryUnmovedCrossing(const format::TransitionRecord &tx, const WwTile &start,
-                                        WwTile &ioPosition)
+                                        WwTile &ioPosition, runtime::WorldView &view)
     {
         // Still short of the crossing: the click was dropped, a door that
         // walks you through (Draynor Manor) has not started, or the click
@@ -700,7 +880,7 @@ namespace ww::exec
             }
             callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
             callbacks->readPosition(callbacks->user, &ioPosition);
-            awaitLanding(tx, start, ioPosition);
+            awaitLanding(tx, start, ioPosition, view);
         }
         if (!isShortOfCrossing(tx, start, ioPosition))
         {
@@ -717,7 +897,7 @@ namespace ww::exec
         callbacks->walkTo(callbacks->user, dest);
         callbacks->sleepTicks(callbacks->user, kPostChainSettleTicks);
         callbacks->readPosition(callbacks->user, &ioPosition);
-        awaitLanding(tx, start, ioPosition);
+        awaitLanding(tx, start, ioPosition, view);
     }
 
     bool Executor::isSameTile(const WwTile &a, const WwTile &b)
@@ -766,13 +946,29 @@ namespace ww::exec
         return false;
     }
 
+    bool Executor::confirmContentWarning() const
+    {
+        if (callbacks->isInterfaceOpen(callbacks->user, kContentWarningInterface) == 0)
+        {
+            return false;
+        }
+        callbacks->runChainStep(callbacks->user,
+                                static_cast<int32_t>(data::ChainStepKind::Click),
+                                kComponentActionId, kContentWarningOption, kNoSubComponent,
+                                kContentWarningYes, 0, 0, 0, 0, 0);
+        return true;
+    }
+
     bool Executor::handleOpenDialog(const WwTile &at)
     {
         if (dialogActionsLeft <= 0)
         {
             return false;
         }
-        const bool isHandled = answerOptionList(at) || continueOpenChat();
+        // The warning first: it sits over whatever raised it, and nothing
+        // behind it moves until it is confirmed.
+        const bool isHandled =
+            confirmContentWarning() || answerOptionList(at) || continueOpenChat();
         if (isHandled)
         {
             --dialogActionsLeft;
@@ -823,11 +1019,14 @@ namespace ww::exec
     }
 
     void Executor::awaitLanding(const format::TransitionRecord &tx, const WwTile &start,
-                                WwTile &ioPosition)
+                                WwTile &ioPosition, runtime::WorldView &view)
     {
+        const bool isLongHop = runtime::isLongLocalHop(tx);
+        const int32_t maxTicks =
+            isLongHop ? kLandingMaxTicks + runtime::transitionHop(tx) : kLandingMaxTicks;
         int32_t stillPolls = 0;
         int32_t tick = 0;
-        while (tick < kLandingMaxTicks)
+        while (tick < maxTicks)
         {
             // A conversation holds the player where they are until it is
             // answered, so it neither spends the landing budget nor counts as
@@ -842,7 +1041,9 @@ namespace ww::exec
                 stillPolls = 0;
                 continue;
             }
-            if (hasLanded(tx, start, ioPosition) || stillPolls >= kLandingStillPolls)
+            const bool isAtRest = stillPolls >= kLandingStillPolls
+                               && !(isLongHop && isMidCrossing(tx, start, ioPosition, view));
+            if (hasLanded(tx, start, ioPosition) || isAtRest)
             {
                 return;
             }
@@ -853,6 +1054,16 @@ namespace ww::exec
             stillPolls = isSameTile(pos, ioPosition) ? stillPolls + 1 : 0;
             ioPosition = pos;
         }
+    }
+
+    bool Executor::isMidCrossing(const format::TransitionRecord &tx, const WwTile &start,
+                                 const WwTile &at, runtime::WorldView &view)
+    {
+        if (isShortOfCrossing(tx, start, at))
+        {
+            return true;
+        }
+        return !view.isInstanced() && view.areaAt(at.x, at.y, at.plane) < 0;
     }
 
     bool Executor::isOffCourse(const format::TransitionRecord &tx, const WwTile &at)
@@ -1040,6 +1251,7 @@ namespace ww::exec
                                              int32_t stepIndex, RunState &io)
     {
         emit(WwEventKind::ReplanStarted, stepIndex);
+        io.rangeClick.reset();
         if (!planFrom(io.position, goal, io.excludedTransitions, context, plan))
         {
             return ReplanOutcome::Failed;
@@ -1348,6 +1560,108 @@ namespace ww::exec
         return hop;
     }
 
+    std::optional<Executor::RangeClick> Executor::planRangeClick(std::size_t first, Hop &ioHop,
+                                                                const WwTile &from,
+                                                                const WwGoal &goal,
+                                                                runtime::WorldView &view)
+    {
+        std::size_t k = first;
+        while (k < plan.steps.size() && plan.steps[k].kind == runtime::StepKind::Walk)
+        {
+            ++k;
+        }
+        if (k == first || k == plan.steps.size() || !isRangeClickable(plan.steps[k], from, goal))
+        {
+            return std::nullopt;
+        }
+        // Drawn only ahead of a transition that may be clicked from range, and
+        // from clickRng, so the walk's own draws are left as they were.
+        const int32_t range = drawBetween(clickRng, kClickRangeMinTiles, kClickRangeMaxTiles);
+        const std::optional<Hop> stop = findRangeStop(first, k, ioHop.last, from, range,
+                                                      isWildernessFenced(from, goal), view);
+        if (!stop.has_value())
+        {
+            return std::nullopt;
+        }
+        const WwTile target = targetOf(plan.steps[stop->last]);
+        const int32_t stopShort = chebyshev(stop->stopAt.value_or(target), target);
+        ioHop = Hop{ stop->last, hopPathTiles(from, first, stop->last) - stopShort, stop->stopAt };
+        return RangeClick{ k, targetOf(plan.steps[k - 1]), stop->pathTiles };
+    }
+
+    std::optional<Executor::Hop> Executor::findRangeStop(std::size_t first, std::size_t k,
+                                                         std::size_t last, const WwTile &from,
+                                                         int32_t range, bool isFenced,
+                                                         runtime::WorldView &view) const
+    {
+        const format::TransitionRecord &tx = artifact->transitions()[plan.steps[k].transitionIndex];
+        const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
+        std::optional<Hop> stop;
+        int32_t toEnd = 0;  // planned path tiles from plan.steps[e]'s target to the approach
+        // Back from the approach along the plan, tile by tile on the line
+        // between consecutive targets; every tile passed is walked by the
+        // game's pathfinder once the click is made, so the Wilderness fence
+        // rules each one out as chooseHop does.
+        for (std::size_t e = k; e-- > first;)
+        {
+            const WwTile end = targetOf(plan.steps[e]);
+            const WwTile start = e == first ? from : targetOf(plan.steps[e - 1]);
+            if (end.plane != origin.plane || start.plane != origin.plane)
+            {
+                return stop;
+            }
+            // On the first hop's line `start` is the player's own tile (d ==
+            // len): already in range, the click is made from there.
+            const int32_t len = chebyshev(end, start);
+            const int32_t lastD = e == first ? len : len - 1;
+            for (int32_t d = e + 1 == k ? 1 : 0; d <= lastD; ++d)
+            {
+                // Past `range` only while nothing within it qualified (a path
+                // that bends near the loc), and never past kClickRangeMaxTiles.
+                const WwTile at = tileAlong(end, start, d, len);
+                const bool isPastRange = toEnd + d > range;
+                if ((isPastRange && stop.has_value()) || toEnd + d > kClickRangeMaxTiles
+                    || (isFenced && isNearWildernessFence(at)))
+                {
+                    return stop;
+                }
+                if (e <= last && chebyshev(at, origin) >= kClickRangeMinTiles
+                    && view.isStandable(at.x, at.y, at.plane))
+                {
+                    stop = Hop{ e, toEnd + d, d == 0 ? std::nullopt : std::optional<WwTile>{ at } };
+                }
+            }
+            toEnd += len;
+        }
+        return stop;
+    }
+
+    bool Executor::isRangeClickable(const runtime::Step &step, const WwTile &from,
+                                    const WwGoal &goal) const
+    {
+        const auto txs = artifact->transitions();
+        if (step.kind != runtime::StepKind::Transition || step.transitionIndex >= txs.size())
+        {
+            return false;
+        }
+        const format::TransitionRecord &tx = txs[step.transitionIndex];
+        const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
+        const bool isGlobal = (tx.flags & format::kTransitionFlagGlobalOrigin) != 0;
+        return !isGlobal && origin.plane == from.plane
+            && chebyshev(from, origin) >= kClickRangeMinTiles
+            && !(isWildernessFenced(from, goal) && isNearWildernessFence(origin));
+    }
+
+    int32_t Executor::hopPathTiles(const WwTile &from, std::size_t first, std::size_t last) const
+    {
+        int32_t tiles = chebyshev(from, targetOf(plan.steps[first]));
+        for (std::size_t j = first + 1; j <= last; ++j)
+        {
+            tiles += chebyshev(targetOf(plan.steps[j - 1]), targetOf(plan.steps[j]));
+        }
+        return tiles;
+    }
+
     int32_t Executor::interactionHintFor(std::size_t i) const
     {
         int64_t tiles = 0;
@@ -1363,6 +1677,7 @@ namespace ww::exec
     }
 
     WwStatus Executor::executeStep(std::size_t i, int32_t hopTiles, const WwGoal &goal,
+                                   const RangeClick *rangeClick, std::optional<WwTile> stopAt,
                                    runtime::WorldView &view, WwTile &outPosition,
                                    StepReport &outReport)
     {
@@ -1371,10 +1686,17 @@ namespace ww::exec
         outReport = StepReport{};
         if (step.kind != runtime::StepKind::Walk)
         {
-            return executeTransitionStep(step, stepIndex, view, outPosition, outReport);
+            return executeTransitionStep(step, stepIndex, rangeClick, view, outPosition,
+                                         outReport);
+        }
+        runtime::Step walk = step;
+        if (stopAt.has_value())
+        {
+            walk.targetX = stopAt->x;
+            walk.targetY = stopAt->y;
         }
         const Handoff handoff = handoffFor(i, goal, outPosition);
-        const WwStatus walked = walkOneStep(step, stepIndex, handoff, hopTiles,
+        const WwStatus walked = walkOneStep(walk, stepIndex, handoff, hopTiles,
                                             interactionHintFor(i), outPosition);
         if (walked != WwStatus::Arrived || handoff.idleTicks == 0)
         {
@@ -1431,10 +1753,12 @@ namespace ww::exec
     WwStatus Executor::run(WwGoal goal)
     {
         RunState st;
-        dialogActionsLeft = kMaxDialogActions;
+        dialogActionsLeft = dialogBudget;
         answerCursor = 0;
         tilesPerTick = kRunTilesPerTick;
-        rng.seed(fixedSeed.has_value() ? *fixedSeed : std::random_device{}());
+        const uint32_t seed = fixedSeed.has_value() ? *fixedSeed : std::random_device{}();
+        rng.seed(seed);
+        clickRng.seed(seed ^ kClickSeedSalt);
         callbacks->readPosition(callbacks->user, &st.position);
         if (isInsideGoal(st.position, goal))
         {
@@ -1479,17 +1803,36 @@ namespace ww::exec
             // passed over are simply never executed and everything below
             // (events, re-plans, a skipped crossing's blame) names the step
             // the player was actually sent to.
+            //
+            // A hop that stops short of a Transition to click it from range
+            // (planRangeClick) leaves the click on the run state; the cursor
+            // then moves straight onto the Transition, and the click goes with
+            // it.
             int32_t hopTiles = 0;
+            std::optional<WwTile> stopAt;
+            const std::optional<RangeClick> rangeClick = std::exchange(st.rangeClick, std::nullopt);
             if (plan.steps[i].kind == runtime::StepKind::Walk)
             {
-                const Hop hop = chooseHop(i, st.position, goal);
+                Hop hop = chooseHop(i, st.position, goal);
+                st.rangeClick = planRangeClick(i, hop, st.position, goal, context.view);
+                const WwTile hopTarget = hop.stopAt.value_or(targetOf(plan.steps[hop.last]));
+                if (st.rangeClick.has_value()
+                    && chebyshev(hopTarget, st.position) <= kArrivalChebyshev)
+                {
+                    // In range where the player stands (or a step from it): no
+                    // walk, the click goes from here.
+                    i = st.rangeClick->step;
+                    continue;
+                }
                 i = hop.last;
                 hopTiles = hop.pathTiles;
+                stopAt = hop.stopAt;
             }
             const int32_t stepIndex = static_cast<int32_t>(i);
             StepReport report{};
-            const WwStatus stepResult =
-                executeStep(i, hopTiles, goal, context.view, st.position, report);
+            const RangeClick *clicked = rangeClick.has_value() ? &*rangeClick : nullptr;
+            const WwStatus stepResult = executeStep(i, hopTiles, goal, clicked, stopAt,
+                                                    context.view, st.position, report);
             // Only the step right after a skip may blame it, so every step
             // takes it off the run state.
             const std::optional<SkippedCrossing> skipped =
@@ -1580,7 +1923,7 @@ namespace ww::exec
             {
                 st.skippedCrossing = SkippedCrossing{ plan.steps[i].transitionIndex, st.position };
             }
-            ++i;
+            i = st.rangeClick.has_value() ? st.rangeClick->step : i + 1;
         }
         return judgeDrainedRun(goal, context.view, st.position);
         // lease destructor returns the context to the pool here.
