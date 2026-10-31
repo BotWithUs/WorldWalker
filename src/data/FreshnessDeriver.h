@@ -3,6 +3,7 @@
 
 #include "build/CacheClient.h"
 #include "build/CollisionBuilder.h"
+#include "build/CollisionLookup.h"
 #include "data/OpCheck.h"
 #include "data/Transitions.h"
 
@@ -19,6 +20,9 @@ namespace ww::data
         std::size_t droppedDatasetConflict{}; // candidates suppressed because a dataset transition shares the origin
         std::size_t droppedClimbMismatch{};   // candidates whose loc climbs the other way (e.g. up-only on a down edge)
         std::size_t droppedNoOption{};        // candidates whose loc has no clickable option
+        std::size_t footprintPairs{};         // loc pairs on adjacent planes joined by overlapping footprints
+        std::size_t originMoved{};            // origins moved off a sealed anchor onto another footprint tile
+        std::size_t droppedFootprintDataset{}; // moved / footprint-paired candidates on a curated loc's footprint
         std::size_t kept{};                   // transitions returned
     };
 
@@ -37,7 +41,20 @@ namespace ww::data
     // (a PlaneChange crossing at the origin tile/plane): the up/down transitions
     // are stamped with that objectId + optionIndex so the executor can climb them.
     // A pair with no matching crossing falls back to objectId == -1.
+    //
+    // Two spiral-stair cases the column rule misses are handled from the
+    // crossings' footprints (`lookup` supplies walkability):
+    //   * a loc with no column partner is paired with the one plane-change loc
+    //     on the plane above whose footprint overlaps it, when that loc has no
+    //     column partner either and overlaps nothing else, the lower loc
+    //     climbs up and the upper one down (footprintPairs);
+    //   * an origin anchor with no standable, unsealed tile within
+    //     kTransitionApproachRadius moves to the first footprint tile that has
+    //     one (originMoved). The radius itself is unchanged.
+    // Either kind is dropped when a dataset origin sits anywhere on the loc's
+    // footprint (droppedFootprintDataset): the curated row already covers it.
     TransitionModel deriveVerticalTransitions(const ww::build::CollisionModel &collision,
+                                              const ww::build::CollisionLookup &lookup,
                                               const TransitionModel &datasets,
                                               const std::vector<ww::build::Crossing> &crossings,
                                               FreshnessReport *outReport);
