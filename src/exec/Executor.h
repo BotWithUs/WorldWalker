@@ -447,6 +447,13 @@ namespace ww::exec
                                            const WwTile &from, int32_t leg, int32_t pathLeft,
                                            bool isFenced, runtime::WorldView &view) const;
 
+        // The hop to plan.steps[first] alone (near the Wilderness fence, on
+        // another plane, or when no longer hop fits): off the plan, through
+        // reachTowards, only when the step is beyond kLegMaxTiles or on
+        // another plane; otherwise the step within the leg, a tile part-way
+        // to it within the leg, or the step whole within the cap.
+        Hop stepAlone(const LegScope &scope, std::size_t first, runtime::WorldView &view) const;
+
         // A hop to plan.steps[first] alone when it is within `leg` of
         // `from`; otherwise (or on another plane) a hop marked isOffPlan, which
         // the run re-plans on rather than clicks.

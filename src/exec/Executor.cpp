@@ -858,6 +858,11 @@ namespace ww::exec
         // Nothing took from range: walk the rest as the walk would have, onto
         // the approach tile, and the click is made once more from there.
         const std::size_t approachStep = click.step - 1;
+        if (!isWithinLeg(ioPosition, targetOf(plan.steps[approachStep]), legCeilingTiles))
+        {
+            outIsDisplaced = true;  // not where the stop was: re-plan from here
+            return WwStatus::Failed;
+        }
         return walkOneStep(plan.steps[approachStep], static_cast<int32_t>(approachStep),
                            Handoff{ kArrivalChebyshev, 0, false }, click.pathTiles,
                            interactionHintFor(approachStep), ioPosition, outIsDisplaced);
@@ -1632,8 +1637,8 @@ namespace ww::exec
         if (firstTarget.plane != from.plane || (scope.isFenced && isNearWildernessFence(firstTarget)))
         {
             // Another plane is no distance at all: the player is not where
-            // the plan thinks, and reachTowards marks the hop off the plan.
-            return reachTowards(first, from, leg);
+            // the plan thinks. Near the fence the hop is the next step alone.
+            return stepAlone(scope, first, view);
         }
         const bool isTeleBlockedHere = !runtime::isTeleportAllowed(*artifact, from.x, from.y,
                                                                    from.plane);
@@ -1651,7 +1656,7 @@ namespace ww::exec
             {
                 // The game's pathfinder could cut through the fence from
                 // here: only the next step.
-                return reachTowards(first, from, leg);
+                return stepAlone(scope, first, view);
             }
             // The first step's length is the player's own distance to it.
             const int32_t stepTiles = j == first ? chebyshev(from, target) : chebyshev(prev, target);
@@ -1673,7 +1678,36 @@ namespace ww::exec
                 break;  // re-plan with teleports from here, as a step at a time did
             }
         }
-        return hop.has_value() ? *hop : reachTowards(first, from, leg);
+        return hop.has_value() ? *hop : stepAlone(scope, first, view);
+    }
+
+    Executor::Hop Executor::stepAlone(const LegScope &scope, std::size_t first,
+                                      runtime::WorldView &view) const
+    {
+        const WwTile target = targetOf(plan.steps[first]);
+        // Off the plan only when the player is: on another plane, or farther
+        // from the step than any leg reaches. A step merely past this hop's
+        // drawn leg is cut to it, as every other hop is.
+        if (!isWithinLeg(scope.from, target, kLegMaxTiles))
+        {
+            return reachTowards(first, scope.from, scope.leg);
+        }
+        if (isWithinLeg(scope.from, target, scope.leg))
+        {
+            return Hop{ first, chebyshev(scope.from, target), std::nullopt, scope.leg };
+        }
+        // A tile within the leg on the straight line to the step; else the
+        // step whole, past this hop's leg but inside the cap, rather than a
+        // re-plan that would rebuild the same geometry.
+        const int32_t stepTiles = chebyshev(scope.from, target);
+        const std::optional<WwTile> part =
+            partWayAlong(scope.from, target, scope.from, scope.leg,
+                         std::numeric_limits<int32_t>::max(), scope.isFenced, view);
+        if (part.has_value())
+        {
+            return Hop{ first, chebyshev(scope.from, *part), part, scope.leg };
+        }
+        return Hop{ first, stepTiles, std::nullopt, kLegMaxTiles };
     }
 
     std::optional<Executor::Hop> Executor::cutLeg(const LegScope &scope, std::size_t j,
@@ -1766,7 +1800,12 @@ namespace ww::exec
         }
         const WwTile target = targetOf(plan.steps[stop->last]);
         const WwTile stopTile = stop->stopAt.value_or(target);
-        if (!isWithinLeg(from, stopTile, ioHop.leg))
+        // Both walk clicks this makes stay within reach: the one to the stop,
+        // and the fallback walk-in from the stop to the approach tile should
+        // the click from range not take (clickFromRange).
+        const WwTile approach = targetOf(plan.steps[k - 1]);
+        if (!isWithinLeg(from, stopTile, ioHop.leg)
+            || !isWithinLeg(stopTile, approach, legCeilingTiles))
         {
             return std::nullopt;  // a walk click past the leg would be refused
         }
