@@ -213,6 +213,10 @@ namespace ww::cli
             bool              hasEntryChat;
             bool              isEntryChatDone;  // the first click has raised it
             bool              isChatOpen;
+            // The open chat was raised by a loc click (the entry chat), so its
+            // closing starts the landing; one a walk click raised does not
+            // carry the player anywhere.
+            bool              isChatFromLoc;
             int               continueClicks;
             // The next walk click opens a message box (chatOnNextWalk) or the
             // option list (optionListOnNextWalk) instead of moving the player;
@@ -327,6 +331,19 @@ namespace ww::cli
             std::int32_t            refuseBeyondTiles;
             int                     refusedClicks;
             int                     refusedAfterReplan;
+            // A forced move: on the displaceOnRead-th position read after walk
+            // click number displaceAfterClick (1-based), the player is moved to
+            // displaceTo, once. displaceGapSq is the squared straight-line
+            // distance from there to that click's target, and staleClicks
+            // counts walk clicks made in the same plan after the move.
+            int                     displaceAfterClick;
+            int                     displaceOnRead;
+            exec::WwTile            displaceTo;
+            bool                    hasDisplaced;
+            int                     readsSinceClick;
+            std::int64_t            displaceGapSq;
+            int                     displacedPlan;
+            int                     staleClicks;
         };
 
         // Every callback that can surprise the harness. The class each one
@@ -374,6 +391,18 @@ namespace ww::cli
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->readPositionCalls;
+            const bool isDisplaceDue = h->displaceAfterClick > 0 && !h->hasDisplaced
+                && h->walkToCalls == h->displaceAfterClick
+                && ++h->readsSinceClick == h->displaceOnRead;
+            if (isDisplaceDue)
+            {
+                const std::int64_t dx = h->displaceTo.x - h->lastWalkClick.x;
+                const std::int64_t dy = h->displaceTo.y - h->lastWalkClick.y;
+                h->displaceGapSq = dx * dx + dy * dy;
+                h->position = h->displaceTo;
+                h->hasDisplaced = true;
+                h->displacedPlan = h->planGeneration;
+            }
             *outTile = h->position;
         }
 
@@ -602,6 +631,7 @@ namespace ww::cli
                 h->steps.back().target = target;
             }
             const std::int64_t reachSq = straightSq(h->position, target);
+            h->staleClicks += (h->hasDisplaced && h->planGeneration == h->displacedPlan) ? 1 : 0;
             if (h->position.plane != target.plane)
             {
                 ++h->otherPlaneClicks;
@@ -631,6 +661,7 @@ namespace ww::cli
             {
                 h->chatOnNextWalk = false;
                 h->isChatOpen = true;
+                h->isChatFromLoc = false;
                 h->chatPagesLeft = h->chatPages;
                 return;
             }
@@ -808,6 +839,7 @@ namespace ww::cli
             {
                 h->isEntryChatDone = true;
                 h->isChatOpen = true;
+                h->isChatFromLoc = true;
                 h->chatPagesLeft = h->chatPages;
             }
             else if (h->landingDelayTicks > 0)
@@ -946,7 +978,7 @@ namespace ww::cli
                 if (!h->chatNeverCloses && h->chatPagesLeft <= 0)
                 {
                     h->isChatOpen = false;
-                    h->pendingLandingTicks = h->landingDelayTicks;
+                    h->pendingLandingTicks = h->isChatFromLoc ? h->landingDelayTicks : 0;
                 }
                 return;
             }
@@ -3834,6 +3866,9 @@ namespace ww::cli
             int refusedRuns = 0;
             int lateRefusals = 0;
             int replans = 0;
+            // Click lengths of the re-planned walk, across the seeds: once the
+            // legs have come down they still vary rather than settle on one.
+            std::vector<int> lateLengths(kMaxLegTiles + 1, 0);
             for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
             {
                 ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
@@ -3851,14 +3886,82 @@ namespace ww::cli
                     const bool isRefused = hop.isClicked && hop.from.plane == hop.target.plane
                         && straightSq(hop.from, hop.target) > std::int64_t{ reach } * reach;
                     lateRefusals += (isLastPlan && isRefused) ? 1 : 0;
+                    const bool isLastWalkHop = isLastPlan && hop.isClicked
+                        && hop.from.plane == hop.target.plane
+                        && !isSameTile(hop.target, exec::WwTile{ goal.x, goal.y, goal.plane });
+                    if (isLastWalkHop)
+                    {
+                        const int len = std::min(tileChebyshev(hop.from, hop.target), kMaxLegTiles);
+                        ++lateLengths[static_cast<std::size_t>(len)];
+                    }
                 }
             }
+            const auto distinct = std::count_if(lateLengths.begin(), lateLengths.end(),
+                                                [](int n) { return n > 0; });
             std::printf("  exec:   leg-refusal reach=%d: arrived=%d (expect %u) runs-refused=%d"
-                        " (expect > 0) replans=%d (expect > 0) refused-in-last-plan=%d (expect 0)\n",
-                        reach, arrived, kStrideSeeds, refusedRuns, replans, lateRefusals);
+                        " (expect > 0) replans=%d (expect > 0) refused-in-last-plan=%d (expect 0)"
+                        " re-planned lengths=%d distinct (expect >= 3)\n",
+                        reach, arrived, kStrideSeeds, refusedRuns, replans, lateRefusals,
+                        static_cast<int>(distinct));
             std::size_t failures = arrived == static_cast<int>(kStrideSeeds) ? 0u : 1u;
             failures += (refusedRuns > 0 && replans > 0) ? 0u : 1u;
             failures += lateRefusals == 0 ? 0u : 1u;
+            failures += distinct >= 3 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4ae: a forced move carries the player far off the walk, out of
+        // the minimap's reach of the hop's target. On the walk's own poll
+        // (onRead 2) the executor would re-click that target from where the
+        // player now stands; on the read the next hop is chosen from (onRead
+        // 3) it would choose a hop off the plan. Either way it must re-plan
+        // from where the player stands instead: no walk click past the leg cap
+        // from the player's real tile, none more toward the old plan, no
+        // Stuck (the leg did nothing wrong), and the run arrives.
+        std::size_t testLegDisplaced(ExecContext &ctx, int onRead, const char *label)
+        {
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            runtime::Plan plan;
+            if (!pickLongWalk(ctx, start, goal, plan))
+            {
+                std::printf("  exec:   leg-displaced %s test skipped (no long walk-only route)\n",
+                            label);
+                return 0;
+            }
+            constexpr int kDisplaceAfterClick = 3;
+            int arrived = 0;
+            int displaced = 0;
+            int outOfReach = 0;
+            int overCap = 0;
+            int stale = 0;
+            int stucks = 0;
+            int replans = 0;
+            for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                                  start.x, start.y, start.plane);
+                harness.displaceAfterClick = kDisplaceAfterClick;
+                harness.displaceOnRead = onRead;
+                harness.displaceTo = start;
+                const exec::WwStatus status = runSeeded(ctx, harness, goal, seed);
+                arrived += status == exec::WwStatus::Arrived ? 1 : 0;
+                displaced += harness.hasDisplaced ? 1 : 0;
+                outOfReach += harness.displaceGapSq > kMaxLegSq ? 1 : 0;
+                overCap += harness.farthestClickSq > kMaxLegSq ? 1 : 0;
+                stale += harness.staleClicks;
+                stucks += harness.stuckEvents;
+                replans += harness.replanStartedEvents;
+            }
+            std::printf("  exec:   leg-displaced %s: arrived=%d displaced=%d out-of-reach=%d"
+                        " (expect %u, %u, %u) over-cap=%d stale-clicks=%d stucks=%d (expect 0,0,0)"
+                        " replans=%d (expect >= %u)\n",
+                        label, arrived, displaced, outOfReach, kStrideSeeds, kStrideSeeds,
+                        kStrideSeeds, overCap, stale, stucks, replans, kStrideSeeds);
+            const int all = static_cast<int>(kStrideSeeds);
+            std::size_t failures = (arrived == all && displaced == all && outOfReach == all) ? 0u : 1u;
+            failures += (overCap == 0 && stale == 0 && stucks == 0) ? 0u : 1u;
+            failures += replans >= all ? 0u : 1u;
             return failures;
         }
 
@@ -5105,6 +5208,8 @@ namespace ww::cli
         failures += testLegDoorRoute(ctx);
         failures += testLegRefusalReplan(ctx, 15);
         failures += testLegRefusalReplan(ctx, 10);
+        failures += testLegDisplaced(ctx, 2, "re-click");
+        failures += testLegDisplaced(ctx, 3, "next-hop");
         failures += testLeadClicks(ctx, kRunTilesPerTick, "run");
         failures += testLeadClicks(ctx, kWalkTilesPerTick, "walk");
         failures += testLeadStopsAtCrossing(ctx, kRunTilesPerTick, "run");

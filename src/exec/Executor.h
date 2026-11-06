@@ -214,6 +214,10 @@ namespace ww::exec
             // range; the step after that hop is this Transition. Cleared by
             // every re-plan, whose plan has steps of its own.
             std::optional<RangeClick> rangeClick;
+            // Part-way hops in a row that arrived with the player not moved
+            // (isHopMoving); cleared by any hop that moved them and by every
+            // re-plan.
+            int32_t stillPartWayHops{0};
         };
 
         // What a step learned beyond its status: a Transition that did not put
@@ -229,6 +233,9 @@ namespace ww::exec
             bool isLocMissing{false};
             bool isChainRefused{false};
             bool isCrossingSkipped{false};
+            // A Walk's re-click (stall, dialog resume) would have gone past the
+            // leg ceiling from where the player now stands, so none was made.
+            bool isDisplaced{false};
         };
 
         // Outcome of one in-loop re-plan: the plan was rebuilt and the step
@@ -414,6 +421,25 @@ namespace ww::exec
         Hop chooseHop(std::size_t first, const WwTile &from, const WwGoal &goal,
                       runtime::WorldView &view);
 
+        // What every step of one hop is measured against: the player's tile,
+        // the leg drawn for the hop, its path budget, and whether the run is
+        // fenced off the Wilderness.
+        struct LegScope
+        {
+            WwTile  from;
+            int32_t leg{0};
+            int32_t budget{0};
+            bool    isFenced{false};
+        };
+
+        // The hop when the leg runs out at plan.steps[j], `pathTiles` along
+        // from `prev` with `stepTiles` more to step j: the step whole when it
+        // is nearly reached and inside the ceiling, else a tile part-way to it
+        // (partWayAlong), else nothing.
+        std::optional<Hop> cutLeg(const LegScope &scope, std::size_t j, const WwTile &prev,
+                                  int32_t pathTiles, int32_t stepTiles,
+                                  runtime::WorldView &view) const;
+
         // The furthest standable tile on the line `start` -> `end`, short of
         // `end` and at most `pathLeft` tiles along it, that lies within `leg`
         // of `from` and, when `isFenced`, clear of the Wilderness fence.
@@ -421,11 +447,10 @@ namespace ww::exec
                                            const WwTile &from, int32_t leg, int32_t pathLeft,
                                            bool isFenced, runtime::WorldView &view) const;
 
-        // A hop to plan.steps[first] alone: the step when it is within `leg`
-        // of `from`; otherwise marked isOffPlan, aimed at the furthest tile in
-        // reach on the straight line to it (the step itself when none is).
-        Hop reachTowards(std::size_t first, const WwTile &from, int32_t leg,
-                         runtime::WorldView &view) const;
+        // A hop to plan.steps[first] alone when it is within `leg` of
+        // `from`; otherwise (or on another plane) a hop marked isOffPlan, which
+        // the run re-plans on rather than clicks.
+        Hop reachTowards(std::size_t first, const WwTile &from, int32_t leg) const;
 
         // A human clicks a door, stairs or portal as soon as it is in reach
         // and lets the game walk the last tiles. When the first step after
@@ -470,9 +495,28 @@ namespace ww::exec
         // kLegMaxTiles], or lower once shortenLegs has lowered the ceiling.
         int32_t drawLeg();
 
-        // Lower the leg ceiling for the rest of the run after a walk hop
-        // ended stuck: a walk click the agent refused looks the same.
-        void shortenLegs();
+        // Lower the leg ceiling after a walk hop of leg `stalledLeg` ended
+        // stuck (a walk click the agent refused looks the same), and keep
+        // recoverLegs below that leg for the rest of the run.
+        void shortenLegs(int32_t stalledLeg);
+
+        // Raise the leg ceiling after a walk hop arrived, up to the cap the
+        // last stall left.
+        void recoverLegs();
+
+        // When `isDue`, a click of `target` again from `pos`, made only within
+        // the leg ceiling; false when it was due and would have gone past it.
+        bool reclickInReach(bool isDue, const WwTile &pos, const WwTile &target);
+
+        // One re-plan from io.position on the re-plan budget. False, with
+        // outTerminal set, when the run ends here instead.
+        bool replanOnBudget(const WwGoal &goal, runtime::SearchContext &context,
+                            int32_t stepIndex, RunState &io, WwStatus &outTerminal);
+
+        // Whether the walk hop that just arrived moved the player, as far as
+        // the run cares: false once more than kMaxStillPartWayHops part-way
+        // hops in a row arrived without moving them.
+        static bool isHopMoving(bool isPartWay, const WwTile &hopFrom, RunState &io);
 
         // Whether the planner fences this run's walks off the Wilderness: a
         // player outside it walking to a goal outside it (the same rule as
@@ -579,9 +623,12 @@ namespace ww::exec
         // Stuck on either failure path.
         // Writes the final sampled position to outPosition so run() can drive
         // re-plan / teleport-allowed checks without a redundant readPosition.
+        // A re-click (stall, dialog resume) is made only within the leg
+        // ceiling of where the player now stands; past it the hop fails with
+        // no Stuck and outIsDisplaced set, so the run re-plans from there.
         WwStatus walkOneStep(const runtime::Step &step, int32_t stepIndex,
                              const Handoff &handoff, int32_t pathTiles, int32_t interactionHint,
-                             WwTile &outPosition);
+                             WwTile &outPosition, bool &outIsDisplaced);
 
         // Drive one Transition step's interact + embedded chain. Looks up
         // the TransitionRecord, validates its chain range, fires interact for
@@ -605,10 +652,11 @@ namespace ww::exec
         // walk the rest of the way to the approach tile as before, so the
         // caller clicks once more from there. Arrived either way, with
         // `outIsStarted` telling which; Cancelled, or Failed when the
-        // fallback walk is stuck.
+        // fallback walk is stuck or displaced (`outIsDisplaced`, see
+        // walkOneStep).
         WwStatus clickFromRange(const format::TransitionRecord &tx, bool isNpcOrigin,
                                 const RangeClick &click, WwTile &ioPosition,
-                                bool &outIsStarted);
+                                bool &outIsStarted, bool &outIsDisplaced);
 
         // Issue tx from range, the loc click or the NPC's whole chain, then
         // wait for it to start (awaitApproach). NotStarted when the host
@@ -907,6 +955,9 @@ namespace ww::exec
         // Highest leg drawLeg may draw this run: kLegMaxTiles at run() entry,
         // lowered by shortenLegs after each stuck walk hop.
         int32_t legCeilingTiles{22};
+        // Highest recoverLegs may raise the ceiling to: kLegMaxTiles at run()
+        // entry, then kLegShrinkTiles below the leg of the last hop that stalled.
+        int32_t legRecoverCapTiles{22};
 
         // Movement categories (format::MoveCategory bits) every plan and
         // re-plan of this run refuses; see ww_executor_run_ex.

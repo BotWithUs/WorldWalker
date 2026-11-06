@@ -73,11 +73,26 @@ namespace ww::exec
         constexpr int32_t kLegMinTiles        = 14;
         constexpr int32_t kLegMaxTiles        = 22;
         // A refused walk click reads exactly like a stall (the player never
-        // moves), so each walk hop that ends stuck lowers the leg ceiling by
-        // kLegShrinkTiles for the rest of the run, never under kLegFloorTiles,
-        // and the re-plan's hops are clicked shorter.
+        // moves), so a walk hop that ends stuck lowers the leg ceiling by
+        // kLegShrinkTiles, never under kLegFloorTiles, and below the leg that
+        // stalled; the re-plan's hops are clicked shorter. Each hop that
+        // arrives raises it again by kLegRecoverTiles, but only up to
+        // kLegShrinkTiles below the leg that stalled: the reach that refused
+        // it is unknown, and every refusal costs a stall and a re-plan from a
+        // budget of kMaxReplans.
         constexpr int32_t kLegShrinkTiles     = 7;
+        constexpr int32_t kLegRecoverTiles    = 3;
         constexpr int32_t kLegFloorTiles      = 8;
+        // The lowest leg drawn: legs are drawn from up to kLegMaxTiles -
+        // kLegMinTiles below the ceiling, but never below this, so a ceiling
+        // at its floor still leaves a range rather than one fixed length.
+        constexpr int32_t kLegLowestTiles     = 5;
+        // A part-way tile is at least this far from the player, so the hop
+        // moves them.
+        constexpr int32_t kLegMinPartTiles    = 2;
+        // Part-way hops in a row that may arrive with the player not moved
+        // before the run re-plans from where they stand.
+        constexpr int32_t kMaxStillPartWayHops = 2;
         // Path tiles a hop may run past its leg, so a winding stretch is not
         // clicked far along: the game's pathfinder takes the click and knows
         // nothing of the planner's fences.
@@ -86,10 +101,8 @@ namespace ww::exec
         // the whole step instead, while that is inside the ceiling, so no
         // click is made only to finish the last tile or two.
         constexpr int32_t kLegMinRestTiles    = 4;
-        // Length given a hop whose first step is on another plane (no
-        // distance to speak of), for its stuck deadline.
-        constexpr int32_t kOtherPlaneHopTiles = kLegMaxTiles;
-        static_assert(kLegFloorTiles <= kLegMinTiles && kLegMinTiles <= kLegMaxTiles,
+        static_assert(kLegLowestTiles <= kLegFloorTiles && kLegFloorTiles <= kLegMinTiles
+                          && kLegMinTiles <= kLegMaxTiles,
                       "leg range is ordered");
         // A human clicks a portal, door or stairs once it is on screen and
         // lets the game walk the last tiles (the Draynor Underworld portal,
@@ -440,10 +453,26 @@ namespace ww::exec
         return (isStalled || isTimedOut) ? WalkProgress::Stuck : WalkProgress::Moving;
     }
 
+    bool Executor::reclickInReach(bool isDue, const WwTile &pos, const WwTile &target)
+    {
+        if (!isDue)
+        {
+            return true;
+        }
+        if (!isWithinLeg(pos, target, legCeilingTiles))
+        {
+            return false;
+        }
+        callbacks->walkTo(callbacks->user, target);
+        return true;
+    }
+
     WwStatus Executor::walkOneStep(const runtime::Step &step, int32_t stepIndex,
                                    const Handoff &handoff, int32_t pathTiles,
-                                   int32_t interactionHint, WwTile &outPosition)
+                                   int32_t interactionHint, WwTile &outPosition,
+                                   bool &outIsDisplaced)
     {
+        outIsDisplaced = false;
         const WwTile target = targetOf(step);
         const int64_t deadlineMs = stuckDeadlineMs(pathTiles);
         // The event goes first: a host that holds back Surge / Dive near an
@@ -484,18 +513,18 @@ namespace ww::exec
                 lastPos = pos;
                 continue;
             }
-            if (isResumePending)
-            {
-                callbacks->walkTo(callbacks->user, target);
-                isResumePending = false;
-            }
+            // A click again is made from where the player now stands: after a
+            // forced move or a dialog that may be far from where the hop was
+            // chosen, so past the leg the run re-plans from here instead.
+            const bool isResumed = reclickInReach(std::exchange(isResumePending, false), pos, target);
             const WalkProgress progress =
                 judgeProgress(pos, lastPos, target, ticks, deadlineMs, watch);
-            if (progress == WalkProgress::Reclick)
+            if (!isResumed || !reclickInReach(progress == WalkProgress::Reclick, pos, target))
             {
-                callbacks->walkTo(callbacks->user, target);
+                outIsDisplaced = true;
+                return WwStatus::Failed;
             }
-            else if (progress == WalkProgress::Stuck)
+            if (progress == WalkProgress::Stuck)
             {
                 emit(WwEventKind::Stuck, stepIndex);
                 return WwStatus::Failed;
@@ -737,7 +766,8 @@ namespace ww::exec
         if (rangeClick != nullptr)
         {
             const WwStatus ranged =
-                clickFromRange(tx, isNpcOrigin, *rangeClick, outPosition, isStarted);
+                clickFromRange(tx, isNpcOrigin, *rangeClick, outPosition, isStarted,
+                               outReport.isDisplaced);
             if (ranged != WwStatus::Arrived)
             {
                 return ranged;
@@ -815,9 +845,10 @@ namespace ww::exec
 
     WwStatus Executor::clickFromRange(const format::TransitionRecord &tx, bool isNpcOrigin,
                                       const RangeClick &click, WwTile &ioPosition,
-                                      bool &outIsStarted)
+                                      bool &outIsStarted, bool &outIsDisplaced)
     {
         outIsStarted = false;
+        outIsDisplaced = false;
         const RangeStart started = issueFromRange(tx, isNpcOrigin, click, ioPosition);
         if (started != RangeStart::NotStarted)
         {
@@ -829,7 +860,7 @@ namespace ww::exec
         const std::size_t approachStep = click.step - 1;
         return walkOneStep(plan.steps[approachStep], static_cast<int32_t>(approachStep),
                            Handoff{ kArrivalChebyshev, 0, false }, click.pathTiles,
-                           interactionHintFor(approachStep), ioPosition);
+                           interactionHintFor(approachStep), ioPosition, outIsDisplaced);
     }
 
     Executor::RangeStart Executor::issueFromRange(const format::TransitionRecord &tx,
@@ -1333,6 +1364,29 @@ namespace ww::exec
         return inCombat != 1;
     }
 
+    bool Executor::replanOnBudget(const WwGoal &goal, runtime::SearchContext &context,
+                                  int32_t stepIndex, RunState &io, WwStatus &outTerminal)
+    {
+        if (io.replansUsed >= kMaxReplans)
+        {
+            outTerminal = failRun(stepIndex, -1);
+            return false;
+        }
+        ++io.replansUsed;
+        io.stillPartWayHops = 0;
+        return isRestart(replan(goal, context, stepIndex, io), stepIndex, outTerminal);
+    }
+
+    bool Executor::isHopMoving(bool isPartWay, const WwTile &hopFrom, RunState &io)
+    {
+        if (!isPartWay || !isSameTile(hopFrom, io.position))
+        {
+            io.stillPartWayHops = 0;
+            return true;
+        }
+        return ++io.stillPartWayHops <= kMaxStillPartWayHops;
+    }
+
     bool Executor::isRestart(ReplanOutcome outcome, int32_t stepIndex, WwStatus &outStatus) const
     {
         if (outcome == ReplanOutcome::Restarted)
@@ -1527,13 +1581,20 @@ namespace ww::exec
     int32_t Executor::drawLeg()
     {
         const int32_t ceiling = std::clamp(legCeilingTiles, kLegFloorTiles, kLegMaxTiles);
-        const int32_t floor = std::max(kLegFloorTiles, ceiling - (kLegMaxTiles - kLegMinTiles));
+        const int32_t floor = std::max(kLegLowestTiles, ceiling - (kLegMaxTiles - kLegMinTiles));
         return drawBetween(rng, floor, ceiling);
     }
 
-    void Executor::shortenLegs()
+    void Executor::shortenLegs(int32_t stalledLeg)
     {
-        legCeilingTiles = std::max(kLegFloorTiles, legCeilingTiles - kLegShrinkTiles);
+        legRecoverCapTiles = std::clamp(stalledLeg - kLegShrinkTiles, kLegFloorTiles, kLegMaxTiles);
+        legCeilingTiles = std::max(kLegFloorTiles,
+                                   std::min(legCeilingTiles - kLegShrinkTiles, legRecoverCapTiles));
+    }
+
+    void Executor::recoverLegs()
+    {
+        legCeilingTiles = std::min(legRecoverCapTiles, legCeilingTiles + kLegRecoverTiles);
     }
 
     bool Executor::isWildernessFenced(const WwTile &from, const WwGoal &goal) const
@@ -1567,54 +1628,39 @@ namespace ww::exec
         // Drawn before anything can cut the hop short, so every Walk hop
         // spends the same draws and a pinned seed replays the same walk.
         const int32_t leg = drawLeg();
-        if (firstTarget.plane != from.plane)
+        const LegScope scope{ from, leg, leg + kLegWindTiles, isWildernessFenced(from, goal) };
+        if (firstTarget.plane != from.plane || (scope.isFenced && isNearWildernessFence(firstTarget)))
         {
-            return Hop{ first, kOtherPlaneHopTiles, std::nullopt, leg };
-        }
-        const bool isFenced = isWildernessFenced(from, goal);
-        if (isFenced && isNearWildernessFence(firstTarget))
-        {
-            return reachTowards(first, from, leg, view);
+            // Another plane is no distance at all: the player is not where
+            // the plan thinks, and reachTowards marks the hop off the plan.
+            return reachTowards(first, from, leg);
         }
         const bool isTeleBlockedHere = !runtime::isTeleportAllowed(*artifact, from.x, from.y,
                                                                    from.plane);
-        const int32_t budget = leg + kLegWindTiles;
         std::optional<Hop> hop;
         WwTile prev = first == 0 ? from : targetOf(plan.steps[first - 1]);
         int32_t pathTiles = 0;
         for (std::size_t j = first; j < plan.steps.size(); ++j)
         {
-            if (plan.steps[j].kind != runtime::StepKind::Walk)
+            const WwTile target = targetOf(plan.steps[j]);
+            if (plan.steps[j].kind != runtime::StepKind::Walk || target.plane != from.plane)
             {
                 break;  // the approach walk to a Transition is clicked itself
             }
-            const WwTile target = targetOf(plan.steps[j]);
-            if (target.plane != from.plane)
-            {
-                break;
-            }
-            if (isFenced && isNearWildernessFence(target))
+            if (scope.isFenced && isNearWildernessFence(target))
             {
                 // The game's pathfinder could cut through the fence from
                 // here: only the next step.
-                return reachTowards(first, from, leg, view);
+                return reachTowards(first, from, leg);
             }
             // The first step's length is the player's own distance to it.
             const int32_t stepTiles = j == first ? chebyshev(from, target) : chebyshev(prev, target);
-            if (!isWithinLeg(from, target, leg) || pathTiles + stepTiles > budget)
+            if (!isWithinLeg(from, target, leg) || pathTiles + stepTiles > scope.budget)
             {
-                const std::optional<WwTile> part =
-                    partWayAlong(prev, target, from, leg, budget - pathTiles, isFenced, view);
-                const bool isNearlyThere =
-                    !part.has_value() || chebyshev(*part, target) < kLegMinRestTiles;
-                if (isNearlyThere && isWithinLeg(from, target, legCeilingTiles)
-                    && pathTiles + stepTiles <= legCeilingTiles + kLegWindTiles)
+                if (const std::optional<Hop> cut = cutLeg(scope, j, prev, pathTiles, stepTiles, view);
+                    cut.has_value())
                 {
-                    hop = Hop{ j, pathTiles + stepTiles, std::nullopt, legCeilingTiles };
-                }
-                else if (part.has_value())
-                {
-                    hop = Hop{ j, pathTiles + chebyshev(prev, *part), part, leg };
+                    hop = cut;
                 }
                 break;
             }
@@ -1627,7 +1673,30 @@ namespace ww::exec
                 break;  // re-plan with teleports from here, as a step at a time did
             }
         }
-        return hop.has_value() ? *hop : reachTowards(first, from, leg, view);
+        return hop.has_value() ? *hop : reachTowards(first, from, leg);
+    }
+
+    std::optional<Executor::Hop> Executor::cutLeg(const LegScope &scope, std::size_t j,
+                                                  const WwTile &prev, int32_t pathTiles,
+                                                  int32_t stepTiles,
+                                                  runtime::WorldView &view) const
+    {
+        const WwTile target = targetOf(plan.steps[j]);
+        const std::optional<WwTile> part = partWayAlong(prev, target, scope.from, scope.leg,
+                                                        scope.budget - pathTiles, scope.isFenced,
+                                                        view);
+        const bool isNearlyThere =
+            !part.has_value() || chebyshev(*part, target) < kLegMinRestTiles;
+        if (isNearlyThere && isWithinLeg(scope.from, target, legCeilingTiles)
+            && pathTiles + stepTiles <= legCeilingTiles + kLegWindTiles)
+        {
+            return Hop{ j, pathTiles + stepTiles, std::nullopt, legCeilingTiles };
+        }
+        if (part.has_value())
+        {
+            return Hop{ j, pathTiles + chebyshev(prev, *part), part, scope.leg };
+        }
+        return std::nullopt;
     }
 
     std::optional<WwTile> Executor::partWayAlong(const WwTile &start, const WwTile &end,
@@ -1651,7 +1720,8 @@ namespace ww::exec
         for (int32_t back = nearest; back < len && back < playerToEnd; ++back)
         {
             const WwTile at = tileAlong(end, start, back, len);
-            if (isWithinLeg(from, at, leg) && view.isStandable(at.x, at.y, at.plane)
+            if (isWithinLeg(from, at, leg) && chebyshev(from, at) >= kLegMinPartTiles
+                && view.isStandable(at.x, at.y, at.plane)
                 && !(isFenced && isNearWildernessFence(at)))
             {
                 return at;
@@ -1660,25 +1730,15 @@ namespace ww::exec
         return std::nullopt;
     }
 
-    Executor::Hop Executor::reachTowards(std::size_t first, const WwTile &from, int32_t leg,
-                                         runtime::WorldView &view) const
+    Executor::Hop Executor::reachTowards(std::size_t first, const WwTile &from, int32_t leg) const
     {
         const WwTile target = targetOf(plan.steps[first]);
-        if (isWithinLeg(from, target, leg))
-        {
-            return Hop{ first, chebyshev(from, target), std::nullopt, leg };
-        }
-        // More than a leg off the plan (a forced move, or a dialog that held
-        // the player while the plan moved on): the run re-plans from here.
-        // Should its budget be spent, the furthest standable tile in reach on
-        // the straight line to the step, for the game's pathfinder to take.
-        const std::optional<WwTile> part =
-            partWayAlong(from, target, from, leg, std::numeric_limits<int32_t>::max(), false, view);
-        if (part.has_value())
-        {
-            return Hop{ first, chebyshev(from, *part), part, leg, true };
-        }
-        return Hop{ first, chebyshev(from, target), std::nullopt, leg, true };
+        // More than a leg off the plan, or on another plane (a forced move,
+        // or a dialog that held the player while the plan moved on): the run
+        // re-plans from here, and nothing is clicked past the leg.
+        const bool isOffPlan = !isWithinLeg(from, target, leg);
+        const int32_t tiles = isOffPlan ? 0 : chebyshev(from, target);
+        return Hop{ first, tiles, std::nullopt, leg, isOffPlan };
     }
 
     std::optional<Executor::RangeClick> Executor::planRangeClick(std::size_t first, Hop &ioHop,
@@ -1822,13 +1882,18 @@ namespace ww::exec
             walk.targetX = stopAt->x;
             walk.targetY = stopAt->y;
         }
-        const Handoff handoff = handoffFor(i, goal, outPosition, isPartWay);
+        Handoff handoff = handoffFor(i, goal, outPosition, isPartWay);
+        if (isPartWay && chebyshev(outPosition, *stopAt) <= handoffRadius(handoff))
+        {
+            // A lead as long as the hop would hand off before the player moved.
+            handoff = Handoff{ kArrivalChebyshev, 0, false };
+        }
         // Short of step i, the rest of it still lies between the click and
         // the next interaction.
         const int32_t rest = isPartWay ? chebyshev(*stopAt, targetOf(step)) : 0;
         const int32_t hint = std::min(interactionHintFor(i) + rest, kMaxInteractionHint);
         const WwStatus walked = walkOneStep(walk, stepIndex, handoff, hopTiles, hint,
-                                            outPosition);
+                                            outPosition, outReport.isDisplaced);
         if (walked != WwStatus::Arrived || handoff.idleTicks == 0)
         {
             return walked;
@@ -1891,6 +1956,7 @@ namespace ww::exec
         rng.seed(seed);
         clickRng.seed(seed ^ kClickSeedSalt);
         legCeilingTiles = kLegMaxTiles;
+        legRecoverCapTiles = kLegMaxTiles;
         callbacks->readPosition(callbacks->user, &st.position);
         if (isInsideGoal(st.position, goal))
         {
@@ -1945,16 +2011,19 @@ namespace ww::exec
             // The hop's leg ran out part-way along step i (not a click from
             // range): the cursor stays on step i for the rest of it.
             bool isPartWay = false;
+            int32_t hopLeg = 0;
             const std::optional<RangeClick> rangeClick = std::exchange(st.rangeClick, std::nullopt);
             if (plan.steps[i].kind == runtime::StepKind::Walk)
             {
+                // Read afresh: the hop is measured from where the player is
+                // now, not where the last step left them (a forced move in
+                // between would put the click past the leg).
+                callbacks->readPosition(callbacks->user, &st.position);
                 Hop hop = chooseHop(i, st.position, goal, context.view);
-                if (hop.isOffPlan && st.replansUsed < kMaxReplans)
+                if (hop.isOffPlan)
                 {
-                    ++st.replansUsed;
-                    const int32_t at = static_cast<int32_t>(i);
                     WwStatus terminal = WwStatus::Failed;
-                    if (!isRestart(replan(goal, context, at, st), at, terminal))
+                    if (!replanOnBudget(goal, context, static_cast<int32_t>(i), st, terminal))
                     {
                         return terminal;
                     }
@@ -1973,10 +2042,12 @@ namespace ww::exec
                 }
                 i = hop.last;
                 hopTiles = hop.pathTiles;
+                hopLeg = hop.leg;
                 stopAt = hop.stopAt;
                 isPartWay = stopAt.has_value() && !st.rangeClick.has_value();
             }
             const int32_t stepIndex = static_cast<int32_t>(i);
+            const WwTile hopFrom = st.position;
             StepReport report{};
             const RangeClick *clicked = rangeClick.has_value() ? &*rangeClick : nullptr;
             const WwStatus stepResult = executeStep(i, hopTiles, goal, clicked, stopAt, isPartWay,
@@ -2015,21 +2086,36 @@ namespace ww::exec
                     i = 0;
                     continue;
                 }
-                if (isTransition || st.replansUsed >= kMaxReplans)
+                if (isTransition && !report.isDisplaced)
                 {
-                    return failRun(stepIndex,
-                                   isTransition ? static_cast<int32_t>(step.transitionIndex) : -1);
+                    return failRun(stepIndex, static_cast<int32_t>(step.transitionIndex));
                 }
                 callbacks->readPosition(callbacks->user, &st.position);
-                shortenLegs();
-                ++st.replansUsed;
+                if (!report.isDisplaced)
+                {
+                    shortenLegs(hopLeg);  // a displaced player is no fault of the leg
+                }
                 WwStatus terminal = WwStatus::Failed;
-                if (!isRestart(replan(goal, context, stepIndex, st), stepIndex, terminal))
+                if (!replanOnBudget(goal, context, stepIndex, st, terminal))
                 {
                     return terminal;
                 }
                 i = 0;
                 continue;
+            }
+            if (plan.steps[i].kind == runtime::StepKind::Walk)
+            {
+                recoverLegs();
+                if (!isHopMoving(isPartWay, hopFrom, st))
+                {
+                    WwStatus terminal = WwStatus::Failed;
+                    if (!replanOnBudget(goal, context, stepIndex, st, terminal))
+                    {
+                        return terminal;
+                    }
+                    i = 0;
+                    continue;
+                }
             }
 
             // Step Arrived; `st.position` holds the live position, so the goal
