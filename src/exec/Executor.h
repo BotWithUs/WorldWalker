@@ -59,10 +59,11 @@ namespace ww::exec
     // do.
     //
     // Walk hop: the planner's Walk steps are fine-grained, and the executor
-    // clicks ahead over a random stride of them (chooseHop): the furthest
-    // following Walk within a stride drawn per hop, never past a Transition,
-    // never beyond kMaxClickChebyshev of the player, and only the next step
-    // near the Wilderness fence the game's own pathfinder does not know about.
+    // clicks ahead over a leg of them (chooseHop): the furthest point of the
+    // following Walks within a leg drawn per hop, in a straight line from the
+    // player, so a minimap click reaches it; never past a Transition, and only
+    // the next step near the Wilderness fence the game's own pathfinder does
+    // not know about.
     // The steps passed over are not executed; the cursor moves straight to
     // the one clicked, so every event and re-plan names that step. Then
     // walkTo(target), and poll readPosition with sleepTicks between samples
@@ -374,10 +375,12 @@ namespace ww::exec
         // against.
         // `rangeClick`, when not null, is the Transition step i clicked from
         // range (see executeTransitionStep). `stopAt`, when set, is the tile a
-        // Walk step i is clicked to instead of its target (Hop::stopAt).
+        // Walk step i is clicked to instead of its target (Hop::stopAt);
+        // `isPartWay` says it is there because the leg ran out, so the rest
+        // of step i follows as a Walk.
         WwStatus executeStep(std::size_t i, int32_t hopTiles, const WwGoal &goal,
                              const RangeClick *rangeClick, std::optional<WwTile> stopAt,
-                             runtime::WorldView &view, WwTile &outPosition,
+                             bool isPartWay, runtime::WorldView &view, WwTile &outPosition,
                              StepReport &outReport);
 
         // One walk click: the index of the Walk step it targets, and the path
@@ -385,25 +388,44 @@ namespace ww::exec
         // over (the Chebyshev hop between consecutive targets stands in for a
         // step's length, which the plan does not carry). `stopAt`, when set,
         // is a tile short of that target on the line to it the click goes to
-        // instead (a click from range made between two targets).
+        // instead (a click from range made between two targets, or a leg that
+        // ends between them). `leg` is the reach drawn for the hop (drawLeg):
+        // the click is within it of the player in a straight line. `isOffPlan`
+        // says the player stands more than a leg from the step itself.
         struct Hop
         {
             std::size_t           last{0};
             int32_t               pathTiles{0};
             std::optional<WwTile> stopAt{};
+            int32_t               leg{0};
+            bool                  isOffPlan{false};
         };
 
         // The hop to click from `from` when plan.steps[first] is a Walk: the
-        // furthest consecutive Walk from `first` on whose path length the
-        // stride drawn for it (drawStride) still holds, stopping at a
-        // Transition (its approach walk is always clicked itself), at
-        // kMaxClickChebyshev of `from`, and, walking out of a tile that
-        // allows no teleport, at the first target that does (so the
-        // post-step re-plan onto a teleport fires where it did when every
-        // step was clicked). Only `first` when any target the hop would pass
-        // is near the Wilderness fence (isNearWildernessFence). Always at
-        // least `first`.
-        Hop chooseHop(std::size_t first, const WwTile &from, const WwGoal &goal);
+        // furthest point of the consecutive Walks from `first` within the leg
+        // drawn for it (drawLeg) of `from`, and within that leg plus
+        // kLegWindTiles of path. It ends part-way along a step where the leg
+        // runs out (partWayAlong), stops at a Transition (its approach walk is
+        // always clicked itself), and, walking out of a tile that allows no
+        // teleport, at the first target that does (so the post-step re-plan
+        // onto a teleport fires where it did when every step was clicked).
+        // Only `first` when any target the hop would pass is near the
+        // Wilderness fence (isNearWildernessFence). Always `first` or later.
+        Hop chooseHop(std::size_t first, const WwTile &from, const WwGoal &goal,
+                      runtime::WorldView &view);
+
+        // The furthest standable tile on the line `start` -> `end`, short of
+        // `end` and at most `pathLeft` tiles along it, that lies within `leg`
+        // of `from` and, when `isFenced`, clear of the Wilderness fence.
+        std::optional<WwTile> partWayAlong(const WwTile &start, const WwTile &end,
+                                           const WwTile &from, int32_t leg, int32_t pathLeft,
+                                           bool isFenced, runtime::WorldView &view) const;
+
+        // A hop to plan.steps[first] alone: the step when it is within `leg`
+        // of `from`; otherwise marked isOffPlan, aimed at the furthest tile in
+        // reach on the straight line to it (the step itself when none is).
+        Hop reachTowards(std::size_t first, const WwTile &from, int32_t leg,
+                         runtime::WorldView &view) const;
 
         // A human clicks a door, stairs or portal as soon as it is in reach
         // and lets the game walk the last tiles. When the first step after
@@ -444,9 +466,13 @@ namespace ww::exec
         // Path tiles of a hop from `from` through plan.steps[first..last].
         int32_t hopPathTiles(const WwTile &from, std::size_t first, std::size_t last) const;
 
-        // Desired stride of one hop in path tiles, from a mixture that keeps
-        // most clicks medium, some long and a few very long.
-        int32_t drawStride();
+        // The leg of one hop, in tiles: uniform in [kLegMinTiles,
+        // kLegMaxTiles], or lower once shortenLegs has lowered the ceiling.
+        int32_t drawLeg();
+
+        // Lower the leg ceiling for the rest of the run after a walk hop
+        // ended stuck: a walk click the agent refused looks the same.
+        void shortenLegs();
 
         // Whether the planner fences this run's walks off the Wilderness: a
         // player outside it walking to a goal outside it (the same rule as
@@ -478,7 +504,9 @@ namespace ww::exec
         // teleport re-plan fires on it. Otherwise no idle, and 0 for the final
         // walk of a radius-0 goal (the ARRIVED contract demands the exact
         // tile, not its neighbour), else kArrivalChebyshev.
-        Handoff handoffFor(std::size_t i, const WwGoal &goal, const WwTile &from);
+        // `isPartWay` (the hop ends short of step i, see executeStep) counts
+        // as another Walk following.
+        Handoff handoffFor(std::size_t i, const WwGoal &goal, const WwTile &from, bool isPartWay);
 
         // The radius a hop's poll tests against: a leading handoff's lead,
         // raised to one tile past a tick of travel at tilesPerTick, so a
@@ -861,7 +889,7 @@ namespace ww::exec
         int32_t dialogActionsLeft{0};
         std::size_t answerCursor{0};
 
-        // The seed a test pinned, if any, and the generator every stride,
+        // The seed a test pinned, if any, and the generator every leg,
         // handoff and idle is drawn from; reseeded at run() entry.
         std::optional<uint32_t> fixedSeed;
         std::mt19937 rng;
@@ -875,6 +903,10 @@ namespace ww::exec
         // (notePace); a leading handoff keeps at least a tick of it in hand.
         // Assumed running at run() entry, the pace that needs the longer lead.
         int32_t tilesPerTick{2};
+
+        // Highest leg drawLeg may draw this run: kLegMaxTiles at run() entry,
+        // lowered by shortenLegs after each stuck walk hop.
+        int32_t legCeilingTiles{22};
 
         // Movement categories (format::MoveCategory bits) every plan and
         // re-plan of this run refuses; see ww_executor_run_ex.
