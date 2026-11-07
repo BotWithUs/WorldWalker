@@ -6,6 +6,7 @@
 #include "exec/Callbacks.h"
 #include "exec/Executor.h"
 #include "format/Artifact.h"
+#include "format/ClipFlags.h"
 #include "format/MoveCategory.h"
 #include "runtime/AreaSearch.h"
 #include "runtime/CapabilitySnapshot.h"
@@ -20,6 +21,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstdio>
@@ -29,6 +31,7 @@
 #include <limits>
 #include <random>
 #include <span>
+#include <utility>
 #include <string>
 #include <system_error>
 #include <thread>
@@ -99,6 +102,7 @@ namespace ww::cli
             std::int32_t hint;
             std::int32_t transitionIndex;
             exec::WwTile at;
+            exec::WwTile target{};  // a walk hop's click (harnessWalkTo)
         };
 
         struct ExecHarness
@@ -211,6 +215,10 @@ namespace ww::cli
             bool              hasEntryChat;
             bool              isEntryChatDone;  // the first click has raised it
             bool              isChatOpen;
+            // The open chat was raised by a loc click (the entry chat), so its
+            // closing starts the landing; one a walk click raised does not
+            // carry the player anywhere.
+            bool              isChatFromLoc;
             int               continueClicks;
             // The next walk click opens a message box (chatOnNextWalk) or the
             // option list (optionListOnNextWalk) instead of moving the player;
@@ -230,6 +238,9 @@ namespace ww::cli
             // hop's StepAdvanced comes first; the next walkTo is its click
             // (isHopClickPending), any later one a re-click.
             int                     planGeneration;
+            // Where the player stood at each ReplanStarted, in order: the
+            // start of plan generation 1, 2, ...
+            std::vector<exec::WwTile> replanFroms;
             bool                    isHopClickPending;
             std::vector<HopRecord>  hops;
             std::vector<StepRecord> steps;
@@ -250,6 +261,11 @@ namespace ww::cli
             // diagonal step is one tile), as the game walks (1) or runs (2).
             // A loc click ends the walk. ticksSlept counts every tick slept.
             int                     tilesPerTick;
+            // With tilesPerTick: ticks after a walk click before the player
+            // starts moving, as the game sets them walking the tick after the
+            // click (0: at once).
+            int                     walkStartDelayTicks;
+            int                     walkDelayLeft;
             bool                    hasWalkGoal;
             exec::WwTile            walkGoal;
             int                     ticksSlept;
@@ -313,6 +329,53 @@ namespace ww::cli
             std::vector<exec::WwTile> interactFroms;
             std::vector<exec::WwTile> interactWalkTargets;
             exec::WwTile            lastWalkClick;
+            // Every walk click, hop or re-click, measured from the tile the
+            // player stood on when it was made: the farthest in a straight
+            // line (squared), and how many were on another plane.
+            std::int64_t            farthestClickSq;
+            int                     otherPlaneClicks;
+            // When above 0, a walk click farther than this in a straight line
+            // is refused and moves no one, as the agent refuses a minimap click
+            // the minimap cannot reach. refusedClicks counts them, and
+            // refusedAfterReplan those made after the first re-plan.
+            std::int32_t            refuseBeyondTiles;
+            int                     refusedClicks;
+            int                     refusedAfterReplan;
+            // A forced move: on the displaceOnRead-th position read after walk
+            // click number displaceAfterClick (1-based), the player is moved to
+            // displaceTo, once. displaceGapSq is the squared straight-line
+            // distance from there to that click's target, and staleClicks
+            // counts walk clicks made in the same plan after the move.
+            int                     displaceAfterClick;
+            int                     displaceOnRead;
+            exec::WwTile            displaceTo;
+            bool                    hasDisplaced;
+            int                     readsSinceClick;
+            std::int64_t            displaceGapSq;
+            int                     displacedPlan;
+            int                     staleClicks;
+            // The executor of the run (runSeeded), for its leg ceiling at
+            // each walk click (lastClickCeiling) and each loc click
+            // (interactCeilings). A click from range is planned under the
+            // ceiling of that loc click when made where the player stands,
+            // and under a ceiling no higher when walked to (an arrived hop
+            // only raises it).
+            const exec::Executor   *executor;
+            std::int32_t            lastClickCeiling;
+            std::vector<std::int32_t> interactCeilings;
+            // For each loc click, the crossing it was made for: the plan
+            // generation and step index of the last Transition StepAdvanced.
+            std::vector<std::pair<int, std::int32_t>> interactPlanSteps;
+            // After a loc click droppedInteracts swallowed (a click from range
+            // the game drops), what the executor did next: a walk click
+            // (fallbackClicks; fallbackPastCeiling when past its ceiling) or a
+            // re-plan (fallbackReplans). With isDisplacedOnDroppedInteract the
+            // dropped click also moves the player to displaceTo.
+            bool                    isFallbackPending;
+            int                     fallbackClicks;
+            int                     fallbackPastCeiling;
+            int                     fallbackReplans;
+            bool                    isDisplacedOnDroppedInteract;
         };
 
         // Every callback that can surprise the harness. The class each one
@@ -360,6 +423,18 @@ namespace ww::cli
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->readPositionCalls;
+            const bool isDisplaceDue = h->displaceAfterClick > 0 && !h->hasDisplaced
+                && h->walkToCalls == h->displaceAfterClick
+                && ++h->readsSinceClick == h->displaceOnRead;
+            if (isDisplaceDue)
+            {
+                const std::int64_t dx = h->displaceTo.x - h->lastWalkClick.x;
+                const std::int64_t dy = h->displaceTo.y - h->lastWalkClick.y;
+                h->displaceGapSq = dx * dx + dy * dy;
+                h->position = h->displaceTo;
+                h->hasDisplaced = true;
+                h->displacedPlan = h->planGeneration;
+            }
             *outTile = h->position;
         }
 
@@ -567,16 +642,53 @@ namespace ww::cli
 
         bool isSameTile(const exec::WwTile &a, const exec::WwTile &b);
 
+        // Squared straight-line distance between two tiles, plane ignored.
+        std::int64_t straightSq(const exec::WwTile &a, const exec::WwTile &b)
+        {
+            const std::int64_t dx = a.x - b.x;
+            const std::int64_t dy = a.y - b.y;
+            return dx * dx + dy * dy;
+        }
+
         extern "C" void harnessWalkTo(void *user, exec::WwTile target)
         {
             ExecHarness *h = static_cast<ExecHarness *>(user);
             ++h->walkToCalls;
             h->lastWalkClick = target;
+            const std::int64_t reachSq = straightSq(h->position, target);
+            if (h->executor != nullptr)
+            {
+                h->lastClickCeiling = h->executor->legCeiling();
+                if (std::exchange(h->isFallbackPending, false))
+                {
+                    ++h->fallbackClicks;
+                    const std::int64_t ceilingSq =
+                        std::int64_t{ h->lastClickCeiling } * h->lastClickCeiling;
+                    h->fallbackPastCeiling += reachSq > ceilingSq ? 1 : 0;
+                }
+            }
             if (h->isHopClickPending)
             {
                 h->isHopClickPending = false;
                 h->hops.back().target = target;
                 h->hops.back().isClicked = true;
+                h->steps.back().target = target;
+            }
+            h->staleClicks += (h->hasDisplaced && h->planGeneration == h->displacedPlan) ? 1 : 0;
+            if (h->position.plane != target.plane)
+            {
+                ++h->otherPlaneClicks;
+            }
+            else
+            {
+                h->farthestClickSq = std::max(h->farthestClickSq, reachSq);
+            }
+            if (h->refuseBeyondTiles > 0 && h->position.plane == target.plane
+                && reachSq > static_cast<std::int64_t>(h->refuseBeyondTiles) * h->refuseBeyondTiles)
+            {
+                ++h->refusedClicks;
+                h->refusedAfterReplan += h->planGeneration > 0 ? 1 : 0;
+                return;
             }
             if (h->isChatOpen || h->isOptionListOpen || h->isContentWarningOpen)
             {
@@ -592,6 +704,7 @@ namespace ww::cli
             {
                 h->chatOnNextWalk = false;
                 h->isChatOpen = true;
+                h->isChatFromLoc = false;
                 h->chatPagesLeft = h->chatPages;
                 return;
             }
@@ -634,6 +747,7 @@ namespace ww::cli
                 h->walkGoal = target;
                 h->hasWalkGoal = !isSameTile(h->position, target);
                 h->isWalkingUpToLoc = false;
+                h->walkDelayLeft = h->walkStartDelayTicks;
             }
             else if (isWalkingMode)
             {
@@ -711,6 +825,11 @@ namespace ww::cli
             ++h->interactCalls;
             h->interactFroms.push_back(h->position);
             h->interactWalkTargets.push_back(h->lastWalkClick);
+            h->interactCeilings.push_back(h->executor != nullptr ? h->executor->legCeiling() : 0);
+            const auto lastCrossing = std::find_if(h->steps.rbegin(), h->steps.rend(),
+                                                   [](const StepRecord &r) { return r.isTransition; });
+            h->interactPlanSteps.emplace_back(lastCrossing == h->steps.rend() ? -1 : lastCrossing->plan,
+                                              lastCrossing == h->steps.rend() ? -1 : lastCrossing->stepIndex);
             h->hasWalkGoal = false;  // a loc click replaces the walk
             h->isWalkingUpToLoc = false;
             if (objectId == h->watchedObjectId && origin.x == h->watchedOrigin.x
@@ -758,6 +877,11 @@ namespace ww::cli
             else if (h->droppedInteracts > 0)
             {
                 --h->droppedInteracts;
+                h->isFallbackPending = true;
+                if (h->isDisplacedOnDroppedInteract)
+                {
+                    h->position = h->displaceTo;
+                }
             }
             else if (h->isInteractWalkingUp && !isSameTile(h->position, origin))
             {
@@ -769,6 +893,7 @@ namespace ww::cli
             {
                 h->isEntryChatDone = true;
                 h->isChatOpen = true;
+                h->isChatFromLoc = true;
                 h->chatPagesLeft = h->chatPages;
             }
             else if (h->landingDelayTicks > 0)
@@ -907,7 +1032,7 @@ namespace ww::cli
                 if (!h->chatNeverCloses && h->chatPagesLeft <= 0)
                 {
                     h->isChatOpen = false;
-                    h->pendingLandingTicks = h->landingDelayTicks;
+                    h->pendingLandingTicks = h->isChatFromLoc ? h->landingDelayTicks : 0;
                 }
                 return;
             }
@@ -979,6 +1104,11 @@ namespace ww::cli
         // diagonal step moves both axes) towards walkGoal, stopping on it.
         void walkOneTick(ExecHarness *h)
         {
+            if (h->walkDelayLeft > 0)
+            {
+                --h->walkDelayLeft;
+                return;
+            }
             for (int t = 0; t < h->tilesPerTick && h->hasWalkGoal; ++t)
             {
                 const std::int32_t dx = h->walkGoal.x - h->position.x;
@@ -1078,8 +1208,10 @@ namespace ww::cli
             }
             else if (kind == exec::WwEventKind::ReplanStarted)
             {
+                h->fallbackReplans += std::exchange(h->isFallbackPending, false) ? 1 : 0;
                 ++h->replanStartedEvents;
                 ++h->planGeneration;
+                h->replanFroms.push_back(h->position);
                 // SimulateReplanRecovery: the executor has just consumed one
                 // re-plan from its budget. Flipping the flag lets the next walk
                 // arrive normally so the run terminates Arrived.
@@ -2732,12 +2864,15 @@ namespace ww::cli
         }
 
         // Walk hops (tests 4s-4x). The executor clicks ahead over a random
-        // stride of the plan's Walk steps, so each test drives many pinned
-        // seeds and checks a rule every one of them must keep. The two limits
-        // mirror the executor's own; a test that re-derived them from the
-        // executor would pass whatever the executor did.
+        // leg of the plan's Walk steps, so each test drives many pinned seeds
+        // and checks a rule every one of them must keep. The limits mirror
+        // the executor's own; a test that re-derived them from the executor
+        // would pass whatever the executor did. kMaxLegTiles is the reach of
+        // a minimap click with margin (nxt-library #70: 27.5 tiles at default
+        // zoom), measured in a straight line.
         constexpr std::uint32_t kStrideSeeds       = 25;
-        constexpr std::int32_t  kMaxClickChebyshev = 32;
+        constexpr std::int32_t  kMaxLegTiles       = 22;
+        constexpr std::int64_t  kMaxLegSq          = std::int64_t{ kMaxLegTiles } * kMaxLegTiles;
         constexpr std::int32_t  kWildernessMargin  = 8;
         constexpr std::int32_t  kOldStepTiles      = 16;  // the fixed click before strides
         // The farthest planned path a loc is clicked from range over.
@@ -2778,7 +2913,10 @@ namespace ww::cli
             exec::Callbacks cb = kCallbackPrototype;
             cb.user = &ioHarness;
             exec::Executor executor(ctx.reader, ctx.pool, cb, seed);
-            return executor.run(goal);
+            ioHarness.executor = &executor;
+            const exec::WwStatus status = executor.run(goal);
+            ioHarness.executor = nullptr;
+            return status;
         }
 
         // Whether `at` is a tile short of `to` on the line to it from `from`,
@@ -2810,17 +2948,20 @@ namespace ww::cli
         }
 
         // Whether every hop of the first plan clicked its own step's target
-        // (isHopOnPlan) and the hops only ever moved forward.
+        // (isHopOnPlan) and the hops only ever moved forward. A hop whose leg
+        // ran out short of its step is followed by one to the same step.
         bool hopsFollowPlan(const ExecHarness &h, const runtime::Plan &plan)
         {
             std::int32_t prev = -1;
+            bool isPrevShort = false;
             for (const HopRecord &hop : h.hops)
             {
                 if (hop.plan != 0)
                 {
                     continue;
                 }
-                const bool isInPlan = hop.isClicked && hop.stepIndex > prev
+                const bool isForward = hop.stepIndex > prev || (isPrevShort && hop.stepIndex == prev);
+                const bool isInPlan = hop.isClicked && isForward
                     && static_cast<std::size_t>(hop.stepIndex) < plan.steps.size()
                     && isHopOnPlan(hop, plan);
                 if (!isInPlan)
@@ -2828,6 +2969,7 @@ namespace ww::cli
                     return false;
                 }
                 prev = hop.stepIndex;
+                isPrevShort = !isSameTile(hop.target, stepTile(plan.steps[static_cast<std::size_t>(prev)]));
             }
             return true;
         }
@@ -2870,9 +3012,11 @@ namespace ww::cli
             });
         }
 
-        // Test 4s: on a long walk, no click ever lands beyond the scene cap,
-        // every hop clicks a step of the plan and moves forward, and across
-        // the seeds some clicks reach past the old fixed 16 tiles.
+        // Test 4s: on a long walk, no click ever lands beyond the leg cap
+        // (Chebyshev or straight line), every hop clicks a step of the plan
+        // (or a tile short of one) and moves forward, the last hop lands on
+        // the goal, and across the seeds some clicks reach past the old fixed
+        // 16 tiles.
         std::size_t testStrideCap(ExecContext &ctx)
         {
             exec::WwTile start{};
@@ -2888,6 +3032,7 @@ namespace ww::cli
             std::int32_t shortest = std::numeric_limits<std::int32_t>::max();
             int overCap = 0;
             int hopCount = 0;
+            int finalOffGoal = 0;
             for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
             {
                 ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
@@ -2900,15 +3045,22 @@ namespace ww::cli
                     const std::int32_t click = tileChebyshev(hop.from, hop.target);
                     longest = std::max(longest, click);
                     shortest = std::min(shortest, click);
-                    overCap += click > kMaxClickChebyshev ? 1 : 0;
+                    overCap += (click > kMaxLegTiles || straightSq(hop.from, hop.target) > kMaxLegSq)
+                        ? 1 : 0;
                     ++hopCount;
                 }
+                overCap += harness.farthestClickSq > kMaxLegSq ? 1 : 0;
+                const bool isLastOnGoal = !harness.hops.empty()
+                    && isSameTile(harness.hops.back().target, exec::WwTile{ goal.x, goal.y, goal.plane });
+                finalOffGoal += isLastOnGoal ? 0 : 1;
             }
-            std::printf("  exec:   stride-cap (%d,%d)->(%d,%d) plan=%zu steps: %d hops over %u seeds,"
-                        " click %d..%d tiles (expect max > %d, <= %d) over-cap=%d (expect 0)\n",
+            std::printf("  exec:   leg-cap (%d,%d)->(%d,%d) plan=%zu steps: %d hops over %u seeds,"
+                        " click %d..%d tiles (expect max > %d, <= %d) over-cap=%d final-off-goal=%d"
+                        " (expect 0, 0)\n",
                         start.x, start.y, goal.x, goal.y, plan.steps.size(), hopCount, kStrideSeeds,
-                        shortest, longest, kOldStepTiles, kMaxClickChebyshev, overCap);
+                        shortest, longest, kOldStepTiles, kMaxLegTiles, overCap, finalOffGoal);
             failures += overCap == 0 ? 0u : 1u;
+            failures += finalOffGoal == 0 ? 0u : 1u;
             failures += longest > kOldStepTiles ? 0u : 1u;
             return failures;
         }
@@ -3283,8 +3435,9 @@ namespace ww::cli
         {
             std::int32_t lastHint = 0;  // 0: no walk hop since the last Transition
             std::int32_t lastWalk = -1;
-            for (const StepRecord &rec : h.steps)
+            for (std::size_t r = 0; r < h.steps.size(); ++r)
             {
+                const StepRecord &rec = h.steps[r];
                 if (rec.plan != 0)
                 {
                     break;
@@ -3300,7 +3453,21 @@ namespace ww::cli
                 const std::size_t at = static_cast<std::size_t>(rec.stepIndex);
                 const bool isBeforeInteraction = at + 1 == plan.steps.size()
                     || plan.steps[at + 1].kind != runtime::StepKind::Walk;
-                io.wrong += (rec.hint <= 0 || rec.hint != promisedHint(plan, at)) ? 1 : 0;
+                // A click short of its step promises the rest of the step on
+                // top when its leg ran out part-way. A Walk announced after it
+                // says it did; a crossing announced after it fits either that
+                // (the crossing then clicked from range where the player
+                // stood) or a click from range made short of the step.
+                const bool isShort = !isSameTile(rec.target, stepTile(plan.steps[at]));
+                const bool isNextWalk = r + 1 < h.steps.size() && h.steps[r + 1].plan == 0
+                    && !h.steps[r + 1].isTransition;
+                const std::int32_t plain = promisedHint(plan, at);
+                const std::int32_t withRest = std::min(
+                    plain + tileChebyshev(rec.target, stepTile(plan.steps[at])), kMaxInteractionHint);
+                const bool isPromised = (!isShort && rec.hint == plain)
+                    || (isShort && isNextWalk && rec.hint == withRest)
+                    || (isShort && !isNextWalk && (rec.hint == plain || rec.hint == withRest));
+                io.wrong += (rec.hint <= 0 || !isPromised) ? 1 : 0;
                 io.notFalling += (lastHint != 0 && rec.hint >= lastHint) ? 1 : 0;
                 io.approachOnes += (isBeforeInteraction && rec.hint == 1) ? 1 : 0;
                 lastHint = rec.hint;
@@ -3582,6 +3749,779 @@ namespace ww::cli
             failures += (refusedStatus == WW_STATUS_FAILED && refusedActions == 0
                          && !refusal.empty()) ? 0u : 1u;
             failures += (open.unexpectedActions == 0 && shut.unexpectedActions == 0) ? 0u : 1u;
+            return failures;
+        }
+
+        // Random walks for the leg tests: up to `count` start/goal pairs, each
+        // an area centroid to another on its plane between 60 and 300 tiles
+        // away that the executor's planner routes, drawn from a fixed seed so
+        // the set is the same every run. Routes may cross doors and stairs.
+        struct LegRoute
+        {
+            exec::WwTile start;
+            exec::WwGoal goal;
+        };
+
+        std::vector<LegRoute> pickLegRoutes(ExecContext &ctx, std::size_t count)
+        {
+            const auto nodes = ctx.reader.areaNodes();
+            std::vector<LegRoute> routes;
+            if (nodes.size() < 2)
+            {
+                return routes;
+            }
+            std::mt19937 pick(0x1E65u);
+            std::uniform_int_distribution<std::size_t> any(0, nodes.size() - 1);
+            const auto isOwnCentroid = [&](const format::AreaNodeRecord &n)
+            {
+                return ctx.view.areaAt(n.centroidX, n.centroidY, static_cast<std::int32_t>(n.plane))
+                    >= 0;
+            };
+            std::vector<std::size_t> near;
+            for (int tries = 0; tries < 3000 && routes.size() < count; ++tries)
+            {
+                const format::AreaNodeRecord &a = nodes[any(pick)];
+                if (!isOwnCentroid(a))
+                {
+                    continue;
+                }
+                near.clear();
+                for (std::size_t k = 0; k < nodes.size(); ++k)
+                {
+                    const format::AreaNodeRecord &b = nodes[k];
+                    const std::int32_t far = std::max(std::abs(a.centroidX - b.centroidX),
+                                                      std::abs(a.centroidY - b.centroidY));
+                    if (b.plane == a.plane && far >= 60 && far <= 300)
+                    {
+                        near.push_back(k);
+                    }
+                }
+                if (near.empty())
+                {
+                    continue;
+                }
+                const format::AreaNodeRecord &b =
+                    nodes[near[std::uniform_int_distribution<std::size_t>(0, near.size() - 1)(pick)]];
+                if (!isOwnCentroid(b))
+                {
+                    continue;
+                }
+                const std::int32_t plane = static_cast<std::int32_t>(a.plane);
+                const LegRoute route{ exec::WwTile{ a.centroidX, a.centroidY, plane },
+                                      exec::WwGoal{ b.centroidX, b.centroidY, plane, 1 } };
+                runtime::Plan plan;
+                if (planLikeExecutor(ctx, route.start, route.goal, plan) && plan.steps.size() >= 6)
+                {
+                    routes.push_back(route);
+                }
+            }
+            return routes;
+        }
+
+        // Test 4ab: over many random routes, doors and stairs included, no
+        // walk click (hop, re-click, or the walk across a door that opened
+        // short) is ever farther than kMaxLegTiles from the player in a
+        // straight line, so the minimap reaches every one; and the hop lengths
+        // vary rather than settle on one number.
+        std::size_t testLegRandomRoutes(ExecContext &ctx)
+        {
+            const std::vector<LegRoute> routes = pickLegRoutes(ctx, 40);
+            if (routes.size() < 10)
+            {
+                std::printf("  exec:   leg-random test skipped (%zu routes found)\n", routes.size());
+                return 0;
+            }
+            int overCap = 0;
+            int arrived = 0;
+            int crossings = 0;
+            int hopCount = 0;
+            std::int64_t farthestSq = 0;
+            std::vector<int> byLength(kMaxLegTiles * 2 + 1, 0);
+            std::uint32_t seed = 1;
+            for (const LegRoute &route : routes)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition,
+                                                  route.start.x, route.start.y, route.start.plane);
+                harness.landingRecords = ctx.reader.transitions();
+                const exec::WwStatus status = runSeeded(ctx, harness, route.goal, seed++);
+                arrived += status == exec::WwStatus::Arrived ? 1 : 0;
+                overCap += harness.farthestClickSq > kMaxLegSq ? 1 : 0;
+                farthestSq = std::max(farthestSq, harness.farthestClickSq);
+                crossings += harness.interactCalls;
+                for (const HopRecord &hop : harness.hops)
+                {
+                    if (hop.isClicked && hop.from.plane == hop.target.plane)
+                    {
+                        const std::int32_t click = tileChebyshev(hop.from, hop.target);
+                        ++byLength[static_cast<std::size_t>(std::min(click, kMaxLegTiles * 2))];
+                        ++hopCount;
+                    }
+                }
+            }
+            // Variety: how many lengths from 14 up each take at least 2% of hops.
+            int commonLengths = 0;
+            for (std::int32_t len = 14; len <= kMaxLegTiles; ++len)
+            {
+                commonLengths += byLength[static_cast<std::size_t>(len)] * 50 >= hopCount ? 1 : 0;
+            }
+            std::printf("  exec:   leg-random %zu routes: arrived=%d hops=%d crossings=%d farthest=%.1f"
+                        " tiles over-cap=%d (expect 0) common lengths in 14..%d=%d (expect >= 5)\n",
+                        routes.size(), arrived, hopCount, crossings,
+                        std::sqrt(static_cast<double>(farthestSq)), overCap, kMaxLegTiles,
+                        commonLengths);
+            std::size_t failures = overCap == 0 ? 0u : 1u;
+            failures += commonLengths >= 5 ? 0u : 1u;
+            failures += arrived * 10 >= static_cast<int>(routes.size()) * 9 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4ac: a walk up to a door clicks within the leg cap on every
+        // seed, crosses the door and arrives.
+        std::size_t testLegDoorRoute(ExecContext &ctx)
+        {
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            runtime::Plan plan;
+            if (!pickWalkToCrossing(ctx, start, goal, plan))
+            {
+                std::printf("  exec:   leg-door test skipped (no long walk to a crossing)\n");
+                return 0;
+            }
+            int overCap = 0;
+            int arrived = 0;
+            int crossed = 0;
+            for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition,
+                                                  start.x, start.y, start.plane);
+                harness.landingRecords = ctx.reader.transitions();
+                const exec::WwStatus status = runSeeded(ctx, harness, goal, seed);
+                arrived += status == exec::WwStatus::Arrived ? 1 : 0;
+                crossed += harness.interactCalls > 0 ? 1 : 0;
+                overCap += harness.farthestClickSq > kMaxLegSq ? 1 : 0;
+            }
+            std::printf("  exec:   leg-door (%d,%d)->(%d,%d) plan=%zu steps: arrived=%d crossed=%d"
+                        " (expect %u, %u) over-cap=%d (expect 0)\n",
+                        start.x, start.y, goal.x, goal.y, plan.steps.size(), arrived, crossed,
+                        kStrideSeeds, kStrideSeeds, overCap);
+            std::size_t failures = overCap == 0 ? 0u : 1u;
+            failures += arrived == static_cast<int>(kStrideSeeds) ? 0u : 1u;
+            failures += crossed == static_cast<int>(kStrideSeeds) ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4ad: the backstop for a refused walk click. The harness's
+        // minimap reaches only `reach` tiles, so the agent refuses every
+        // farther click and the player never moves: the hop stalls, is
+        // re-clicked, and is called Stuck. The run must re-plan with shorter
+        // legs and arrive, and once the legs have come down far enough no
+        // click of the re-planned walk is refused.
+        std::size_t testLegRefusalReplan(ExecContext &ctx, std::int32_t reach)
+        {
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            runtime::Plan plan;
+            if (!pickLongWalk(ctx, start, goal, plan))
+            {
+                std::printf("  exec:   leg-refusal test skipped (no long walk-only route)\n");
+                return 0;
+            }
+            int arrived = 0;
+            int refusedRuns = 0;
+            int lateRefusals = 0;
+            int replans = 0;
+            // Click lengths of the re-planned walk, across the seeds: once the
+            // legs have come down they still vary rather than settle on one.
+            std::vector<int> lateLengths(kMaxLegTiles + 1, 0);
+            for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                                  start.x, start.y, start.plane);
+                harness.refuseBeyondTiles = reach;
+                const exec::WwStatus status = runSeeded(ctx, harness, goal, seed);
+                arrived += status == exec::WwStatus::Arrived ? 1 : 0;
+                refusedRuns += harness.refusedClicks > 0 ? 1 : 0;
+                replans += harness.replanStartedEvents;
+                // Refusals in the last plan of the run: the legs never came
+                // down far enough.
+                for (const HopRecord &hop : harness.hops)
+                {
+                    const bool isLastPlan = hop.plan == harness.planGeneration;
+                    const bool isRefused = hop.isClicked && hop.from.plane == hop.target.plane
+                        && straightSq(hop.from, hop.target) > std::int64_t{ reach } * reach;
+                    lateRefusals += (isLastPlan && isRefused) ? 1 : 0;
+                    const bool isLastWalkHop = isLastPlan && hop.isClicked
+                        && hop.from.plane == hop.target.plane
+                        && !isSameTile(hop.target, exec::WwTile{ goal.x, goal.y, goal.plane });
+                    if (isLastWalkHop)
+                    {
+                        const int len = std::min(tileChebyshev(hop.from, hop.target), kMaxLegTiles);
+                        ++lateLengths[static_cast<std::size_t>(len)];
+                    }
+                }
+            }
+            const auto distinct = std::count_if(lateLengths.begin(), lateLengths.end(),
+                                                [](int n) { return n > 0; });
+            std::printf("  exec:   leg-refusal reach=%d: arrived=%d (expect %u) runs-refused=%d"
+                        " (expect > 0) replans=%d (expect > 0) refused-in-last-plan=%d (expect 0)"
+                        " re-planned lengths=%d distinct (expect >= 3)\n",
+                        reach, arrived, kStrideSeeds, refusedRuns, replans, lateRefusals,
+                        static_cast<int>(distinct));
+            std::size_t failures = arrived == static_cast<int>(kStrideSeeds) ? 0u : 1u;
+            failures += (refusedRuns > 0 && replans > 0) ? 0u : 1u;
+            failures += lateRefusals == 0 ? 0u : 1u;
+            failures += distinct >= 3 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4ae: a forced move carries the player far off the walk, out of
+        // the minimap's reach of the hop's target. On the walk's own poll
+        // (onRead 2) the executor would re-click that target from where the
+        // player now stands; on the read the next hop is chosen from (onRead
+        // 3) it would choose a hop off the plan. Either way it must re-plan
+        // from where the player stands instead: no walk click past the leg cap
+        // from the player's real tile, none more toward the old plan, no
+        // Stuck (the leg did nothing wrong), and the run arrives.
+        std::size_t testLegDisplaced(ExecContext &ctx, int onRead, const char *label)
+        {
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            runtime::Plan plan;
+            if (!pickLongWalk(ctx, start, goal, plan))
+            {
+                std::printf("  exec:   leg-displaced %s test skipped (no long walk-only route)\n",
+                            label);
+                return 0;
+            }
+            constexpr int kDisplaceAfterClick = 3;
+            int arrived = 0;
+            int displaced = 0;
+            int outOfReach = 0;
+            int overCap = 0;
+            int stale = 0;
+            int stucks = 0;
+            int replans = 0;
+            for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                                  start.x, start.y, start.plane);
+                harness.displaceAfterClick = kDisplaceAfterClick;
+                harness.displaceOnRead = onRead;
+                harness.displaceTo = start;
+                const exec::WwStatus status = runSeeded(ctx, harness, goal, seed);
+                arrived += status == exec::WwStatus::Arrived ? 1 : 0;
+                displaced += harness.hasDisplaced ? 1 : 0;
+                outOfReach += harness.displaceGapSq > kMaxLegSq ? 1 : 0;
+                overCap += harness.farthestClickSq > kMaxLegSq ? 1 : 0;
+                stale += harness.staleClicks;
+                stucks += harness.stuckEvents;
+                replans += harness.replanStartedEvents;
+            }
+            std::printf("  exec:   leg-displaced %s: arrived=%d displaced=%d out-of-reach=%d"
+                        " (expect %u, %u, %u) over-cap=%d stale-clicks=%d stucks=%d (expect 0,0,0)"
+                        " replans=%d (expect >= %u)\n",
+                        label, arrived, displaced, outOfReach, kStrideSeeds, kStrideSeeds,
+                        kStrideSeeds, overCap, stale, stucks, replans, kStrideSeeds);
+            const int all = static_cast<int>(kStrideSeeds);
+            std::size_t failures = (arrived == all && displaced == all && outOfReach == all) ? 0u : 1u;
+            failures += (overCap == 0 && stale == 0 && stucks == 0) ? 0u : 1u;
+            failures += replans >= all ? 0u : 1u;
+            return failures;
+        }
+
+        // Every plan of one run, generation by generation, rebuilt as the
+        // executor built it from where each re-plan began.
+        std::vector<runtime::Plan> rebuildPlans(ExecContext &ctx, const ExecHarness &harness,
+                                                const runtime::Plan &firstPlan,
+                                                const exec::WwGoal &goal)
+        {
+            std::vector<runtime::Plan> plans(1, firstPlan);
+            for (const exec::WwTile &from : harness.replanFroms)
+            {
+                plans.emplace_back();
+                planLikeExecutor(ctx, from, goal, plans.back());
+            }
+            return plans;
+        }
+
+        // What a part-way test reads off one run (tallyPartWays).
+        //   partWays   walk clicks short of their own step, followed in the
+        //              same plan by another walk hop
+        //   tooNear    of those, clicked within kMinPartTiles - 1 of the player
+        //   nearStops  clicked within kPartLeadTiles (inside a hop's lead)
+        //   unmoved    followed by a hop from the very tile this one began on
+        struct PartWayTally
+        {
+            int partWays;
+            int tooNear;
+            int nearStops;
+            int unmoved;
+        };
+
+        constexpr std::int32_t kMinPartTiles  = 2;
+        constexpr std::int32_t kPartLeadTiles = 5;
+
+        // Adds one run's part-way hops to `io`. A hop counts when it was
+        // clicked, not refused past `refuseBeyond` (0: none refused), stops
+        // short of its own step in the plan the executor followed (rebuilt
+        // from where each re-plan began), and hands over to another walk hop
+        // of the same plan, not to a crossing (a click from range stops short
+        // of its step too).
+        void tallyPartWays(ExecContext &ctx, const ExecHarness &harness,
+                           const runtime::Plan &firstPlan, const exec::WwGoal &goal,
+                           std::int32_t refuseBeyond, PartWayTally &io)
+        {
+            const std::vector<runtime::Plan> plans = rebuildPlans(ctx, harness, firstPlan, goal);
+            const std::vector<StepRecord> &steps = harness.steps;
+            std::size_t k = 0;  // harness.hops[k] is steps[s], the walk records in order
+            for (std::size_t s = 0; s < steps.size(); ++s)
+            {
+                if (steps[s].isTransition)
+                {
+                    continue;
+                }
+                const std::size_t at = k++;
+                if (at + 1 >= harness.hops.size() || s + 1 >= steps.size() || steps[s + 1].isTransition)
+                {
+                    continue;
+                }
+                const HopRecord &hop = harness.hops[at];
+                const HopRecord &next = harness.hops[at + 1];
+                const bool isRefused = refuseBeyond > 0
+                    && straightSq(hop.from, hop.target) > std::int64_t{ refuseBeyond } * refuseBeyond;
+                const std::size_t gen = static_cast<std::size_t>(hop.plan);
+                const bool isKnownStep = gen < plans.size()
+                    && static_cast<std::size_t>(hop.stepIndex) < plans[gen].steps.size();
+                if (!hop.isClicked || isRefused || next.plan != hop.plan || !isKnownStep)
+                {
+                    continue;
+                }
+                const runtime::Step &step = plans[gen].steps[static_cast<std::size_t>(hop.stepIndex)];
+                if (isSameTile(hop.target, stepTile(step)))
+                {
+                    continue;
+                }
+                ++io.partWays;
+                const std::int32_t reach = tileChebyshev(hop.from, hop.target);
+                io.tooNear += reach < kMinPartTiles ? 1 : 0;
+                io.nearStops += reach <= kPartLeadTiles ? 1 : 0;
+                io.unmoved += isSameTile(next.from, hop.from) ? 1 : 0;
+            }
+        }
+
+        // How a leg test presses on the legs: a minimap that refuses walk
+        // clicks past refuseBeyond tiles (0: none), the first droppedClicks
+        // walk clicks dropped, and the walk paced at tilesPerTick (0: the
+        // player lands at once), starting startDelayTicks after each click.
+        struct LegPressure
+        {
+            const char  *label;
+            std::int32_t refuseBeyond;
+            int          droppedClicks;
+            int          tilesPerTick;
+            int          startDelayTicks;
+        };
+
+        void applyPressure(ExecHarness &ioHarness, const LegPressure &pressure)
+        {
+            ioHarness.refuseBeyondTiles = pressure.refuseBeyond;
+            ioHarness.droppedWalkClicks = pressure.droppedClicks;
+            ioHarness.tilesPerTick = pressure.tilesPerTick;
+            ioHarness.walkStartDelayTicks = pressure.startDelayTicks;
+        }
+
+        // The game's walk, stated here apart from TileSearch: eight compass
+        // steps, each blocked by a whole-tile blocker on the tile stepped onto
+        // or a wall on either side of the edge crossed; a diagonal also by
+        // either flanking cardinal. kGameWalkReach bounds the window searched.
+        constexpr std::int32_t kGameStepDx[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
+        constexpr std::int32_t kGameStepDy[8] = { 1, 1, 0, -1, -1, -1, 0, 1 };
+        constexpr std::uint32_t kGameStepWalls[8][2] = {
+            { format::CLIP_WALL_N, format::CLIP_WALL_S },   { format::CLIP_WALL_NE, format::CLIP_WALL_SW },
+            { format::CLIP_WALL_E, format::CLIP_WALL_W },   { format::CLIP_WALL_SE, format::CLIP_WALL_NW },
+            { format::CLIP_WALL_S, format::CLIP_WALL_N },   { format::CLIP_WALL_SW, format::CLIP_WALL_NE },
+            { format::CLIP_WALL_W, format::CLIP_WALL_E },   { format::CLIP_WALL_NW, format::CLIP_WALL_SE },
+        };
+        constexpr std::int32_t kGameWalkReach = 24;
+        constexpr std::int32_t kFenceMarginTiles = 8;
+
+        bool isPlainGameStep(runtime::WorldView &view, const exec::WwTile &at, int dir)
+        {
+            const std::uint32_t from = view.clipAt(at.x, at.y, at.plane);
+            const std::uint32_t to = view.clipAt(at.x + kGameStepDx[dir], at.y + kGameStepDy[dir], at.plane);
+            return (from & kGameStepWalls[dir][0]) == 0 && (to & kGameStepWalls[dir][1]) == 0
+                && (to & format::kClipStandBlockedMask) == 0;
+        }
+
+        bool isGameStep(runtime::WorldView &view, const exec::WwTile &at, int dir)
+        {
+            const bool isCornerOpen = (dir & 1) == 0
+                || (isPlainGameStep(view, at, dir - 1) && isPlainGameStep(view, at, (dir + 1) & 7));
+            return isCornerOpen && isPlainGameStep(view, at, dir);
+        }
+
+        // Index of `t` in the window of kGameWalkReach round `centre`, or -1.
+        std::ptrdiff_t gameWalkCell(const exec::WwTile &t, const exec::WwTile &centre)
+        {
+            const std::int32_t col = t.x - centre.x + kGameWalkReach;
+            const std::int32_t row = t.y - centre.y + kGameWalkReach;
+            const std::int32_t side = 2 * kGameWalkReach + 1;
+            return (col < 0 || row < 0 || col >= side || row >= side)
+                ? -1 : static_cast<std::ptrdiff_t>(row) * side + col;
+        }
+
+        // Fewest game steps from `end` to each tile of the window round
+        // `centre` (or, when isInbound, from each tile to `end`); -1 where
+        // none stays inside the window.
+        std::vector<std::int32_t> gameWalkSteps(runtime::WorldView &view, const exec::WwTile &end,
+                                                const exec::WwTile &centre, bool isInbound)
+        {
+            const std::size_t side = 2 * kGameWalkReach + 1;
+            std::vector<std::int32_t> steps(side * side, -1);
+            const std::ptrdiff_t first = gameWalkCell(end, centre);
+            if (first < 0)
+            {
+                return steps;
+            }
+            steps[static_cast<std::size_t>(first)] = 0;
+            std::vector<exec::WwTile> queue(1, end);
+            for (std::size_t head = 0; head < queue.size(); ++head)
+            {
+                const exec::WwTile at = queue[head];
+                const std::int32_t count = steps[static_cast<std::size_t>(gameWalkCell(at, centre))];
+                for (int dir = 0; dir < 8; ++dir)
+                {
+                    const std::int32_t sign = isInbound ? -1 : 1;
+                    const exec::WwTile next{ at.x + sign * kGameStepDx[dir], at.y + sign * kGameStepDy[dir],
+                                             at.plane };
+                    const std::ptrdiff_t cell = gameWalkCell(next, centre);
+                    if (cell < 0 || steps[static_cast<std::size_t>(cell)] >= 0
+                        || !isGameStep(view, isInbound ? next : at, dir))
+                    {
+                        continue;
+                    }
+                    steps[static_cast<std::size_t>(cell)] = count + 1;
+                    queue.push_back(next);
+                }
+            }
+            return steps;
+        }
+
+        bool isNearWildernessBox(ExecContext &ctx, const exec::WwTile &t)
+        {
+            for (const format::WildernessRegion &w : ctx.reader.wildernessRegions())
+            {
+                const std::int32_t dx = std::max({ w.minX - t.x, t.x - w.maxX, 0 });
+                const std::int32_t dy = std::max({ w.minY - t.y, t.y - w.maxY, 0 });
+                const bool isOnPlane = t.plane >= w.planeMin && t.plane <= w.planeMax;
+                if (isOnPlane && std::max(dx, dy) <= kFenceMarginTiles)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        bool isInWildernessBox(ExecContext &ctx, const exec::WwTile &t)
+        {
+            return runtime::isInWilderness(ctx.reader, t.x, t.y, t.plane);
+        }
+
+        // What the fence check reads off fenced runs. Of every walk click:
+        // those onto a box tile, and those made from one. Of the walk clicks
+        // near a box short of their own step: those the game's pathfinder
+        // could walk into a box, on any one of its least-step walks to the
+        // click (boxWalks), and those whose walk the window could not settle.
+        struct FenceWalkTally
+        {
+            int nearClicks;
+            int boxWalks;
+            int unsettled;
+            int boxClicks;
+            int boxStarts;
+        };
+
+        // Whether some least-step game walk from `from` to `to` steps onto a
+        // Wilderness box tile, `to` included. A walk of fewest steps passes a
+        // tile exactly when the steps out to it and on from it add up to the
+        // walk's length; every tile of the window is looked at.
+        bool canGameWalkEnterBox(ExecContext &ctx, const exec::WwTile &from, const exec::WwTile &to,
+                                 bool &outUnsettled)
+        {
+            const std::vector<std::int32_t> out = gameWalkSteps(ctx.view, from, from, false);
+            const std::vector<std::int32_t> into = gameWalkSteps(ctx.view, to, from, true);
+            const std::ptrdiff_t toCell = gameWalkCell(to, from);
+            outUnsettled = toCell < 0 || out[static_cast<std::size_t>(toCell)] < 0;
+            if (outUnsettled)
+            {
+                return false;
+            }
+            const std::int32_t walk = out[static_cast<std::size_t>(toCell)];
+            for (std::int32_t y = from.y - kGameWalkReach; y <= from.y + kGameWalkReach; ++y)
+            {
+                for (std::int32_t x = from.x - kGameWalkReach; x <= from.x + kGameWalkReach; ++x)
+                {
+                    const exec::WwTile t{ x, y, from.plane };
+                    const std::size_t c = static_cast<std::size_t>(gameWalkCell(t, from));
+                    if (out[c] >= 0 && into[c] >= 0 && out[c] + into[c] == walk && isInWildernessBox(ctx, t))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Adds one fenced run's walk clicks to `io`. A click on the step
+        // itself is what the executor has always made near the fence, one
+        // planned step at a time; a click short of it must leave the game's
+        // pathfinder no walk into the Wilderness at all, whichever it takes.
+        void tallyFenceWalks(ExecContext &ctx, const ExecHarness &harness,
+                             const runtime::Plan &firstPlan, const exec::WwGoal &goal,
+                             FenceWalkTally &io)
+        {
+            const std::vector<runtime::Plan> plans = rebuildPlans(ctx, harness, firstPlan, goal);
+            for (const HopRecord &hop : harness.hops)
+            {
+                if (!hop.isClicked)
+                {
+                    continue;
+                }
+                io.boxClicks += isInWildernessBox(ctx, hop.target) ? 1 : 0;
+                io.boxStarts += isInWildernessBox(ctx, hop.from) ? 1 : 0;
+                const std::size_t gen = static_cast<std::size_t>(hop.plan);
+                if (gen >= plans.size() || static_cast<std::size_t>(hop.stepIndex) >= plans[gen].steps.size())
+                {
+                    continue;
+                }
+                const exec::WwTile step = stepTile(plans[gen].steps[static_cast<std::size_t>(hop.stepIndex)]);
+                if (isSameTile(hop.target, step) || !isNearWildernessBox(ctx, hop.target)
+                    || hop.target.plane != hop.from.plane)
+                {
+                    continue;
+                }
+                ++io.nearClicks;
+                bool isUnsettled = false;
+                io.boxWalks += canGameWalkEnterBox(ctx, hop.from, hop.target, isUnsettled) ? 1 : 0;
+                io.unsettled += isUnsettled ? 1 : 0;
+            }
+        }
+
+        struct FencedRoute
+        {
+            exec::WwTile start;
+            exec::WwTile goal;
+        };
+
+        // The Edgeville ditch: walks along the Wilderness wall.
+        constexpr FencedRoute kDitchRoutes[] = {
+            { { 3094, 3491, 0 }, { 3130, 3516, 0 } },
+            { { 3130, 3516, 0 }, { 3094, 3491, 0 } },
+            { { 3040, 3515, 0 }, { 3140, 3518, 0 } },
+            { { 3140, 3518, 0 }, { 3040, 3515, 0 } },
+            { { 3165, 3480, 0 }, { 3090, 3516, 0 } },
+        };
+
+        // Fort Forinthry's south-west corner, where the first Wilderness box
+        // ends at (3281, 3521) and the fort, outside it, starts at x 3282:
+        // walks into and out of the fort whose straight lines clip the box
+        // (#38 re-review 4, W1).
+        constexpr FencedRoute kCornerRoutes[] = {
+            { { 3270, 3510, 0 }, { 3283, 3524, 0 } },
+            { { 3278, 3514, 0 }, { 3282, 3524, 0 } },
+            { { 3276, 3516, 0 }, { 3285, 3528, 0 } },
+            { { 3274, 3514, 0 }, { 3284, 3530, 0 } },
+            { { 3265, 3505, 0 }, { 3286, 3525, 0 } },
+            { { 3283, 3524, 0 }, { 3270, 3510, 0 } },
+            { { 3282, 3524, 0 }, { 3278, 3514, 0 } },
+            { { 3285, 3528, 0 }, { 3266, 3512, 0 } },
+            { { 3290, 3530, 0 }, { 3272, 3508, 0 } },
+        };
+
+        struct FencedRouteSet
+        {
+            const char                  *name;
+            std::span<const FencedRoute> routes;
+            int                          minPlanned;
+        };
+
+        // Test 4af: walks along the Edgeville Wilderness ditch, where every hop
+        // near the fence is a single step, after the legs have come down. The
+        // ditch fence (WorldWalker #38 re-review, R1): a fenced step a little
+        // past a short leg must be cut to the leg, not called off the plan, or
+        // every re-plan meets the same step and the run spends its budget.
+        // Paced (re-review 3, R2): a hop handed over a lead short of a step
+        // finds it past a ceiling a refusal lowered, and must be cut within
+        // that ceiling, or the click is refused again and again. Under each
+        // pressure every seed of every route arrives, with no walk click past
+        // the cap and no part-way click within a tile of the player. No walk
+        // click lands on a Wilderness box tile, and no click near the fence
+        // short of its step leaves the game's pathfinder a walk into a box,
+        // or a walk too long to be shown at all (tallyFenceWalks). The same
+        // over kCornerRoutes (re-review 4, W1).
+        //
+        // Hops made from a box tile are counted, not failed. On the corner
+        // routes the harness, which walks diagonals first and through walls,
+        // can cross the corner tile on a click of the planned step whole:
+        // there every tile short of the step two or more steps on has a game
+        // walk through the box as well, so the executor has nothing safer
+        // to click (Executor::stepAlone).
+        std::size_t testLegFenced(ExecContext &ctx, const FencedRouteSet &set,
+                                  const LegPressure &pressure)
+        {
+            int planned = 0;
+            int runs = 0;
+            int arrived = 0;
+            int overCap = 0;
+            PartWayTally tally{};
+            FenceWalkTally fence{};
+            for (const FencedRoute &r : set.routes)
+            {
+                const exec::WwGoal goal{ r.goal.x, r.goal.y, r.goal.plane, 1 };
+                runtime::Plan plan;
+                if (ctx.view.areaAt(r.start.x, r.start.y, r.start.plane) < 0
+                    || !planLikeExecutor(ctx, r.start, goal, plan))
+                {
+                    continue;
+                }
+                ++planned;
+                for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+                {
+                    ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition,
+                                                      r.start.x, r.start.y, r.start.plane);
+                    harness.landingRecords = ctx.reader.transitions();
+                    applyPressure(harness, pressure);
+                    const exec::WwStatus status = runSeeded(ctx, harness, goal, seed);
+                    ++runs;
+                    arrived += status == exec::WwStatus::Arrived ? 1 : 0;
+                    overCap += harness.farthestClickSq > kMaxLegSq ? 1 : 0;
+                    tallyPartWays(ctx, harness, plan, goal, pressure.refuseBeyond, tally);
+                    tallyFenceWalks(ctx, harness, plan, goal, fence);
+                }
+            }
+            std::printf("  exec:   leg-%s %s: %d of %zu routes planned (expect >= %d), arrived=%d of %d"
+                        " (expect all) over-cap=%d too-near=%d box-clicks=%d box-walks=%d unsettled=%d"
+                        " (expect 0 each) part-way hops=%d near-fence part-way clicks=%d"
+                        " hops from a box tile=%d\n",
+                        set.name, pressure.label, planned, set.routes.size(), set.minPlanned, arrived, runs,
+                        overCap, tally.tooNear, fence.boxClicks, fence.boxWalks, fence.unsettled,
+                        tally.partWays, fence.nearClicks, fence.boxStarts);
+            std::size_t failures = (planned >= set.minPlanned && arrived == runs) ? 0u : 1u;
+            failures += (overCap == 0 && tally.tooNear == 0) ? 0u : 1u;
+            failures += (fence.boxClicks == 0 && fence.boxWalks == 0 && fence.unsettled == 0) ? 0u : 1u;
+            return failures;
+        }
+
+        // Tests 4af and 4ai: each fenced route set under each pressure.
+        std::size_t testLegFencedRoutes(ExecContext &ctx)
+        {
+            static constexpr LegPressure kPressures[] = {
+                { "refused", 10, 0, 0, 0 },
+                { "one-stall", 0, 2, 0, 0 },
+                { "paced walk reach 10", 10, 0, 1, 1 },
+                { "paced run reach 10", 10, 0, 2, 1 },
+                { "paced walk reach 8", 8, 0, 1, 1 },
+                { "paced run reach 8", 8, 0, 2, 1 },
+                { "paced run reach 9", 9, 0, 2, 1 },
+            };
+            const FencedRouteSet sets[] = {
+                { "ditch", kDitchRoutes, 4 },
+                { "corner", kCornerRoutes, 8 },
+            };
+            std::size_t failures = 0;
+            for (const FencedRouteSet &set : sets)
+            {
+                for (const LegPressure &pressure : kPressures)
+                {
+                    failures += testLegFenced(ctx, set, pressure);
+                }
+            }
+            return failures;
+        }
+
+        // Test 4ah: a walk whose straight line to the next step is blocked
+        // close to the player (#38 re-review 3, R2, the obstructed variant).
+        // With legs come down to the 5-tile floor, no tile of that line is
+        // standable within the leg, and the step whole lies past the ceiling
+        // a refusal lowered: the hop must find a tile within the ceiling. And
+        // the nearest standable tile of such a line is often the one beside
+        // the player, which a part-way click must pass over (#38 L4,
+        // kLegMinPartTiles). Paced at a run under a minimap refusing past 9
+        // tiles, every seed arrives, with no walk click past the cap and no
+        // part-way click within a tile of the player.
+        std::size_t testLegObstructedLine(ExecContext &ctx)
+        {
+            const exec::WwTile start{ 4652, 11468, 0 };
+            const exec::WwGoal goal{ 4495, 11613, 0, 1 };
+            constexpr LegPressure kPressure{ "paced run reach 9", 9, 0, 2, 1 };
+            runtime::Plan plan;
+            if (ctx.view.areaAt(start.x, start.y, start.plane) < 0
+                || !planLikeExecutor(ctx, start, goal, plan))
+            {
+                std::printf("  exec:   leg-obstructed test skipped (no plan)\n");
+                return 0;
+            }
+            int arrived = 0;
+            int overCap = 0;
+            PartWayTally tally{};
+            for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition,
+                                                  start.x, start.y, start.plane);
+                harness.landingRecords = ctx.reader.transitions();
+                applyPressure(harness, kPressure);
+                const exec::WwStatus status = runSeeded(ctx, harness, goal, seed);
+                arrived += status == exec::WwStatus::Arrived ? 1 : 0;
+                overCap += harness.farthestClickSq > kMaxLegSq ? 1 : 0;
+                tallyPartWays(ctx, harness, plan, goal, kPressure.refuseBeyond, tally);
+            }
+            std::printf("  exec:   leg-obstructed (%d,%d)->(%d,%d) %s: arrived=%d (expect %u)"
+                        " over-cap=%d too-near=%d (expect 0, 0) part-way hops=%d (expect > 0)\n",
+                        start.x, start.y, goal.x, goal.y, kPressure.label, arrived, kStrideSeeds,
+                        overCap, tally.tooNear, tally.partWays);
+            std::size_t failures = arrived == static_cast<int>(kStrideSeeds) ? 0u : 1u;
+            failures += (overCap == 0 && tally.tooNear == 0) ? 0u : 1u;
+            failures += tally.partWays > 0 ? 0u : 1u;
+            return failures;
+        }
+
+        // Test 4ag: the part-way guards (#38 F4), on a paced walk whose legs a
+        // minimap refusing past 10 tiles has brought down to 5..8, and where
+        // the player starts moving a tick after each click, as in the game.
+        // Part-way stops then come within a hop's own lead. Every part-way
+        // click is at least kMinPartTiles from the player, and no part-way
+        // hop hands over to the next with the player not yet moved: a lead
+        // longer than the hop would. Fails if no part-way stop within
+        // kPartLeadTiles was seen, so it cannot pass by not looking.
+        std::size_t testLegPartWayGuards(ExecContext &ctx)
+        {
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            runtime::Plan plan;
+            if (!pickLongWalk(ctx, start, goal, plan))
+            {
+                std::printf("  exec:   leg-partway test skipped (no long walk-only route)\n");
+                return 0;
+            }
+            constexpr LegPressure kPressure{ "paced walk reach 10", 10, 0, 1, 1 };
+            int arrived = 0;
+            PartWayTally tally{};
+            for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk,
+                                                  start.x, start.y, start.plane);
+                applyPressure(harness, kPressure);
+                const exec::WwStatus status = runSeeded(ctx, harness, goal, seed);
+                arrived += status == exec::WwStatus::Arrived ? 1 : 0;
+                tallyPartWays(ctx, harness, plan, goal, kPressure.refuseBeyond, tally);
+            }
+            std::printf("  exec:   leg-partway (%s): arrived=%d (expect %u) part-way hops=%d"
+                        " near-stops=%d (expect > 0) too-near=%d unmoved-handoffs=%d (expect 0, 0)\n",
+                        kPressure.label, arrived, kStrideSeeds, tally.partWays, tally.nearStops,
+                        tally.tooNear, tally.unmoved);
+            std::size_t failures = arrived == static_cast<int>(kStrideSeeds) ? 0u : 1u;
+            failures += tally.nearStops > 0 ? 0u : 1u;
+            failures += (tally.tooNear == 0 && tally.unmoved == 0) ? 0u : 1u;
             return failures;
         }
 
@@ -4041,6 +4981,110 @@ namespace ww::cli
                         " one-click=%d (expect %d)\n",
                         start.x, start.y, goal.x, goal.y, ranged, walkedIn, ranged);
             return (ranged > 0 && walkedIn == ranged) ? 0u : 1u;
+        }
+
+        // Test 4ai: the walk-in after a click from range the game drops
+        // (#38 L1), with the leg ceiling read from the executor at each walk
+        // click. Under a minimap refusing past 8 tiles the ceiling comes down
+        // on the walk to the crossing. A click from range is then made only
+        // from a stop within the ceiling of the approach tile (planRangeClick),
+        // and the walk-in onto it is clicked only within the ceiling of where
+        // the player stands (clickFromRange). With `isDisplaced` the dropped
+        // click also moves the player back to the start, past any leg from
+        // the approach: no walk-in is clicked, and the run re-plans from there.
+        std::size_t testLegRangeFallback(ExecContext &ctx, bool isDisplaced)
+        {
+            const char *label = isDisplaced ? "displaced" : "reach 8";
+            exec::WwTile start{};
+            exec::WwGoal goal{};
+            runtime::Plan plan;
+            const bool isPicked = pickWalkToCrossing(ctx, start, goal, plan);
+            const std::size_t approachStep = isPicked ? firstApproachStep(plan) : 0;
+            const auto isTransition = [](const runtime::Step &step)
+            {
+                return step.kind == runtime::StepKind::Transition;
+            };
+            if (!isPicked || std::count_if(plan.steps.begin(), plan.steps.end(), isTransition) != 1)
+            {
+                std::printf("  exec:   leg-range %s test skipped (no walk to one crossing)\n", label);
+                return 0;
+            }
+            const format::TransitionRecord &tx =
+                ctx.reader.transitions()[plan.steps[approachStep + 1].transitionIndex];
+            const exec::WwTile approach = stepTile(plan.steps[approachStep]);
+            if (isDisplaced && straightSq(start, approach) <= kMaxLegSq)
+            {
+                std::printf("  exec:   leg-range %s test skipped (start within a leg of the crossing)\n",
+                            label);
+                return 0;
+            }
+            int arrived = 0;
+            int overCap = 0;
+            int lowered = 0;
+            int stopPastCeiling = 0;
+            int fallbackClicks = 0;
+            int fallbackPastCeiling = 0;
+            int fallbackReplans = 0;
+            for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+            {
+                ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition,
+                                                  start.x, start.y, start.plane);
+                harness.tilesPerTick = kRunTilesPerTick;
+                harness.transitionDest = exec::WwTile{ tx.destX, tx.destY,
+                                                       static_cast<std::int32_t>(tx.destPlane) };
+                harness.droppedInteracts = 1;
+                harness.refuseBeyondTiles = isDisplaced ? 0 : 8;
+                harness.isDisplacedOnDroppedInteract = isDisplaced;
+                harness.displaceTo = start;
+                const exec::WwStatus status = runSeeded(ctx, harness, goal, seed);
+                arrived += status == exec::WwStatus::Arrived ? 1 : 0;
+                overCap += harness.farthestClickSq > kMaxLegSq ? 1 : 0;
+                const std::vector<runtime::Plan> plans = rebuildPlans(ctx, harness, plan, goal);
+                for (std::size_t c = 0; c < harness.interactFroms.size(); ++c)
+                {
+                    // The approach of the crossing this click was for, in the
+                    // plan the executor was following.
+                    const auto [gen, crossing] = harness.interactPlanSteps[c];
+                    const bool isKnown = gen >= 0 && static_cast<std::size_t>(gen) < plans.size()
+                        && crossing >= 1
+                        && static_cast<std::size_t>(crossing) < plans[static_cast<std::size_t>(gen)].steps.size();
+                    if (!isKnown)
+                    {
+                        continue;
+                    }
+                    const exec::WwTile txApproach = stepTile(
+                        plans[static_cast<std::size_t>(gen)].steps[static_cast<std::size_t>(crossing) - 1]);
+                    if (tileChebyshev(harness.interactFroms[c], txApproach) <= kApproachChebyshev)
+                    {
+                        continue;  // clicked at the loc, not from range
+                    }
+                    // The stop is the last walk click, or, for a click from
+                    // range made where the player stands, a planned tile
+                    // within kArrivalChebyshev of it: a tile apart either way.
+                    const std::int32_t ceiling = harness.interactCeilings[c];
+                    lowered += ceiling < kMaxLegTiles ? 1 : 0;
+                    const exec::WwTile &stop = harness.interactWalkTargets[c];
+                    const std::int64_t dx =
+                        std::max<std::int64_t>(std::abs(stop.x - txApproach.x) - kApproachChebyshev, 0);
+                    const std::int64_t dy =
+                        std::max<std::int64_t>(std::abs(stop.y - txApproach.y) - kApproachChebyshev, 0);
+                    stopPastCeiling += dx * dx + dy * dy > std::int64_t{ ceiling } * ceiling ? 1 : 0;
+                }
+                fallbackClicks += harness.fallbackClicks;
+                fallbackPastCeiling += harness.fallbackPastCeiling;
+                fallbackReplans += harness.fallbackReplans;
+            }
+            std::printf("  exec:   leg-range %s: arrived=%d (expect %u) over-cap=%d stops-past-ceiling=%d"
+                        " walk-ins-past-ceiling=%d (expect 0, 0, 0) from range under a lowered ceiling=%d"
+                        " walk-ins=%d re-plans=%d\n",
+                        label, arrived, kStrideSeeds, overCap, stopPastCeiling, fallbackPastCeiling,
+                        lowered, fallbackClicks, fallbackReplans);
+            std::size_t failures = arrived == static_cast<int>(kStrideSeeds) ? 0u : 1u;
+            failures += (overCap == 0 && stopPastCeiling == 0 && fallbackPastCeiling == 0) ? 0u : 1u;
+            // Each variant must have met what it is about: clicks from range
+            // under a lowered ceiling, or walk-ins refused by the move.
+            failures += (isDisplaced ? fallbackReplans > 0 : lowered > 0) ? 0u : 1u;
+            return failures;
         }
 
         // Test 4c: in combat at the first plan, out of it after the first hop.
@@ -4824,6 +5868,17 @@ namespace ww::cli
         failures += testDisabledMoves(ctx);
         failures += testExcludedTransitions(ctx, artifactPath);
         failures += testFortWalkReplay(ctx);
+        failures += testLegRandomRoutes(ctx);
+        failures += testLegDoorRoute(ctx);
+        failures += testLegRefusalReplan(ctx, 15);
+        failures += testLegRefusalReplan(ctx, 10);
+        failures += testLegDisplaced(ctx, 2, "re-click");
+        failures += testLegDisplaced(ctx, 3, "next-hop");
+        failures += testLegFencedRoutes(ctx);
+        failures += testLegObstructedLine(ctx);
+        failures += testLegPartWayGuards(ctx);
+        failures += testLegRangeFallback(ctx, false);
+        failures += testLegRangeFallback(ctx, true);
         failures += testLeadClicks(ctx, kRunTilesPerTick, "run");
         failures += testLeadClicks(ctx, kWalkTilesPerTick, "walk");
         failures += testLeadStopsAtCrossing(ctx, kRunTilesPerTick, "run");

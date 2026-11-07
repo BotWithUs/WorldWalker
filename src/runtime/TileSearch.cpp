@@ -212,6 +212,137 @@ namespace ww::runtime
         }
     }
 
+    namespace
+    {
+        // Index of (x, y) in the window stepCounts fills, or -1 outside it.
+        std::ptrdiff_t windowCell(int32_t x, int32_t y, int32_t centreX, int32_t centreY,
+                                  int32_t reach)
+        {
+            const int32_t col = x - centreX + reach;
+            const int32_t row = y - centreY + reach;
+            const int32_t side = 2 * reach + 1;
+            if (col < 0 || row < 0 || col >= side || row >= side)
+            {
+                return -1;
+            }
+            return static_cast<std::ptrdiff_t>(row) * side + col;
+        }
+    }
+
+    bool TileSearch::canStep(int32_t fx, int32_t fy, int dir, int32_t plane, int32_t &outNx,
+                             int32_t &outNy)
+    {
+        const uint32_t fromFlags = view->clipAt(fx, fy, plane);
+        if ((dir & 1) != 0)
+        {
+            int32_t flankX = 0;
+            int32_t flankY = 0;
+            if (!tryStep(fx, fy, fromFlags, dir - 1, plane, kAnyArea, flankX, flankY)
+                || !tryStep(fx, fy, fromFlags, (dir + 1) & 7, plane, kAnyArea, flankX, flankY))
+            {
+                return false;
+            }
+        }
+        return tryStep(fx, fy, fromFlags, dir, plane, kAnyArea, outNx, outNy);
+    }
+
+    void TileSearch::stepCounts(int32_t ox, int32_t oy, int32_t centreX, int32_t centreY,
+                                int32_t plane, int32_t reach, int32_t limit, bool isInbound,
+                                std::vector<int32_t> &outCounts)
+    {
+        const std::size_t side = static_cast<std::size_t>(2 * reach + 1);
+        outCounts.assign(side * side, -1);
+        std::vector<TilePoint> queue;
+        const std::ptrdiff_t origin = windowCell(ox, oy, centreX, centreY, reach);
+        if (origin < 0)
+        {
+            return;
+        }
+        outCounts[static_cast<std::size_t>(origin)] = 0;
+        queue.push_back({ox, oy});
+        for (std::size_t head = 0; head < queue.size(); ++head)
+        {
+            const TilePoint at = queue[head];
+            const int32_t count =
+                outCounts[static_cast<std::size_t>(windowCell(at.x, at.y, centreX, centreY, reach))];
+            if (count >= limit)
+            {
+                continue;
+            }
+            for (int dir = 0; dir < 8; ++dir)
+            {
+                // Inbound, the tile one step back along `dir` is a neighbour
+                // when a step `dir` from it lands here.
+                const TilePoint next = isInbound ? TilePoint{at.x - kDx[dir], at.y - kDy[dir]}
+                                                 : TilePoint{at.x + kDx[dir], at.y + kDy[dir]};
+                const std::ptrdiff_t cell = windowCell(next.x, next.y, centreX, centreY, reach);
+                if (cell < 0 || outCounts[static_cast<std::size_t>(cell)] >= 0)
+                {
+                    continue;
+                }
+                int32_t nx = 0;
+                int32_t ny = 0;
+                const bool isLegal = isInbound ? canStep(next.x, next.y, dir, plane, nx, ny)
+                                               : canStep(at.x, at.y, dir, plane, nx, ny);
+                if (isLegal)
+                {
+                    outCounts[static_cast<std::size_t>(cell)] = count + 1;
+                    queue.push_back(next);
+                }
+            }
+        }
+    }
+
+    bool TileSearch::canShortestWalkEnter(int32_t startX, int32_t startY, TilePoint goal,
+                                          int32_t plane,
+                                          std::span<const format::WildernessRegion> boxes,
+                                          int32_t reach)
+    {
+        const std::ptrdiff_t goalCell = windowCell(goal.x, goal.y, startX, startY, reach);
+        if (goalCell < 0 || !view->isStandable(startX, startY, plane)
+            || !view->isStandable(goal.x, goal.y, plane))
+        {
+            return true;
+        }
+        currentFence = WalkFence{};
+        isExpandingFromFreeToPlay = false;
+        std::vector<int32_t> fromStart;
+        stepCounts(startX, startY, startX, startY, plane, reach, reach, false, fromStart);
+        const int32_t length = fromStart[static_cast<std::size_t>(goalCell)];
+        if (length < 0)
+        {
+            return true;
+        }
+        std::vector<int32_t> intoGoal;
+        stepCounts(goal.x, goal.y, startX, startY, plane, reach, length, true, intoGoal);
+        for (const format::WildernessRegion &w : boxes)
+        {
+            if (plane < w.planeMin || plane > w.planeMax)
+            {
+                continue;
+            }
+            const int32_t yEnd = std::min(w.maxY, startY + reach);
+            const int32_t xEnd = std::min(w.maxX, startX + reach);
+            for (int32_t y = std::max(w.minY, startY - reach); y <= yEnd; ++y)
+            {
+                for (int32_t x = std::max(w.minX, startX - reach); x <= xEnd; ++x)
+                {
+                    // A tile lies on some least-step walk exactly when its
+                    // steps from the start and its steps to the goal add up
+                    // to the walk's length.
+                    const std::size_t cell =
+                        static_cast<std::size_t>(windowCell(x, y, startX, startY, reach));
+                    if (fromStart[cell] >= 0 && intoGoal[cell] >= 0
+                        && fromStart[cell] + intoGoal[cell] == length)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     void TileSearch::reconstruct(int32_t endIndex, TilePath &outPath) const
     {
         outPath.cost = nodes[static_cast<std::size_t>(endIndex)].g;

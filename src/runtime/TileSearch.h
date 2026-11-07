@@ -102,6 +102,17 @@ namespace ww::runtime
                       int32_t plane, int32_t areaConstraint, const WalkFence &fence,
                       TilePath &outPath);
 
+        // Whether some least-step walk from start to `goal` on one plane
+        // steps onto a tile inside one of `boxes`, `goal` itself included.
+        // The steps are this search's eight, with its wall and corner rules,
+        // but every one counts the same, as the game's own pathfinder counts
+        // a walk: a walk click hands the route to that pathfinder, which may
+        // take any of its least-step walks. Looks within `reach` steps of
+        // start only, so a goal not reached there, or not standable, answers
+        // true: nothing is shown clear.
+        bool canShortestWalkEnter(int32_t startX, int32_t startY, TilePoint goal, int32_t plane,
+                                  std::span<const format::WildernessRegion> boxes, int32_t reach);
+
     private:
         struct Node
         {
@@ -130,6 +141,18 @@ namespace ww::runtime
         bool tryStep(int32_t fx, int32_t fy, uint32_t fromFlags, int dir,
                      int32_t plane, int32_t areaConstraint,
                      int32_t &outNx, int32_t &outNy);
+
+        // One step `dir` off (fx, fy) with no area or fence, under expand()'s
+        // corner rule: a diagonal only when both flanking cardinals are legal.
+        bool canStep(int32_t fx, int32_t fy, int dir, int32_t plane, int32_t &outNx,
+                     int32_t &outNy);
+
+        // Least-step counts over the (2 * reach + 1)-square window centred on
+        // (centreX, centreY), up to `limit` steps: out of (ox, oy), or into it
+        // when `isInbound`. -1 where not reached. Indexed by windowCell.
+        void stepCounts(int32_t ox, int32_t oy, int32_t centreX, int32_t centreY, int32_t plane,
+                        int32_t reach, int32_t limit, bool isInbound,
+                        std::vector<int32_t> &outCounts);
 
         // Try to enqueue (nx, ny) as a new open node parented at curIndex
         // with g-cost curG + stepCost. No-op when the tile is already
