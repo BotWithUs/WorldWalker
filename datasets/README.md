@@ -1687,3 +1687,30 @@ does show the licence question is a real one in this space rather than a
 formality.
 
 If you know the actual origin, please record it here and replace this section.
+
+### Edgeville Dungeon: Earth warrior crossing (2026-11-07)
+
+The Earth warrior room at (3118,9974,0) is separated from the main dungeon
+by the former monkey-bar crossing. The local cache's mapsquare (48,155)
+now places **Stepping Stone**, not the legacy Monkey bars loc 29375:
+
+| Direction | Gameval loc | Placement | Shape / rotation | Option (zero based) | Landing |
+|---|---|---|---|---|---|
+| North | 127964 `EDGE_DNG_2012_AGILITY_PILLAR_1A` | 3121,9964,0 | 22 / 3 | 0 `Cross` | 3120,9970,0 |
+| South | 127966 `EDGE_DNG_2012_AGILITY_PILLAR_1C` | 3120,9969,0 | 22 / 2 | 0 `Cross` | 3121,9963,0 |
+
+IDs are from the beta gameval loc table; placements, rotations and options
+were read through NXTCache's mapsquare-crossing and loc-definition APIs.
+The collision grid has blocked water from y9964 through y9969, with the
+north landing and south landing standable immediately beside the end locs.
+These landing tiles represent the reachable banks in the offline graph;
+live arrival has not been observed as part of this change.
+
+Both rows require **Agility (skill 16) >= 15**, confirmed by the requesting
+user, and membership (the Earth warrior dungeon room is members land).
+No quest, item or var gate is established by these local sources, so none
+is added. Legacy gamevals `DI1_MONKEYBARS_MID` (29374) and
+`DI1_MONKEYBARS_END1` (29375) must not be used merely because their names
+match an older description of the obstacle. The curated loc movement table
+classifies both new rows as shortcuts, allowing the consumer's shortcut
+toggle to disable them.
