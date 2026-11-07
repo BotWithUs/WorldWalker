@@ -1,10 +1,12 @@
 # Offline regression for the former monkey-bar crossing. Run after scripts/bake.ps1.
 [CmdletBinding()]
 param(
-    [string] $Artifact = "$PSScriptRoot\..\build\worldwalker.wwa",
-    [string] $Cli = "$PSScriptRoot\..\build\Release\wwcli.exe"
+    [string] $Artifact = "",
+    [string] $Cli = ""
 )
 $ErrorActionPreference = 'Stop'
+if (-not $Artifact) { $Artifact = Join-Path $PSScriptRoot '..\build\worldwalker.wwa' }
+if (-not $Cli) { $Cli = Join-Path $PSScriptRoot '..\build\Release\wwcli.exe' }
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ([IO.Path]::GetRandomFileName() + '.json')
 $cases = @(
     @{ Name='surface north at 15'; Start=@(3094,3492,0); Goal=@(3118,9974,0); Level=15; Loc=127964 },
@@ -37,4 +39,3 @@ try {
 } finally {
     if (Test-Path -LiteralPath $temporary) { Remove-Item -LiteralPath $temporary }
 }
-
