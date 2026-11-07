@@ -47265,5 +47265,45 @@
         "value": 15
       }
     }
+  },
+  {
+    "name": "Cross",
+    "object_id": 127964,
+    "x": 3121,
+    "y": 9964,
+    "plane": 0,
+    "shape": 22,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 3120,
+    "dest_y": 9970,
+    "dest_plane": 0,
+    "members": true,
+    "requirements": {
+      "skill": {
+        "id": 16,
+        "level": 15
+      }
+    }
+  },
+  {
+    "name": "Cross",
+    "object_id": 127966,
+    "x": 3120,
+    "y": 9969,
+    "plane": 0,
+    "shape": 22,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 3121,
+    "dest_y": 9963,
+    "dest_plane": 0,
+    "members": true,
+    "requirements": {
+      "skill": {
+        "id": 16,
+        "level": 15
+      }
+    }
   }
 ]
