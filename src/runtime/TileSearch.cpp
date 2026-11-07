@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 
 namespace ww::runtime
 {
@@ -19,6 +20,22 @@ namespace ww::runtime
         // 1 << 16 falsely reported such routes unreachable. Termination still
         // holds; only pathological searches pay the full budget.
         constexpr int kMaxExpansions = 1 << 18;
+
+        // A walk fenced out of the Wilderness keeps this many tiles
+        // (Chebyshev) off a box tile it could otherwise walk onto, where a
+        // detour costs less than kFenceMarginCost a tile. The plan is clicked
+        // a step at a time, and the game walks each click its own way: at
+        // Fort Forinthry's south-west corner the first box's own corner
+        // (3279..3281, 3521..3523) is open ground in the mainland's area, so
+        // a step planned to hug it is a click whose game walk can cut across
+        // it, and a player led along it stands where every click on towards
+        // the fort can. The cost is a premium, not a wall: a goal against
+        // the corner is still reached. It only adds to a step's cost, so the
+        // octile heuristic stays admissible and consistent. Margin 1 also
+        // passes the leg-corner test, with twice the hops started from a box
+        // tile and about twice the crawl clicks near the fence.
+        constexpr int32_t kFenceMargin = 2;
+        constexpr float kFenceMarginCost = 3.0f;
 
         // Compass step deltas, indexed N, NE, E, SE, S, SW, W, NW. Diagonals are
         // the odd indices. (North is +Y, East is +X.)
@@ -98,6 +115,36 @@ namespace ww::runtime
         return currentFence.freeToPlay == nullptr || currentFence.freeToPlay->isFreeToPlay(x, y, plane);
     }
 
+    float TileSearch::fenceMarginCost(int32_t x, int32_t y, int32_t plane) const
+    {
+        int32_t area = -1;
+        for (const format::WildernessRegion &w : currentFence.wilderness)
+        {
+            const int32_t loX = std::max(x - kFenceMargin, w.minX);
+            const int32_t hiX = std::min(x + kFenceMargin, w.maxX);
+            const int32_t loY = std::max(y - kFenceMargin, w.minY);
+            const int32_t hiY = std::min(y + kFenceMargin, w.maxY);
+            const bool isOnPlane =
+                plane >= static_cast<int32_t>(w.planeMin) && plane <= static_cast<int32_t>(w.planeMax);
+            if (!isOnPlane || loX > hiX || loY > hiY)
+            {
+                continue;
+            }
+            area = area < 0 ? view->areaAt(x, y, plane) : area;
+            for (int32_t by = loY; by <= hiY; ++by)
+            {
+                for (int32_t bx = loX; bx <= hiX; ++bx)
+                {
+                    if (area >= 0 && view->areaAt(bx, by, plane) == area)
+                    {
+                        return kFenceMarginCost;
+                    }
+                }
+            }
+        }
+        return 0.0f;
+    }
+
     bool TileSearch::tryStep(int32_t fx, int32_t fy, uint32_t fromFlags, int dir,
                              int32_t plane, int32_t areaConstraint,
                              int32_t &outNx, int32_t &outNy)
@@ -143,7 +190,7 @@ namespace ww::runtime
         {
             return;
         }
-        const float ng = curG + stepCost;
+        const float ng = curG + stepCost + fenceMarginCost(nx, ny, plane);
         const int32_t newIndex = static_cast<int32_t>(nodes.size());
         nodes.push_back({nx, ny, ng, curIndex});
         openHeap.push_back({ng + heuristic(nx, ny, goalX, goalY), newIndex});
@@ -341,6 +388,85 @@ namespace ww::runtime
             }
         }
         return false;
+    }
+
+    std::vector<uint8_t> TileSearch::boxReachedCells(int32_t centreX, int32_t centreY, int32_t plane,
+                                                     std::span<const format::WildernessRegion> boxes,
+                                                     int32_t reach, const std::vector<int32_t> &fromStart)
+    {
+        const int32_t side = 2 * reach + 1;
+        std::vector<std::size_t> order;
+        for (std::size_t c = 0; c < fromStart.size(); ++c)
+        {
+            if (fromStart[c] >= 0)
+            {
+                order.push_back(c);
+            }
+        }
+        std::sort(order.begin(), order.end(),
+                  [&](std::size_t a, std::size_t b) { return fromStart[a] < fromStart[b]; });
+        std::vector<uint8_t> isReached(fromStart.size(), 0);
+        for (const std::size_t c : order)
+        {
+            const int32_t x = centreX - reach + static_cast<int32_t>(c) % side;
+            const int32_t y = centreY - reach + static_cast<int32_t>(c) / side;
+            bool isBoxed = isInWilderness(boxes, x, y, plane);
+            for (int dir = 0; dir < 8 && !isBoxed; ++dir)
+            {
+                const std::ptrdiff_t p = windowCell(x - kDx[dir], y - kDy[dir], centreX, centreY, reach);
+                int32_t nx = 0;
+                int32_t ny = 0;
+                isBoxed = p >= 0 && isReached[static_cast<std::size_t>(p)] != 0
+                    && fromStart[static_cast<std::size_t>(p)] == fromStart[c] - 1
+                    && canStep(x - kDx[dir], y - kDy[dir], dir, plane, nx, ny);
+            }
+            isReached[c] = isBoxed ? 1 : 0;
+        }
+        return isReached;
+    }
+
+    std::optional<TilePoint> TileSearch::clearestStepTowards(int32_t startX, int32_t startY, TilePoint goal,
+                                                             int32_t plane,
+                                                             std::span<const format::WildernessRegion> boxes,
+                                                             int32_t reach, int32_t minTiles, int32_t maxTiles)
+    {
+        const std::ptrdiff_t goalCell = windowCell(goal.x, goal.y, startX, startY, reach);
+        if (goalCell < 0 || !view->isStandable(startX, startY, plane)
+            || !view->isStandable(goal.x, goal.y, plane))
+        {
+            return std::nullopt;
+        }
+        currentFence = WalkFence{};
+        isExpandingFromFreeToPlay = false;
+        std::vector<int32_t> fromStart;
+        stepCounts(startX, startY, startX, startY, plane, reach, reach, false, fromStart);
+        const int32_t length = fromStart[static_cast<std::size_t>(goalCell)];
+        if (length < 0)
+        {
+            return std::nullopt;
+        }
+        std::vector<int32_t> intoGoal;
+        stepCounts(goal.x, goal.y, startX, startY, plane, reach, length, true, intoGoal);
+        const std::vector<uint8_t> isReached = boxReachedCells(startX, startY, plane, boxes, reach, fromStart);
+        std::optional<TilePoint> best;
+        int32_t bestLeft = length;
+        const int32_t side = 2 * reach + 1;
+        for (std::size_t c = 0; c < fromStart.size(); ++c)
+        {
+            const TilePoint at{ startX - reach + static_cast<int32_t>(c) % side,
+                                startY - reach + static_cast<int32_t>(c) / side };
+            const int64_t dx = at.x - startX;
+            const int64_t dy = at.y - startY;
+            const bool isInRange = std::max(std::abs(dx), std::abs(dy)) >= minTiles
+                && dx * dx + dy * dy <= static_cast<int64_t>(maxTiles) * maxTiles;
+            const bool isOnWalk = fromStart[c] >= 0 && intoGoal[c] >= 0 && fromStart[c] + intoGoal[c] == length;
+            if (isOnWalk && isInRange && isReached[c] == 0 && intoGoal[c] > 0 && intoGoal[c] < bestLeft)
+            {
+                best = at;
+                bestLeft = intoGoal[c];
+            }
+        }
+        return best;
     }
 
     void TileSearch::reconstruct(int32_t endIndex, TilePath &outPath) const

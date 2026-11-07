@@ -423,8 +423,8 @@ namespace ww::exec
         // always clicked itself), and, walking out of a tile that allows no
         // teleport, at the first target that does (so the post-step re-plan
         // onto a teleport fires where it did when every step was clicked).
-        // Only `first` when any target the hop would pass is near the
-        // Wilderness fence (isNearWildernessFence). Always `first` or later.
+        // Only `first` when the player, or any target the hop would pass, is
+        // near the Wilderness fence (isHopNearFence). Always `first` or later.
         Hop chooseHop(std::size_t first, const WwTile &from, const WwGoal &goal,
                       runtime::SearchContext &context);
 
@@ -475,6 +475,16 @@ namespace ww::exec
         std::optional<WwTile> partWayOnWalk(const LegScope &scope, const WwTile &end, int32_t leg,
                                             FenceRule fence, runtime::SearchContext &context) const;
 
+        // On a fenced run, for a step near the fence: the tile nearest the
+        // step, on any least-step walk to it, at least kLegMinPartTiles from
+        // scope.from and within the leg ceiling, that the game cannot walk
+        // to through a box on any of its least-step walks
+        // (TileSearch::clearestStepTowards). partWayOnWalk looks along one
+        // walk only, and where a box's corner can be stood on beside the
+        // planned path every tile of that walk can be walked to through it.
+        std::optional<WwTile> partWayClearOfBoxes(const LegScope &scope, const WwTile &end,
+                                                  runtime::SearchContext &context) const;
+
         // Whether a click on `at` from `from` keeps clear of the Wilderness
         // fence by `fence`.
         bool isClearOfFence(const WwTile &from, const WwTile &at, FenceRule fence,
@@ -497,8 +507,10 @@ namespace ww::exec
         // near the fence the game could walk to it through a box; a tile
         // part-way to it within the leg; one within the leg ceiling, on the
         // straight line or on a walk to the step (partWayOnWalk), by the
-        // margin rule and then, when fenced, the shortest-walk rule; and last
-        // the step whole within the cap, which may be past the ceiling.
+        // margin rule and then, when fenced, the shortest-walk rule; near the
+        // fence, a tile on any least-step walk to it that no such walk
+        // reaches through a box (partWayClearOfBoxes); and last the step
+        // whole within the cap, which may be past the ceiling.
         Hop stepAlone(const LegScope &scope, std::size_t first,
                       runtime::SearchContext &context) const;
 
@@ -582,6 +594,11 @@ namespace ww::exec
         // its plane. A click there hands the route to the game's pathfinder,
         // which may cut through the fenced tiles.
         bool isNearWildernessFence(const WwTile &at) const;
+
+        // Whether a click from scope.from to `target` is near the fence on a
+        // fenced run: the target near it, or the player. A click from beside
+        // a box to a target past the margin can still walk across the box.
+        bool isHopNearFence(const LegScope &scope, const WwTile &target) const;
 
         // How a Walk hop hands over to what comes next: the Chebyshev radius
         // at which it counts as done, the ticks to idle after it, and whether

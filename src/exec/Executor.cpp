@@ -1633,6 +1633,11 @@ namespace ww::exec
         return false;
     }
 
+    bool Executor::isHopNearFence(const LegScope &scope, const WwTile &target) const
+    {
+        return scope.isFenced && (isNearWildernessFence(target) || isNearWildernessFence(scope.from));
+    }
+
     Executor::Hop Executor::chooseHop(std::size_t first, const WwTile &from, const WwGoal &goal,
                                       runtime::SearchContext &context)
     {
@@ -1641,10 +1646,11 @@ namespace ww::exec
         // spends the same draws and a pinned seed replays the same walk.
         const int32_t leg = drawLeg();
         const LegScope scope{ from, leg, leg + kLegWindTiles, isWildernessFenced(from, goal) };
-        if (firstTarget.plane != from.plane || (scope.isFenced && isNearWildernessFence(firstTarget)))
+        if (firstTarget.plane != from.plane || isHopNearFence(scope, firstTarget))
         {
             // Another plane is no distance at all: the player is not where
-            // the plan thinks. Near the fence the hop is the next step alone.
+            // the plan thinks. Near the fence, at either end, the hop is the
+            // next step alone.
             return stepAlone(scope, first, context);
         }
         const bool isTeleBlockedHere = !runtime::isTeleportAllowed(*artifact, from.x, from.y,
@@ -1705,7 +1711,7 @@ namespace ww::exec
         // the walk on to this one cuts a box's corner. Else a tile short of
         // it is looked for, as for a step past the leg.
         const bool isStepInLeg = isWithinLeg(scope.from, target, scope.leg);
-        const bool isStepFenceClear = !scope.isFenced || !isNearWildernessFence(target)
+        const bool isStepFenceClear = !isHopNearFence(scope, target)
             || isShortestWalkClear(scope.from, target, context);
         if (isStepInLeg && isStepFenceClear)
         {
@@ -1745,19 +1751,18 @@ namespace ww::exec
                 return Hop{ first, chebyshev(scope.from, *part), part, search.reach };
             }
         }
+        if (const std::optional<WwTile> part = partWayClearOfBoxes(scope, target, context))
+        {
+            return Hop{ first, chebyshev(scope.from, *part), part, legCeilingTiles };
+        }
         // Else the step whole, inside the cap but possibly past the ceiling,
         // rather than a re-plan that would rebuild the same geometry. This is
         // the one walk click that can pass a lowered ceiling, and only when
         // no standable tile within it lies on the line or on a walk to the
         // step that passes the fence rules above. Past the ceiling the
         // minimap may refuse it again; then the hop comes back displaced and
-        // the run re-plans. Near the fence it is the planned step itself, as
-        // the executor has always clicked there, with whatever walks the game
-        // has to it: where a box's corner is walkable beside the planned
-        // path, and every tile short of the step two or more steps on has a
-        // walk through it, that walk can cross the corner. A single-step
-        // click instead would land inside the hand-off lead and never move
-        // the player (kLegMinPartTiles).
+        // the run re-plans. Near the fence it is the planned step itself,
+        // when no tile two or more steps on towards it is clear of every box.
         return Hop{ first, chebyshev(scope.from, target), std::nullopt,
                     isStepInLeg ? scope.leg : kLegMaxTiles };
     }
@@ -1842,6 +1847,23 @@ namespace ww::exec
             }
         }
         return std::nullopt;
+    }
+
+    std::optional<WwTile> Executor::partWayClearOfBoxes(const LegScope &scope, const WwTile &end,
+                                                        runtime::SearchContext &context) const
+    {
+        if (end.plane != scope.from.plane || !isHopNearFence(scope, end))
+        {
+            return std::nullopt;
+        }
+        const std::optional<runtime::TilePoint> at = context.tileSearch.clearestStepTowards(
+            scope.from.x, scope.from.y, runtime::TilePoint{ end.x, end.y }, end.plane,
+            artifact->wildernessRegions(), kShortestWalkReach, kLegMinPartTiles, legCeilingTiles);
+        if (!at.has_value())
+        {
+            return std::nullopt;
+        }
+        return WwTile{ at->x, at->y, end.plane };
     }
 
     bool Executor::isClearOfFence(const WwTile &from, const WwTile &at, FenceRule fence,

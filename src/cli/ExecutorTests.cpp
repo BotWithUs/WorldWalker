@@ -4229,14 +4229,18 @@ namespace ww::cli
 
         // What the fence check reads off fenced runs. Of every walk click:
         // those onto a box tile, and those made from one. Of the walk clicks
-        // near a box short of their own step: those the game's pathfinder
-        // could walk into a box, on any one of its least-step walks to the
-        // click (boxWalks), and those whose walk the window could not settle.
+        // near a box made from outside one: those the game's pathfinder could
+        // walk into a box, on any one of its least-step walks to the click,
+        // when the click is short of its own step (boxWalks) or is the step
+        // (stepWalks), and, short of the step, those whose walk the window
+        // could not settle. nearClicks counts the clicks short of their step.
         struct FenceWalkTally
         {
             int nearClicks;
             int boxWalks;
+            int stepWalks;
             int unsettled;
+            int offGround;
             int boxClicks;
             int boxStarts;
         };
@@ -4272,10 +4276,18 @@ namespace ww::cli
             return false;
         }
 
-        // Adds one fenced run's walk clicks to `io`. A click on the step
-        // itself is what the executor has always made near the fence, one
-        // planned step at a time; a click short of it must leave the game's
-        // pathfinder no walk into the Wilderness at all, whichever it takes.
+        // Adds one fenced run's walk clicks to `io`. A click is near the fence
+        // when its target is, or the player is: a click from beside a box to
+        // a target past the margin can walk across the box too. No such click
+        // may leave the game's pathfinder a walk into the Wilderness,
+        // whichever of its least-step walks it takes: a click short of its
+        // step (the executor's choice, boxWalks) nor a click on the step
+        // itself (the planner's, stepWalks). Left out, and counted on their
+        // own: a click made from a box tile (boxStarts), where the run is not
+        // fenced, and a click on the step made from ground nobody stands on
+        // (offGround), where only the harness, walking straight through
+        // objects, can put the player: the executor has no tile short of the
+        // step to offer from there, as no walk out of it is shown.
         void tallyFenceWalks(ExecContext &ctx, const ExecHarness &harness,
                              const runtime::Plan &firstPlan, const exec::WwGoal &goal,
                              FenceWalkTally &io)
@@ -4287,23 +4299,27 @@ namespace ww::cli
                 {
                     continue;
                 }
+                const bool isFromBox = isInWildernessBox(ctx, hop.from);
+                const bool isOffGround = !ctx.view.isStandable(hop.from.x, hop.from.y, hop.from.plane);
                 io.boxClicks += isInWildernessBox(ctx, hop.target) ? 1 : 0;
-                io.boxStarts += isInWildernessBox(ctx, hop.from) ? 1 : 0;
+                io.boxStarts += isFromBox ? 1 : 0;
                 const std::size_t gen = static_cast<std::size_t>(hop.plan);
-                if (gen >= plans.size() || static_cast<std::size_t>(hop.stepIndex) >= plans[gen].steps.size())
+                if (isFromBox || gen >= plans.size()
+                    || static_cast<std::size_t>(hop.stepIndex) >= plans[gen].steps.size()
+                    || hop.target.plane != hop.from.plane
+                    || (!isNearWildernessBox(ctx, hop.target) && !isNearWildernessBox(ctx, hop.from)))
                 {
                     continue;
                 }
                 const exec::WwTile step = stepTile(plans[gen].steps[static_cast<std::size_t>(hop.stepIndex)]);
-                if (isSameTile(hop.target, step) || !isNearWildernessBox(ctx, hop.target)
-                    || hop.target.plane != hop.from.plane)
-                {
-                    continue;
-                }
-                ++io.nearClicks;
+                const bool isWholeStep = isSameTile(hop.target, step);
                 bool isUnsettled = false;
-                io.boxWalks += canGameWalkEnterBox(ctx, hop.from, hop.target, isUnsettled) ? 1 : 0;
-                io.unsettled += isUnsettled ? 1 : 0;
+                const bool isEntering = canGameWalkEnterBox(ctx, hop.from, hop.target, isUnsettled);
+                io.nearClicks += isWholeStep ? 0 : 1;
+                io.boxWalks += (isEntering && !isWholeStep) ? 1 : 0;
+                io.unsettled += (isUnsettled && !isWholeStep) ? 1 : 0;
+                io.stepWalks += (isEntering && isWholeStep && !isOffGround) ? 1 : 0;
+                io.offGround += (isWholeStep && isOffGround) ? 1 : 0;
             }
         }
 
@@ -4360,12 +4376,22 @@ namespace ww::cli
         // or a walk too long to be shown at all (tallyFenceWalks). The same
         // over kCornerRoutes (re-review 4, W1).
         //
-        // Hops made from a box tile are counted, not failed. On the corner
-        // routes the harness, which walks diagonals first and through walls,
-        // can cross the corner tile on a click of the planned step whole:
-        // there every tile short of the step two or more steps on has a game
-        // walk through the box as well, so the executor has nothing safer
-        // to click (Executor::stepAlone).
+        // Nor does a click near the fence on the planned step itself leave a
+        // walk into a box. At the fort corner the box's own corner tiles can
+        // be stood on, so a plan that hugs them, or a player led onto the
+        // tile beside them, leaves every click on towards the fort a walk
+        // across them: the planner keeps a margin off such tiles
+        // (TileSearch, kFenceMargin), and the executor looks for a tile clear
+        // of them on any least-step walk (partWayClearOfBoxes). A click made
+        // from beside the corner counts as near the fence even when its step
+        // lies past the margin: the margin's longer last step out of the fort
+        // can walk back across the corner (#40 review, V1), so the executor
+        // clicks one step at a time there too (isHopNearFence).
+        //
+        // Hops made from a box tile are counted, not failed: the harness
+        // walks diagonals first and through walls, so it can cross the
+        // corner on a click whose every game walk keeps out, which the
+        // fence check above has already passed.
         std::size_t testLegFenced(ExecContext &ctx, const FencedRouteSet &set,
                                   const LegPressure &pressure)
         {
@@ -4400,15 +4426,16 @@ namespace ww::cli
                 }
             }
             std::printf("  exec:   leg-%s %s: %d of %zu routes planned (expect >= %d), arrived=%d of %d"
-                        " (expect all) over-cap=%d too-near=%d box-clicks=%d box-walks=%d unsettled=%d"
-                        " (expect 0 each) part-way hops=%d near-fence part-way clicks=%d"
-                        " hops from a box tile=%d\n",
+                        " (expect all) over-cap=%d too-near=%d box-clicks=%d box-walks=%d step-box-walks=%d"
+                        " unsettled=%d (expect 0 each) part-way hops=%d near-fence part-way clicks=%d"
+                        " hops from a box tile=%d step clicks from blocked ground=%d\n",
                         set.name, pressure.label, planned, set.routes.size(), set.minPlanned, arrived, runs,
-                        overCap, tally.tooNear, fence.boxClicks, fence.boxWalks, fence.unsettled,
-                        tally.partWays, fence.nearClicks, fence.boxStarts);
+                        overCap, tally.tooNear, fence.boxClicks, fence.boxWalks, fence.stepWalks,
+                        fence.unsettled, tally.partWays, fence.nearClicks, fence.boxStarts, fence.offGround);
             std::size_t failures = (planned >= set.minPlanned && arrived == runs) ? 0u : 1u;
             failures += (overCap == 0 && tally.tooNear == 0) ? 0u : 1u;
             failures += (fence.boxClicks == 0 && fence.boxWalks == 0 && fence.unsettled == 0) ? 0u : 1u;
+            failures += fence.stepWalks == 0 ? 0u : 1u;
             return failures;
         }
 

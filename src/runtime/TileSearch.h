@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -113,6 +114,18 @@ namespace ww::runtime
         bool canShortestWalkEnter(int32_t startX, int32_t startY, TilePoint goal, int32_t plane,
                                   std::span<const format::WildernessRegion> boxes, int32_t reach);
 
+        // The tile with the fewest steps left to `goal` among those that lie
+        // on some least-step walk from start to `goal`, short of it, at least
+        // minTiles (Chebyshev) and at most maxTiles in a straight line from
+        // start, and that no least-step walk from start reaches through a box
+        // tile, the tile itself included. Steps are counted as
+        // canShortestWalkEnter counts them, within `reach` steps of start.
+        // nullopt when there is no such tile, or start is not standable.
+        std::optional<TilePoint> clearestStepTowards(int32_t startX, int32_t startY, TilePoint goal,
+                                                     int32_t plane,
+                                                     std::span<const format::WildernessRegion> boxes,
+                                                     int32_t reach, int32_t minTiles, int32_t maxTiles);
+
     private:
         struct Node
         {
@@ -129,6 +142,14 @@ namespace ww::runtime
         // currentFence's free-to-play side, for one tile. True when there is
         // no free-to-play fence.
         bool isOnFreeToPlayLand(int32_t x, int32_t y, int32_t plane) const;
+
+        // What stepping onto (x, y) costs on top of the step itself, on a walk
+        // fenced out of the Wilderness: a margin cost when a box tile that
+        // (x, y)'s own area stands on lies within the margin. Nothing when
+        // the walk is not fenced, or when every box tile near (x, y) is
+        // unstandable or in another area (behind a wall, such as the
+        // Edgeville ditch). See kFenceMargin in the .cpp.
+        float fenceMarginCost(int32_t x, int32_t y, int32_t plane) const;
 
         // Legality + neighbor coordinates + neighbor clip word for direction
         // `dir` off (fx, fy) given the already-fetched fromFlags. Reads the
@@ -153,6 +174,15 @@ namespace ww::runtime
         void stepCounts(int32_t ox, int32_t oy, int32_t centreX, int32_t centreY, int32_t plane,
                         int32_t reach, int32_t limit, bool isInbound,
                         std::vector<int32_t> &outCounts);
+
+        // Per cell of that window, given fromStart (stepCounts out of the
+        // centre): 1 where some least-step walk from the centre steps onto a
+        // box tile, the cell itself included. A cell is reached through a box
+        // when it is in one, or when a cell one step nearer that steps onto
+        // it is.
+        std::vector<uint8_t> boxReachedCells(int32_t centreX, int32_t centreY, int32_t plane,
+                                             std::span<const format::WildernessRegion> boxes,
+                                             int32_t reach, const std::vector<int32_t> &fromStart);
 
         // Try to enqueue (nx, ny) as a new open node parented at curIndex
         // with g-cost curG + stepCost. No-op when the tile is already
