@@ -451,8 +451,8 @@ namespace ww::exec
         //   None          no rule: the run is not fenced.
         //   Margin        farther than kWildernessMargin from every box
         //                 (isNearWildernessFence).
-        //   ShortestWalk  its walks from the player enter no box tile that the
-        //                 walks to the line's end do not (isShortestWalkClear).
+        //   ShortestWalk  no least-step walk from the player to it steps onto
+        //                 a box tile, itself included (isShortestWalkClear).
         enum class FenceRule
         {
             None,
@@ -475,28 +475,30 @@ namespace ww::exec
         std::optional<WwTile> partWayOnWalk(const LegScope &scope, const WwTile &end, int32_t leg,
                                             FenceRule fence, runtime::SearchContext &context) const;
 
-        // Whether a click on `at`, on the way from `from` to `end`, keeps
-        // clear of the Wilderness fence by `fence`.
-        bool isClearOfFence(const WwTile &from, const WwTile &at, const WwTile &end,
-                            FenceRule fence, runtime::SearchContext &context) const;
+        // Whether a click on `at` from `from` keeps clear of the Wilderness
+        // fence by `fence`.
+        bool isClearOfFence(const WwTile &from, const WwTile &at, FenceRule fence,
+                            runtime::SearchContext &context) const;
 
-        // Whether a click on `at` hands the game's pathfinder no more of the
-        // Wilderness than a click on `step` would: no least-step walk from
-        // `from` to `at` steps onto a box tile that no least-step walk to
-        // `step` steps onto. Walls count, so the far side of the Edgeville
-        // ditch is no part of either. False when that is not shown within
+        // Whether a click on `at` keeps the game's pathfinder out of the
+        // Wilderness whichever walk it takes: no least-step walk from `from`
+        // to `at` steps onto a box tile, and `at` is in none. The game takes
+        // one of those walks, and which one is not known here, so all must
+        // be clear. Walls count, so the far side of the Edgeville ditch is on
+        // none of them. False when that is not shown within
         // kShortestWalkReach steps (TileSearch::canShortestWalkEnter).
-        bool isShortestWalkClear(const WwTile &from, const WwTile &at, const WwTile &step,
+        bool isShortestWalkClear(const WwTile &from, const WwTile &at,
                                  runtime::SearchContext &context) const;
 
         // The hop to plan.steps[first] alone (near the Wilderness fence, on
         // another plane, or when no longer hop fits): off the plan, through
         // reachTowards, only when the step is beyond kLegMaxTiles or on
-        // another plane. Otherwise, in turn: the step within the leg; a tile
+        // another plane. Otherwise, in turn: the step within the leg, unless
+        // near the fence the game could walk to it through a box; a tile
         // part-way to it within the leg; one within the leg ceiling, on the
         // straight line or on a walk to the step (partWayOnWalk), by the
         // margin rule and then, when fenced, the shortest-walk rule; and last
-        // the step whole within the cap.
+        // the step whole within the cap, which may be past the ceiling.
         Hop stepAlone(const LegScope &scope, std::size_t first,
                       runtime::SearchContext &context) const;
 

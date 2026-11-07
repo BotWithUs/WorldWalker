@@ -7,7 +7,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 #include <span>
 #include <vector>
 
@@ -104,16 +103,14 @@ namespace ww::runtime
                       TilePath &outPath);
 
         // Whether some least-step walk from start to `goal` on one plane
-        // steps onto a tile inside one of `boxes` that no least-step walk
-        // from start to `base` steps onto (with no base, onto any box tile).
+        // steps onto a tile inside one of `boxes`, `goal` itself included.
         // The steps are this search's eight, with its wall and corner rules,
         // but every one counts the same, as the game's own pathfinder counts
         // a walk: a walk click hands the route to that pathfinder, which may
         // take any of its least-step walks. Looks within `reach` steps of
-        // start only, so an end not reached there, or not standable, answers
+        // start only, so a goal not reached there, or not standable, answers
         // true: nothing is shown clear.
-        bool canShortestWalkEnter(int32_t startX, int32_t startY, TilePoint goal,
-                                  std::optional<TilePoint> base, int32_t plane,
+        bool canShortestWalkEnter(int32_t startX, int32_t startY, TilePoint goal, int32_t plane,
                                   std::span<const format::WildernessRegion> boxes, int32_t reach);
 
     private:

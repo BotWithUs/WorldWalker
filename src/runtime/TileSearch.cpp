@@ -294,15 +294,13 @@ namespace ww::runtime
     }
 
     bool TileSearch::canShortestWalkEnter(int32_t startX, int32_t startY, TilePoint goal,
-                                          std::optional<TilePoint> base, int32_t plane,
+                                          int32_t plane,
                                           std::span<const format::WildernessRegion> boxes,
                                           int32_t reach)
     {
         const std::ptrdiff_t goalCell = windowCell(goal.x, goal.y, startX, startY, reach);
-        const std::ptrdiff_t baseCell =
-            base.has_value() ? windowCell(base->x, base->y, startX, startY, reach) : -1;
-        if (goalCell < 0 || (base.has_value() && baseCell < 0)
-            || !view->isStandable(startX, startY, plane) || !view->isStandable(goal.x, goal.y, plane))
+        if (goalCell < 0 || !view->isStandable(startX, startY, plane)
+            || !view->isStandable(goal.x, goal.y, plane))
         {
             return true;
         }
@@ -311,25 +309,12 @@ namespace ww::runtime
         std::vector<int32_t> fromStart;
         stepCounts(startX, startY, startX, startY, plane, reach, reach, false, fromStart);
         const int32_t length = fromStart[static_cast<std::size_t>(goalCell)];
-        const int32_t baseLength = base.has_value() ? fromStart[static_cast<std::size_t>(baseCell)] : 0;
-        if (length < 0 || baseLength < 0)
+        if (length < 0)
         {
             return true;
         }
         std::vector<int32_t> intoGoal;
         stepCounts(goal.x, goal.y, startX, startY, plane, reach, length, true, intoGoal);
-        std::vector<int32_t> intoBase;
-        if (base.has_value())
-        {
-            stepCounts(base->x, base->y, startX, startY, plane, reach, baseLength, true, intoBase);
-        }
-        // A tile lies on some least-step walk exactly when its steps from the
-        // start and its steps to the end add up to the walk's length.
-        const auto isOnWalk = [&fromStart](const std::vector<int32_t> &into, std::size_t cell,
-                                           int32_t walkLength)
-        {
-            return fromStart[cell] >= 0 && into[cell] >= 0 && fromStart[cell] + into[cell] == walkLength;
-        };
         for (const format::WildernessRegion &w : boxes)
         {
             if (plane < w.planeMin || plane > w.planeMax)
@@ -342,10 +327,13 @@ namespace ww::runtime
             {
                 for (int32_t x = std::max(w.minX, startX - reach); x <= xEnd; ++x)
                 {
+                    // A tile lies on some least-step walk exactly when its
+                    // steps from the start and its steps to the goal add up
+                    // to the walk's length.
                     const std::size_t cell =
                         static_cast<std::size_t>(windowCell(x, y, startX, startY, reach));
-                    if (isOnWalk(intoGoal, cell, length)
-                        && !(base.has_value() && isOnWalk(intoBase, cell, baseLength)))
+                    if (fromStart[cell] >= 0 && intoGoal[cell] >= 0
+                        && fromStart[cell] + intoGoal[cell] == length)
                     {
                         return true;
                     }

@@ -4222,22 +4222,60 @@ namespace ww::cli
             return false;
         }
 
-        // What the fence check reads off fenced runs: walk clicks near a
-        // Wilderness box short of their own step, those whose game walks
-        // from where the player stood can step onto a box tile that no game
-        // walk to the step itself steps onto (wider), and those the window
-        // could not settle.
+        bool isInWildernessBox(ExecContext &ctx, const exec::WwTile &t)
+        {
+            return runtime::isInWilderness(ctx.reader, t.x, t.y, t.plane);
+        }
+
+        // What the fence check reads off fenced runs. Of every walk click:
+        // those onto a box tile, and those made from one. Of the walk clicks
+        // near a box short of their own step: those the game's pathfinder
+        // could walk into a box, on any one of its least-step walks to the
+        // click (boxWalks), and those whose walk the window could not settle.
         struct FenceWalkTally
         {
             int nearClicks;
-            int wider;
+            int boxWalks;
             int unsettled;
+            int boxClicks;
+            int boxStarts;
         };
 
-        // Adds one fenced run's near-fence part-way clicks to `io`. A click
-        // on the step itself is what the executor has always made near the
-        // fence, one planned step at a time; a click short of it must hand
-        // the game's pathfinder no more of the Wilderness than that.
+        // Whether some least-step game walk from `from` to `to` steps onto a
+        // Wilderness box tile, `to` included. A walk of fewest steps passes a
+        // tile exactly when the steps out to it and on from it add up to the
+        // walk's length; every tile of the window is looked at.
+        bool canGameWalkEnterBox(ExecContext &ctx, const exec::WwTile &from, const exec::WwTile &to,
+                                 bool &outUnsettled)
+        {
+            const std::vector<std::int32_t> out = gameWalkSteps(ctx.view, from, from, false);
+            const std::vector<std::int32_t> into = gameWalkSteps(ctx.view, to, from, true);
+            const std::ptrdiff_t toCell = gameWalkCell(to, from);
+            outUnsettled = toCell < 0 || out[static_cast<std::size_t>(toCell)] < 0;
+            if (outUnsettled)
+            {
+                return false;
+            }
+            const std::int32_t walk = out[static_cast<std::size_t>(toCell)];
+            for (std::int32_t y = from.y - kGameWalkReach; y <= from.y + kGameWalkReach; ++y)
+            {
+                for (std::int32_t x = from.x - kGameWalkReach; x <= from.x + kGameWalkReach; ++x)
+                {
+                    const exec::WwTile t{ x, y, from.plane };
+                    const std::size_t c = static_cast<std::size_t>(gameWalkCell(t, from));
+                    if (out[c] >= 0 && into[c] >= 0 && out[c] + into[c] == walk && isInWildernessBox(ctx, t))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Adds one fenced run's walk clicks to `io`. A click on the step
+        // itself is what the executor has always made near the fence, one
+        // planned step at a time; a click short of it must leave the game's
+        // pathfinder no walk into the Wilderness at all, whichever it takes.
         void tallyFenceWalks(ExecContext &ctx, const ExecHarness &harness,
                              const runtime::Plan &firstPlan, const exec::WwGoal &goal,
                              FenceWalkTally &io)
@@ -4245,55 +4283,67 @@ namespace ww::cli
             const std::vector<runtime::Plan> plans = rebuildPlans(ctx, harness, firstPlan, goal);
             for (const HopRecord &hop : harness.hops)
             {
+                if (!hop.isClicked)
+                {
+                    continue;
+                }
+                io.boxClicks += isInWildernessBox(ctx, hop.target) ? 1 : 0;
+                io.boxStarts += isInWildernessBox(ctx, hop.from) ? 1 : 0;
                 const std::size_t gen = static_cast<std::size_t>(hop.plan);
-                if (!hop.isClicked || gen >= plans.size()
-                    || static_cast<std::size_t>(hop.stepIndex) >= plans[gen].steps.size())
+                if (gen >= plans.size() || static_cast<std::size_t>(hop.stepIndex) >= plans[gen].steps.size())
                 {
                     continue;
                 }
                 const exec::WwTile step = stepTile(plans[gen].steps[static_cast<std::size_t>(hop.stepIndex)]);
                 if (isSameTile(hop.target, step) || !isNearWildernessBox(ctx, hop.target)
-                    || hop.target.plane != hop.from.plane || step.plane != hop.from.plane)
+                    || hop.target.plane != hop.from.plane)
                 {
                     continue;
                 }
                 ++io.nearClicks;
-                const std::vector<std::int32_t> out = gameWalkSteps(ctx.view, hop.from, hop.from, false);
-                const std::vector<std::int32_t> intoClick = gameWalkSteps(ctx.view, hop.target, hop.from, true);
-                const std::vector<std::int32_t> intoStep = gameWalkSteps(ctx.view, step, hop.from, true);
-                const std::ptrdiff_t clickCell = gameWalkCell(hop.target, hop.from);
-                const std::ptrdiff_t stepCell = gameWalkCell(step, hop.from);
-                if (clickCell < 0 || stepCell < 0 || out[static_cast<std::size_t>(clickCell)] < 0
-                    || out[static_cast<std::size_t>(stepCell)] < 0)
-                {
-                    ++io.unsettled;
-                    continue;
-                }
-                const std::int32_t clickWalk = out[static_cast<std::size_t>(clickCell)];
-                const std::int32_t stepWalk = out[static_cast<std::size_t>(stepCell)];
-                bool isWider = false;
-                for (std::int32_t y = hop.from.y - kGameWalkReach; y <= hop.from.y + kGameWalkReach && !isWider; ++y)
-                {
-                    for (std::int32_t x = hop.from.x - kGameWalkReach; x <= hop.from.x + kGameWalkReach; ++x)
-                    {
-                        const exec::WwTile t{ x, y, hop.from.plane };
-                        if (!runtime::isInWilderness(ctx.reader, t.x, t.y, t.plane))
-                        {
-                            continue;
-                        }
-                        const std::size_t c = static_cast<std::size_t>(gameWalkCell(t, hop.from));
-                        const bool isOnClickWalk = out[c] >= 0 && intoClick[c] >= 0 && out[c] + intoClick[c] == clickWalk;
-                        const bool isOnStepWalk = out[c] >= 0 && intoStep[c] >= 0 && out[c] + intoStep[c] == stepWalk;
-                        if (isOnClickWalk && !isOnStepWalk)
-                        {
-                            isWider = true;
-                            break;
-                        }
-                    }
-                }
-                io.wider += isWider ? 1 : 0;
+                bool isUnsettled = false;
+                io.boxWalks += canGameWalkEnterBox(ctx, hop.from, hop.target, isUnsettled) ? 1 : 0;
+                io.unsettled += isUnsettled ? 1 : 0;
             }
         }
+
+        struct FencedRoute
+        {
+            exec::WwTile start;
+            exec::WwTile goal;
+        };
+
+        // The Edgeville ditch: walks along the Wilderness wall.
+        constexpr FencedRoute kDitchRoutes[] = {
+            { { 3094, 3491, 0 }, { 3130, 3516, 0 } },
+            { { 3130, 3516, 0 }, { 3094, 3491, 0 } },
+            { { 3040, 3515, 0 }, { 3140, 3518, 0 } },
+            { { 3140, 3518, 0 }, { 3040, 3515, 0 } },
+            { { 3165, 3480, 0 }, { 3090, 3516, 0 } },
+        };
+
+        // Fort Forinthry's south-west corner, where the first Wilderness box
+        // ends at (3281, 3521) and the fort, outside it, starts at x 3282:
+        // walks into and out of the fort whose straight lines clip the box
+        // (#38 re-review 4, W1).
+        constexpr FencedRoute kCornerRoutes[] = {
+            { { 3270, 3510, 0 }, { 3283, 3524, 0 } },
+            { { 3278, 3514, 0 }, { 3282, 3524, 0 } },
+            { { 3276, 3516, 0 }, { 3285, 3528, 0 } },
+            { { 3274, 3514, 0 }, { 3284, 3530, 0 } },
+            { { 3265, 3505, 0 }, { 3286, 3525, 0 } },
+            { { 3283, 3524, 0 }, { 3270, 3510, 0 } },
+            { { 3282, 3524, 0 }, { 3278, 3514, 0 } },
+            { { 3285, 3528, 0 }, { 3266, 3512, 0 } },
+            { { 3290, 3530, 0 }, { 3272, 3508, 0 } },
+        };
+
+        struct FencedRouteSet
+        {
+            const char                  *name;
+            std::span<const FencedRoute> routes;
+            int                          minPlanned;
+        };
 
         // Test 4af: walks along the Edgeville Wilderness ditch, where every hop
         // near the fence is a single step, after the legs have come down. The
@@ -4304,31 +4354,28 @@ namespace ww::cli
         // finds it past a ceiling a refusal lowered, and must be cut within
         // that ceiling, or the click is refused again and again. Under each
         // pressure every seed of every route arrives, with no walk click past
-        // the cap and no part-way click within a tile of the player. And no
-        // click near the fence short of its step hands the game's pathfinder
-        // a walk into the Wilderness that a click on the step would not, or
-        // a walk too long to be shown at all (tallyFenceWalks).
-        std::size_t testLegFencedDitch(ExecContext &ctx, const LegPressure &pressure)
+        // the cap and no part-way click within a tile of the player. No walk
+        // click lands on a Wilderness box tile, and no click near the fence
+        // short of its step leaves the game's pathfinder a walk into a box,
+        // or a walk too long to be shown at all (tallyFenceWalks). The same
+        // over kCornerRoutes (re-review 4, W1).
+        //
+        // Hops made from a box tile are counted, not failed. On the corner
+        // routes the harness, which walks diagonals first and through walls,
+        // can cross the corner tile on a click of the planned step whole:
+        // there every tile short of the step two or more steps on has a game
+        // walk through the box as well, so the executor has nothing safer
+        // to click (Executor::stepAlone).
+        std::size_t testLegFenced(ExecContext &ctx, const FencedRouteSet &set,
+                                  const LegPressure &pressure)
         {
-            struct Route
-            {
-                exec::WwTile start;
-                exec::WwTile goal;
-            };
-            const Route routes[] = {
-                { { 3094, 3491, 0 }, { 3130, 3516, 0 } },
-                { { 3130, 3516, 0 }, { 3094, 3491, 0 } },
-                { { 3040, 3515, 0 }, { 3140, 3518, 0 } },
-                { { 3140, 3518, 0 }, { 3040, 3515, 0 } },
-                { { 3165, 3480, 0 }, { 3090, 3516, 0 } },
-            };
             int planned = 0;
             int runs = 0;
             int arrived = 0;
             int overCap = 0;
             PartWayTally tally{};
             FenceWalkTally fence{};
-            for (const Route &r : routes)
+            for (const FencedRoute &r : set.routes)
             {
                 const exec::WwGoal goal{ r.goal.x, r.goal.y, r.goal.plane, 1 };
                 runtime::Plan plan;
@@ -4352,20 +4399,43 @@ namespace ww::cli
                     tallyFenceWalks(ctx, harness, plan, goal, fence);
                 }
             }
-            if (planned == 0)
-            {
-                std::printf("  exec:   leg-ditch %s test skipped (no ditch route plans)\n", pressure.label);
-                return 0;
-            }
-            std::printf("  exec:   leg-ditch %s: %d of 5 routes planned, arrived=%d of %d (expect all)"
-                        " over-cap=%d too-near=%d wider-walks=%d unsettled=%d (expect 0, 0, 0, 0)"
-                        " part-way hops=%d near-fence part-way clicks=%d\n",
-                        pressure.label, planned, arrived, runs, overCap, tally.tooNear, fence.wider,
-                        fence.unsettled, tally.partWays, fence.nearClicks);
-            std::size_t failures = arrived == runs ? 0u : 1u;
+            std::printf("  exec:   leg-%s %s: %d of %zu routes planned (expect >= %d), arrived=%d of %d"
+                        " (expect all) over-cap=%d too-near=%d box-clicks=%d box-walks=%d unsettled=%d"
+                        " (expect 0 each) part-way hops=%d near-fence part-way clicks=%d"
+                        " hops from a box tile=%d\n",
+                        set.name, pressure.label, planned, set.routes.size(), set.minPlanned, arrived, runs,
+                        overCap, tally.tooNear, fence.boxClicks, fence.boxWalks, fence.unsettled,
+                        tally.partWays, fence.nearClicks, fence.boxStarts);
+            std::size_t failures = (planned >= set.minPlanned && arrived == runs) ? 0u : 1u;
             failures += (overCap == 0 && tally.tooNear == 0) ? 0u : 1u;
-            failures += (fence.wider == 0 && fence.unsettled == 0) ? 0u : 1u;
-            failures += planned >= 4 ? 0u : 1u;
+            failures += (fence.boxClicks == 0 && fence.boxWalks == 0 && fence.unsettled == 0) ? 0u : 1u;
+            return failures;
+        }
+
+        // Tests 4af and 4ai: each fenced route set under each pressure.
+        std::size_t testLegFencedRoutes(ExecContext &ctx)
+        {
+            static constexpr LegPressure kPressures[] = {
+                { "refused", 10, 0, 0, 0 },
+                { "one-stall", 0, 2, 0, 0 },
+                { "paced walk reach 10", 10, 0, 1, 1 },
+                { "paced run reach 10", 10, 0, 2, 1 },
+                { "paced walk reach 8", 8, 0, 1, 1 },
+                { "paced run reach 8", 8, 0, 2, 1 },
+                { "paced run reach 9", 9, 0, 2, 1 },
+            };
+            const FencedRouteSet sets[] = {
+                { "ditch", kDitchRoutes, 4 },
+                { "corner", kCornerRoutes, 8 },
+            };
+            std::size_t failures = 0;
+            for (const FencedRouteSet &set : sets)
+            {
+                for (const LegPressure &pressure : kPressures)
+                {
+                    failures += testLegFenced(ctx, set, pressure);
+                }
+            }
             return failures;
         }
 
@@ -5804,12 +5874,7 @@ namespace ww::cli
         failures += testLegRefusalReplan(ctx, 10);
         failures += testLegDisplaced(ctx, 2, "re-click");
         failures += testLegDisplaced(ctx, 3, "next-hop");
-        failures += testLegFencedDitch(ctx, LegPressure{ "refused", 10, 0, 0, 0 });
-        failures += testLegFencedDitch(ctx, LegPressure{ "one-stall", 0, 2, 0, 0 });
-        failures += testLegFencedDitch(ctx, LegPressure{ "paced walk reach 10", 10, 0, 1, 1 });
-        failures += testLegFencedDitch(ctx, LegPressure{ "paced run reach 10", 10, 0, 2, 1 });
-        failures += testLegFencedDitch(ctx, LegPressure{ "paced walk reach 8", 8, 0, 1, 1 });
-        failures += testLegFencedDitch(ctx, LegPressure{ "paced run reach 8", 8, 0, 2, 1 });
+        failures += testLegFencedRoutes(ctx);
         failures += testLegObstructedLine(ctx);
         failures += testLegPartWayGuards(ctx);
         failures += testLegRangeFallback(ctx, false);
