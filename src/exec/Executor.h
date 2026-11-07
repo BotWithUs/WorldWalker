@@ -423,8 +423,8 @@ namespace ww::exec
         // always clicked itself), and, walking out of a tile that allows no
         // teleport, at the first target that does (so the post-step re-plan
         // onto a teleport fires where it did when every step was clicked).
-        // Only `first` when any target the hop would pass is near the
-        // Wilderness fence (isNearWildernessFence). Always `first` or later.
+        // Only `first` when the player, or any target the hop would pass, is
+        // near the Wilderness fence (isHopNearFence). Always `first` or later.
         Hop chooseHop(std::size_t first, const WwTile &from, const WwGoal &goal,
                       runtime::SearchContext &context);
 
@@ -594,6 +594,11 @@ namespace ww::exec
         // its plane. A click there hands the route to the game's pathfinder,
         // which may cut through the fenced tiles.
         bool isNearWildernessFence(const WwTile &at) const;
+
+        // Whether a click from scope.from to `target` is near the fence on a
+        // fenced run: the target near it, or the player. A click from beside
+        // a box to a target past the margin can still walk across the box.
+        bool isHopNearFence(const LegScope &scope, const WwTile &target) const;
 
         // How a Walk hop hands over to what comes next: the Chebyshev radius
         // at which it counts as done, the ticks to idle after it, and whether

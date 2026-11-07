@@ -1633,6 +1633,11 @@ namespace ww::exec
         return false;
     }
 
+    bool Executor::isHopNearFence(const LegScope &scope, const WwTile &target) const
+    {
+        return scope.isFenced && (isNearWildernessFence(target) || isNearWildernessFence(scope.from));
+    }
+
     Executor::Hop Executor::chooseHop(std::size_t first, const WwTile &from, const WwGoal &goal,
                                       runtime::SearchContext &context)
     {
@@ -1641,10 +1646,11 @@ namespace ww::exec
         // spends the same draws and a pinned seed replays the same walk.
         const int32_t leg = drawLeg();
         const LegScope scope{ from, leg, leg + kLegWindTiles, isWildernessFenced(from, goal) };
-        if (firstTarget.plane != from.plane || (scope.isFenced && isNearWildernessFence(firstTarget)))
+        if (firstTarget.plane != from.plane || isHopNearFence(scope, firstTarget))
         {
             // Another plane is no distance at all: the player is not where
-            // the plan thinks. Near the fence the hop is the next step alone.
+            // the plan thinks. Near the fence, at either end, the hop is the
+            // next step alone.
             return stepAlone(scope, first, context);
         }
         const bool isTeleBlockedHere = !runtime::isTeleportAllowed(*artifact, from.x, from.y,
@@ -1705,7 +1711,7 @@ namespace ww::exec
         // the walk on to this one cuts a box's corner. Else a tile short of
         // it is looked for, as for a step past the leg.
         const bool isStepInLeg = isWithinLeg(scope.from, target, scope.leg);
-        const bool isStepFenceClear = !scope.isFenced || !isNearWildernessFence(target)
+        const bool isStepFenceClear = !isHopNearFence(scope, target)
             || isShortestWalkClear(scope.from, target, context);
         if (isStepInLeg && isStepFenceClear)
         {
@@ -1846,7 +1852,7 @@ namespace ww::exec
     std::optional<WwTile> Executor::partWayClearOfBoxes(const LegScope &scope, const WwTile &end,
                                                         runtime::SearchContext &context) const
     {
-        if (!scope.isFenced || end.plane != scope.from.plane || !isNearWildernessFence(end))
+        if (end.plane != scope.from.plane || !isHopNearFence(scope, end))
         {
             return std::nullopt;
         }

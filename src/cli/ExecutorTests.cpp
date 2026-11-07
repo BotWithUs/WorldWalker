@@ -4276,7 +4276,9 @@ namespace ww::cli
             return false;
         }
 
-        // Adds one fenced run's walk clicks to `io`. No click near the fence
+        // Adds one fenced run's walk clicks to `io`. A click is near the fence
+        // when its target is, or the player is: a click from beside a box to
+        // a target past the margin can walk across the box too. No such click
         // may leave the game's pathfinder a walk into the Wilderness,
         // whichever of its least-step walks it takes: a click short of its
         // step (the executor's choice, boxWalks) nor a click on the step
@@ -4304,7 +4306,8 @@ namespace ww::cli
                 const std::size_t gen = static_cast<std::size_t>(hop.plan);
                 if (isFromBox || gen >= plans.size()
                     || static_cast<std::size_t>(hop.stepIndex) >= plans[gen].steps.size()
-                    || !isNearWildernessBox(ctx, hop.target) || hop.target.plane != hop.from.plane)
+                    || hop.target.plane != hop.from.plane
+                    || (!isNearWildernessBox(ctx, hop.target) && !isNearWildernessBox(ctx, hop.from)))
                 {
                     continue;
                 }
@@ -4379,7 +4382,11 @@ namespace ww::cli
         // tile beside them, leaves every click on towards the fort a walk
         // across them: the planner keeps a margin off such tiles
         // (TileSearch, kFenceMargin), and the executor looks for a tile clear
-        // of them on any least-step walk (partWayClearOfBoxes).
+        // of them on any least-step walk (partWayClearOfBoxes). A click made
+        // from beside the corner counts as near the fence even when its step
+        // lies past the margin: the margin's longer last step out of the fort
+        // can walk back across the corner (#40 review, V1), so the executor
+        // clicks one step at a time there too (isHopNearFence).
         //
         // Hops made from a box tile are counted, not failed: the harness
         // walks diagonals first and through walls, so it can cross the
