@@ -13,9 +13,11 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <iterator>
 #include <limits>
 #include <optional>
 #include <random>
+#include <span>
 #include <utility>
 
 namespace ww::exec
@@ -130,6 +132,11 @@ namespace ww::exec
         // a Wilderness box the executor clicks each planned step in turn, so
         // the game has no room to cut through.
         constexpr int32_t kWildernessMargin   = 8;
+        // Steps from the player within which isShortestWalkClear looks for
+        // the game's walks near that fence: twice the longest leg and a
+        // little, so a walk round an obstacle is still seen whole. A tile
+        // only reached by a longer walk is not shown clear.
+        constexpr int32_t kShortestWalkReach  = 2 * kLegMaxTiles + 4;
         // Ceiling of WwEvent::interactionHint: 1 + 1000 path tiles. Past that
         // an interaction is no nearer than "far".
         constexpr int32_t kMaxInteractionHint = 1001;
@@ -1627,7 +1634,7 @@ namespace ww::exec
     }
 
     Executor::Hop Executor::chooseHop(std::size_t first, const WwTile &from, const WwGoal &goal,
-                                      runtime::WorldView &view)
+                                      runtime::SearchContext &context)
     {
         const WwTile firstTarget = targetOf(plan.steps[first]);
         // Drawn before anything can cut the hop short, so every Walk hop
@@ -1638,7 +1645,7 @@ namespace ww::exec
         {
             // Another plane is no distance at all: the player is not where
             // the plan thinks. Near the fence the hop is the next step alone.
-            return stepAlone(scope, first, view);
+            return stepAlone(scope, first, context);
         }
         const bool isTeleBlockedHere = !runtime::isTeleportAllowed(*artifact, from.x, from.y,
                                                                    from.plane);
@@ -1656,13 +1663,13 @@ namespace ww::exec
             {
                 // The game's pathfinder could cut through the fence from
                 // here: only the next step.
-                return stepAlone(scope, first, view);
+                return stepAlone(scope, first, context);
             }
             // The first step's length is the player's own distance to it.
             const int32_t stepTiles = j == first ? chebyshev(from, target) : chebyshev(prev, target);
             if (!isWithinLeg(from, target, leg) || pathTiles + stepTiles > scope.budget)
             {
-                if (const std::optional<Hop> cut = cutLeg(scope, j, prev, pathTiles, stepTiles, view);
+                if (const std::optional<Hop> cut = cutLeg(scope, j, prev, pathTiles, stepTiles, context);
                     cut.has_value())
                 {
                     hop = cut;
@@ -1678,11 +1685,11 @@ namespace ww::exec
                 break;  // re-plan with teleports from here, as a step at a time did
             }
         }
-        return hop.has_value() ? *hop : stepAlone(scope, first, view);
+        return hop.has_value() ? *hop : stepAlone(scope, first, context);
     }
 
     Executor::Hop Executor::stepAlone(const LegScope &scope, std::size_t first,
-                                      runtime::WorldView &view) const
+                                      runtime::SearchContext &context) const
     {
         const WwTile target = targetOf(plan.steps[first]);
         // Off the plan only when the player is: on another plane, or farther
@@ -1696,29 +1703,54 @@ namespace ww::exec
         {
             return Hop{ first, chebyshev(scope.from, target), std::nullopt, scope.leg };
         }
-        // A tile within the leg on the straight line to the step; else the
-        // step whole, past this hop's leg but inside the cap, rather than a
-        // re-plan that would rebuild the same geometry.
-        const int32_t stepTiles = chebyshev(scope.from, target);
-        const std::optional<WwTile> part =
-            partWayAlong(scope.from, target, scope.from, scope.leg,
-                         std::numeric_limits<int32_t>::max(), scope.isFenced, view);
-        if (part.has_value())
+        // A tile short of the step: within the leg on the straight line to
+        // it, else within the ceiling a refusal may have lowered (a click
+        // past it is refused again and comes back displaced, so the ceiling
+        // would never learn), on that line or on a walk to the step (the
+        // line may cross ground nobody stands on). Near the fence every such
+        // tile may be within the margin; then one whose walks can enter no
+        // box tile the step's own walks could not, as the click on the step
+        // whole below would.
+        const FenceRule margin = scope.isFenced ? FenceRule::Margin : FenceRule::None;
+        const FenceRule walks = scope.isFenced ? FenceRule::ShortestWalk : FenceRule::None;
+        struct Search
         {
-            return Hop{ first, chebyshev(scope.from, *part), part, scope.leg };
+            bool      isOnWalk;
+            int32_t   reach;
+            FenceRule fence;
+        };
+        const Search searches[] = {
+            { false, scope.leg, margin },
+            { false, legCeilingTiles, margin },
+            { true, legCeilingTiles, margin },
+            { false, legCeilingTiles, walks },
+            { true, legCeilingTiles, walks },
+        };
+        for (const Search &search : searches)
+        {
+            const std::optional<WwTile> part = search.isOnWalk
+                ? partWayOnWalk(scope, target, search.reach, search.fence, context)
+                : partWayAlong(scope.from, target, scope.from, search.reach,
+                               std::numeric_limits<int32_t>::max(), search.fence, context);
+            if (part.has_value())
+            {
+                return Hop{ first, chebyshev(scope.from, *part), part, search.reach };
+            }
         }
-        return Hop{ first, stepTiles, std::nullopt, kLegMaxTiles };
+        // Else the step whole, past the ceiling but inside the cap, rather
+        // than a re-plan that would rebuild the same geometry.
+        return Hop{ first, chebyshev(scope.from, target), std::nullopt, kLegMaxTiles };
     }
 
     std::optional<Executor::Hop> Executor::cutLeg(const LegScope &scope, std::size_t j,
                                                   const WwTile &prev, int32_t pathTiles,
                                                   int32_t stepTiles,
-                                                  runtime::WorldView &view) const
+                                                  runtime::SearchContext &context) const
     {
         const WwTile target = targetOf(plan.steps[j]);
+        const FenceRule fence = scope.isFenced ? FenceRule::Margin : FenceRule::None;
         const std::optional<WwTile> part = partWayAlong(prev, target, scope.from, scope.leg,
-                                                        scope.budget - pathTiles, scope.isFenced,
-                                                        view);
+                                                        scope.budget - pathTiles, fence, context);
         const bool isNearlyThere =
             !part.has_value() || chebyshev(*part, target) < kLegMinRestTiles;
         if (isNearlyThere && isWithinLeg(scope.from, target, legCeilingTiles)
@@ -1735,8 +1767,8 @@ namespace ww::exec
 
     std::optional<WwTile> Executor::partWayAlong(const WwTile &start, const WwTile &end,
                                                  const WwTile &from, int32_t leg,
-                                                 int32_t pathLeft, bool isFenced,
-                                                 runtime::WorldView &view) const
+                                                 int32_t pathLeft, FenceRule fence,
+                                                 runtime::SearchContext &context) const
     {
         const int32_t len = chebyshev(start, end);
         if (len <= 1 || len == std::numeric_limits<int32_t>::max())
@@ -1755,13 +1787,65 @@ namespace ww::exec
         {
             const WwTile at = tileAlong(end, start, back, len);
             if (isWithinLeg(from, at, leg) && chebyshev(from, at) >= kLegMinPartTiles
-                && view.isStandable(at.x, at.y, at.plane)
-                && !(isFenced && isNearWildernessFence(at)))
+                && context.view.isStandable(at.x, at.y, at.plane)
+                && isClearOfFence(from, at, end, fence, context))
             {
                 return at;
             }
         }
         return std::nullopt;
+    }
+
+    std::optional<WwTile> Executor::partWayOnWalk(const LegScope &scope, const WwTile &end,
+                                                  int32_t leg, FenceRule fence,
+                                                  runtime::SearchContext &context) const
+    {
+        const runtime::WalkFence walkFence = scope.isFenced
+            ? runtime::WalkFence{ artifact->wildernessRegions(), nullptr }
+            : runtime::WalkFence{};
+        runtime::TilePath walk;
+        if (end.plane != scope.from.plane
+            || !context.tileSearch.findPath(scope.from.x, scope.from.y, end.x, end.y, end.plane,
+                                            runtime::TileSearch::kAnyArea, walkFence, walk)
+            || walk.tiles.size() < 2)
+        {
+            return std::nullopt;
+        }
+        // Furthest first, short of the step: the walk's last tile is `end`.
+        for (auto it = std::next(walk.tiles.rbegin()); it != walk.tiles.rend(); ++it)
+        {
+            const WwTile at{ it->x, it->y, end.plane };
+            if (isWithinLeg(scope.from, at, leg) && chebyshev(scope.from, at) >= kLegMinPartTiles
+                && isClearOfFence(scope.from, at, end, fence, context))
+            {
+                return at;
+            }
+        }
+        return std::nullopt;
+    }
+
+    bool Executor::isClearOfFence(const WwTile &from, const WwTile &at, const WwTile &end,
+                                  FenceRule fence, runtime::SearchContext &context) const
+    {
+        switch (fence)
+        {
+        case FenceRule::None:
+            return true;
+        case FenceRule::Margin:
+            return !isNearWildernessFence(at);
+        case FenceRule::ShortestWalk:
+            return isShortestWalkClear(from, at, end, context);
+        }
+        return false;
+    }
+
+    bool Executor::isShortestWalkClear(const WwTile &from, const WwTile &at, const WwTile &step,
+                                       runtime::SearchContext &context) const
+    {
+        return from.plane == at.plane && from.plane == step.plane
+            && !context.tileSearch.canShortestWalkEnter(
+                from.x, from.y, runtime::TilePoint{ at.x, at.y }, runtime::TilePoint{ step.x, step.y },
+                at.plane, artifact->wildernessRegions(), kShortestWalkReach);
     }
 
     Executor::Hop Executor::reachTowards(std::size_t first, const WwTile &from, int32_t leg) const
@@ -1802,7 +1886,13 @@ namespace ww::exec
         const WwTile stopTile = stop->stopAt.value_or(target);
         // Both walk clicks this makes stay within reach: the one to the stop,
         // and the fallback walk-in from the stop to the approach tile should
-        // the click from range not take (clickFromRange).
+        // the click from range not take (clickFromRange). The walk-in is
+        // measured here from the stop, and again there from where the player
+        // stands, which may be a hand-off lead short of the stop. That second
+        // check is the one that holds: where the two disagree the run
+        // re-plans from there and clicks nothing, at the cost of one re-plan.
+        // They never disagree the other way, as nothing between them lowers
+        // the ceiling (an arrived hop only raises it).
         const WwTile approach = targetOf(plan.steps[k - 1]);
         if (!isWithinLeg(from, stopTile, ioHop.leg)
             || !isWithinLeg(stopTile, approach, legCeilingTiles))
@@ -2058,7 +2148,7 @@ namespace ww::exec
                 // now, not where the last step left them (a forced move in
                 // between would put the click past the leg).
                 callbacks->readPosition(callbacks->user, &st.position);
-                Hop hop = chooseHop(i, st.position, goal, context.view);
+                Hop hop = chooseHop(i, st.position, goal, context);
                 if (hop.isOffPlan)
                 {
                     WwStatus terminal = WwStatus::Failed;

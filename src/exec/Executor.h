@@ -158,6 +158,13 @@ namespace ww::exec
         // Block the caller until the run terminates.
         WwStatus run(WwGoal goal);
 
+        // The ceiling on walk legs at this moment (drawLeg): lowered after a
+        // stuck hop, raised by arrived ones. Read by the executor tests.
+        int32_t legCeiling() const
+        {
+            return legCeilingTiles;
+        }
+
     private:
         // A same-floor crossing skipped as an open door: its transition and
         // where the player stood when it was skipped.
@@ -419,7 +426,7 @@ namespace ww::exec
         // Only `first` when any target the hop would pass is near the
         // Wilderness fence (isNearWildernessFence). Always `first` or later.
         Hop chooseHop(std::size_t first, const WwTile &from, const WwGoal &goal,
-                      runtime::WorldView &view);
+                      runtime::SearchContext &context);
 
         // What every step of one hop is measured against: the player's tile,
         // the leg drawn for the hop, its path budget, and whether the run is
@@ -438,21 +445,60 @@ namespace ww::exec
         // (partWayAlong), else nothing.
         std::optional<Hop> cutLeg(const LegScope &scope, std::size_t j, const WwTile &prev,
                                   int32_t pathTiles, int32_t stepTiles,
-                                  runtime::WorldView &view) const;
+                                  runtime::SearchContext &context) const;
+
+        // How a part-way tile must keep clear of the Wilderness fence.
+        //   None          no rule: the run is not fenced.
+        //   Margin        farther than kWildernessMargin from every box
+        //                 (isNearWildernessFence).
+        //   ShortestWalk  its walks from the player enter no box tile that the
+        //                 walks to the line's end do not (isShortestWalkClear).
+        enum class FenceRule
+        {
+            None,
+            Margin,
+            ShortestWalk,
+        };
 
         // The furthest standable tile on the line `start` -> `end`, short of
         // `end` and at most `pathLeft` tiles along it, that lies within `leg`
-        // of `from` and, when `isFenced`, clear of the Wilderness fence.
+        // of `from` and keeps clear of the Wilderness fence by `fence`.
         std::optional<WwTile> partWayAlong(const WwTile &start, const WwTile &end,
                                            const WwTile &from, int32_t leg, int32_t pathLeft,
-                                           bool isFenced, runtime::WorldView &view) const;
+                                           FenceRule fence, runtime::SearchContext &context) const;
+
+        // The furthest tile of a walk from scope.from to `end` (fenced off
+        // the Wilderness when the run is), short of `end`, that lies within
+        // `leg` of scope.from, at least kLegMinPartTiles from it, and keeps
+        // clear of the fence by `fence`. For a step whose straight line
+        // crosses ground nobody stands on.
+        std::optional<WwTile> partWayOnWalk(const LegScope &scope, const WwTile &end, int32_t leg,
+                                            FenceRule fence, runtime::SearchContext &context) const;
+
+        // Whether a click on `at`, on the way from `from` to `end`, keeps
+        // clear of the Wilderness fence by `fence`.
+        bool isClearOfFence(const WwTile &from, const WwTile &at, const WwTile &end,
+                            FenceRule fence, runtime::SearchContext &context) const;
+
+        // Whether a click on `at` hands the game's pathfinder no more of the
+        // Wilderness than a click on `step` would: no least-step walk from
+        // `from` to `at` steps onto a box tile that no least-step walk to
+        // `step` steps onto. Walls count, so the far side of the Edgeville
+        // ditch is no part of either. False when that is not shown within
+        // kShortestWalkReach steps (TileSearch::canShortestWalkEnter).
+        bool isShortestWalkClear(const WwTile &from, const WwTile &at, const WwTile &step,
+                                 runtime::SearchContext &context) const;
 
         // The hop to plan.steps[first] alone (near the Wilderness fence, on
         // another plane, or when no longer hop fits): off the plan, through
         // reachTowards, only when the step is beyond kLegMaxTiles or on
-        // another plane; otherwise the step within the leg, a tile part-way
-        // to it within the leg, or the step whole within the cap.
-        Hop stepAlone(const LegScope &scope, std::size_t first, runtime::WorldView &view) const;
+        // another plane. Otherwise, in turn: the step within the leg; a tile
+        // part-way to it within the leg; one within the leg ceiling, on the
+        // straight line or on a walk to the step (partWayOnWalk), by the
+        // margin rule and then, when fenced, the shortest-walk rule; and last
+        // the step whole within the cap.
+        Hop stepAlone(const LegScope &scope, std::size_t first,
+                      runtime::SearchContext &context) const;
 
         // A hop to plan.steps[first] alone when it is within `leg` of
         // `from`; otherwise (or on another plane) a hop marked isOffPlan, which
