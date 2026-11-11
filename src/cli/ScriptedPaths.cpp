@@ -832,6 +832,129 @@ namespace
         }
         return {"paterdomus_passage", Outcome::Pass, nullptr};
     }
+
+    constexpr std::int32_t kTownBarrier = 5259;        // AHOY_TOWN_BARRIER
+    constexpr std::int32_t kGhostsAhoyVarbit = 13497;  // AHOY_QUESTVAR, barrier free from 7
+    constexpr std::int32_t kEctoToken = 4278;          // ECTOTOKEN
+    constexpr std::uint8_t kPassOption = 0;
+    constexpr std::uint8_t kPayTollOption = 3;
+    constexpr std::int32_t kPhasmatysDockX = 3702;
+    constexpr std::int32_t kPhasmatysDockY = 3503;
+
+    // An account at Ghosts Ahoy stage `stage` holding `tokens` ecto-tokens and
+    // nothing else, so the 92-Agility low wall south of town stays shut.
+    ww::runtime::CapabilitySnapshot ghostsAhoyAt(std::int32_t stage, std::int32_t tokens)
+    {
+        ww::runtime::CapabilitySnapshot caps;
+        caps.setVarbit(kGhostsAhoyVarbit, stage);
+        caps.setItemCount(kEctoToken, tokens);
+        return caps;
+    }
+
+    // The transition records of the plan from (sx,sy,0) to (gx,gy,0) under
+    // `caps`, in order; empty when there is no route.
+    std::vector<ww::format::TransitionRecord> routeTransitions(
+        const ww::format::ArtifactReader &reader, ww::runtime::PathAssembler &assembler,
+        ww::runtime::CapabilitySnapshot &caps, std::int32_t sx, std::int32_t sy,
+        std::int32_t gx, std::int32_t gy)
+    {
+        ww::runtime::Plan plan;
+        std::vector<ww::format::TransitionRecord> out;
+        if (!assembler.assemble(sx, sy, 0, gx, gy, 0, &caps, plan))
+        {
+            return out;
+        }
+        const auto txs = reader.transitions();
+        for (const ww::runtime::Step &s : plan.steps)
+        {
+            if (s.kind == ww::runtime::StepKind::Transition && s.transitionIndex < txs.size())
+            {
+                out.push_back(txs[s.transitionIndex]);
+            }
+        }
+        return out;
+    }
+
+    // True when `route` clicks the town barrier with `option`.
+    bool crossesBarrier(const std::vector<ww::format::TransitionRecord> &route,
+                        std::uint8_t option)
+    {
+        return std::any_of(route.begin(), route.end(),
+            [option](const ww::format::TransitionRecord &tx)
+            { return tx.objectId == kTownBarrier && tx.optionIndex == option; });
+    }
+
+    // True when `route` clicks the town barrier at all.
+    bool touchesBarrier(const std::vector<ww::format::TransitionRecord> &route)
+    {
+        return std::any_of(route.begin(), route.end(),
+            [](const ww::format::TransitionRecord &tx) { return tx.objectId == kTownBarrier; });
+    }
+
+    // True when `route` lands at the Port Phasmatys charter dock.
+    bool chartersToPhasmatys(const std::vector<ww::format::TransitionRecord> &route)
+    {
+        return std::any_of(route.begin(), route.end(),
+            [](const ww::format::TransitionRecord &tx)
+            { return tx.destX == kPhasmatysDockX && tx.destY == kPhasmatysDockY; });
+    }
+
+    // Category 9 - a named route: into Port Phasmatys. The energy barrier
+    // lets a player in for 2 ecto-tokens (Pay toll) or free once Ghosts Ahoy
+    // reaches 7 (Pass), and out for nothing. Without either, the town is
+    // reached by charter ship from Port Sarim, and from just outside the west
+    // barrier there is no way in at all on baked transitions (one token short
+    // is still short). Skips on an artifact baked before the barrier rows.
+    CaseResult phasmatysBarrier(const ww::format::ArtifactReader &reader,
+                                ww::runtime::PathAssembler &assembler)
+    {
+        const auto txs = reader.transitions();
+        const bool hasBarrier = std::any_of(txs.begin(), txs.begin() + reader.bakedTransitions(),
+            [](const ww::format::TransitionRecord &tx) { return tx.objectId == kTownBarrier; });
+        if (!hasBarrier)
+        {
+            return {"phasmatys_barrier", Outcome::Skip, "the artifact predates the barrier rows"};
+        }
+        constexpr std::int32_t kOutsideX = 3646;  // west of the west barrier
+        constexpr std::int32_t kOutsideY = 3485;
+        constexpr std::int32_t kTownX = 3680;
+        constexpr std::int32_t kTownY = 3490;
+        ww::runtime::CapabilitySnapshot none = ghostsAhoyAt(0, 0);
+        if (touchesBarrier(routeTransitions(reader, assembler, none, kOutsideX, kOutsideY,
+                                            kTownX, kTownY)))
+        {
+            return {"phasmatys_barrier", Outcome::Fail, "no tokens, quest 0: barrier used"};
+        }
+        ww::runtime::CapabilitySnapshot short1 = ghostsAhoyAt(6, 1);
+        if (touchesBarrier(routeTransitions(reader, assembler, short1, kOutsideX, kOutsideY,
+                                            kTownX, kTownY)))
+        {
+            return {"phasmatys_barrier", Outcome::Fail, "1 token, quest 6: barrier used"};
+        }
+        ww::runtime::CapabilitySnapshot tokens = ghostsAhoyAt(0, 2);
+        if (!crossesBarrier(routeTransitions(reader, assembler, tokens, kOutsideX, kOutsideY,
+                                             kTownX, kTownY), kPayTollOption))
+        {
+            return {"phasmatys_barrier", Outcome::Fail, "2 tokens: no Pay toll route in"};
+        }
+        ww::runtime::CapabilitySnapshot freed = ghostsAhoyAt(7, 2);
+        if (!crossesBarrier(routeTransitions(reader, assembler, freed, kOutsideX, kOutsideY,
+                                             kTownX, kTownY), kPassOption))
+        {
+            return {"phasmatys_barrier", Outcome::Fail, "quest 7: no Pass route in"};
+        }
+        if (!crossesBarrier(routeTransitions(reader, assembler, none, kTownX, kTownY,
+                                             kOutsideX, kOutsideY), kPassOption))
+        {
+            return {"phasmatys_barrier", Outcome::Fail, "leaving: no free Pass route out"};
+        }
+        if (!chartersToPhasmatys(routeTransitions(reader, assembler, none, 3043, 3191,
+                                                  kTownX, kTownY)))
+        {
+            return {"phasmatys_barrier", Outcome::Fail, "no tokens: no charter from Port Sarim"};
+        }
+        return {"phasmatys_barrier", Outcome::Pass, nullptr};
+    }
 }
 
 int runScriptedPaths(const char *wwaPath)
@@ -854,6 +977,7 @@ int runScriptedPaths(const char *wwaPath)
             intraAreaRide(reader, view, assembler),
             portSarimBoat(reader, assembler),
             paterdomusPassage(reader, assembler),
+            phasmatysBarrier(reader, assembler),
         };
         int passed  = 0;
         int failed  = 0;
