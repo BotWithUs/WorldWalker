@@ -19092,8 +19092,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -19458,8 +19457,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Catherby",
@@ -19818,8 +19816,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -20175,8 +20172,7 @@
         "id": 36140,
         "value": 100
       }
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Charter ship - Menaphos",
@@ -20936,8 +20932,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -21120,8 +21115,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -21155,8 +21149,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -21190,8 +21183,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -21231,8 +21223,7 @@
         "id": 36140,
         "value": 100
       }
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -21266,8 +21257,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -21301,8 +21291,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -21342,8 +21331,7 @@
         "id": 2102,
         "value": 15
       }
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -21383,8 +21371,7 @@
         "id": 14042,
         "value": 1
       }
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -21600,8 +21587,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -22380,8 +22366,7 @@
         "id": 2102,
         "value": 15
       }
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -22787,8 +22772,7 @@
         "id": 14042,
         "value": 1
       }
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -47227,6 +47211,114 @@
         "level": 92
       }
     }
+  },
+  {
+    "name": "Pass",
+    "object_id": 5259,
+    "x": 3651,
+    "y": 3485,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3653,
+    "dest_y": 3485,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 13497,
+        "value": 7
+      }
+    }
+  },
+  {
+    "name": "Pay toll (2 Ecto-token)",
+    "object_id": 5259,
+    "x": 3651,
+    "y": 3485,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 3,
+    "dest_x": 3653,
+    "dest_y": 3484,
+    "dest_plane": 0,
+    "requirements": {
+      "items": [
+        {
+          "id": 4278,
+          "count": 2
+        }
+      ]
+    },
+    "extra_cost": 10
+  },
+  {
+    "name": "Pass",
+    "object_id": 5259,
+    "x": 3653,
+    "y": 3485,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3651,
+    "dest_y": 3485,
+    "dest_plane": 0
+  },
+  {
+    "name": "Pass",
+    "object_id": 5259,
+    "x": 3659,
+    "y": 3509,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3659,
+    "dest_y": 3507,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 13497,
+        "value": 7
+      }
+    }
+  },
+  {
+    "name": "Pay toll (2 Ecto-token)",
+    "object_id": 5259,
+    "x": 3659,
+    "y": 3509,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 3,
+    "dest_x": 3659,
+    "dest_y": 3506,
+    "dest_plane": 0,
+    "requirements": {
+      "items": [
+        {
+          "id": 4278,
+          "count": 2
+        }
+      ]
+    },
+    "extra_cost": 10
+  },
+  {
+    "name": "Pass",
+    "object_id": 5259,
+    "x": 3659,
+    "y": 3507,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3659,
+    "dest_y": 3509,
+    "dest_plane": 0
   },
   {
     "name": "Open",

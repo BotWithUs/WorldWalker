@@ -77,6 +77,17 @@
     ]
   },
   {
+    "name": "Charter ship - Port Phasmatys: the charter fare confirmation, if the server asks one (unverified, see README)",
+    "min_x": 3694,
+    "min_y": 3495,
+    "max_x": 3710,
+    "max_y": 3511,
+    "plane": 0,
+    "answers": [
+      "Yes"
+    ]
+  },
+  {
     "name": "Charter ship - Port Sarim: the charter fare confirmation, if the server asks one (unverified, see README)",
     "min_x": 3035,
     "min_y": 3183,
