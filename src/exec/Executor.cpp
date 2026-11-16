@@ -2,6 +2,7 @@
 
 #include "data/Transitions.h"
 #include "format/Artifact.h"
+#include "format/MoveCategory.h"
 #include "runtime/SearchContext.h"
 #include "runtime/TeleportPolicy.h"
 #include "runtime/TransitionShape.h"
@@ -1437,10 +1438,33 @@ namespace ww::exec
         }
     }
 
+    void appendChartersToDestination(std::span<const format::TransitionRecord> transitions,
+                                     std::span<const format::ChainStepRecord> chain,
+                                     const format::TransitionRecord &refused,
+                                     std::vector<uint32_t> &ioExcluded)
+    {
+        if (format::classifyMove(refused, chain) != format::MoveCategory::Charters)
+        {
+            return;
+        }
+        for (std::size_t i = 0; i < transitions.size(); ++i)
+        {
+            const format::TransitionRecord &tx = transitions[i];
+            const bool isSamePort = tx.destX == refused.destX
+                                 && tx.destY == refused.destY
+                                 && tx.destPlane == refused.destPlane;
+            if (isSamePort && format::classifyMove(tx, chain) == format::MoveCategory::Charters)
+            {
+                ioExcluded.push_back(static_cast<uint32_t>(i));
+            }
+        }
+    }
+
     void Executor::excludeForReroute(uint32_t transitionIndex,
                                      std::vector<uint32_t> &ioExcluded) const
     {
         const format::TransitionRecord &tx = artifact->transitions()[transitionIndex];
+        appendChartersToDestination(artifact->transitions(), artifact->chainSteps(), tx, ioExcluded);
         if ((tx.flags & format::kTransitionFlagGlobalOrigin) != 0)
         {
             ioExcluded.push_back(transitionIndex);

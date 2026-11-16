@@ -40,6 +40,18 @@ namespace ww::exec
                                 const format::TransitionRecord &missing,
                                 std::vector<uint32_t> &ioExcluded);
 
+    // Append to `ioExcluded` the index of every charter-ship transition in
+    // `transitions` that lands where `refused` lands (same destination tile and
+    // plane). A port the account has not unlocked refuses the voyage from every
+    // dock alike: live 2026-11-16 a refused Port Sarim -> Port Phasmatys
+    // charter was excluded on its own and the re-plan sailed from Catherby to
+    // the same port, walk after walk. `chain` is the artifact's whole
+    // chain-step pool; `refused` itself is included when it is a charter.
+    void appendChartersToDestination(std::span<const format::TransitionRecord> transitions,
+                                     std::span<const format::ChainStepRecord> chain,
+                                     const format::TransitionRecord &refused,
+                                     std::vector<uint32_t> &ioExcluded);
+
     // Drives one walk to completion (ADR 0008, 0010). Constructed with the
     // borrowed artifact, the borrowed search-context pool, and the host's
     // callback vtable; run(goal) owns the calling thread until arrival,
@@ -342,7 +354,9 @@ namespace ww::exec
 
         // Append to ioExcluded what a reroute around `transitionIndex` rules
         // out: a global transition has no loc, so only its own row; a local
-        // one takes every row on its loc (excludeTransitionsOfLoc).
+        // one takes every row on its loc (excludeTransitionsOfLoc); a charter
+        // also takes every charter to the same port
+        // (appendChartersToDestination).
         void excludeForReroute(uint32_t transitionIndex,
                                std::vector<uint32_t> &ioExcluded) const;
 
