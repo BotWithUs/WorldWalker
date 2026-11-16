@@ -19092,7 +19092,13 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -19457,7 +19463,13 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Catherby",
@@ -19816,7 +19828,13 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -20168,10 +20186,16 @@
     ],
     "extra_cost": 80,
     "requirements": {
-      "varbit_at_least": {
-        "id": 36140,
-        "value": 100
-      }
+      "varbit_at_least": [
+        {
+          "id": 36140,
+          "value": 100
+        },
+        {
+          "id": 9663,
+          "value": 1
+        }
+      ]
     }
   },
   {
@@ -20932,7 +20956,13 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -21587,7 +21617,13 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80
+    "extra_cost": 80,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -22365,6 +22401,10 @@
       "varp_at_least": {
         "id": 2102,
         "value": 15
+      },
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
       }
     }
   },
@@ -22770,6 +22810,10 @@
     "requirements": {
       "varbit": {
         "id": 14042,
+        "value": 1
+      },
+      "varbit_at_least": {
+        "id": 9663,
         "value": 1
       }
     }
@@ -46037,9 +46081,9 @@
     "dest_y": 3485,
     "dest_plane": 0,
     "requirements": {
-      "varp_at_least": {
-        "id": 2171,
-        "value": 60
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
       }
     },
     "chain": [
