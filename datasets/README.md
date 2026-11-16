@@ -464,7 +464,7 @@ interface dump reads text as ops and is not reliable for this interface.
 | Port | Marker | Name | GO_ (click) | Crew NPC (spawn) | Gate at either end |
 |---|---|---|---|---|---|
 | Port Tyras | 1 | 12 | 23 | 4654 (2145,3122) | Regicide: varp 2102 >= 15 |
-| Port Phasmatys | 2 | 13 | 24 | 4652 (3701,3503) | **disabled**: lock unknown |
+| Port Phasmatys | 2 | 13 | 24 | 4652 (3701,3503) | none (since 2026-11-11, see below) |
 | Catherby | 3 | 14 | 25 | 4656 (2794,3407) | none |
 | Shipyard | 4 | 15 | 26 | 4654 (3001,3034) | **disabled**: lock unknown |
 | Karamja (Musa Point) | 5 | 16 | 27 | 22692 (2954,3156) | none |
@@ -502,8 +502,32 @@ Musa Point take their multinpc id, on the strength of the framework's
 
 A gate applies at both ends of a trip. Cabin Fever and Regicide live only in
 varps, so the live bot takes neither port until the host supplies those
-varps. Nothing in the data says what locks Port Phasmatys or the Shipyard, so
-every row touching them stays disabled.
+varps. Nothing in the data says what locks the Shipyard, so every row
+touching it stays disabled. (V1's navigation data, below, gates the Shipyard
+on varp 2762 >= 9; that varp is not identified here, so the rows wait.)
+
+**Port Phasmatys (2026-11-11).** Enabled with no gate of its own; a trip
+still carries the other port's gate, and the Shipyard -> Port Phasmatys row
+stays disabled with the Shipyard. The evidence that nothing locks it:
+
+- Achievement 855 "Charter A Course" ("Take a trip on a charter ship to the
+  Port Phasmatys dock") lists no quest, where its neighbour 856 (the
+  ectophial) names Ghosts Ahoy.
+- The quests offer the charter as the way in for a player who has not freed
+  the barrier: Ghosts Ahoy's own items text ("ecto-tokens or charter ships to
+  enter Port Phasmatys three times") and Making History's ("2 ecto-tokens (or
+  completion of Ghosts Ahoy), or 2,600gp (1,300gp after Cabin Fever) to
+  charter ship to Port Phasmatys").
+- V1's navigation data (`rs3-nav-api` `mapdata.zip`, `areas.dat`) has a
+  charter link from every port to the dock at 3702,3503 (GO_ 24) and back,
+  each gated on membership only, plus the far port's own gate (Shipyard
+  varp 2762 >= 9, Port Tyras varp 2102 >= 15, Mos Le'Harmless varp 2326 >=
+  140, Menaphos varbit 36140 >= 100, Oo'glog varbit 14041 >= 200).
+
+The dock lands inside the town wall, so a charter is the way in for a
+player who can pay neither toll nor Agility (see "Port Phasmatys energy
+barrier" below). The dock has a `Yes` dialog zone like every enabled port.
+Port Phasmatys <-> Mos Le'Harmless has no rows (V1 has the pair).
 
 **Not verified offline.** Three things need a live read:
 
@@ -1596,7 +1620,8 @@ door deriver drops its two hops.
 the wall (62.0); with `--skill 16=1` no route, with or without `--teleports
 datasets`. The wall was the only way into the town. Nothing near the town's
 gates is a transition, so an account under 92 Agility cannot reach Port
-Phasmatys on foot until the gates are rows.
+Phasmatys on foot until the gates are rows. (They are rows since
+2026-11-11: see the next section.)
 
 **Other agility crossings left ungated.** The door deriver also makes ungated
 hops for these same-plane climb, jump and squeeze locs. None has a level in
@@ -1607,6 +1632,75 @@ the cache, so none is gated: 9300 Fence (3230,3331), 12776 Low fence
 (2587,5203 and 2588,5199), 93468 Chain (2847..2848,6163).
 
 **Not verified live:** the level 92, and that the climb lands on 3672,3458.
+
+## Port Phasmatys energy barrier (2026-11-11)
+
+Live on 2026-11-11 a walk into Port Phasmatys ended at the town gate for a
+player with no ecto-tokens; the ghost guard: "All visitors to Port
+Phasmatys must pay a toll charge of 2 Ectotokens".
+
+- **The loc.** 5259 `AHOY_TOWN_BARRIER`, placed twice: anchored at 3652,3485
+  (west wall, 1x2 north-south, outside to the west) and at 3659,3508 (the
+  wall's east-west run, 2x1, outside to the north). Both footprints are
+  blocked in the collision, and the decoder sees no option on 5259 (it drops
+  morph tables), so the bake derived nothing through either: in a bake of
+  master the only way in on foot was the 92-Agility low wall above. Shape 10
+  and the rotations (0 west, 1 north) are read off the blocked footprints;
+  the planner does not use them.
+- **The toll.** 5259 morphs on varbit 13497 `AHOY_QUESTVAR` (Ghosts Ahoy,
+  1..8): 0..6 -> 52760 "Energy Barrier" [`Pass`, -, -, `Pay toll (2
+  Ecto-token)`], 7 and above -> 52761 [`Pass`] (rs3-cs2-dumps
+  `locations.json` `morphs_1`). Ghosts Ahoy's reward is "Free passage into
+  Port Phasmatys". Ecto-token is obj 4278 `ECTOTOKEN`.
+- **Leaving is free.** The Ghosts Ahoy script (BotWithUs-Scripts
+  `GhostsAhoyMoves`) clicks `Pass` from inside at every stage and pays only
+  going in, as V1's data does, so the way out is ungated.
+
+**Rows.** Each barrier has three; the dataset has no OR, so the way in is one
+row per condition, landing one tile apart (see "Gates are ANDed"):
+
+| Barrier | Row | Option | Gate | Lands |
+|---|---|---|---|---|
+| west 3652,3485 | in from 3651,3485 | 0 `Pass` | `varbit_at_least` 13497 >= 7 | 3653,3485 |
+| west | in from 3651,3485 | 3 `Pay toll` | `items` 4278 x2, `extra_cost` 10 | 3653,3484 |
+| west | out from 3653,3485 | 0 `Pass` | none | 3651,3485 |
+| north 3659,3508 | in from 3659,3509 | 0 `Pass` | `varbit_at_least` 13497 >= 7 | 3659,3507 |
+| north | in from 3659,3509 | 3 `Pay toll` | `items` 4278 x2, `extra_cost` 10 | 3659,3506 |
+| north | out from 3659,3507 | 0 `Pass` | none | 3659,3509 |
+
+The `extra_cost` makes a player with both the quest and tokens Pass rather
+than pay (52761 has no `Pay toll` to click anyway). The rows claim both
+sides' origin tiles, so a future bake that does derive the barrier as a door
+cannot add an ungated hop beside them.
+
+**Tokens are in the currency pouch.** The `items` gate is read through the
+host's `readItemCounts` / `readItemCount`, which must report worn + carried
++ the currency pouch (inv 889 `CURRENCY_POUCH`), where ecto-tokens are kept.
+The Java bridge counted only the equipment (inv 94) and the backpack (inv
+93) up to 2026-11-11; until it adds the pouch, a player whose tokens are in
+the pouch is planned by charter or not at all, never through the toll.
+
+`wwcli path`, stage bake, to 3680,3490 (in town), every run with `--skill
+16=1` (no low wall):
+
+| From | `--item 4278=` | `--varbit 13497=` | Before | After |
+|---|---|---|---|---|
+| Canifis 3497,3477 | 0 | 0 | no route | no route |
+| Canifis 3497,3477, `--teleports datasets` | 0 | 0 | no route | 215.9, lodestone, then charter Port Khazard -> dock |
+| Canifis 3497,3477 | 2 | 0 | no route | 244.7, `Pay toll` at the west barrier |
+| Canifis 3497,3477 | 0 | 7 | no route | 234.3, `Pass` at the west barrier |
+| Canifis 3497,3477 | 1 | 6 | no route | no route |
+| Port Sarim 3043,3191 | 0 | 0 | no route | 151.3, charter Port Sarim -> dock |
+
+Out of town, 3680,3490 -> 3497,3477 `--ungated`: `Pass` at the west
+barrier, 237.4 (before: no route). `wwcli scripted` case
+`phasmatys_barrier` covers these.
+
+**Not verified live:** that `Pay toll` takes the player through in one
+click (the script's experience says so), the landing tiles, whether `Pass`
+with tokens before stage 7 charges them without `Pay toll`, and the worn
+bedsheet, which the barrier refuses ("You can't pass the barriers of Port
+Phasmatys while wearing the bedsheet"); no gate expresses it.
 
 ## How they're consumed
 
