@@ -2,6 +2,7 @@
 
 #include "c_api/worldwalker_c.h"
 #include "data/Transitions.h"
+#include "exec/Executor.h"
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
 #include "format/MoveCategory.h"
@@ -355,6 +356,53 @@ namespace
     // uses B. Excluding another row A of the same loc without the flag keeps B
     // (the plan is unchanged); with WW_PLAN_EXCLUDE_LOC_SIBLINGS no row of the
     // loc is planned.
+    // A refused charter rules out every charter to the same port and nothing
+    // else (appendChartersToDestination): for each port two or more charter
+    // rows reach, the first row's exclusion must be exactly those rows.
+    int checkCharterPorts(Suite &s)
+    {
+        const auto txs = s.reader.transitions();
+        const auto chain = s.reader.chainSteps();
+        std::vector<std::uint32_t> charters;
+        for (std::size_t i = 0; i < txs.size(); ++i)
+        {
+            if (ww::format::classifyMove(txs[i], chain) == ww::format::MoveCategory::Charters)
+            {
+                charters.push_back(static_cast<std::uint32_t>(i));
+            }
+        }
+        std::size_t ports = 0;
+        int failures = 0;
+        for (const std::uint32_t first : charters)
+        {
+            std::vector<std::uint32_t> expected;
+            for (const std::uint32_t c : charters)
+            {
+                const bool isSamePort = txs[c].destX == txs[first].destX && txs[c].destY == txs[first].destY
+                                     && txs[c].destPlane == txs[first].destPlane;
+                if (isSamePort)
+                {
+                    expected.push_back(c);
+                }
+            }
+            if (expected.size() < 2 || expected.front() != first)
+            {
+                continue;  // one case per port: only from its first charter row
+            }
+            ++ports;
+            std::vector<std::uint32_t> excluded;
+            ww::exec::appendChartersToDestination(txs, chain, txs[first], excluded);
+            if (excluded != expected)
+            {
+                ++failures;
+                std::printf("exclude: charter port %d,%d from tx%u: excluded %zu rows, expected %zu\n",
+                            txs[first].destX, txs[first].destY, first, excluded.size(), expected.size());
+            }
+        }
+        std::printf("exclude: charter ports: %zu ports reached by 2+ charters, %d failure(s)\n", ports, failures);
+        return failures;
+    }
+
     int checkSiblings(Suite &s)
     {
         const auto txs = s.reader.transitions();
@@ -535,6 +583,7 @@ int runExcludeTests(const char *wwaPath, const char *teleportDir)
         failures += checkDetours(suite);
         failures += checkSoleEntries(suite);
         failures += checkSiblings(suite);
+        failures += checkCharterPorts(suite);
         if (teleportDir != nullptr)
         {
             ww::format::ArtifactReader withTeleports(wwaPath);
