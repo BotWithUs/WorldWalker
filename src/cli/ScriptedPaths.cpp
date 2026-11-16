@@ -762,6 +762,7 @@ namespace
     constexpr std::int32_t kPassageGate = 3444;
     constexpr std::int32_t kDrezelGate = 3445;
     constexpr std::int32_t kHolyBarrier = 3443;
+    constexpr std::int32_t kMorytaniaAccessVarbit = 9663;  // MORYTANIA_ENTRY_ALLOWED
 
     // An account with Priest in Peril at `stage` and without River of Blood,
     // which keeps the tunnel 102095 shut.
@@ -812,6 +813,7 @@ namespace
             return {"paterdomus_passage", Outcome::Skip, "the artifact predates the gate rows"};
         }
         ww::runtime::CapabilitySnapshot done = priestInPerilAt(60);
+        done.setVarbit(kMorytaniaAccessVarbit, 1);
         if (!takesInOrder(routeObjects(reader, assembler, done, 3405, 9906, 3438, 9895),
                           kPassageGate, kDrezelGate))
         {
@@ -820,6 +822,14 @@ namespace
         if (!takes(routeObjects(reader, assembler, done, 3438, 9895, 3510, 3504), kHolyBarrier))
         {
             return {"paterdomus_passage", Outcome::Fail, "quest done: no barrier route to Canifis"};
+        }
+        // Quest at 60 but no Morytania access (no talk with Drezel after it):
+        // the barrier still refuses, so no route crosses it.
+        ww::runtime::CapabilitySnapshot noAccess = priestInPerilAt(60);
+        noAccess.setVarbit(kMorytaniaAccessVarbit, 0);
+        if (takes(routeObjects(reader, assembler, noAccess, 3438, 9895, 3510, 3504), kHolyBarrier))
+        {
+            return {"paterdomus_passage", Outcome::Fail, "quest done, no access: barrier used"};
         }
         ww::runtime::CapabilitySnapshot none = priestInPerilAt(0);
         if (takes(routeObjects(reader, assembler, none, 3405, 9906, 3438, 9895), kPassageGate))
@@ -948,10 +958,16 @@ namespace
         {
             return {"phasmatys_barrier", Outcome::Fail, "leaving: no free Pass route out"};
         }
-        if (!chartersToPhasmatys(routeTransitions(reader, assembler, none, 3043, 3191,
+        if (chartersToPhasmatys(routeTransitions(reader, assembler, none, 3043, 3191, kTownX, kTownY)))
+        {
+            return {"phasmatys_barrier", Outcome::Fail, "no Morytania access: charter from Port Sarim used"};
+        }
+        ww::runtime::CapabilitySnapshot access = none;
+        access.setVarbit(kMorytaniaAccessVarbit, 1);
+        if (!chartersToPhasmatys(routeTransitions(reader, assembler, access, 3043, 3191,
                                                   kTownX, kTownY)))
         {
-            return {"phasmatys_barrier", Outcome::Fail, "no tokens: no charter from Port Sarim"};
+            return {"phasmatys_barrier", Outcome::Fail, "Morytania access, no tokens: no charter from Port Sarim"};
         }
         return {"phasmatys_barrier", Outcome::Pass, nullptr};
     }
