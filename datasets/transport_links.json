@@ -18119,6 +18119,52 @@
     "dest_plane": 0
   },
   {
+    "name": "Squire ship - Void Knights' Outpost",
+    "object_id": 0,
+    "x": 3041,
+    "y": 3202,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2651,
+    "dest_y": 2673,
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3801,
+      "last_id": 3801
+    },
+    "chain": [
+      {
+        "wait": 10
+      }
+    ],
+    "members": true
+  },
+  {
+    "name": "Squire ship - Port Sarim",
+    "object_id": 0,
+    "x": 2651,
+    "y": 2674,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3041,
+    "dest_y": 3203,
+    "dest_plane": 0,
+    "npc": {
+      "first_id": 3800,
+      "last_id": 3800
+    },
+    "chain": [
+      {
+        "wait": 10
+      }
+    ],
+    "members": true
+  },
+  {
     "name": "Boats",
     "object_id": 0,
     "x": 3027,
