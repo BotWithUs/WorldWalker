@@ -57,6 +57,9 @@ namespace
         std::printf("  --op-defs <dir>             drop transport rows whose loc/NPC lacks the option they\n");
         std::printf("                              click (<dir>: rs3-cs2-dumps locations.json + npcs.json)\n");
         std::printf("  --strict-ops                with --op-defs, fail the bake on such a row instead\n");
+        std::printf("  --no-op-defs              bake without the loc/NPC definitions: skips the op\n");
+        std::printf("                              check and the climb-direction fix (ladders keep\n");
+        std::printf("                              the cache's one option)\n");
         return 2;
     }
 
@@ -72,6 +75,10 @@ namespace
         std::string opDefsDir;
         // Fail the bake on a row the op check would drop, rather than drop it.
         bool isStrictOps{false};
+        // Bake without the definitions on purpose: skips the op check and the
+        // climb-direction fix. `build` requires opDefsDir or this, never both:
+        // a bake that silently skipped them shipped the bare-Climb bug (BWU-YC3CBV).
+        bool noOpDefs{false};
         // Recorded verbatim into the provenance section. wwbuild does not shell
         // out to git to discover them: a build tool guessing at its own version
         // is how a wrong answer gets recorded confidently. The caller knows
@@ -113,6 +120,10 @@ namespace
             else if (std::strcmp(argv[i], "--strict-ops") == 0)
             {
                 outFlags.isStrictOps = true;
+            }
+            else if (std::strcmp(argv[i], "--no-op-defs") == 0)
+            {
+                outFlags.noOpDefs = true;
             }
             else if (std::strcmp(argv[i], "--op-defs") == 0)
             {
@@ -401,7 +412,7 @@ namespace
     void reportBuild(const std::string &outPath, const ww::build::CollisionModel &collision,
                      const TransitionBuildResult &tr, const ww::build::AreaGraphReport &ag,
                      const ww::build::AltLandmarksReport &alt,
-                     const ww::data::TeleportZonesModel &teleportZones)
+                     const ww::data::TeleportZonesModel &teleportZones, const BuildFlags &flags)
     {
         std::printf("build: %zu squares, %zu/%zu transitions -> %s\n",
                     collision.squares.size(), tr.finalize.kept, tr.finalize.input,
@@ -425,6 +436,11 @@ namespace
                         "option, %zu already on it, %zu with no directional option (cache option kept)\n",
                         tr.climbOps->checked, tr.climbOps->retargeted, tr.climbOps->directional,
                         tr.climbOps->undirected);
+        }
+        else if (flags.noOpDefs)
+        {
+            std::printf("  climb ops: skipped on request (--no-op-defs); derived ladders keep the "
+                        "cache's one option\n");
         }
         else
         {
@@ -457,7 +473,14 @@ namespace
     {
         if (table == nullptr)
         {
-            std::printf("  op check: skipped (pass --op-defs <rs3-cs2-dumps dir> to run it)\n");
+            if (flags.noOpDefs)
+            {
+                std::printf("  op check: skipped on request (--no-op-defs)\n");
+            }
+            else
+            {
+                std::printf("  op check: skipped (pass --op-defs <rs3-cs2-dumps dir> to run it)\n");
+            }
             return true;
         }
         ww::data::OpCheckReport report;
@@ -544,6 +567,30 @@ namespace
         }
     }
 
+    // The op-defs requirement for `build`. The definitions are the default, not
+    // an option, because omitting them is what shipped wwa-2026-10-22 with 994
+    // derived transitions on a bare `Climb` (bug BWU-YC3CBV): a bake that
+    // silently skipped the climb-direction fix looked identical to one that ran
+    // it. A bake without them is still allowed, but only by name. False after
+    // the caller has printed why.
+    bool opDefsGiven(const BuildFlags &flags)
+    {
+        if (flags.opDefsDir.empty() && !flags.noOpDefs)
+        {
+            std::fprintf(stderr, "wwbuild build: --op-defs <rs3-cs2-dumps dir> is required "
+                                 "(derived ladders otherwise click a bare 'Climb' that opens an "
+                                 "unanswered chooser); pass --no-op-defs to bake without it\n");
+            return false;
+        }
+        if (!flags.opDefsDir.empty() && flags.noOpDefs)
+        {
+            std::fprintf(stderr, "wwbuild build: --op-defs and --no-op-defs contradict each "
+                                 "other; give one or the other\n");
+            return false;
+        }
+        return true;
+    }
+
     int runBuild(int argc, char **argv)
     {
         if (argc < 5)
@@ -557,6 +604,10 @@ namespace
         if (!parseFlags(argc, argv, 5, flags))
         {
             return usage();
+        }
+        if (!opDefsGiven(flags))
+        {
+            return 1;
         }
         try
         {
@@ -575,10 +626,22 @@ namespace
                 return 1;
             }
             // Loaded once: the op check reads it now, the vertical deriver
-            // after the cache decode.
+            // after the cache decode. readDefinitions would fail on a missing
+            // locations.json with a plain "cannot open"; name the file and the
+            // expectation here, because "that directory is a cache dir, not the
+            // definitions dump" is the usual reason for landing here.
             std::optional<ww::data::OpTable> opTable;
             if (!flags.opDefsDir.empty())
             {
+                const std::filesystem::path locDefs =
+                    std::filesystem::path(flags.opDefsDir) / "locations.json";
+                if (!std::filesystem::exists(locDefs))
+                {
+                    std::fprintf(stderr, "wwbuild build: --op-defs directory %s has no "
+                                         "locations.json (expected the rs3-cs2-dumps export)\n",
+                                 flags.opDefsDir.c_str());
+                    return 1;
+                }
                 opTable = ww::data::loadOpTable(flags.opDefsDir);
             }
             const ww::data::OpTable *opTablePtr = opTable.has_value() ? &*opTable : nullptr;
@@ -629,7 +692,7 @@ namespace
                          landmarks, teleportZones, datasets.dialogZones, datasets.f2pZones,
                          deriveCacheRevision(cacheDir), tr.datasetHash);
 
-            reportBuild(outPath, collision, tr, ag, alt, teleportZones);
+            reportBuild(outPath, collision, tr, ag, alt, teleportZones, flags);
             if (!passesFreeToPlayCheck(outPath, datasetDir, datasets.f2pZones, tr.transitions))
             {
                 return 1;
