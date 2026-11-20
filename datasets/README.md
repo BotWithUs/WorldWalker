@@ -175,6 +175,70 @@ transition's cost in the planner's units, where a tile of walking costs about
 as a fare. A `wait` would tell the planner the same thing but make the bot
 actually stand still for it.
 
+## Chain steps
+
+A teleport row's `chain` is an array of steps the host runs in order. Each
+step is one object naming its kind; the field mappings ride to the host in
+nine integer slots (`c_api/worldwalker_c.h`, `runChainStep`). A loader
+refuses a malformed step value (a non-integer, an out-of-range wait) the way
+it refuses a malformed gate.
+
+- `wait: ticks` - sleep. 0..50 ticks.
+- `wait_interface: id` - block until interface `id` is open; the executor
+  times the wait out and re-plans rather than hanging.
+- `click: [interface, component, option, sub?]` - a component click.
+- `action: [actionId, param1, param2, param3]` - a raw queued action.
+- `click_item: {worn?: [iface, comp, option, sub], backpack?: [...],
+  worn_direct?, backpack_special?}` - click a teleport item that may be worn
+  or carried; the executor picks the variant from the live containers.
+- `dialogue_select: {interface?, index?, per_page?, next_comp?, wait_ticks?,
+  text?}` - pick an option in an open dialogue. `index` is the position. The
+  optional `text` is the option's text to pick instead: 1..16 printable ASCII
+  bytes, the loader packs it into the four slots after the descriptors; a
+  host that knows the contract picks the first option whose text contains it
+  (case-insensitive) and selects nothing when none does (never a guessed
+  position, which could teleport somewhere else); an older host
+  ignores it and picks `index`. Use `text` wherever the list is not fixed:
+  Dave's spellbook's chooser lists only the destinations that still have
+  charges, so position 3 is West Ardougne only when nothing is spent. A text
+  that is empty, longer than 16 bytes, or not ASCII fails the load rather
+  than reaching the host as a different pick. No artifact format version
+  bump is needed for `text`: the four slots already exist in every baked
+  record and travel unchanged; a host that predates it uses the index.
+- `npc` rows open their chain with a loader-built `ClickNpc`; do not write
+  one.
+
+## Dave's spellbook (item 42604)
+
+Six rows, one per chipped destination, modelled on the Skills necklace rows
+(`click_item`, `wait_interface 720`, `dialogue_select`, `wait 12`) and the
+Archaeology journal row (the book is pocket-worn like that journal: worn op
+1 `Teleport` is equipment option 2 on layer 1464 sub-slot 17; carried,
+`Teleport` is inventory action 1, op 1; no `worn_direct` - the worn op opens
+the same 720 chooser, it does not teleport straight). Each row is gated on
+holding the book AND `varbit_at_least` its destination's charge counter
+(42120..42125, one per destination, >= 1), the game's own condition for the
+option to have a charge.
+
+The `index` values are V1 TreasureTrails' fixed list order (Watchtower,
+Camelot, Falador, Ardougne, Lumbridge, Varrock) and are a guess at the full
+list's positions - V1 opened the book on a full-charge account. They are the
+fallback for a host that predates `text` only; the `text` pick is the real identity, which is the point of
+the feature (BWU-FVPXRW: the walker never used the book for West Ardougne
+because the 720 chooser may list fewer entries than the V1 list).
+
+The `cost` field is the legacy nav-stack unit (360, as every other
+item-teleport row with a 720 chooser carries) and the loader ignores it;
+the real cost is the chain's waits.
+
+**The landing tiles are approximations.** Nothing we can read publishes
+where the book lands (the wiki does not list them). Observatory 2442,3163;
+Catherby docks 2796,3416; Falador south gate 3006,3320; West Ardougne plaza
+2529,3305; Lumbridge Swamp 3180,3165; Varrock Museum 3259,3440. `wwcli
+check` proves each lands in a seedable area near the intended destination,
+not that it is the real landing spot. Correct them from the first live log
+that uses a row.
+
 ## Op check
 
 A row's `option_index` must name an option its origin has: for a loc row, an
