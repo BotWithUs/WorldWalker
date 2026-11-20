@@ -496,6 +496,14 @@ typedef struct WwArea
      - ww_executor_run_opts also clicks around them as it clicks around the
        Wilderness: near one it clicks a step at a time, and only where no
        least-step walk the game's pathfinder could take reaches a box tile.
+       Each such click is judged from where the player stands, so near one
+       it stops on each hop's tile first (no lead: a player still walking
+       carries on a tile or two before a new click's walk takes). RESIDUAL
+       RISK: the walk itself is the game's; it is judged against the
+       artifact's collision, so a blocker the artifact does not hold (a
+       spawned loc, an NPC in the way), a forced move or a dropped click can
+       still put the player on an area tile. The next re-plan then walks
+       out of it the cheapest way.
    The START and GOAL are exempt: an area that contains the start tile or the
    goal tile is not applied to that plan (otherwise a walk could never leave
    or reach the tile). The other areas still are. Each re-plan of a run

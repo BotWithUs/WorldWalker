@@ -269,6 +269,18 @@ namespace ww::cli
             bool                    hasWalkGoal;
             exec::WwTile            walkGoal;
             int                     ticksSlept;
+            // With tilesPerTick: every tile the paced walk stepped onto, in
+            // order, so a test can see the tiles between two polls.
+            std::vector<exec::WwTile> trail;
+            // With tilesPerTick and walkStartDelayTicks: when set, the player
+            // keeps walking the previous click through the delay, as the game
+            // carries a moving player on until the new walk takes, instead of
+            // standing. walkStarts holds, for every click, the tile the player
+            // stood on when its walk took, and the tile clicked.
+            bool                    keepsWalkingOnDelay;
+            bool                    hasPendingGoal;
+            exec::WwTile            pendingGoal;
+            std::vector<std::pair<exec::WwTile, exec::WwTile>> walkStarts;
             // SimulateTransition: a chain click on one of these interfaces does
             // not move the player, as the server answers a teleport it refuses
             // ("This teleport has vanished."). inertClicks counts those clicks
@@ -742,7 +754,14 @@ namespace ww::cli
             }
             const bool isWalkingMode = h->mode == ExecHarnessMode::SimulateInstantWalk
                                     || h->mode == ExecHarnessMode::SimulateTransition;
-            if (isWalkingMode && h->tilesPerTick > 0)
+            if (isWalkingMode && h->tilesPerTick > 0 && h->keepsWalkingOnDelay)
+            {
+                h->pendingGoal = target;
+                h->hasPendingGoal = true;
+                h->isWalkingUpToLoc = false;
+                h->walkDelayLeft = h->walkStartDelayTicks;
+            }
+            else if (isWalkingMode && h->tilesPerTick > 0)
             {
                 h->walkGoal = target;
                 h->hasWalkGoal = !isSameTile(h->position, target);
@@ -1104,10 +1123,21 @@ namespace ww::cli
         // diagonal step moves both axes) towards walkGoal, stopping on it.
         void walkOneTick(ExecHarness *h)
         {
-            if (h->walkDelayLeft > 0)
+            const bool isDelayed = h->walkDelayLeft > 0;
+            if (isDelayed)
             {
                 --h->walkDelayLeft;
-                return;
+                if (!h->keepsWalkingOnDelay)
+                {
+                    return;
+                }
+            }
+            else if (h->hasPendingGoal)
+            {
+                h->hasPendingGoal = false;
+                h->walkGoal = h->pendingGoal;
+                h->hasWalkGoal = !isSameTile(h->position, h->walkGoal);
+                h->walkStarts.emplace_back(h->position, h->walkGoal);
             }
             for (int t = 0; t < h->tilesPerTick && h->hasWalkGoal; ++t)
             {
@@ -1117,6 +1147,7 @@ namespace ww::cli
                 h->position.y += (dy > 0) - (dy < 0);
                 h->position.plane = h->walkGoal.plane;
                 h->hasWalkGoal = !isSameTile(h->position, h->walkGoal);
+                h->trail.push_back(h->position);
             }
             if (h->isWalkingUpToLoc && !h->hasWalkGoal)
             {
@@ -4367,8 +4398,9 @@ namespace ww::cli
         // Wilderness box tile, `to` included. A walk of fewest steps passes a
         // tile exactly when the steps out to it and on from it add up to the
         // walk's length; every tile of the window is looked at.
-        bool canGameWalkEnterBox(ExecContext &ctx, const exec::WwTile &from, const exec::WwTile &to,
-                                 bool &outUnsettled)
+        template <typename IsInBox>
+        bool canGameWalkEnter(ExecContext &ctx, const exec::WwTile &from, const exec::WwTile &to,
+                              const IsInBox &isInBox, bool &outUnsettled)
         {
             const std::vector<std::int32_t> out = gameWalkSteps(ctx.view, from, from, false);
             const std::vector<std::int32_t> into = gameWalkSteps(ctx.view, to, from, true);
@@ -4385,13 +4417,21 @@ namespace ww::cli
                 {
                     const exec::WwTile t{ x, y, from.plane };
                     const std::size_t c = static_cast<std::size_t>(gameWalkCell(t, from));
-                    if (out[c] >= 0 && into[c] >= 0 && out[c] + into[c] == walk && isInWildernessBox(ctx, t))
+                    if (out[c] >= 0 && into[c] >= 0 && out[c] + into[c] == walk && isInBox(t))
                     {
                         return true;
                     }
                 }
             }
             return false;
+        }
+
+        bool canGameWalkEnterBox(ExecContext &ctx, const exec::WwTile &from, const exec::WwTile &to,
+                                 bool &outUnsettled)
+        {
+            return canGameWalkEnter(ctx, from, to,
+                                    [&](const exec::WwTile &t) { return isInWildernessBox(ctx, t); },
+                                    outUnsettled);
         }
 
         // Adds one fenced run's walk clicks to `io`. A click is near the fence
@@ -4439,6 +4479,173 @@ namespace ww::cli
                 io.stepWalks += (isEntering && isWholeStep && !isOffGround) ? 1 : 0;
                 io.offGround += (isWholeStep && isOffGround) ? 1 : 0;
             }
+        }
+
+        // One avoid box across a short walk, as the live client test lays it:
+        // a 7x3 box across the middle of a straight 14-tile leg.
+        struct PacedAvoidCase
+        {
+            const char              *label;
+            exec::WwTile             start;
+            exec::WwGoal             goal;
+            format::WildernessRegion box;
+        };
+
+        // How hard a paced avoid run presses: the game's pace, and the ticks
+        // after a click before the new walk takes (the player walks the old
+        // one meanwhile, keepsWalkingOnDelay).
+        struct PacedAvoidPace
+        {
+            const char *label;
+            int         tilesPerTick;
+            int         startDelayTicks;
+        };
+
+        // What the paced avoid runs saw, over every seed of one case and pace.
+        struct PacedAvoidTally
+        {
+            int          runs;
+            int          notArrived;
+            int          runsInBox;    // runs whose walking player stepped onto a box tile
+            int          trailInBox;   // the box tiles stepped onto, over every run
+            int          clicksInBox;  // walk clicks aimed at a box tile
+            int          walksInBox;   // walks with a least-step game walk, from where they took, into the box
+            int          unsettled;    // walks the game-walk window could not settle
+            exec::WwTile firstInBox;
+            exec::WwTile firstWalkFrom;
+            exec::WwTile firstWalkTo;
+        };
+
+        // Adds one finished run's walk to `io`: the tiles it stepped onto, the
+        // tiles it clicked, and every least-step game walk from the tile each
+        // click's walk took on, against the game's own collision.
+        void tallyPacedAvoid(ExecContext &ctx, const ExecHarness &harness,
+                             const format::WildernessRegion &box, PacedAvoidTally &io)
+        {
+            const auto isInBox = [&](const exec::WwTile &t) { return isNearBox(box, t, 0); };
+            const auto inTrail = std::find_if(harness.trail.begin(), harness.trail.end(), isInBox);
+            if (inTrail != harness.trail.end() && io.runsInBox == 0)
+            {
+                io.firstInBox = *inTrail;
+            }
+            io.runsInBox += inTrail != harness.trail.end() ? 1 : 0;
+            io.trailInBox += static_cast<int>(std::count_if(harness.trail.begin(), harness.trail.end(), isInBox));
+            for (const HopRecord &hop : harness.hops)
+            {
+                io.clicksInBox += (hop.isClicked && isInBox(hop.target)) ? 1 : 0;
+            }
+            for (const auto &[from, to] : harness.walkStarts)
+            {
+                bool isUnsettled = false;
+                const bool isEntering = !isInBox(from) && canGameWalkEnter(ctx, from, to, isInBox, isUnsettled);
+                if (isEntering && io.walksInBox == 0)
+                {
+                    io.firstWalkFrom = from;
+                    io.firstWalkTo = to;
+                }
+                io.walksInBox += isEntering ? 1 : 0;
+                io.unsettled += isUnsettled ? 1 : 0;
+            }
+        }
+
+        void runPacedAvoidSeed(ExecContext &ctx, const PacedAvoidCase &c, const PacedAvoidPace &pace,
+                               std::uint32_t seed, PacedAvoidTally &io)
+        {
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk, c.start.x,
+                                              c.start.y, c.start.plane);
+            harness.tilesPerTick = pace.tilesPerTick;
+            harness.walkStartDelayTicks = pace.startDelayTicks;
+            harness.keepsWalkingOnDelay = true;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+            exec::Executor executor(ctx.reader, ctx.pool, cb, seed, 0u, {}, { c.box });
+            harness.executor = &executor;
+            const exec::WwStatus status = executor.run(c.goal);
+            harness.executor = nullptr;
+            ++io.runs;
+            io.notArrived += (status == exec::WwStatus::Arrived && harness.unexpectedActions == 0) ? 0 : 1;
+            tallyPacedAvoid(ctx, harness, c.box, io);
+        }
+
+        // Prints one case and pace; returns 1 unless every run arrived clean.
+        std::size_t reportPacedAvoid(const PacedAvoidCase &c, const PacedAvoidPace &pace,
+                                     const PacedAvoidTally &tally)
+        {
+            std::printf("  exec:   avoided-area-paced %s %s box (%d..%d,%d..%d): runs=%d"
+                        " not-arrived=%d runs-in-box=%d tiles-in-box=%d clicks-in-box=%d"
+                        " game-walks-into-box=%d unsettled=%d (expect 0 each)\n",
+                        c.label, pace.label, c.box.minX, c.box.maxX, c.box.minY, c.box.maxY,
+                        tally.runs, tally.notArrived, tally.runsInBox, tally.trailInBox,
+                        tally.clicksInBox, tally.walksInBox, tally.unsettled);
+            if (tally.runsInBox > 0 || tally.walksInBox > 0)
+            {
+                std::printf("  exec:     first tile in box (%d,%d); first game walk into it"
+                            " (%d,%d)->(%d,%d)\n",
+                            tally.firstInBox.x, tally.firstInBox.y, tally.firstWalkFrom.x,
+                            tally.firstWalkFrom.y, tally.firstWalkTo.x, tally.firstWalkTo.y);
+            }
+            const bool isClean = tally.notArrived == 0 && tally.runsInBox == 0 && tally.clicksInBox == 0
+                && tally.walksInBox == 0 && tally.unsettled == 0;
+            return isClean ? 0u : 1u;
+        }
+
+        format::WildernessRegion planeZeroBox(std::int32_t minX, std::int32_t minY, std::int32_t maxX,
+                                              std::int32_t maxY)
+        {
+            format::WildernessRegion box{};
+            box.minX = minX;
+            box.minY = minY;
+            box.maxX = maxX;
+            box.maxY = maxY;
+            return box;
+        }
+
+        // Test 4z4: an avoid box across a short walk, with the player walked
+        // at the game's pace (W2, JBotWithUsV2 #156 live: one walk in three
+        // was sampled on box tile 3212,3276 though the plan avoided the box).
+        // castle-north is the live run's box and leg; castle-south the leg the
+        // PR quotes. The executor hands a hop over with a lead, so the next
+        // click is judged from a tile the player is still walking off: the
+        // game carries them a tile or two on before the new walk takes, and
+        // beside a box that tile decides whether the walk clips its corner.
+        // The harness walks each click diagonal first, tile by tile, from
+        // where the player is when the walk takes. Failure: a run that does
+        // not arrive, any tile walked inside the box, any click into it, or
+        // any walk with a least-step game walk (the game's collision) from
+        // where it took into the box.
+        std::size_t testAvoidedAreaPaced(ExecContext &ctx)
+        {
+            const PacedAvoidCase cases[] = {
+                { "castle-north", { 3214, 3283, 0 }, { 3214, 3269, 0, 0 }, planeZeroBox(3211, 3275, 3217, 3277) },
+                { "castle-south", { 3215, 3256, 0 }, { 3215, 3270, 0, 0 }, planeZeroBox(3212, 3262, 3218, 3264) },
+            };
+            const PacedAvoidPace paces[] = {
+                { "run", 2, 0 },
+                { "run+1", 2, 1 },
+                { "run+2", 2, 2 },
+                { "walk+1", 1, 1 },
+            };
+            std::size_t failures = 0;
+            for (const PacedAvoidCase &c : cases)
+            {
+                runtime::Plan avoiding;
+                if (!planLikeExecutor(ctx, c.start, c.goal, avoiding, 0u, { &c.box, 1u }))
+                {
+                    std::printf("  exec:   avoided-area-paced %s: no avoiding plan (expect one)\n", c.label);
+                    ++failures;
+                    continue;
+                }
+                for (const PacedAvoidPace &pace : paces)
+                {
+                    PacedAvoidTally tally{};
+                    for (std::uint32_t seed = 1; seed <= kStrideSeeds; ++seed)
+                    {
+                        runPacedAvoidSeed(ctx, c, pace, seed, tally);
+                    }
+                    failures += reportPacedAvoid(c, pace, tally);
+                }
+            }
+            return failures;
         }
 
         struct FencedRoute
@@ -6013,6 +6220,7 @@ namespace ww::cli
         failures += testDisabledMoves(ctx);
         failures += testExcludedTransitions(ctx, artifactPath);
         failures += testAvoidedArea(ctx);
+        failures += testAvoidedAreaPaced(ctx);
         failures += testFortWalkReplay(ctx);
         failures += testLegRandomRoutes(ctx);
         failures += testLegDoorRoute(ctx);

@@ -644,8 +644,20 @@ namespace ww::exec
         // walk of a radius-0 goal (the ARRIVED contract demands the exact
         // tile, not its neighbour), else kArrivalChebyshev.
         // `isPartWay` (the hop ends short of step i, see executeStep) counts
-        // as another Walk following.
-        Handoff handoffFor(std::size_t i, const WwGoal &goal, const WwTile &from, bool isPartWay);
+        // as another Walk following. When another Walk follows and the click
+        // after this hop is near the fence (isNextClickNearFence), the hop
+        // arrives on `hopEnd` (radius 0, no lead), idling only on a drawn
+        // full stop: that click is judged from where the player stands, so
+        // the player must be standing there and not still walking.
+        Handoff handoffFor(std::size_t i, const WwGoal &goal, const WwTile &from,
+                           const WwTile &hopEnd, bool isPartWay);
+
+        // Whether the Walk click after a hop ending on `hopEnd` (part-way
+        // along step i, or on it with step i + 1 a Walk) is judged near the
+        // fence: the hop's end or that click's step within kWildernessMargin
+        // of a box of the fence judged at `hopEnd`.
+        bool isNextClickNearFence(std::size_t i, const WwGoal &goal, const WwTile &hopEnd,
+                                  bool isPartWay) const;
 
         // The radius a hop's poll tests against: a leading handoff's lead,
         // raised to one tile past a tick of travel at tilesPerTick, so a
