@@ -1557,7 +1557,7 @@ namespace ww::exec
     }
 
     Executor::Handoff Executor::handoffFor(std::size_t i, const WwGoal &goal, const WwTile &from,
-                                           bool isPartWay)
+                                           const WwTile &hopEnd, bool isPartWay)
     {
         // A leg that ends part-way along step i is followed by the rest of
         // that same step, a Walk.
@@ -1570,6 +1570,16 @@ namespace ww::exec
             const bool isFullStop = drawBetween(rng, 0, 99) < kFullStopPercent;
             const int32_t lead = drawBetween(rng, kLeadMinTiles, kLeadMaxTiles);
             const int32_t idle = drawBetween(rng, 0, kFullStopMaxIdleTicks);
+            if (isNextClickNearFence(i, goal, hopEnd, isPartWay))
+            {
+                // The next click is judged from the tile the player stands
+                // on, and near a box one tile decides whether the game's walk
+                // clips its corner. A player still walking this hop when that
+                // click is made carries on a tile or two before the new walk
+                // takes (W2, JBot #156 live: box tile 3212,3276 walked
+                // through), so arrive on the tile and stop first.
+                return Handoff{ 0, isFullStop ? idle : 0, false };
+            }
             if (isFullStop)
             {
                 return Handoff{ drawBetween(rng, 0, kArrivalChebyshev), idle, false };
@@ -1591,6 +1601,19 @@ namespace ww::exec
             return Handoff{ 0, 0, false };
         }
         return Handoff{ kArrivalChebyshev, 0, false };
+    }
+
+    bool Executor::isNextClickNearFence(std::size_t i, const WwGoal &goal, const WwTile &hopEnd,
+                                        bool isPartWay) const
+    {
+        bool isFenced = false;
+        const std::vector<format::WildernessRegion> boxes = fenceBoxesAt(hopEnd, goal, isFenced);
+        if (!isFenced)
+        {
+            return false;
+        }
+        const WwTile next = targetOf(plan.steps[isPartWay ? i : i + 1]);
+        return isNearFence(hopEnd, boxes) || isNearFence(next, boxes);
     }
 
     int32_t Executor::drawLeg()
@@ -2090,7 +2113,7 @@ namespace ww::exec
             walk.targetX = stopAt->x;
             walk.targetY = stopAt->y;
         }
-        Handoff handoff = handoffFor(i, goal, outPosition, isPartWay);
+        Handoff handoff = handoffFor(i, goal, outPosition, targetOf(walk), isPartWay);
         if (isPartWay && chebyshev(outPosition, *stopAt) <= handoffRadius(handoff))
         {
             // A lead as long as the hop would hand off before the player moved.
