@@ -73,13 +73,22 @@ param(
     # Loc and NPC definitions for the op check (a checkout of rs3-cs2-dumps:
     # locations.json + npcs.json). Defaults to ..\rs3-cs2-dumps beside the repo.
     # With it, the bake drops every transport row whose loc or NPC lacks the
-    # option it clicks, and prints them by family. Without it the check is
-    # skipped and says so.
+    # option it clicks, prints them by family, and retargets every derived
+    # ladder to the option for its direction. The bake refuses to run without
+    # them unless -NoOpDefs says the skip is on purpose.
     [string] $OpDefs = "",
 
     # Fail the bake on a row the op check would drop, instead of dropping it.
     # For reviewing a dataset change; `wwbuild opcheck` does the same in seconds.
-    [switch] $StrictOps
+    [switch] $StrictOps,
+
+    # Bake without the op-check definitions on purpose: skips the op check AND
+    # the climb-direction fix, so derived ladders keep the cache's single option
+    # and clicking one can open an up/down chooser nothing answers. The defaults
+    # now require -OpDefs because wwa-2026-10-22 shipped without it and players
+    # looped at the Grand Tree ladder (bug BWU-YC3CBV). Use this only for a
+    # deliberate no-cache bake.
+    [switch] $NoOpDefs
 )
 
 $ErrorActionPreference = "Stop"
@@ -203,11 +212,26 @@ if ($isLive) { $bakeArgs += "--live" }
 if ($sourceVersion)  { $bakeArgs += @("--source-version", $sourceVersion) }
 if ($datasetVersion) { $bakeArgs += @("--dataset-version", $datasetVersion) }
 $hasOpDefs = Test-Path (Join-Path $OpDefs "locations.json")
-if ($hasOpDefs) {
+if ($NoOpDefs -and $StrictOps) {
+    Fail "-NoOpDefs and -StrictOps contradict each other: strict op checking needs the definitions -NoOpDefs skips" 2
+}
+if ($NoOpDefs) {
+    # An explicit -NoOpDefs outranks definitions that merely happen to sit at
+    # the default path: the flag is the caller saying "this bake skips them".
+    $bakeArgs += "--no-op-defs"
+} elseif ($hasOpDefs) {
     $bakeArgs += @("--op-defs", $OpDefs)
     if ($StrictOps) { $bakeArgs += "--strict-ops" }
-} elseif ($StrictOps) {
-    Fail "-StrictOps needs the op-check definitions, and $OpDefs has no locations.json" 2
+} else {
+    Fail @"
+No op-check definitions at $OpDefs (locations.json missing).
+
+Point -OpDefs at a checkout of rs3-cs2-dumps (the default is ..\rs3-cs2-dumps
+beside this repo), or pass -NoOpDefs to bake without them. Without the
+definitions wwbuild cannot run the op check or the climb-direction fix, so
+derived ladders click the cache's bare 'Climb' and the executor stalls on the
+chooser it opens.
+"@ 2
 }
 
 Write-Step "Baking $Out"
@@ -224,7 +248,11 @@ if ($isLive) {
 }
 Write-Host "    source:   $(if ($sourceVersion) { $sourceVersion } else { '(unrecorded)' })"
 Write-Host "    datasets: $DatasetDir @ $(if ($datasetVersion) { $datasetVersion } else { '(unrecorded)' })"
-Write-Host "    op defs:  $(if ($hasOpDefs) { $OpDefs } else { "(none at $OpDefs -- op check skipped)" })"
+if ($NoOpDefs) {
+    Write-Host "    op defs:  (skipped on request: -NoOpDefs -- op check and climb-direction fix skipped)"
+} else {
+    Write-Host "    op defs:  $OpDefs"
+}
 
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 & $WwBuild @bakeArgs

@@ -29,6 +29,7 @@ writes the provenance sidecar beside it, and runs the acceptance check.
 |---|---|
 | **RS3 cache** | `C:\ProgramData\Jagex\RuneScape` — the **NXT client's own cache**. Any machine with RS3 installed already has it. Nothing needs to be handed over. |
 | **Datasets** | `datasets\` in this repo. Tracked, version-controlled, human-editable. See `datasets/README.md`. |
+| **Op definitions** | A checkout of **rs3-cs2-dumps** (`locations.json`, `npcs.json`), by default `..\rs3-cs2-dumps` beside this repo. `bake.ps1` passes it as `--op-defs`; without it `wwbuild build` refuses to bake unless `--no-op-defs` says the skip is on purpose (see `datasets/README.md`, "Climb direction"). |
 | **`wwbuild.exe` / `wwcli.exe`** | `cmake -B build && cmake --build build --config Release`, from a vcvars64 shell. |
 | **`NXTCache.dll`** | Built by the sibling **NXTCacheLibrary** repo; `cmake.toml` imports it from `..\NXTCacheLibrary\build\<CONFIG>\`. |
 
