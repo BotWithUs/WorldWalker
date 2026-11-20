@@ -32,9 +32,13 @@ namespace ww::runtime
     // not parse is left out and named on stderr instead of failing the load
     // (data::RowFaultPolicy::ExcludeRow); when `outExcluded` is non-null it
     // receives those rows (replaced, not appended to), empty when none were.
+    // When `outNames` is non-null it receives each appended teleport's dataset
+    // "name" (replaced, not appended to), element i naming transition
+    // bakedTransitions() + i; the artifact itself keeps no names.
     std::size_t loadGlobalTeleportsInto(format::ArtifactReader &reader,
                                          const std::string &directory,
-                                         std::vector<data::ExcludedRow> *outExcluded = nullptr);
+                                         std::vector<data::ExcludedRow> *outExcluded = nullptr,
+                                         std::vector<std::string> *outNames = nullptr);
 
     // At most this many excluded rows are spelled out by describeExcludedRows;
     // the rest are counted. Keeps the ww_last_error text bounded however badly

@@ -102,6 +102,14 @@ namespace ww::runtime
         {
             return false;
         }
+        // No step may land on a fenced tile, so a goal on one is reached only
+        // by not moving; refused here rather than after the whole budget.
+        const bool isGoalFenced = (startX != goalX || startY != goalY)
+            && isInAnyBox(currentFence.boxes, goalX, goalY, plane);
+        if (isGoalFenced)
+        {
+            return false;
+        }
         if (areaConstraint < 0)
         {
             return true;
@@ -118,7 +126,7 @@ namespace ww::runtime
     float TileSearch::fenceMarginCost(int32_t x, int32_t y, int32_t plane) const
     {
         int32_t area = -1;
-        for (const format::WildernessRegion &w : currentFence.wilderness)
+        for (const format::WildernessRegion &w : currentFence.boxes)
         {
             const int32_t loX = std::max(x - kFenceMargin, w.minX);
             const int32_t hiX = std::min(x + kFenceMargin, w.maxX);
@@ -170,8 +178,8 @@ namespace ww::runtime
         {
             return false;
         }
-        if (!currentFence.wilderness.empty()
-            && isInWilderness(currentFence.wilderness, outNx, outNy, plane))
+        if (!currentFence.boxes.empty()
+            && isInAnyBox(currentFence.boxes, outNx, outNy, plane))
         {
             return false;
         }

@@ -94,6 +94,33 @@ namespace ww::runtime
         return isInWilderness(reader.wildernessRegions(), x, y, plane);
     }
 
+    // Whether (x, y, plane) lies inside any of `boxes`. The test is the
+    // Wilderness one above; the boxes may be a query's avoid areas instead.
+    inline bool isInAnyBox(std::span<const format::WildernessRegion> boxes,
+                           int32_t x, int32_t y, int32_t plane)
+    {
+        return isInWilderness(boxes, x, y, plane);
+    }
+
+    // Whether taking the transition starts or lands inside one of `boxes`:
+    // its landing, or its origin unless it is a global teleport (cast
+    // wherever the player stands, so only its landing counts). The shared
+    // rule for the Wilderness boxes and a query's avoid areas.
+    inline bool touchesBoxes(std::span<const format::WildernessRegion> boxes,
+                             const format::TransitionRecord &tx)
+    {
+        if (boxes.empty())
+        {
+            return false;
+        }
+        if (isInAnyBox(boxes, tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane)))
+        {
+            return true;
+        }
+        return (tx.flags & format::kTransitionFlagGlobalOrigin) == 0u
+            && isInAnyBox(boxes, tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane));
+    }
+
     // Whether taking the transition puts the player in the Wilderness or starts
     // there: its landing or its origin lies in a region. A global teleport is
     // cast wherever the player stands, so only its landing counts. Levers,
@@ -102,13 +129,7 @@ namespace ww::runtime
     inline bool touchesWilderness(const format::ArtifactReader &reader,
                                   const format::TransitionRecord &tx)
     {
-        const std::span<const format::WildernessRegion> wild = reader.wildernessRegions();
-        if (isInWilderness(wild, tx.destX, tx.destY, static_cast<int32_t>(tx.destPlane)))
-        {
-            return true;
-        }
-        return (tx.flags & format::kTransitionFlagGlobalOrigin) == 0u
-            && isInWilderness(wild, tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane));
+        return touchesBoxes(reader.wildernessRegions(), tx);
     }
 
     // COMBATV2_PLAYER_IS_IN_COMBAT (varp 689 bit 4): 1 while the player is in

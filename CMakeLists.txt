@@ -271,6 +271,7 @@ endif()
 # Target: wwcli
 set(wwcli_SOURCES
 	cmake.toml
+	"src/cli/AvoidTests.cpp"
 	"src/cli/Bench.cpp"
 	"src/cli/CrossCheck.cpp"
 	"src/cli/DescribeTests.cpp"

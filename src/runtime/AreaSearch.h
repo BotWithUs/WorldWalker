@@ -121,9 +121,11 @@ namespace ww::runtime
         // arrival that would sit closer to the next edge is not explored.
         //
         // isWildernessAvoided additionally refuses every edge and seed whose
-        // transition starts or lands in the Wilderness (touchesWilderness).
-        // Dropping edges only lengthens true paths, so the ALT bound stays
-        // admissible (ADR 0009).
+        // transition starts or lands in the Wilderness (touchesWilderness),
+        // and every edge or seed whose transition starts or lands in one of
+        // `avoidBoxes` (touchesBoxes; the query's avoid areas, borrowed for
+        // the call) is refused the same way. Dropping edges only lengthens
+        // true paths, so the ALT bound stays admissible (ADR 0009).
         //
         // Only this overload takes an edge whose two ends share an area (a
         // magic carpet between two desert stations): the walk it saves is the
@@ -138,7 +140,8 @@ namespace ww::runtime
         bool findPath(int32_t startArea, int32_t goalArea,
                       const CapabilitySnapshot *capabilities,
                       std::span<const FrontierSeed> seeds, const SearchEndpoints *endpoints,
-                      bool isWildernessAvoided, AreaPath &outPath);
+                      bool isWildernessAvoided,
+                      std::span<const format::WildernessRegion> avoidBoxes, AreaPath &outPath);
 
     private:
         void buildAdjacency();
@@ -183,7 +186,8 @@ namespace ww::runtime
         float walkToGoal(uint32_t transitionIndex) const;
         void reconstruct(int32_t startArea, int32_t goalArea, AreaPath &outPath) const;
         bool meetsTransitionRequirements(uint32_t transitionIndex) const;
-        // meetsTransitionRequirements plus the query's Wilderness rule.
+        // meetsTransitionRequirements plus the query's Wilderness rule and
+        // avoid areas.
         bool isTransitionAdmitted(uint32_t transitionIndex) const;
 
         bool isValidArea(int32_t area) const
@@ -237,6 +241,7 @@ namespace ww::runtime
         const SearchEndpoints *currentEndpoints{nullptr};    // borrowed for one findPath; nullptr = edge cost only
         int32_t currentGoalArea{-1};                         // goalArea of the findPath in flight
         bool isCurrentWildernessAvoided{false};              // the findPath in flight refuses the Wilderness
+        std::span<const format::WildernessRegion> currentAvoidBoxes;  // borrowed for one findPath; empty = none
     };
 }
 

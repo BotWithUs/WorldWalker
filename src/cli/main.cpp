@@ -1,4 +1,5 @@
 #include "c_api/worldwalker_c.h"
+#include "cli/AvoidTests.h"
 #include "cli/Bench.h"
 #include "cli/CrossCheck.h"
 #include "cli/DescribeTests.h"
@@ -1147,6 +1148,11 @@ namespace
         return runExcludeTests(argv[0], argc > 1 ? argv[1] : nullptr);
     }
 
+    int runAvoidTestsCmd(int argc, char **argv)
+    {
+        return runAvoidTests(argv[0], argc > 1 ? argv[1] : nullptr);
+    }
+
     struct Subcommand
     {
         const char *name;
@@ -1298,6 +1304,7 @@ namespace
          runMoveCategoriesCmd},
         {"moves",      1, "wwcli moves <artifact.wwa> [<teleport_dir>]", runMoveTestsCmd},
         {"exclude",    1, "wwcli exclude <artifact.wwa> [<teleport_dir>]", runExcludeTestsCmd},
+        {"avoid",      1, "wwcli avoid <artifact.wwa> [<teleport_dir>]", runAvoidTestsCmd},
         {"describe",   2, "wwcli describe <artifact.wwa> <dataset_dir>", runDescribeTestsCmd},
         {"teleports",  2, "wwcli teleports <artifact.wwa> <dataset_dir>"
                           " [<sx> <sy> <sp> <gx> <gy> <gp>]", runTeleports},

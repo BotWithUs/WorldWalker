@@ -269,13 +269,18 @@ namespace ww::runtime
         {
             return false;
         }
-        if (!isCurrentWildernessAvoided)
+        if (!isCurrentWildernessAvoided && currentAvoidBoxes.empty())
         {
             return true;
         }
         const std::span<const format::TransitionRecord> transitions = artifact->transitions();
-        return transitionIndex < transitions.size()
-            && !touchesWilderness(*artifact, transitions[transitionIndex]);
+        if (transitionIndex >= transitions.size())
+        {
+            return false;
+        }
+        const format::TransitionRecord &tx = transitions[transitionIndex];
+        return !(isCurrentWildernessAvoided && touchesWilderness(*artifact, tx))
+            && !touchesBoxes(currentAvoidBoxes, tx);
     }
 
     // Push every valid FrontierSeed onto the open heap as an alternative entry
@@ -465,7 +470,8 @@ namespace ww::runtime
                                            currentEndpoints->startY - currentEndpoints->goalY),
                   -1, -1, 0.0f);
         }
-        const bool isFiltering = currentSnapshot != nullptr || isCurrentWildernessAvoided;
+        const bool isFiltering = currentSnapshot != nullptr || isCurrentWildernessAvoided
+            || !currentAvoidBoxes.empty();
         while (!openHeap.empty())
         {
             std::pop_heap(openHeap.begin(), openHeap.end(), ByPriority{});
@@ -501,13 +507,14 @@ namespace ww::runtime
                               const CapabilitySnapshot *capabilities,
                               std::span<const FrontierSeed> seeds, AreaPath &outPath)
     {
-        return findPath(startArea, goalArea, capabilities, seeds, nullptr, false, outPath);
+        return findPath(startArea, goalArea, capabilities, seeds, nullptr, false, {}, outPath);
     }
 
     bool AreaSearch::findPath(int32_t startArea, int32_t goalArea,
                               const CapabilitySnapshot *capabilities,
                               std::span<const FrontierSeed> seeds,
                               const SearchEndpoints *endpoints, bool isWildernessAvoided,
+                              std::span<const format::WildernessRegion> avoidBoxes,
                               AreaPath &outPath)
     {
         outPath.steps.clear();
@@ -517,6 +524,7 @@ namespace ww::runtime
         currentEndpoints = endpoints;
         currentGoalArea = goalArea;
         isCurrentWildernessAvoided = isWildernessAvoided;
+        currentAvoidBoxes = avoidBoxes;
         if (!isValidArea(startArea) || !isValidArea(goalArea))
         {
             return false;
@@ -549,7 +557,8 @@ namespace ww::runtime
         // unfiltered query (bench, same-area baseline) skips the per-edge
         // requirement check entirely. relax{Open,Filtered} are otherwise
         // byte-for-byte identical, so tie-breaking is preserved.
-        const bool unfiltered = currentSnapshot == nullptr && !isCurrentWildernessAvoided;
+        const bool unfiltered = currentSnapshot == nullptr && !isCurrentWildernessAvoided
+            && currentAvoidBoxes.empty();
         while (!openHeap.empty())
         {
             std::pop_heap(openHeap.begin(), openHeap.end(), ByPriority{});

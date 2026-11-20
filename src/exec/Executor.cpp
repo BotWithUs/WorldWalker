@@ -332,7 +332,8 @@ namespace ww::exec
                        const Callbacks &callbacks,
                        std::optional<uint32_t> fixedSeed,
                        uint32_t disabledMoves,
-                       std::vector<uint32_t> excludedTransitions)
+                       std::vector<uint32_t> excludedTransitions,
+                       std::vector<format::WildernessRegion> avoidBoxes)
         : artifact(&reader),
           pool(&pool),
           callbacks(&callbacks),
@@ -342,7 +343,8 @@ namespace ww::exec
           dialogBudget(kMaxDialogActions + largestAnswerCount(reader.dialogZones())),
           fixedSeed(fixedSeed),
           disabledMoves(disabledMoves),
-          callerExcludedTransitions(std::move(excludedTransitions))
+          callerExcludedTransitions(std::move(excludedTransitions)),
+          callerAvoidBoxes(std::move(avoidBoxes))
     {
         if (std::find(planVarbitIds.begin(), planVarbitIds.end(), runtime::kInCombatVarbitId)
             == planVarbitIds.end())
@@ -1320,6 +1322,7 @@ namespace ww::exec
             snapshot.excludeTransition(transitionIndex);
         }
         snapshot.disableMoves(disabledMoves, artifact->moveCategories(), artifact->membersOnly());
+        snapshot.setAvoidBoxes(callerAvoidBoxes);
 
         // Re-derive the scene's dynamic-region grid on every (re-)plan, for the
         // same reason the capability snapshot is re-pulled: a single run can
@@ -1615,9 +1618,34 @@ namespace ww::exec
             && !runtime::isInWilderness(*artifact, goal.x, goal.y, goal.plane);
     }
 
-    bool Executor::isNearWildernessFence(const WwTile &at) const
+    std::vector<format::WildernessRegion> Executor::fenceBoxesAt(const WwTile &from,
+                                                                 const WwGoal &goal,
+                                                                 bool &outIsFenced) const
     {
-        for (const format::WildernessRegion &w : artifact->wildernessRegions())
+        std::vector<format::WildernessRegion> boxes;
+        outIsFenced = isWildernessFenced(from, goal);
+        if (outIsFenced)
+        {
+            const std::span<const format::WildernessRegion> wild = artifact->wildernessRegions();
+            boxes.assign(wild.begin(), wild.end());
+        }
+        for (const format::WildernessRegion &box : callerAvoidBoxes)
+        {
+            const std::span<const format::WildernessRegion> one(&box, 1u);
+            const bool isEndpointInside = runtime::isInAnyBox(one, from.x, from.y, from.plane)
+                || runtime::isInAnyBox(one, goal.x, goal.y, goal.plane);
+            if (!isEndpointInside)
+            {
+                boxes.push_back(box);
+                outIsFenced = true;
+            }
+        }
+        return boxes;
+    }
+
+    bool Executor::isNearFence(const WwTile &at, std::span<const format::WildernessRegion> boxes)
+    {
+        for (const format::WildernessRegion &w : boxes)
         {
             if (at.plane < w.planeMin || at.plane > w.planeMax)
             {
@@ -1635,7 +1663,7 @@ namespace ww::exec
 
     bool Executor::isHopNearFence(const LegScope &scope, const WwTile &target) const
     {
-        return scope.isFenced && (isNearWildernessFence(target) || isNearWildernessFence(scope.from));
+        return scope.isFenced && (isNearFence(target, scope.boxes) || isNearFence(scope.from, scope.boxes));
     }
 
     Executor::Hop Executor::chooseHop(std::size_t first, const WwTile &from, const WwGoal &goal,
@@ -1645,7 +1673,8 @@ namespace ww::exec
         // Drawn before anything can cut the hop short, so every Walk hop
         // spends the same draws and a pinned seed replays the same walk.
         const int32_t leg = drawLeg();
-        const LegScope scope{ from, leg, leg + kLegWindTiles, isWildernessFenced(from, goal) };
+        LegScope scope{ from, leg, leg + kLegWindTiles, false, {} };
+        scope.boxes = fenceBoxesAt(from, goal, scope.isFenced);
         if (firstTarget.plane != from.plane || isHopNearFence(scope, firstTarget))
         {
             // Another plane is no distance at all: the player is not where
@@ -1665,7 +1694,7 @@ namespace ww::exec
             {
                 break;  // the approach walk to a Transition is clicked itself
             }
-            if (scope.isFenced && isNearWildernessFence(target))
+            if (scope.isFenced && isNearFence(target, scope.boxes))
             {
                 // The game's pathfinder could cut through the fence from
                 // here: only the next step.
@@ -1712,7 +1741,7 @@ namespace ww::exec
         // it is looked for, as for a step past the leg.
         const bool isStepInLeg = isWithinLeg(scope.from, target, scope.leg);
         const bool isStepFenceClear = !isHopNearFence(scope, target)
-            || isShortestWalkClear(scope.from, target, context);
+            || isShortestWalkClear(scope.from, target, scope.boxes, context);
         if (isStepInLeg && isStepFenceClear)
         {
             return Hop{ first, chebyshev(scope.from, target), std::nullopt, scope.leg };
@@ -1745,7 +1774,8 @@ namespace ww::exec
             const std::optional<WwTile> part = search.isOnWalk
                 ? partWayOnWalk(scope, target, search.reach, search.fence, context)
                 : partWayAlong(scope.from, target, scope.from, search.reach,
-                               std::numeric_limits<int32_t>::max(), search.fence, context);
+                               std::numeric_limits<int32_t>::max(), search.fence, scope.boxes,
+                               context);
             if (part.has_value())
             {
                 return Hop{ first, chebyshev(scope.from, *part), part, search.reach };
@@ -1775,7 +1805,8 @@ namespace ww::exec
         const WwTile target = targetOf(plan.steps[j]);
         const FenceRule fence = scope.isFenced ? FenceRule::Margin : FenceRule::None;
         const std::optional<WwTile> part = partWayAlong(prev, target, scope.from, scope.leg,
-                                                        scope.budget - pathTiles, fence, context);
+                                                        scope.budget - pathTiles, fence,
+                                                        scope.boxes, context);
         const bool isNearlyThere =
             !part.has_value() || chebyshev(*part, target) < kLegMinRestTiles;
         if (isNearlyThere && isWithinLeg(scope.from, target, legCeilingTiles)
@@ -1793,6 +1824,7 @@ namespace ww::exec
     std::optional<WwTile> Executor::partWayAlong(const WwTile &start, const WwTile &end,
                                                  const WwTile &from, int32_t leg,
                                                  int32_t pathLeft, FenceRule fence,
+                                                 std::span<const format::WildernessRegion> boxes,
                                                  runtime::SearchContext &context) const
     {
         const int32_t len = chebyshev(start, end);
@@ -1813,7 +1845,7 @@ namespace ww::exec
             const WwTile at = tileAlong(end, start, back, len);
             if (isWithinLeg(from, at, leg) && chebyshev(from, at) >= kLegMinPartTiles
                 && context.view.isStandable(at.x, at.y, at.plane)
-                && isClearOfFence(from, at, fence, context))
+                && isClearOfFence(from, at, fence, boxes, context))
             {
                 return at;
             }
@@ -1826,7 +1858,7 @@ namespace ww::exec
                                                   runtime::SearchContext &context) const
     {
         const runtime::WalkFence walkFence = scope.isFenced
-            ? runtime::WalkFence{ artifact->wildernessRegions(), nullptr }
+            ? runtime::WalkFence{ scope.boxes, nullptr }
             : runtime::WalkFence{};
         runtime::TilePath walk;
         if (end.plane != scope.from.plane
@@ -1841,7 +1873,7 @@ namespace ww::exec
         {
             const WwTile at{ it->x, it->y, end.plane };
             if (isWithinLeg(scope.from, at, leg) && chebyshev(scope.from, at) >= kLegMinPartTiles
-                && isClearOfFence(scope.from, at, fence, context))
+                && isClearOfFence(scope.from, at, fence, scope.boxes, context))
             {
                 return at;
             }
@@ -1858,7 +1890,7 @@ namespace ww::exec
         }
         const std::optional<runtime::TilePoint> at = context.tileSearch.clearestStepTowards(
             scope.from.x, scope.from.y, runtime::TilePoint{ end.x, end.y }, end.plane,
-            artifact->wildernessRegions(), kShortestWalkReach, kLegMinPartTiles, legCeilingTiles);
+            scope.boxes, kShortestWalkReach, kLegMinPartTiles, legCeilingTiles);
         if (!at.has_value())
         {
             return std::nullopt;
@@ -1867,6 +1899,7 @@ namespace ww::exec
     }
 
     bool Executor::isClearOfFence(const WwTile &from, const WwTile &at, FenceRule fence,
+                                  std::span<const format::WildernessRegion> boxes,
                                   runtime::SearchContext &context) const
     {
         switch (fence)
@@ -1874,19 +1907,20 @@ namespace ww::exec
         case FenceRule::None:
             return true;
         case FenceRule::Margin:
-            return !isNearWildernessFence(at);
+            return !isNearFence(at, boxes);
         case FenceRule::ShortestWalk:
-            return isShortestWalkClear(from, at, context);
+            return isShortestWalkClear(from, at, boxes, context);
         }
         return false;
     }
 
     bool Executor::isShortestWalkClear(const WwTile &from, const WwTile &at,
+                                       std::span<const format::WildernessRegion> boxes,
                                        runtime::SearchContext &context) const
     {
         return from.plane == at.plane
             && !context.tileSearch.canShortestWalkEnter(from.x, from.y, runtime::TilePoint{ at.x, at.y },
-                                                        at.plane, artifact->wildernessRegions(),
+                                                        at.plane, boxes,
                                                         kShortestWalkReach);
     }
 
@@ -1918,8 +1952,9 @@ namespace ww::exec
         // Drawn only ahead of a transition that may be clicked from range, and
         // from clickRng, so the walk's own draws are left as they were.
         const int32_t range = drawBetween(clickRng, kClickRangeMinTiles, kClickRangeMaxTiles);
-        const std::optional<Hop> stop = findRangeStop(first, k, ioHop.last, from, range,
-                                                      isWildernessFenced(from, goal), view);
+        bool isFenced = false;
+        const std::vector<format::WildernessRegion> boxes = fenceBoxesAt(from, goal, isFenced);
+        const std::optional<Hop> stop = findRangeStop(first, k, ioHop.last, from, range, boxes, view);
         if (!stop.has_value())
         {
             return std::nullopt;
@@ -1949,7 +1984,8 @@ namespace ww::exec
 
     std::optional<Executor::Hop> Executor::findRangeStop(std::size_t first, std::size_t k,
                                                          std::size_t last, const WwTile &from,
-                                                         int32_t range, bool isFenced,
+                                                         int32_t range,
+                                                         std::span<const format::WildernessRegion> boxes,
                                                          runtime::WorldView &view) const
     {
         const format::TransitionRecord &tx = artifact->transitions()[plan.steps[k].transitionIndex];
@@ -1979,7 +2015,7 @@ namespace ww::exec
                 const WwTile at = tileAlong(end, start, d, len);
                 const bool isPastRange = toEnd + d > range;
                 if ((isPastRange && stop.has_value()) || toEnd + d > kClickRangeMaxTiles
-                    || (isFenced && isNearWildernessFence(at)))
+                    || isNearFence(at, boxes))
                 {
                     return stop;
                 }
@@ -2005,9 +2041,10 @@ namespace ww::exec
         const format::TransitionRecord &tx = txs[step.transitionIndex];
         const WwTile origin{ tx.originX, tx.originY, static_cast<int32_t>(tx.originPlane) };
         const bool isGlobal = (tx.flags & format::kTransitionFlagGlobalOrigin) != 0;
+        bool isFenced = false;
         return !isGlobal && origin.plane == from.plane
             && chebyshev(from, origin) >= kClickRangeMinTiles
-            && !(isWildernessFenced(from, goal) && isNearWildernessFence(origin));
+            && !isNearFence(origin, fenceBoxesAt(from, goal, isFenced));
     }
 
     int32_t Executor::hopPathTiles(const WwTile &from, std::size_t first, std::size_t last) const

@@ -92,6 +92,11 @@ struct ww_artifact
 
     ww::format::ArtifactReader reader;
     mutable std::shared_mutex lifecycle;
+    // The dataset "name" of each runtime-loaded teleport, element i naming
+    // transition reader.bakedTransitions() + i. Rewritten with the pools by
+    // ww_artifact_load_teleports under `lifecycle` exclusive, read under it
+    // shared (ww_path_links).
+    std::vector<std::string> runtimeNames;
 };
 
 // Backs the opaque ww_context_pool handle with the bounded search-context pool.
@@ -265,6 +270,79 @@ namespace
         describeArrays(tx, reqs, chain, outInfo);
         return WW_OK;
     }
+
+    // `name` into a zeroed WwRouteLink::name, cut at a UTF-8 character
+    // boundary so a truncated multi-byte character never leaves half of
+    // itself behind.
+    void copyLinkName(const std::string &name, WwRouteLink &outLink)
+    {
+        std::size_t length = std::min<std::size_t>(name.size(), WW_ROUTE_LINK_NAME_CAP - 1u);
+        if (length < name.size())
+        {
+            // Back off continuation bytes (10xxxxxx) to the start of the
+            // character the cut fell inside.
+            while (length > 0u && (static_cast<unsigned char>(name[length]) & 0xC0u) == 0x80u)
+            {
+                --length;
+            }
+        }
+        std::memcpy(outLink.name, name.data(), length);
+    }
+
+    // One WwRouteLink for the Transition step at `stepIndex`. Caller holds the
+    // lifecycle lock shared (or is a run that does). Error codes as
+    // describeInto, whose record it reuses.
+    ww_result linkInto(const ww_artifact &artifact, uint32_t stepIndex, const WwStep &step,
+                       WwRouteLink &outLink)
+    {
+        WwTransitionInfo info{};
+        const ww_result result = describeInto(artifact.reader, step.transitionIndex, info);
+        if (result != WW_OK)
+        {
+            return result;
+        }
+        outLink = WwRouteLink{};
+        outLink.stepIndex       = stepIndex;
+        outLink.transitionIndex = step.transitionIndex;
+        outLink.kind            = info.kind;
+        outLink.moveCategory    = info.moveCategory;
+        outLink.origin          = info.origin;
+        outLink.objectId        = info.origin == WW_TRANSITION_ORIGIN_NPC ? info.npcTypeMin : info.objectId;
+        outLink.fromTile        = WwTile{step.targetX, step.targetY, static_cast<int32_t>(step.plane)};
+        outLink.toTile          = info.destTile;
+        std::memcpy(outLink.code, info.code, sizeof(outLink.code));
+        const std::size_t baked = artifact.reader.bakedTransitions();
+        if (step.transitionIndex >= baked && step.transitionIndex - baked < artifact.runtimeNames.size())
+        {
+            copyLinkName(artifact.runtimeNames[step.transitionIndex - baked], outLink);
+        }
+        return WW_OK;
+    }
+
+    // Every Transition step of `path` as a link, in step order. Caller holds
+    // the lock as for linkInto. On WW_OK `outLinks` holds them.
+    ww_result collectLinks(const ww_artifact &artifact, const WwPath &path,
+                           std::vector<WwRouteLink> &outLinks)
+    {
+        outLinks.clear();
+        for (std::size_t i = 0; i < path.stepCount; ++i)
+        {
+            const WwStep &step = path.steps[i];
+            if (step.kind != WW_STEP_KIND_TRANSITION)
+            {
+                continue;
+            }
+            WwRouteLink link{};
+            const ww_result result = linkInto(artifact, static_cast<uint32_t>(i), step, link);
+            if (result != WW_OK)
+            {
+                setLastError("ww_path_links: step " + std::to_string(i) + ": " + g_lastError);
+                return result;
+            }
+            outLinks.push_back(link);
+        }
+        return WW_OK;
+    }
 }
 
 extern "C"
@@ -316,7 +394,13 @@ ww_result ww_artifact_load_teleports(ww_artifact *artifact, const char *dir)
         // its shared hold, and keeps new ones out until the pools are stable.
         const std::unique_lock<std::shared_mutex> exclusive(artifact->lifecycle);
         std::vector<ww::data::ExcludedRow> excluded;
-        ww::runtime::loadGlobalTeleportsInto(artifact->reader, std::string(dir), &excluded);
+        std::vector<std::string> names;
+        // Replaced only when the load succeeds, like the pools: a malformed
+        // file throws before the reader drops its old set, and those records
+        // keep their names. ww_path_links bounds every name lookup by both
+        // the transition count and this list, so a mismatch cannot overrun.
+        ww::runtime::loadGlobalTeleportsInto(artifact->reader, std::string(dir), &excluded, &names);
+        artifact->runtimeNames = std::move(names);
         // Set on every WW_OK, empty included: an earlier failure's text left
         // on this thread would otherwise read as rows this load excluded.
         const std::string report = ww::runtime::describeExcludedRows(excluded);
@@ -361,20 +445,83 @@ void ww_context_pool_destroy(ww_context_pool *pool)
 
 namespace
 {
-    // The first published sizeof(WwPlanOptions). A caller's structSize below
-    // it predates the struct; above sizeof(WwPlanOptions) it comes from a newer
-    // header. Both are refused (see WwPlanOptions).
-    constexpr uint32_t kPlanOptionsMinSize = 32u;
-    static_assert(sizeof(WwPlanOptions) >= kPlanOptionsMinSize);
+    // The published sizes of WwPlanOptions. A caller's structSize must be one
+    // of them: any other is a header this library does not know (see
+    // WwPlanOptions), so it is refused rather than half-read.
+    static_assert(WW_PLAN_OPTIONS_SIZE_V2 == sizeof(WwPlanOptions));
 
-    // A WwPlanOptions after its structural checks, with the index list copied
-    // out of the caller's memory so nothing retains the host pointer.
+    bool isKnownPlanOptionsSize(uint32_t structSize)
+    {
+        return structSize == WW_PLAN_OPTIONS_SIZE_V1 || structSize == WW_PLAN_OPTIONS_SIZE_V2;
+    }
+
+    // A WwPlanOptions after its structural checks, with the index list and the
+    // avoid areas copied out of the caller's memory so nothing retains the
+    // host pointers. The areas are already the planner's fence boxes.
     struct PlanOptions
     {
-        uint32_t              disabledMoves{0};
-        uint32_t              flags{0};
-        std::vector<uint32_t> excludedTransitions;
+        uint32_t                                disabledMoves{0};
+        uint32_t                                flags{0};
+        std::vector<uint32_t>                   excludedTransitions;
+        std::vector<ww::format::WildernessRegion> avoidBoxes;
     };
+
+    // One WwArea as a fence box: its bounds, on its plane or every plane.
+    // False (with the last error set, prefixed with `fn`) when it is not one
+    // the contract admits.
+    bool toAvoidBox(const WwArea &area, std::size_t index, const char *fn,
+                    ww::format::WildernessRegion &outBox)
+    {
+        const bool isPlaneOk = area.plane == WW_AREA_ALL_PLANES || (area.plane >= 0 && area.plane <= 3);
+        if (!isPlaneOk || area.minX > area.maxX || area.minY > area.maxY)
+        {
+            setLastError(std::string(fn) + ": options->avoidAreas[" + std::to_string(index)
+                         + "] is invalid (plane " + std::to_string(area.plane)
+                         + ", x " + std::to_string(area.minX) + ".." + std::to_string(area.maxX)
+                         + ", y " + std::to_string(area.minY) + ".." + std::to_string(area.maxY)
+                         + "): the plane must be 0..3 or WW_AREA_ALL_PLANES and min <= max");
+            return false;
+        }
+        outBox = ww::format::WildernessRegion{};
+        outBox.minX = area.minX;
+        outBox.minY = area.minY;
+        outBox.maxX = area.maxX;
+        outBox.maxY = area.maxY;
+        outBox.planeMin = static_cast<uint8_t>(area.plane == WW_AREA_ALL_PLANES ? 0 : area.plane);
+        outBox.planeMax = static_cast<uint8_t>(area.plane == WW_AREA_ALL_PLANES ? 3 : area.plane);
+        return true;
+    }
+
+    // The V2 tail of WwPlanOptions: the avoid areas. Only read when the
+    // caller's structSize says it has them.
+    bool readAvoidAreas(const WwPlanOptions &options, const char *fn, PlanOptions &out)
+    {
+        if (options.structSize < WW_PLAN_OPTIONS_SIZE_V2 || options.avoidAreaCount == 0u)
+        {
+            return true;
+        }
+        if (options.avoidAreas == nullptr)
+        {
+            setLastError(std::string(fn) + ": options->avoidAreas is null with a non-zero count");
+            return false;
+        }
+        if (options.avoidAreaCount > WW_MAX_AVOID_AREAS)
+        {
+            setLastError(std::string(fn) + ": options->avoidAreaCount "
+                         + std::to_string(options.avoidAreaCount) + " is over WW_MAX_AVOID_AREAS ("
+                         + std::to_string(WW_MAX_AVOID_AREAS) + ")");
+            return false;
+        }
+        out.avoidBoxes.resize(options.avoidAreaCount);
+        for (std::size_t i = 0; i < options.avoidAreaCount; ++i)
+        {
+            if (!toAvoidBox(options.avoidAreas[i], i, fn, out.avoidBoxes[i]))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 
     // The structural half of the WwPlanOptions contract: size, flags, pad and
     // the pointer/count pair. Needs no artifact, so it runs before the lock.
@@ -387,11 +534,12 @@ namespace
         {
             return true;
         }
-        if (options->structSize < kPlanOptionsMinSize || options->structSize > sizeof(WwPlanOptions))
+        if (!isKnownPlanOptionsSize(options->structSize))
         {
             setLastError(std::string(fn) + ": options->structSize " + std::to_string(options->structSize)
                          + " is not one this library knows (expected "
-                         + std::to_string(sizeof(WwPlanOptions)) + ")");
+                         + std::to_string(WW_PLAN_OPTIONS_SIZE_V1) + " or "
+                         + std::to_string(WW_PLAN_OPTIONS_SIZE_V2) + ")");
             return false;
         }
         if ((options->flags & ~static_cast<uint32_t>(WW_PLAN_KNOWN_FLAGS)) != 0u)
@@ -408,6 +556,11 @@ namespace
         if (options->excludedTransitions == nullptr && options->excludedTransitionCount != 0u)
         {
             setLastError(std::string(fn) + ": options->excludedTransitions is null with a non-zero count");
+            return false;
+        }
+        if (!readAvoidAreas(*options, fn, out))
+        {
+            out = PlanOptions{};
             return false;
         }
         out.disabledMoves = options->disabledMoves;
@@ -536,7 +689,8 @@ int32_t ww_executor_run_opts(ww_artifact         *artifact,
         // holding the lock only while it actually does.
         const HeldRunScope held(artifact);
         ww::exec::Executor executor(artifact->reader, pool->pool, *callbacks, std::nullopt,
-                                    opts.disabledMoves, std::move(opts.excludedTransitions));
+                                    opts.disabledMoves, std::move(opts.excludedTransitions),
+                                    std::move(opts.avoidBoxes));
         return static_cast<int32_t>(executor.run(goal));
     }
     catch (const std::exception &e)
@@ -627,11 +781,12 @@ ww_result ww_query_opts(ww_artifact                *artifact,
         {
             ww::exec::copyCapabilities(*capabilities, snapshot);
         }
-        // No capabilities admits every gate. With moves disabled or
-        // transitions excluded the planner still needs a snapshot to carry
-        // them, so it gets one that admits every gate the way a null one
-        // would; with neither the call is exactly the old one.
-        const bool hasRefusals = opts.disabledMoves != 0u || !opts.excludedTransitions.empty();
+        // No capabilities admits every gate. With moves disabled, transitions
+        // excluded or areas avoided the planner still needs a snapshot to
+        // carry them, so it gets one that admits every gate the way a null
+        // one would; with none of them the call is exactly the old one.
+        const bool hasRefusals = opts.disabledMoves != 0u || !opts.excludedTransitions.empty()
+            || !opts.avoidBoxes.empty();
         if (capabilities == nullptr && hasRefusals)
         {
             snapshot.admitEveryRequirement();
@@ -642,6 +797,7 @@ ww_result ww_query_opts(ww_artifact                *artifact,
         }
         snapshot.disableMoves(opts.disabledMoves, artifact->reader.moveCategories(),
                               artifact->reader.membersOnly());
+        snapshot.setAvoidBoxes(opts.avoidBoxes);
         const bool hasSnapshot = capabilities != nullptr || hasRefusals;
         const ww::runtime::CapabilitySnapshot *snapshotPtr = hasSnapshot ? &snapshot : nullptr;
 
@@ -740,6 +896,65 @@ ww_result ww_transition_describe(const ww_artifact *artifact,
     {
         *outInfo = WwTransitionInfo{};
         setLastError(std::string("ww_transition_describe: ") + e.what());
+        return WW_ERR_INTERNAL;
+    }
+}
+
+ww_result ww_path_links(const ww_artifact *artifact,
+                        const WwPath      *path,
+                        WwRouteLink      **outLinks,
+                        size_t            *outCount)
+{
+    if (outLinks != nullptr)
+    {
+        *outLinks = nullptr;
+    }
+    if (outCount != nullptr)
+    {
+        *outCount = 0;
+    }
+    if (artifact == nullptr || path == nullptr || outLinks == nullptr || outCount == nullptr)
+    {
+        setLastError("ww_path_links: artifact, path, outLinks and outCount must not be null");
+        return WW_ERR_INVALID;
+    }
+    if (path->steps == nullptr && path->stepCount != 0u)
+    {
+        setLastError("ww_path_links: path->steps is null with a non-zero stepCount");
+        return WW_ERR_INVALID;
+    }
+    try
+    {
+        std::vector<WwRouteLink> links;
+        ww_result result = WW_OK;
+        if (isHeldByThisThread(artifact))
+        {
+            // Inside a run's callback: see ww_transition_describe.
+            result = collectLinks(*artifact, *path, links);
+        }
+        else
+        {
+            const std::shared_lock<std::shared_mutex> shared(artifact->lifecycle);
+            result = collectLinks(*artifact, *path, links);
+        }
+        if (result != WW_OK || links.empty())
+        {
+            return result;
+        }
+        auto *buffer = static_cast<WwRouteLink *>(std::malloc(links.size() * sizeof(WwRouteLink)));
+        if (buffer == nullptr)
+        {
+            setLastError("ww_path_links: out of memory allocating route links");
+            return WW_ERR_INTERNAL;
+        }
+        std::memcpy(buffer, links.data(), links.size() * sizeof(WwRouteLink));
+        *outLinks = buffer;
+        *outCount = links.size();
+        return WW_OK;
+    }
+    catch (const std::exception &e)
+    {
+        setLastError(std::string("ww_path_links: ") + e.what());
         return WW_ERR_INTERNAL;
     }
 }

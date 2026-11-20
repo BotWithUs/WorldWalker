@@ -219,14 +219,29 @@ namespace ww::runtime
         void decideWilderness(bool isStartInside, int32_t goalX, int32_t goalY,
                               int32_t goalPlane);
 
-        // True when the rule is on and the transition starts or lands in the
-        // Wilderness.
+        // The query's avoid areas (CapabilitySnapshot::avoidAreas) that hold
+        // for this plan: every one except a box holding the start or the
+        // goal, which is lifted, because a walk could otherwise never leave or
+        // reach that tile. Decided with the Wilderness rule, from the query's
+        // own endpoints (after the goal snap), never from a sub-route's: a
+        // transition landing inside a box is refused, not taken as a start.
+        void decideAvoidBoxes(const CapabilitySnapshot *capabilities,
+                              int32_t startX, int32_t startY, int32_t startPlane,
+                              int32_t goalX, int32_t goalY, int32_t goalPlane);
+
+        // fenceBoxes from the two decisions above.
+        void rebuildFence();
+
+        // True when the transition starts or lands in the Wilderness while
+        // the rule is on, or in one of this plan's avoid boxes.
         bool isTransitionAvoided(uint32_t transitionIndex) const;
 
-        // The boxes a walk inside `area` must not step into: empty when the
-        // rule is off, or when the area's bounding box misses every box, so
-        // most walks pay nothing for it.
-        std::span<const format::WildernessRegion> wildernessFenceFor(int32_t area) const;
+        // The boxes a walk inside `area` must not step into (the Wilderness
+        // while its rule is on, and this plan's avoid boxes): empty when both
+        // are off, or when the area's bounding box misses every box, so most
+        // walks pay nothing for it. TileSearch::kAnyArea (a walk inside a
+        // dynamic region, where no Wilderness rule applies) gets every box.
+        std::span<const format::WildernessRegion> fenceBoxesFor(int32_t area) const;
 
         // The query's free-to-play rule, set by decideFreeToPlay: the land a
         // free-to-play query is held to, or null when the query is not
@@ -402,6 +417,8 @@ namespace ww::runtime
         std::vector<TeleCandidate> teleCandidateScratch;  // reusable scratch for goal-area teleport ranking
         std::vector<NearGoalEdge> nearGoalEdgeScratch;   // reusable scratch for near-goal baked edges (idx + fromArea + closingBound)
         bool isWildernessAvoided{false};                 // the query in flight stays out of the Wilderness
+        std::vector<format::WildernessRegion> avoidBoxes;  // the caller's avoid areas this plan holds to
+        std::vector<format::WildernessRegion> fenceBoxes;  // Wilderness (when avoided) + avoidBoxes
         const format::F2pLand *freeToPlayLand{nullptr};  // the query in flight is held to this land
         std::vector<uint8_t> isAreaLinked;               // per area: some baked edge starts or ends in it
     };
