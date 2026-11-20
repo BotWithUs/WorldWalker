@@ -2894,13 +2894,15 @@ namespace ww::cli
         // would fail the test rather than hide behind it.
         bool planLikeExecutor(ExecContext &ctx, const exec::WwTile &start,
                               const exec::WwGoal &goal, runtime::Plan &outPlan,
-                              std::uint32_t disabledMoves = 0)
+                              std::uint32_t disabledMoves = 0,
+                              std::span<const format::WildernessRegion> avoidBoxes = {})
         {
             runtime::AreaSearch    areaSearch(ctx.reader);
             runtime::TileSearch    tileSearch(ctx.view);
             runtime::PathAssembler assembler(ctx.reader, ctx.view, areaSearch, tileSearch);
             runtime::CapabilitySnapshot none;
             none.disableMoves(disabledMoves, ctx.reader.moveCategories(), ctx.reader.membersOnly());
+            none.setAvoidBoxes(avoidBoxes);
             return assembler.assemble(start.x, start.y, start.plane, goal.x, goal.y, goal.plane,
                                       &none, outPlan)
                 && !outPlan.steps.empty();
@@ -3749,6 +3751,122 @@ namespace ww::cli
             failures += (refusedStatus == WW_STATUS_FAILED && refusedActions == 0
                          && !refusal.empty()) ? 0u : 1u;
             failures += (open.unexpectedActions == 0 && shut.unexpectedActions == 0) ? 0u : 1u;
+            return failures;
+        }
+
+        bool isNearBox(const format::WildernessRegion &box, const exec::WwTile &at, std::int32_t margin)
+        {
+            const std::int32_t dx = std::max({ box.minX - at.x, at.x - box.maxX, 0 });
+            const std::int32_t dy = std::max({ box.minY - at.y, at.y - box.maxY, 0 });
+            const bool isOnPlane = at.plane >= box.planeMin && at.plane <= box.planeMax;
+            return isOnPlane && std::max(dx, dy) <= margin;
+        }
+
+        // The Walk step of `plan` nearest its middle that lies at least
+        // `clear` tiles from both ends, on the start's plane.
+        bool pickMidWalk(const runtime::Plan &plan, const exec::WwTile &start, const exec::WwGoal &goal,
+                         std::int32_t clear, exec::WwTile &outTile)
+        {
+            const std::size_t mid = plan.steps.size() / 2;
+            for (std::size_t off = 0; off <= mid; ++off)
+            {
+                for (const std::size_t i : { mid - off, mid + off })
+                {
+                    if (i >= plan.steps.size() || plan.steps[i].kind != runtime::StepKind::Walk)
+                    {
+                        continue;
+                    }
+                    const exec::WwTile t = stepTile(plan.steps[i]);
+                    const bool isClear = t.plane == start.plane
+                        && std::max(std::abs(t.x - start.x), std::abs(t.y - start.y)) >= clear
+                        && std::max(std::abs(t.x - goal.x), std::abs(t.y - goal.y)) >= clear;
+                    if (isClear)
+                    {
+                        outTile = t;
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // One seeded run of the avoided-area walk. Adds to the counters: hops
+        // clicked into, or from inside, the box; hops near it that pass more
+        // than one planned step. Returns 1 when the run did not arrive along
+        // `plan`.
+        std::size_t runAvoidingSeed(ExecContext &ctx, const exec::WwTile &start, const exec::WwGoal &goal,
+                                    const format::WildernessRegion &box, const runtime::Plan &plan,
+                                    std::uint32_t seed, int &ioInBox, int &ioMultiNear)
+        {
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateInstantWalk, start.x, start.y,
+                                              start.plane);
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+            exec::Executor executor(ctx.reader, ctx.pool, cb, seed, 0u, {}, { box });
+            harness.executor = &executor;
+            const exec::WwStatus status = executor.run(goal);
+            harness.executor = nullptr;
+            std::int32_t prev = -1;
+            for (const HopRecord &hop : harness.hops)
+            {
+                ioInBox += (isNearBox(box, hop.target, 0) || isNearBox(box, hop.from, 0)) ? 1 : 0;
+                bool isSpanNear = hop.plan == 0 && isNearBox(box, hop.from, kWildernessMargin);
+                for (std::int32_t k = prev + 1; hop.plan == 0 && k <= hop.stepIndex; ++k)
+                {
+                    const auto &step = plan.steps[static_cast<std::size_t>(k)];
+                    isSpanNear = isSpanNear || isNearBox(box, stepTile(step), kWildernessMargin);
+                }
+                ioMultiNear += (isSpanNear && hop.stepIndex > prev + 1) ? 1 : 0;
+                prev = hop.plan == 0 ? hop.stepIndex : prev;
+            }
+            return (status == exec::WwStatus::Arrived && hopsFollowPlan(harness, plan)
+                    && harness.unexpectedActions == 0) ? 0u : 1u;
+        }
+
+        // Test 4z3: the caller's avoid areas (ww_executor_run_opts) reach the
+        // executor's plans and its clicks. A Lumbridge -> Varrock walk with a
+        // 9x9 box on the middle of its direct route, over the stride seeds.
+        // Failure: a run that does not arrive along the plan the planner makes
+        // with the box, any hop clicked into the box or from inside it, a hop
+        // near the box that passes more than one planned step (near it the
+        // run clicks a step at a time, as near the Wilderness), or a direct
+        // route that never entered the box (the test would prove nothing).
+        std::size_t testAvoidedArea(ExecContext &ctx)
+        {
+            const exec::WwTile start{ 3222, 3218, 0 };
+            const exec::WwGoal goal{ 3212, 3428, 0, 0 };
+            runtime::Plan direct;
+            exec::WwTile mid{};
+            if (!planLikeExecutor(ctx, start, goal, direct) || !pickMidWalk(direct, start, goal, 20, mid))
+            {
+                std::printf("  exec:   avoided-area test skipped (no Lumbridge->Varrock walk)\n");
+                return 0;
+            }
+            format::WildernessRegion box{};
+            box.minX = mid.x - 4;
+            box.minY = mid.y - 4;
+            box.maxX = mid.x + 4;
+            box.maxY = mid.y + 4;
+            box.planeMin = static_cast<std::uint8_t>(mid.plane);
+            box.planeMax = static_cast<std::uint8_t>(mid.plane);
+            const std::span<const format::WildernessRegion> boxes(&box, 1u);
+            runtime::Plan avoiding;
+            const bool isPlanned = planLikeExecutor(ctx, start, goal, avoiding, 0u, boxes);
+            const bool isDirectIn = std::any_of(direct.steps.begin(), direct.steps.end(),
+                                                [&](const runtime::Step &s) { return isNearBox(box, stepTile(s), 0); });
+            std::size_t failures = (isPlanned && isDirectIn) ? 0u : 1u;
+            int inBox = 0;
+            int multiNear = 0;
+            for (std::uint32_t seed = 1; isPlanned && seed <= kStrideSeeds; ++seed)
+            {
+                failures += runAvoidingSeed(ctx, start, goal, box, avoiding, seed, inBox, multiNear);
+            }
+            std::printf("  exec:   avoided-area box (%d..%d,%d..%d,p%d): direct enters=%d (expect 1)"
+                        " planned=%d (expect 1) hops in box=%d multi-step-near=%d (expect 0 0)"
+                        " failures=%zu\n",
+                        box.minX, box.maxX, box.minY, box.maxY, mid.plane, isDirectIn ? 1 : 0,
+                        isPlanned ? 1 : 0, inBox, multiNear, failures);
+            failures += (inBox == 0 && multiNear == 0) ? 0u : 1u;
             return failures;
         }
 
@@ -5894,6 +6012,7 @@ namespace ww::cli
         failures += testInteractionHint(ctx);
         failures += testDisabledMoves(ctx);
         failures += testExcludedTransitions(ctx, artifactPath);
+        failures += testAvoidedArea(ctx);
         failures += testFortWalkReplay(ctx);
         failures += testLegRandomRoutes(ctx);
         failures += testLegDoorRoute(ctx);

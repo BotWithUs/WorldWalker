@@ -128,6 +128,13 @@ namespace ww::exec
     // the run's own reroute accumulator, which a refused detour truncates back,
     // so nothing in a run can put a caller's exclusion back.
     //
+    // `avoidBoxes` (the caller's avoid areas, ww_executor_run_opts) go into
+    // every plan's snapshot, so every plan walks off them and refuses every
+    // transition that starts or lands in one (PathAssembler::decideAvoidBoxes,
+    // which lifts a box holding the plan's start or goal). The clicks keep off
+    // them as they keep off the Wilderness: a box not holding the player or
+    // the goal is part of the fence the hop rules below work against.
+    //
     // Stride, handoff radius and idle are drawn from a generator the Executor
     // owns and seeds at every run() entry: from std::random_device, or from
     // `fixedSeed` when one is given, so a test replays the same walk exactly.
@@ -143,7 +150,8 @@ namespace ww::exec
                  const Callbacks &callbacks,
                  std::optional<uint32_t> fixedSeed = std::nullopt,
                  uint32_t disabledMoves = 0,
-                 std::vector<uint32_t> excludedTransitions = {});
+                 std::vector<uint32_t> excludedTransitions = {},
+                 std::vector<format::WildernessRegion> avoidBoxes = {});
 
         // Wall-clock budget of a walk hop covering `pathTiles` path tiles:
         // a fixed base plus a per-tile allowance, so a long click is not
@@ -429,14 +437,15 @@ namespace ww::exec
                       runtime::SearchContext &context);
 
         // What every step of one hop is measured against: the player's tile,
-        // the leg drawn for the hop, its path budget, and whether the run is
-        // fenced off the Wilderness.
+        // the leg drawn for the hop, its path budget, whether the run is
+        // fenced, and the boxes it is fenced off (fenceBoxesAt).
         struct LegScope
         {
             WwTile  from;
             int32_t leg{0};
             int32_t budget{0};
             bool    isFenced{false};
+            std::vector<format::WildernessRegion> boxes;
         };
 
         // The hop when the leg runs out at plan.steps[j], `pathTiles` along
@@ -447,10 +456,11 @@ namespace ww::exec
                                   int32_t pathTiles, int32_t stepTiles,
                                   runtime::SearchContext &context) const;
 
-        // How a part-way tile must keep clear of the Wilderness fence.
+        // How a part-way tile must keep clear of the hop's fence (the
+        // Wilderness and the caller's avoid boxes, LegScope::boxes).
         //   None          no rule: the run is not fenced.
         //   Margin        farther than kWildernessMargin from every box
-        //                 (isNearWildernessFence).
+        //                 (isNearFence).
         //   ShortestWalk  no least-step walk from the player to it steps onto
         //                 a box tile, itself included (isShortestWalkClear).
         enum class FenceRule
@@ -465,7 +475,9 @@ namespace ww::exec
         // of `from` and keeps clear of the Wilderness fence by `fence`.
         std::optional<WwTile> partWayAlong(const WwTile &start, const WwTile &end,
                                            const WwTile &from, int32_t leg, int32_t pathLeft,
-                                           FenceRule fence, runtime::SearchContext &context) const;
+                                           FenceRule fence,
+                                           std::span<const format::WildernessRegion> boxes,
+                                           runtime::SearchContext &context) const;
 
         // The furthest tile of a walk from scope.from to `end` (fenced off
         // the Wilderness when the run is), short of `end`, that lies within
@@ -485,9 +497,10 @@ namespace ww::exec
         std::optional<WwTile> partWayClearOfBoxes(const LegScope &scope, const WwTile &end,
                                                   runtime::SearchContext &context) const;
 
-        // Whether a click on `at` from `from` keeps clear of the Wilderness
-        // fence by `fence`.
+        // Whether a click on `at` from `from` keeps clear of `boxes` (the
+        // hop's fence) by `fence`.
         bool isClearOfFence(const WwTile &from, const WwTile &at, FenceRule fence,
+                            std::span<const format::WildernessRegion> boxes,
                             runtime::SearchContext &context) const;
 
         // Whether a click on `at` keeps the game's pathfinder out of the
@@ -498,6 +511,7 @@ namespace ww::exec
         // none of them. False when that is not shown within
         // kShortestWalkReach steps (TileSearch::canShortestWalkEnter).
         bool isShortestWalkClear(const WwTile &from, const WwTile &at,
+                                 std::span<const format::WildernessRegion> boxes,
                                  runtime::SearchContext &context) const;
 
         // The hop to plan.steps[first] alone (near the Wilderness fence, on
@@ -545,7 +559,8 @@ namespace ww::exec
         // least kClickRangeMinTiles from the origin, and with no tile from it
         // to the approach near the Wilderness fence when `isFenced`.
         std::optional<Hop> findRangeStop(std::size_t first, std::size_t k, std::size_t last,
-                                         const WwTile &from, int32_t range, bool isFenced,
+                                         const WwTile &from, int32_t range,
+                                         std::span<const format::WildernessRegion> boxes,
                                          runtime::WorldView &view) const;
 
         // Whether `step` is a Transition that may be clicked from range: a
@@ -590,10 +605,18 @@ namespace ww::exec
         // PathAssembler::decideWilderness, judged at `from`).
         bool isWildernessFenced(const WwTile &from, const WwGoal &goal) const;
 
-        // Whether `at` lies within kWildernessMargin of any Wilderness box on
-        // its plane. A click there hands the route to the game's pathfinder,
-        // which may cut through the fenced tiles.
-        bool isNearWildernessFence(const WwTile &at) const;
+        // The hop's fence judged at `from`: the Wilderness boxes when
+        // isWildernessFenced, plus every caller avoid box that holds neither
+        // `from` nor the goal (the planner lifts those too). outIsFenced is
+        // isWildernessFenced, or true when some avoid box applies.
+        std::vector<format::WildernessRegion> fenceBoxesAt(const WwTile &from, const WwGoal &goal,
+                                                           bool &outIsFenced) const;
+
+        // Whether `at` lies within kWildernessMargin of any of `boxes` (the
+        // hop's fence: Wilderness and avoid boxes) on its plane. A click
+        // there hands the route to the game's pathfinder, which may cut
+        // through the fenced tiles.
+        static bool isNearFence(const WwTile &at, std::span<const format::WildernessRegion> boxes);
 
         // Whether a click from scope.from to `target` is near the fence on a
         // fenced run: the target near it, or the player. A click from beside
@@ -1039,6 +1062,10 @@ namespace ww::exec
         // Every plan refuses them alongside RunState::excludedTransitions; see
         // the class comment for why the two lists are never merged.
         std::vector<uint32_t> callerExcludedTransitions;
+
+        // The caller's avoid areas (ww_executor_run_opts), handed to every
+        // plan's snapshot and to the hop fence (fenceBoxesAt).
+        std::vector<format::WildernessRegion> callerAvoidBoxes;
     };
 }
 

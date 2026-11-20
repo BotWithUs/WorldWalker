@@ -26,7 +26,10 @@
  *   describe            (ww_transition_describe, WwTransitionInfo) — what a
  *                       WwStep / WwEvent transitionIndex refers to
  *   plan options        (ww_executor_run_opts, ww_query_opts, WwPlanOptions) —
- *                       disabledMoves plus transitions excluded by index
+ *                       disabledMoves plus transitions excluded by index, and
+ *                       (structSize 48) avoid areas, WwArea
+ *   route links         (ww_path_links, WwRouteLink) — the transports and
+ *                       teleports a ww_query path takes, in order
  */
 
 #ifndef WORLDWALKER_C_H
@@ -416,21 +419,51 @@ typedef struct WwCallbacks
 
 /* ---- Plan options ------------------------------------------------------- */
 
+/* One avoid area: an inclusive tile rectangle on one plane, or on every plane
+   when plane is WW_AREA_ALL_PLANES. Rectangles only; a polygon is passed as
+   the rectangles that cover it. */
+#define WW_AREA_ALL_PLANES (-1)
+
+typedef struct WwArea
+{
+    int32_t plane;   /* 0..3, or WW_AREA_ALL_PLANES */
+    int32_t minX;    /* inclusive */
+    int32_t minY;
+    int32_t maxX;    /* inclusive; >= minX */
+    int32_t maxY;    /* inclusive; >= minY */
+} WwArea;
+
+/* Most avoid areas one WwPlanOptions may carry. Every walked tile is tested
+   against each of them, so the cost grows with the count. */
+#define WW_MAX_AVOID_AREAS 64
+
 /* WwPlanOptions.flags bits. Any other bit set is refused (see WwPlanOptions). */
 #define WW_PLAN_EXCLUDE_LOC_SIBLINGS (1u << 0)  /* each excluded index also excludes its loc's
                                                    other rows: same loc id at the same origin
                                                    tile, as the executor does for a dead origin */
 #define WW_PLAN_KNOWN_FLAGS          (WW_PLAN_EXCLUDE_LOC_SIBLINGS)
 
+/* The published sizes of WwPlanOptions, one per revision. structSize must be
+   exactly one of them. */
+#define WW_PLAN_OPTIONS_SIZE_V1 32u  /* up to excludedTransitionCount */
+#define WW_PLAN_OPTIONS_SIZE_V2 48u  /* adds avoidAreas / avoidAreaCount */
+
 /* Per-call planning options for ww_executor_run_opts and ww_query_opts.
    Zero-initialise it, then set structSize = sizeof(WwPlanOptions).
 
    GROWTH: later fields are appended and structSize says which ones the caller
-   knows. A structSize below 32 (the first published size), or above the size
-   this library was built with (a newer header whose fields it would silently
-   ignore), is refused. So is a flag bit outside WW_PLAN_KNOWN_FLAGS, a non-zero
-   `pad` (reserved for a later field), and a NULL `excludedTransitions` with a
-   non-zero count. A refusal
+   knows; it must be exactly one of the WW_PLAN_OPTIONS_SIZE_* values. A caller
+   built against the 32-byte struct keeps working unchanged: its options read
+   as V1 and it has no avoid areas. A size this library does not know (a newer
+   header whose fields it would silently ignore, or a size between two
+   revisions) is refused, so a host that passes avoid areas to a library older
+   than them fails loud instead of walking through them. A host built against
+   this header that must also run on an older library sets structSize to
+   WW_PLAN_OPTIONS_SIZE_V1 whenever it passes no avoid areas: an older library
+   refuses 48 even with avoidAreaCount 0. Also refused: a flag bit
+   outside WW_PLAN_KNOWN_FLAGS, a non-zero `pad` (reserved for a later field),
+   a NULL `excludedTransitions` with a non-zero count, and any invalid avoid
+   area (see AVOID AREAS). A refusal
    is WW_ERR_INVALID from ww_query_opts and WW_STATUS_FAILED from
    ww_executor_run_opts, with ww_last_error saying why.
 
@@ -451,8 +484,36 @@ typedef struct WwCallbacks
    are kept apart from these and stack on top of them; nothing the executor
    does during a run can put a caller's exclusion back.
 
-   BORROWING: `excludedTransitions` only has to outlive the call it is passed to
-   (the library copies it before planning). It may be NULL when the count is 0.
+   AVOID AREAS (structSize >= 48): the planner never routes through a tile
+   inside one, on the first plan and every re-plan of the run:
+     - no walk steps onto one of their tiles, and walks keep a small margin
+       off them where a detour is cheap (as they do off the Wilderness);
+     - no transition is taken whose origin or destination lies inside one: a
+       door, stairs, a boat or a shortcut that starts or lands there, and any
+       global teleport (lodestone, spell, item) that lands there. Only the
+       two ends of a transition are known to the artifact, so a ride that
+       passes over an area on its way (a boat crossing it) is not refused;
+     - ww_executor_run_opts also clicks around them as it clicks around the
+       Wilderness: near one it clicks a step at a time, and only where no
+       least-step walk the game's pathfinder could take reaches a box tile.
+   The START and GOAL are exempt: an area that contains the start tile or the
+   goal tile is not applied to that plan (otherwise a walk could never leave
+   or reach the tile). The other areas still are. Each re-plan of a run
+   decides again from where the player then stands, so a player who has
+   ended up inside an area walks out of it by the cheapest way.
+   A route that needs to cross an area fails with no route
+   (WW_ERR_NOT_FOUND / WW_STATUS_FAILED); it is never quietly taken through
+   it. KNOWN LIMIT: the area-level search does not know which part of a
+   baked area an avoid area cuts off, so when an avoid area severs one
+   baked area in two and the route it picks needs the far side, the plan
+   fails with no route even if a longer detour through other areas exists.
+   An area is refused when its plane is not 0..3 or WW_AREA_ALL_PLANES,
+   when minX > maxX or minY > maxY, or when there are more than
+   WW_MAX_AVOID_AREAS of them.
+
+   BORROWING: `excludedTransitions` and `avoidAreas` only have to outlive the
+   call they are passed to (the library copies them before planning). Each
+   may be NULL when its count is 0.
 
    An empty options struct (structSize set, everything else 0) behaves exactly
    like ww_executor_run / ww_query_ex; the older entry points are implemented as
@@ -465,6 +526,9 @@ typedef struct WwPlanOptions
     uint32_t        pad;                      /* zero; reserved */
     const uint32_t *excludedTransitions;      /* NULL allowed when the count is 0 */
     size_t          excludedTransitionCount;
+    /* structSize >= WW_PLAN_OPTIONS_SIZE_V2 */
+    const WwArea   *avoidAreas;               /* NULL allowed when the count is 0 */
+    size_t          avoidAreaCount;           /* <= WW_MAX_AVOID_AREAS */
 } WwPlanOptions;
 
 /* ---- Executor entry ----------------------------------------------------- */
@@ -743,6 +807,64 @@ WW_API ww_result ww_transition_describe(const ww_artifact *artifact,
                                          uint32_t           transitionIndex,
                                          WwTransitionInfo  *outInfo);
 
+/* ---- Route links --------------------------------------------------------- */
+
+/* Capacity of WwRouteLink.name, terminating NUL included. */
+#define WW_ROUTE_LINK_NAME_CAP 64
+
+/* One transport or teleport a path takes, in the order it takes them.
+
+   fromTile is where the player stands to take it: the Transition step's own
+   tile, which for a LOC or NPC origin is the approach tile beside the loc or
+   NPC, and for a GLOBAL teleport the tile it is cast from. toTile is where it
+   lands. The loc's own tile, its option and its requirements are in
+   ww_transition_describe(transitionIndex).
+
+   name is the dataset row's "name" for a runtime-loaded teleport (lodestones,
+   spell and item teleports, from ww_artifact_load_teleports), NUL-terminated
+   UTF-8, cut at a character boundary to fit. The baked artifact holds no names,
+   so it is "" for every baked transport (doors, stairs, boats, fairy rings and
+   the like); name those by objectId through NXTCache, or by code. Every byte
+   after the terminating NUL is zero. */
+typedef struct WwRouteLink
+{
+    uint32_t stepIndex;        /* index into WwPath.steps of the Transition step */
+    uint32_t transitionIndex;  /* as WwStep carries it */
+    int32_t  kind;             /* WW_TRANSITION_KIND_* */
+    int32_t  moveCategory;     /* WW_MOVE_* bit number */
+    int32_t  origin;           /* WW_TRANSITION_ORIGIN_* */
+    int32_t  objectId;         /* LOC: loc id; NPC: lowest NPC type id; GLOBAL: -1 */
+    WwTile   fromTile;
+    WwTile   toTile;
+    char     code[4];          /* fairy-ring code, NUL-padded; all zero otherwise */
+    char     name[WW_ROUTE_LINK_NAME_CAP];
+} WwRouteLink;
+
+/* Route transparency: the transports and teleports `path` (a ww_query /
+   ww_query_ex / ww_query_moves / ww_query_opts result) takes, one WwRouteLink
+   per Transition step, in step order. The path is only read; it still belongs
+   to the caller and is still released with ww_path_free.
+
+   On WW_OK, *outLinks is a malloc'd array of *outCount links, released with
+   ww_free, or NULL with *outCount 0 when the path takes none (a pure walk,
+   or an empty path). WW_ERR_INVALID when an argument is NULL, or path->steps
+   is NULL with a non-zero stepCount; WW_ERR_NOT_FOUND when a Transition
+   step's index is out of range (a path planned before the last
+   ww_artifact_load_teleports that shrank the teleport set); WW_ERR_INTERNAL on
+   a corrupt record or out of memory. On any error *outLinks is NULL and
+   *outCount 0 (when they are not NULL).
+
+   INDEX STABILITY, as for ww_transition_describe: call this before the next
+   ww_artifact_load_teleports, since a reload reassigns runtime-loaded indices
+   and an in-range stale index then describes another teleport.
+
+   LOCKING exactly as ww_transition_describe: shared on the artifact's
+   lifecycle lock, and safe from inside an executor callback. */
+WW_API ww_result ww_path_links(const ww_artifact *artifact,
+                                const WwPath      *path,
+                                WwRouteLink      **outLinks,
+                                size_t            *outCount);
+
 #ifdef __cplusplus
 }  /* extern "C" */
 
@@ -766,13 +888,32 @@ static_assert(sizeof(WwPath)              == 24, "WwPath must be 24 bytes (wire)
 static_assert(sizeof(WwRequirement)       == 12, "WwRequirement must be 12 bytes (wire)");
 static_assert(sizeof(WwChainStep)         == 40, "WwChainStep must be 40 bytes (wire)");
 static_assert(sizeof(WwTransitionInfo)    == 912, "WwTransitionInfo must be 912 bytes (wire)");
-static_assert(sizeof(WwPlanOptions)       == 32, "WwPlanOptions must be 32 bytes (wire) — 4 u32 + ptr + size_t");
+static_assert(sizeof(WwPlanOptions)       == 48, "WwPlanOptions must be 48 bytes (wire) — 4 u32 + 2 x (ptr + size_t)");
+static_assert(sizeof(WwPlanOptions)       == WW_PLAN_OPTIONS_SIZE_V2);
+static_assert(sizeof(WwArea)              == 20, "WwArea must be 20 bytes (wire) — 5 i32");
+static_assert(sizeof(WwRouteLink)         == 116, "WwRouteLink must be 116 bytes (wire)");
 static_assert(offsetof(WwPlanOptions, structSize)              == 0);
 static_assert(offsetof(WwPlanOptions, disabledMoves)           == 4);
 static_assert(offsetof(WwPlanOptions, flags)                   == 8);
 static_assert(offsetof(WwPlanOptions, pad)                     == 12);
 static_assert(offsetof(WwPlanOptions, excludedTransitions)     == 16);
 static_assert(offsetof(WwPlanOptions, excludedTransitionCount) == 24);
+static_assert(offsetof(WwPlanOptions, avoidAreas)              == 32);
+static_assert(offsetof(WwPlanOptions, avoidAreaCount)          == 40);
+static_assert(offsetof(WwPlanOptions, avoidAreas) == WW_PLAN_OPTIONS_SIZE_V1);
+static_assert(offsetof(WwArea, plane) == 0 && offsetof(WwArea, minX) == 4
+              && offsetof(WwArea, minY) == 8 && offsetof(WwArea, maxX) == 12
+              && offsetof(WwArea, maxY) == 16);
+static_assert(offsetof(WwRouteLink, stepIndex)       == 0);
+static_assert(offsetof(WwRouteLink, transitionIndex) == 4);
+static_assert(offsetof(WwRouteLink, kind)            == 8);
+static_assert(offsetof(WwRouteLink, moveCategory)    == 12);
+static_assert(offsetof(WwRouteLink, origin)          == 16);
+static_assert(offsetof(WwRouteLink, objectId)        == 20);
+static_assert(offsetof(WwRouteLink, fromTile)        == 24);
+static_assert(offsetof(WwRouteLink, toTile)          == 36);
+static_assert(offsetof(WwRouteLink, code)            == 48);
+static_assert(offsetof(WwRouteLink, name)            == 52);
 
 /* Every WwTransitionInfo offset, pinned so a host mirror can assert the same
    numbers. No pointers or size_t inside, so they hold on any target. */

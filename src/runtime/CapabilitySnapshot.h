@@ -53,6 +53,24 @@ namespace ww::runtime
             moveCategories = {};
             membersOnly = {};
             isAdmittingAll = false;
+            avoidBoxes.clear();
+        }
+
+        // The caller's avoid areas for this query and every re-plan built on
+        // the same settings, as inclusive boxes (WildernessRegion is the box
+        // shape the walk fence takes; only the bounds and planes are read).
+        // PathAssembler keeps every walk off their tiles and refuses every
+        // transition that starts or lands in one, except that a box holding
+        // the plan's start or goal is lifted for that plan (see
+        // PathAssembler::decideAvoidBoxes). Replaces any earlier set.
+        void setAvoidBoxes(std::span<const format::WildernessRegion> boxes)
+        {
+            avoidBoxes.assign(boxes.begin(), boxes.end());
+        }
+
+        std::span<const format::WildernessRegion> avoidAreas() const
+        {
+            return avoidBoxes;
         }
 
         // Refuse every transition whose format::MoveCategory bit is set in
@@ -275,6 +293,7 @@ namespace ww::runtime
         std::span<const uint8_t> moveCategories;
         std::span<const uint8_t> membersOnly;
         bool isAdmittingAll{false};
+        std::vector<format::WildernessRegion> avoidBoxes;
     };
 
     // Convenience predicate over a Requirement run. Skill / varbit / varp gates

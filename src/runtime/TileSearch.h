@@ -33,8 +33,9 @@ namespace ww::runtime
     };
 
     // Ground one walk must keep off. Empty (the default) fences nothing.
-    //   wilderness  never step onto a tile inside any of these boxes: a walk
-    //               that must stay out of the Wilderness. An area can reach
+    //   boxes       never step onto a tile inside any of these boxes: the
+    //               Wilderness boxes of a walk that must stay out of the
+    //               Wilderness, and the query's avoid areas. An area can reach
     //               across a box edge with no transition in the way (the
     //               mainland walks north of the wall east of Varrock), so
     //               refusing the crossings alone does not keep a walk out.
@@ -45,12 +46,12 @@ namespace ww::runtime
     //               off it too.
     struct WalkFence
     {
-        std::span<const format::WildernessRegion> wilderness;
+        std::span<const format::WildernessRegion> boxes;
         const format::F2pLand *freeToPlay{nullptr};
 
         bool isEmpty() const
         {
-            return wilderness.empty() && freeToPlay == nullptr;
+            return boxes.empty() && freeToPlay == nullptr;
         }
     };
 

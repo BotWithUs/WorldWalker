@@ -97,7 +97,8 @@ namespace ww::runtime
 
     std::size_t loadGlobalTeleportsInto(format::ArtifactReader &reader,
                                         const std::string &directory,
-                                        std::vector<data::ExcludedRow> *outExcluded)
+                                        std::vector<data::ExcludedRow> *outExcluded,
+                                        std::vector<std::string> *outNames)
     {
         // ExcludeRow: on a user's machine a row with an unparseable gate is
         // left out (never planned) and named on stderr, rather than failing the
@@ -122,22 +123,29 @@ namespace ww::runtime
         std::vector<format::RequirementRecord> reqPool;
         std::vector<format::ChainStepRecord> chainPool;
         std::vector<int8_t> membersOverrides;
+        std::vector<std::string> names;
         txRecords.reserve(loaded.model.transitions.size());
         membersOverrides.reserve(loaded.model.transitions.size());
+        names.reserve(loaded.model.transitions.size());
         for (const data::Transition &source : loaded.model.transitions)
         {
             data::Transition t = source;
             snapDestToStandable(view, t.destX, t.destY, static_cast<int32_t>(t.destPlane));
             txRecords.push_back(encode(t, reqBase, chainBase, reqPool, chainPool));
             membersOverrides.push_back(t.membersOverride);
+            names.push_back(t.label);
         }
 
         reader.appendTransitions(txRecords, reqPool, chainPool, membersOverrides);
         // Only once the load has succeeded: a throw above leaves the caller's
-        // list as it was rather than describing rows of a load that failed.
+        // lists as they were rather than describing rows of a load that failed.
         if (outExcluded != nullptr)
         {
             *outExcluded = loaded.excludedRows;
+        }
+        if (outNames != nullptr)
+        {
+            *outNames = std::move(names);
         }
         return txRecords.size();
     }
