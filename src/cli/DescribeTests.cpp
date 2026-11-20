@@ -173,11 +173,31 @@ namespace
                     | (ci.value("worn_direct", false) ? ww::data::kClickItemWornDirect : 0)};
     }
 
+    // A dialogue_select's optional `text`, packed into f..i the same way the
+    // loader does it (printable ASCII, four bytes per int little-endian, zero-
+    // padded) -- spelled out here, not shared with the loader: this is the
+    // independent oracle.
+    void packOptionText(const json &ds, std::array<int32_t, 4> &out)
+    {
+        out = {};
+        if (!ds.contains("text"))
+        {
+            return;
+        }
+        const std::string text = ds.at("text").get<std::string>();
+        char bytes[16]{};
+        std::memcpy(bytes, text.data(), text.size());
+        std::memcpy(out.data(), bytes, sizeof(bytes));
+    }
+
     Step dialogueSelectStep(const json &ds)
     {
+        std::array<int32_t, 4> text{};
+        packOptionText(ds, text);
         return {WW_CHAIN_STEP_DIALOGUE_SELECT,
                 intOr(ds, "interface", 720), intOr(ds, "index", 0), intOr(ds, "per_page", 9),
-                intOr(ds, "next_comp", 44), intOr(ds, "wait_ticks", 3), 0, 0, 0, 0};
+                intOr(ds, "next_comp", 44), intOr(ds, "wait_ticks", 3),
+                text[0], text[1], text[2], text[3]};
     }
 
     // One dataset chain step. Unknown shapes are errors, for the same reason
@@ -665,6 +685,23 @@ namespace
                            [&source](const char *s) { return source.rfind(s, 0) == 0; });
     }
 
+    // A DialogueSelect's option text unpacked from f..i for the report, or
+    // nullptr when the step carries none. The four slots hold printable ASCII
+    // four bytes per slot little-endian (f first), zero-padded, so the record
+    // is already a C string once laid into a 17-byte buffer.
+    const char *optionText(const WwChainStep &c)
+    {
+        if (c.kind != WW_CHAIN_STEP_DIALOGUE_SELECT)
+        {
+            return nullptr;
+        }
+        static thread_local char text[17];
+        const int32_t slots[4] = {c.f, c.g, c.h, c.i};
+        std::memcpy(text, slots, sizeof(slots));
+        text[16] = '\0';
+        return text[0] != '\0' ? text : nullptr;
+    }
+
     void printInfo(const char *label, const WwTransitionInfo &i)
     {
         std::printf("  %s: origin=%d kind=%d move=%d runtime=%d from=(%d,%d,%d) to=(%d,%d,%d) obj=%d "
@@ -681,8 +718,14 @@ namespace
         for (uint32_t s = 0; s < std::min<uint32_t>(i.chainStepCount, WW_TRANSITION_MAX_CHAIN_STEPS); ++s)
         {
             const WwChainStep &c = i.chain[s];
-            std::printf("    step kind=%d a..i=%d %d %d %d %d %d %d %d %d\n", c.kind, c.a, c.b, c.c, c.d, c.e,
+            std::printf("    step kind=%d a..i=%d %d %d %d %d %d %d %d %d", c.kind, c.a, c.b, c.c, c.d, c.e,
                         c.f, c.g, c.h, c.i);
+            const char *text = optionText(c);
+            if (text != nullptr)
+            {
+                std::printf(" text='%s'", text);
+            }
+            std::printf("\n");
         }
     }
 

@@ -7660,6 +7660,318 @@
           }
         ]
       }
+    },
+    {
+      "name": "Dave's spellbook: Observatory (Watchtower)",
+      "members": true,
+      "global": true,
+      "dest_x": 2442,
+      "dest_y": 3163,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 0,
+            "text": "Watchtower"
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 42604,
+            "count": 1
+          }
+        ],
+        "varbit_at_least": {
+          "id": 42125,
+          "value": 1
+        }
+      }
+    },
+    {
+      "name": "Dave's spellbook: Catherby docks (Camelot)",
+      "members": true,
+      "global": true,
+      "dest_x": 2796,
+      "dest_y": 3416,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 1,
+            "text": "Camelot"
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 42604,
+            "count": 1
+          }
+        ],
+        "varbit_at_least": {
+          "id": 42122,
+          "value": 1
+        }
+      }
+    },
+    {
+      "name": "Dave's spellbook: Falador south gate (Falador)",
+      "members": true,
+      "global": true,
+      "dest_x": 3006,
+      "dest_y": 3320,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 2,
+            "text": "Falador"
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 42604,
+            "count": 1
+          }
+        ],
+        "varbit_at_least": {
+          "id": 42124,
+          "value": 1
+        }
+      }
+    },
+    {
+      "name": "Dave's spellbook: West Ardougne (Ardougne)",
+      "members": true,
+      "global": true,
+      "dest_x": 2529,
+      "dest_y": 3305,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 3,
+            "text": "Ardougne"
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 42604,
+            "count": 1
+          }
+        ],
+        "varbit_at_least": {
+          "id": 42123,
+          "value": 1
+        }
+      }
+    },
+    {
+      "name": "Dave's spellbook: Lumbridge Swamp (Lumbridge)",
+      "members": true,
+      "global": true,
+      "dest_x": 3180,
+      "dest_y": 3165,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 4,
+            "text": "Lumbridge"
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 42604,
+            "count": 1
+          }
+        ],
+        "varbit_at_least": {
+          "id": 42121,
+          "value": 1
+        }
+      }
+    },
+    {
+      "name": "Dave's spellbook: Varrock Museum (Varrock)",
+      "members": true,
+      "global": true,
+      "dest_x": 3259,
+      "dest_y": 3440,
+      "dest_plane": 0,
+      "cost": 360.0,
+      "chain": [
+        {
+          "click_item": {
+            "worn": [
+              1464,
+              15,
+              2,
+              17
+            ],
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait_interface": 720
+        },
+        {
+          "dialogue_select": {
+            "interface": 720,
+            "index": 5,
+            "text": "Varrock"
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 42604,
+            "count": 1
+          }
+        ],
+        "varbit_at_least": {
+          "id": 42120,
+          "value": 1
+        }
+      }
     }
   ]
 }

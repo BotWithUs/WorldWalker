@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <initializer_list>
 #include <limits>
@@ -188,6 +189,51 @@ namespace ww::data
         // ActionTypes.COMPONENT on the Java side (the value rides in the baked
         // chain / runtime teleport JSON, so it is part of the wire contract).
         constexpr int kComponentActionId = 57;
+
+        // Validate an option text and pack it into the four int32 slots it
+        // travels in (DialogueSelect f..i): printable ASCII only, 1..16 bytes,
+        // four bytes per slot little-endian, zero-padded -- the same byte
+        // packing as a dialog-zone answer (format::DialogAnswerRecord), which
+        // has no reusable packer to call (the writer memcpy's its whole 36
+        // bytes straight), so this is the one packer for the short form.
+        // Fails loud rather than truncate: a text that reaches the host as a
+        // different text picks a different option.
+        void packOptionText(const json &node, const char *key, const char *context,
+                            int32_t (&out)[4])
+        {
+            for (int32_t &slot : out)
+            {
+                slot = 0;
+            }
+            if (!node.contains(key))
+            {
+                return;
+            }
+            const json &v = node.at(key);
+            if (!v.is_string())
+            {
+                throw std::runtime_error(std::string(context) + ": field '" + key
+                                         + "' must be a string");
+            }
+            const std::string text = v.get<std::string>();
+            if (text.empty() || text.size() > kDialogueSelectTextBytes)
+            {
+                throw std::runtime_error(std::string(context) + ": field '" + key + "' must be 1.."
+                                         + std::to_string(kDialogueSelectTextBytes) + " bytes");
+            }
+            for (const char ch : text)
+            {
+                if (static_cast<unsigned char>(ch) < 0x20 || static_cast<unsigned char>(ch) > 0x7E)
+                {
+                    throw std::runtime_error(std::string(context) + ": field '" + key
+                                             + "' must be printable ASCII");
+                }
+            }
+            char bytes[4 * 4]{};
+            std::memcpy(bytes, text.data(), text.size());
+            static_assert(sizeof(out) == sizeof(bytes));
+            std::memcpy(out, bytes, sizeof(bytes));
+        }
 
         // One var gate kind: its dataset key, the kind it becomes, the field
         // holding its amount, and the amount an entry that omits that field
@@ -537,7 +583,11 @@ namespace ww::data
         // Select option `index` in dialogue interface `interface`. a=interface,
         // b=index, c=per_page, d=next_comp, e=wait_ticks. The host resolves the
         // option component against the live dialogue (paging), so only these
-        // descriptors are carried.
+        // descriptors are carried. An optional `text` (see packOptionText) rides
+        // in f..i; a host that reads it picks the matching option by text and
+        // treats `index` as the fallback, so a chooser that lists only part of
+        // its destinations -- Dave's spellbook lists only the charged ones --
+        // cannot be misread as a fixed position.
         bool parseDialogueSelectStep(const json &step, std::vector<ChainStep> &out)
         {
             if (!step.contains("dialogue_select") || !step.at("dialogue_select").is_object())
@@ -545,13 +595,15 @@ namespace ww::data
                 return false;
             }
             const json &ds = step.at("dialogue_select");
+            int32_t textSlots[4];
+            packOptionText(ds, "text", "chain.dialogue_select", textSlots);
             out.push_back({ChainStepKind::DialogueSelect,
                            readOptionalInt(ds, "interface", 720, "chain.dialogue_select.interface"),
                            readOptionalInt(ds, "index", 0, "chain.dialogue_select.index"),
                            readOptionalInt(ds, "per_page", 9, "chain.dialogue_select.per_page"),
                            readOptionalInt(ds, "next_comp", 44, "chain.dialogue_select.next_comp"),
                            readWaitTicks(ds, "wait_ticks", 3, "chain.dialogue_select.wait_ticks"),
-                           0, 0, 0, 0});
+                           textSlots[0], textSlots[1], textSlots[2], textSlots[3]});
             return true;
         }
 

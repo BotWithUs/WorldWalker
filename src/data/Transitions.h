@@ -1,6 +1,7 @@
 #ifndef WORLDWALKER_DATA_TRANSITIONS_H
 #define WORLDWALKER_DATA_TRANSITIONS_H
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -111,6 +112,10 @@ namespace ww::data
         // Select option `b` in dialogue interface `a`. c=per_page, d=next_comp,
         // e=wait_ticks — the host resolves the option component against the live
         // dialogue (paging) since it depends on engine state, not the artifact.
+        // f..i may carry an option text instead (kDialogueSelectTextBytes): a
+        // host that knows the contract picks the first option whose text
+        // contains it (case-insensitive) and selects nothing on a miss; all-zero f..i,
+        // or an older host, picks `b` by index.
         DialogueSelect = 3,
         // Click a teleport item that may be worn OR carried. The host checks the
         // live worn/backpack containers for the transition's required item and
@@ -135,6 +140,15 @@ namespace ww::data
         // the origin as missing. Only ever a chain's first step.
         ClickNpc = 6,
     };
+
+    // A DialogueSelect's optional option text: at most this many printable
+    // ASCII bytes, carried in slots f..i four bytes per slot little-endian
+    // (f first), zero-padded -- the same byte packing as a DialogueAnswer's
+    // answer (format::DialogAnswerRecord), four slots wide instead of nine.
+    // A chooser may list only the destinations that have charges, so a fixed
+    // index can land on the wrong teleport; the text is what the host picks
+    // on when it is present. All four slots zero means no text.
+    inline constexpr std::size_t kDialogueSelectTextBytes = 16;
 
     // ClickItem `i` flags. The backpack variant uses the COMPONENT_SPECIAL
     // action (bit 0, the value the slot held when it was a plain bool).
