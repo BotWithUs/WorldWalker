@@ -188,7 +188,12 @@ namespace ww::format
         //   Click:          a=actionId, b..d=param1..3
         //   Wait:           a=ticks
         //   WaitInterface:  a=interfaceId
-        //   DialogueSelect: a=interface, b=index, c=per_page, d=next_comp, e=wait_ticks
+        //   DialogueSelect: a=interface, b=index, c=per_page, d=next_comp, e=wait_ticks;
+        //                   f..i = optional option text (data::kDialogueSelectTextBytes,
+        //                   printable ASCII, four bytes per slot little-endian,
+        //                   zero-padded -- the DialogAnswerRecord packing, 16 bytes
+        //                   wide). All zero = none; a host that reads the text
+        //                   picks by it and selects nothing on a miss.
         //   ClickItem:      a..d=worn(iface,comp,opt,sub),
         //                   e..h=backpack(iface,comp,opt,sub), i=flags
         //                   (data::kClickItemBackpackSpecial / kClickItemWornDirect)

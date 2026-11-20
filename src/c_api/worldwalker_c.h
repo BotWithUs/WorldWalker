@@ -319,6 +319,15 @@ typedef int32_t (*WwInteractFn)(void *user, int32_t objectId, WwTile tile, int32
      - DialogueSelect (3): a=interface, b=index, c=per_page, d=next_comp,
        e=wait_ticks — the host resolves the option component against the live
        (possibly paged) dialogue and clicks it.
+       f..i may carry an option text instead: up to 16 printable ASCII bytes,
+       four per slot little-endian (f first), zero-padded -- the same byte
+       packing as a DialogueAnswer's answer. All four zero = no text. A host
+       that knows the contract picks the first option whose text contains it
+       (case-insensitive) and selects nothing when none does; an older host
+       ignores f..i and picks b by index. A chooser may list only part of its
+       destinations (Dave's spellbook lists only the charged ones), so a fixed
+       index can pick the wrong teleport -- the text is what to pick on when
+       one is given.
      - ClickItem (4): the executor has already chosen the worn-vs-backpack
        variant, so the host receives the single resolved click:
          a=interface, b=component, c=option, d=sub_component (slot fallback),

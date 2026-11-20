@@ -308,6 +308,12 @@ namespace ww::cli
             int                     wornItemClicks;
             int                     backpackItemClicks;
             int                     dialogueSelects;
+            // The last DialogueSelect's option text (slots f..i) unpacked to a
+            // C string, empty when the pick carried none. A chooser like the
+            // one Dave's spellbook opens lists only the charged destinations,
+            // so the pick must carry the destination's text as well as the
+            // fallback index.
+            char                    lastSelectText[20];
             // SimulateTransition, when non-zero: every loc click raises a
             // warning that holds the player until a DIALOGUE click on this
             // component hash confirms it (Shantay Pass, 565:2), which carries
@@ -1067,6 +1073,15 @@ namespace ww::cli
             }
             ++h->runChainStepCalls;
             const bool isNpcClick = kind == kClickNpcKind;
+            if (kind == kDialogueSelectKind)
+            {
+                // The pick's option text (f..i, four printable ASCII bytes per
+                // slot little-endian) is already a C string once laid into a
+                // zero-padded buffer.
+                const std::int32_t textSlots[4] = {f, g, hh, i};
+                std::memcpy(h->lastSelectText, textSlots, sizeof(textSlots));
+                h->lastSelectText[16] = '\0';
+            }
             if (isNpcClick)
             {
                 ++h->npcClicks;
@@ -5914,6 +5929,76 @@ namespace ww::cli
             return failures;
         }
 
+        // A book whose carried click opens the 720 chooser, whose pick carries an
+        // option text beside the fallback index, as each Dave's-spellbook row
+        // does. 65001 is past the last obj id, so no baked row is gated on it.
+        const char *const kSelectTextFixture = R"({
+          "teleports": [
+            { "name": "fixture book: Ardougne", "global": true,
+              "dest_x": 3233, "dest_y": 3222, "dest_plane": 0, "cost": 3.0,
+              "requirements": { "items": [ { "id": 65001, "count": 1 } ] },
+              "chain": [
+                { "click_item": { "backpack": [1473, 5, 1, -1] } },
+                { "wait_interface": 720 },
+                { "dialogue_select": { "interface": 720, "index": 3, "text": "Ardougne" } },
+                { "wait": 12 } ] }
+          ]
+        })";
+        constexpr std::int32_t kSelectTextItem = 65001;
+
+        // Test 7d: the option text of a dialogue_select reaches the host. The
+        // chooser a teleport item opens may list only the destinations that
+        // still have charges (Dave's spellbook), so the position alone can
+        // pick the wrong teleport; the text is the pick's real identity. Run
+        // the fixture carried: the pick on the open dialog must land the
+        // player AND carry "Ardougne" in f..i, byte for byte.
+        std::size_t testDialogueSelectText(const char *artifactPath)
+        {
+            if (artifactPath == nullptr)
+            {
+                std::printf("  exec:   dialogue-select-text test skipped (no artifact path)\n");
+                return 0;
+            }
+            format::ArtifactReader reader(artifactPath);
+            if (appendTeleportFixture(reader, kSelectTextFixture) != 1)
+            {
+                std::printf("  exec:   dialogue-select-text fixture did not append the book\n");
+                return 1;
+            }
+            const format::TransitionRecord &book = reader.transitions().back();
+            const exec::WwTile landing{ book.destX, book.destY,
+                                        static_cast<std::int32_t>(book.destPlane) };
+            runtime::WorldView view(reader);
+            if (view.areaAt(landing.x, landing.y, landing.plane) < 0)
+            {
+                std::printf("  exec:   dialogue-select-text test skipped (no Lumbridge landing)\n");
+                return 0;
+            }
+            runtime::ContextPool pool(reader, 1);
+            ExecHarness harness = makeHarness(ExecHarnessMode::SimulateTransition, kOffMapStart.x,
+                                              kOffMapStart.y, kOffMapStart.plane);
+            harness.transitionDest = landing;
+            harness.heldItem       = kSelectTextItem;
+            exec::Callbacks cb = kCallbackPrototype;
+            cb.user = &harness;
+
+            exec::Executor executor(reader, pool, cb);
+            const exec::WwGoal goal{ landing.x, landing.y, landing.plane, 0 };
+            const exec::WwStatus status = executor.run(goal);
+
+            const bool isTextRight = std::strcmp(harness.lastSelectText, "Ardougne") == 0;
+            std::printf("  exec:   dialogue-select-text status=%d (expect %d) selects=%d"
+                        " (expect 1) text='%s' (expect 'Ardougne')\n",
+                        static_cast<int>(status), static_cast<int>(exec::WwStatus::Arrived),
+                        harness.dialogueSelects, harness.lastSelectText);
+            printCallPattern("dialogue-select-text ", harness);
+            std::size_t failures = status == exec::WwStatus::Arrived ? 0u : 1u;
+            failures += harness.dialogueSelects == 1 ? 0u : 1u;
+            failures += isTextRight ? 0u : 1u;
+            failures += harness.unexpectedActions == 0 ? 0u : 1u;
+            return failures;
+        }
+
         // The live walk of 2026-09-30 inside Amberfell bank: from 3725,1576 to
         // 3733,1580, 8 tiles, through the one door of a sealed 2x3 pocket (loc
         // 137297, row origin 3726,1576 -> 3727,1576). The approach hop handed
@@ -6244,6 +6329,7 @@ namespace ww::cli
         failures += testRefusedTeleport(artifactPath);
         failures += testDeadChainTeleport(artifactPath);
         failures += testWornDirectItem(artifactPath);
+        failures += testDialogueSelectText(artifactPath);
         failures += testDoorOpensShort(ctx, true);
         failures += testDoorOpensShort(ctx, false);
         failures += testLongHopWindup(ctx);

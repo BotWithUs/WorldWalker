@@ -159,6 +159,60 @@ namespace
     constexpr Requirement kFirstResortDone{RequirementKind::VarbitAtLeast, 14042, 1};
     constexpr Requirement kTreeGnomeVillage{RequirementKind::VarpAtLeast, 2661, 9};
 
+    // A dialogue_select's `text` packs into f..i four printable ASCII bytes
+    // per slot little-endian, and the item + varbit_at_least gate pair of the
+    // row loads ANDed (both requirements on one transition). A text that is
+    // empty, longer than 16 bytes, or not ASCII refuses the load rather than
+    // reaching the host as a different pick.
+    // "Ardougne" packs as f = 'A''r''d''o' little-endian, g = 'u''g''n''e',
+    // h = i = 0.
+    const char *const kSelectTextFixture = R"({
+      "teleports": [
+        { "name": "fixture book: West Ardougne", "members": true,
+          "global": true,
+          "dest_x": 2529, "dest_y": 3305, "dest_plane": 0,
+          "requirements": {
+            "items": [ { "id": 65002, "count": 1 } ],
+            "varbit_at_least": { "id": 42123, "value": 1 } },
+          "chain": [
+            { "click_item": { "backpack": [1473, 5, 1, -1] } },
+            { "wait_interface": 720 },
+            { "dialogue_select": { "interface": 720, "index": 3, "text": "Ardougne" } },
+            { "wait": 12 } ] }
+      ]
+    })";
+
+    constexpr Requirement kFixtureBookHeld{RequirementKind::Item, 65002, 1};
+    constexpr Requirement kArdougneCharged{RequirementKind::VarbitAtLeast, 42123, 1};
+    // "Ardougne": 'A'=0x41 'r'=0x72 'd'=0x64 'o'=0x6F, then 'u' 'g' 'n' 'e'.
+    constexpr ChainStep kSelectArdougne{ChainStepKind::DialogueSelect, 720, 3, 9, 44, 3,
+                                        0x6F647241, 0x656E6775, 0, 0};
+
+    // The same row with a text the loader must refuse: 17 bytes, empty, and
+    // non-ASCII (a JSON escape keeps this source file plain ASCII; the loader
+    // sees the decoded UTF-8 byte).
+    const char *const kSelectTextTooLongFixture = R"({
+      "teleports": [
+        { "name": "fixture", "global": true,
+          "dest_x": 2529, "dest_y": 3305, "dest_plane": 0,
+          "chain": [ { "dialogue_select": { "index": 0, "text": "abcdefghijklmnopq" } } ] }
+      ]
+    })";
+    const char *const kSelectTextEmptyFixture = R"({
+      "teleports": [
+        { "name": "fixture", "global": true,
+          "dest_x": 2529, "dest_y": 3305, "dest_plane": 0,
+          "chain": [ { "dialogue_select": { "index": 0, "text": "" } } ] }
+      ]
+    })";
+    const char *const kSelectTextNonAsciiFixture = R"({
+      "teleports": [
+        { "name": "fixture", "global": true,
+          "dest_x": 2529, "dest_y": 3305, "dest_plane": 0,
+          "chain": [ { "dialogue_select": { "index": 0, "text": "Catherb\u00e9" } } ] }
+      ]
+    })";
+
     // A bit gate: the key ring's stored-keys varp, bit 0 (the Brass key).
     // The ids are the real ones, but the loader gives them no meaning.
     const char *const kVarpBitGateFixture = R"({
@@ -954,6 +1008,41 @@ namespace
         return fail(label);
     }
 
+    // A dialogue_select's `text` packs into f..i four printable ASCII bytes
+    // per slot little-endian, and the item + varbit_at_least gate pair of the
+    // row loads ANDed (both requirements on one transition). A text that is
+    // empty, longer than 16 bytes, or not ASCII refuses the load rather than
+    // reaching the host as a different pick.
+    int checkSelectText(const std::filesystem::path &dir)
+    {
+        const ww::data::LoadedDatasets loaded = loadFixture(dir, kSelectTextFixture);
+        const std::vector<Transition> &txs = loaded.model.transitions;
+        std::printf("select text: fixture -> %zu transitions (expect 1)\n", txs.size());
+        if (txs.size() != 1)
+        {
+            return fail("select text: expected one item teleport");
+        }
+        const Transition &t = txs[0];
+        const bool isGated = t.requirements.size() == 2
+                          && t.requirements[0].kind == kArdougneCharged.kind
+                          && t.requirements[0].id == kArdougneCharged.id
+                          && t.requirements[0].amount == kArdougneCharged.amount
+                          && t.requirements[1].kind == kFixtureBookHeld.kind
+                          && t.requirements[1].id == kFixtureBookHeld.id
+                          && t.requirements[1].amount == kFixtureBookHeld.amount;
+        const bool hasText = t.chain.size() == 4 && t.chain[2].kind == ChainStepKind::DialogueSelect
+                          && t.chain[2].f == kSelectArdougne.f && t.chain[2].g == kSelectArdougne.g
+                          && t.chain[2].h == 0 && t.chain[2].i == 0;
+        std::printf("select text: gates %d (expect 1) f=0x%08x g=0x%08x (expect 0x%08x 0x%08x)\n",
+                    isGated ? 1 : 0, t.chain.size() >= 3 ? t.chain[2].f : 0,
+                    t.chain.size() >= 3 ? t.chain[2].g : 0, kSelectArdougne.f, kSelectArdougne.g);
+        int failures = isGated ? 0 : fail("select text: the item and varbit gates are not ANDed");
+        failures += hasText ? 0 : fail("select text: the text did not pack into f..i");
+        failures += expectLoadThrows(dir, "a 17-byte select text", kSelectTextTooLongFixture);
+        failures += expectLoadThrows(dir, "an empty select text", kSelectTextEmptyFixture);
+        failures += expectLoadThrows(dir, "a non-ASCII select text", kSelectTextNonAsciiFixture);
+        return failures;
+    }
     // Transition index of `plan`'s leading step, or -1 when it does not lead
     // with a transition.
     int64_t leadTransition(const ww::runtime::Plan &plan)
@@ -1341,6 +1430,7 @@ namespace
             failures += checkAtLeastGates(dir);
             failures += checkVarpBitGate(dir);
             failures += checkSkillArrayGate(dir);
+            failures += checkSelectText(dir);
             failures += expectLoadThrows(dir, "a scalar skill gate", kScalarSkillFixture);
             failures += expectLoadThrows(dir, "a varp_bit gate past bit 31",
                                          kVarpBitOutOfRangeFixture);
