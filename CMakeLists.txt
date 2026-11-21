@@ -176,6 +176,8 @@ set(worldwalker_SOURCES
 	"src/runtime/AltHeuristic.h"
 	"src/runtime/AreaSearch.cpp"
 	"src/runtime/AreaSearch.h"
+	"src/runtime/BoatWater.cpp"
+	"src/runtime/BoatWater.h"
 	"src/runtime/CapabilitySnapshot.h"
 	"src/runtime/ContextPool.cpp"
 	"src/runtime/ContextPool.h"
@@ -273,6 +275,7 @@ set(wwcli_SOURCES
 	cmake.toml
 	"src/cli/AvoidTests.cpp"
 	"src/cli/Bench.cpp"
+	"src/cli/BoatTests.cpp"
 	"src/cli/CrossCheck.cpp"
 	"src/cli/DescribeTests.cpp"
 	"src/cli/DoorPaths.cpp"

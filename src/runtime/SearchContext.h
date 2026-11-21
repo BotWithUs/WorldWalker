@@ -58,6 +58,7 @@ namespace ww::runtime
         void recycle()
         {
             instance.clear();
+            view.setBoatMode(false);
             view.trimCache();
         }
 
