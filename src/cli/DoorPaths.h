@@ -34,6 +34,10 @@ int runTxNear(const char *wwaPath, int x, int y, int radius);
 // in none. Used to place a transition's origin and landing on the right floor.
 int runAreaGrid(const char *wwaPath, int x, int y, int plane, int radius);
 
+// Prints the clip words round a tile as glyphs: '~' water a player can stand on,
+// 'W' water that also blocks standing, '#' blocked land, '.' open land.
+int runClipGrid(const char *wwaPath, int x, int y, int plane, int radius);
+
 // `wwcli areastats <artifact.wwa> [<minSpan>]` — audit: per plane, how many
 // areas there are and how many span more than minSpan tiles (default 256) on
 // either axis, listing each such area above plane 0. No real floor spans that

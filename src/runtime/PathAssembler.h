@@ -199,6 +199,17 @@ namespace ww::runtime
                                       int32_t goalX, int32_t goalY, int32_t goalPlane,
                                       const CapabilitySnapshot *capabilities, Plan &outPlan);
 
+        // Plan a route rowed over lake water (boat_water) when the player is
+        // afloat, or when the goal is afloat and the player stands within
+        // kBoardReachTiles of the water, replacing outPlan with Walk steps
+        // planned with the view in boat mode. A start ashore gets a first Walk
+        // step onto the nearest water, which the game rows the boat to; a goal
+        // ashore is taken as the water tile nearest it within kShoreReachTiles.
+        // False, with the view out of boat mode and outPlan untouched, when the
+        // route is not a boat's or no rowable route exists.
+        bool assembleBoatRoute(int32_t startX, int32_t startY, int32_t startPlane,
+                               int32_t goalX, int32_t goalY, int32_t goalPlane, Plan &outPlan);
+
         // Plan a route wholly inside a dynamic region (instance), appending Walk
         // steps to outPlan. Returns false when either endpoint is outside the
         // descriptor grid, the planes differ, or no walkable route exists.

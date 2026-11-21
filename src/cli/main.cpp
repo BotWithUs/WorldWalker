@@ -14,6 +14,7 @@
 #include "cli/PathExport.h"
 #include "cli/ScriptedPaths.h"
 #include "cli/SosTests.h"
+#include "cli/BoatTests.h"
 #include "cli/WallShapeTests.h"
 #include "data/Transitions.h"
 #include "format/Artifact.h"
@@ -1085,6 +1086,11 @@ namespace
         return runScriptedPaths(argv[0]);
     }
 
+    int runBoatTestsCmd(int, char **argv)
+    {
+        return runBoatTests(argv[0]);
+    }
+
     int runSosTestsCmd(int, char **argv)
     {
         return runSosTests(argv[0]);
@@ -1108,6 +1114,12 @@ namespace
     int runAreaGridCmd(int, char **argv)
     {
         return runAreaGrid(argv[0], std::atoi(argv[1]), std::atoi(argv[2]), std::atoi(argv[3]),
+                           std::atoi(argv[4]));
+    }
+
+    int runClipGridCmd(int, char **argv)
+    {
+        return runClipGrid(argv[0], std::atoi(argv[1]), std::atoi(argv[2]), std::atoi(argv[3]),
                            std::atoi(argv[4]));
     }
 
@@ -1299,6 +1311,7 @@ namespace
         {"scripted",   1, "wwcli scripted <artifact.wwa>", runScriptedPathsCmd},
         {"doors",      1, "wwcli doors <artifact.wwa>", runDoorPathsCmd},
         {"sos",        1, "wwcli sos <artifact.wwa>", runSosTestsCmd},
+        {"boat",       1, "wwcli boat <artifact.wwa>", runBoatTestsCmd},
         {"bench",      1, "wwcli bench <artifact.wwa>", runBenchCmd},
         {"categories", 1, "wwcli categories <artifact.wwa> [<teleport_dir>]",
          runMoveCategoriesCmd},
@@ -1312,6 +1325,8 @@ namespace
         {"txnear",     4, "wwcli txnear <artifact.wwa> <x> <y> <radius>", runTxNearCmd},
         {"areagrid",   5, "wwcli areagrid <artifact.wwa> <x> <y> <plane> <radius>",
          runAreaGridCmd},
+        {"clipgrid",   5, "wwcli clipgrid <artifact.wwa> <x> <y> <plane> <radius>",
+         runClipGridCmd},
         {"areastats",  1, "wwcli areastats <artifact.wwa> [<minSpan>]", runAreaStatsCmd},
         {"reachdiff",  5, "wwcli reachdiff <old.wwa> <new.wwa> <x> <y> <plane>",
          runReachDiffCmd},
