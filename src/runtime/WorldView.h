@@ -4,6 +4,7 @@
 #include "format/Artifact.h"
 #include "format/ArtifactReader.h"
 #include "format/ClipFlags.h"
+#include "runtime/BoatWater.h"
 #include "runtime/InstanceMap.h"
 
 #include <algorithm>
@@ -115,16 +116,49 @@ namespace ww::runtime
         // leaving an instance needs no cache invalidation. Keying them on
         // instance coordinates would quietly serve one instance's collision to
         // the next.
+        //
+        // While a boat is rowed (setBoatMode), a tile inside the lake's box
+        // (boat_water::covers) reads as the boat sees it: lake water standable,
+        // whatever the bake blocked it for, and every other tile there blocked.
+        // Wall-edge bits pass through either way.
         uint32_t clipAt(int x, int y, int plane)
         {
-            if (instance != nullptr && instance->isActive())
+            const uint32_t word = instance != nullptr && instance->isActive()
+                ? instancedClipAt(x, y, plane)
+                : bakedClipAt(x, y, plane);
+            if (isRowing && boat_water::covers(x, y, plane))
             {
-                return instancedClipAt(x, y, plane);
+                return boatClipWord(word, x, y, plane);
             }
-            return bakedClipAt(x, y, plane);
+            return word;
+        }
+
+        // Plan and read tiles as a rowing boat does (see clipAt), or as a
+        // walker does again. Set per plan by PathAssembler, which turns it on
+        // only for a route over the lake, and cleared when the context is
+        // recycled.
+        void setBoatMode(bool isOn)
+        {
+            isRowing = isOn;
+        }
+
+        bool isBoatMode() const
+        {
+            return isRowing;
         }
 
     private:
+        // A tile's clip word as a rowing boat reads it: water loses its
+        // whole-tile blockers, anything else gains CLIP_BLOCKED.
+        static uint32_t boatClipWord(uint32_t word, int x, int y, int plane)
+        {
+            if (boat_water::isWater(x, y, plane))
+            {
+                return word & ~format::kClipStandBlockedMask;
+            }
+            return word | static_cast<uint32_t>(format::CLIP_BLOCKED);
+        }
+
         // The two halves of clipAt. Private — every caller outside this class
         // wants clipAt, which picks between them; instancedClipAt in particular
         // dereferences `instance` unconditionally and is only safe once clipAt
@@ -404,6 +438,8 @@ namespace ww::runtime
         // Borrowed dynamic-region descriptor grid, or nullptr in a static scene.
         // Owned by the SearchContext; see setInstance.
         const InstanceMap *instance{nullptr};
+        // True while the current plan rows a boat over the lake (setBoatMode).
+        bool isRowing{false};
         // 64-bit non-overlapping keys (squareY << 32 | squareX, and
         // squareY << 40 | squareX << 8 | plane). The unordered_map sized
         // itself to the working set (a few tens of squares), which on this

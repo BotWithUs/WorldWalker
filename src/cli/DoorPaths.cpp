@@ -457,6 +457,46 @@ int runAreaGrid(const char *wwaPath, int x, int y, int plane, int radius)
     }
 }
 
+int runClipGrid(const char *wwaPath, int x, int y, int plane, int radius)
+{
+    try
+    {
+        const ww::format::ArtifactReader reader(wwaPath);
+        ww::runtime::WorldView view(reader);
+        std::printf("clipgrid: (%d,%d,p%d) radius=%d, north up, west left\n", x, y, plane, radius);
+        for (int yy = y + radius; yy >= y - radius; --yy)
+        {
+            std::printf("clipgrid: %5d ", yy);
+            for (int xx = x - radius; xx <= x + radius; ++xx)
+            {
+                const uint32_t clip = view.clipAt(xx, yy, plane);
+                const bool water = (clip & ww::format::CLIP_WATER) != 0u;
+                const bool blocked = (clip & ww::format::kClipStandBlockedMask) != 0u;
+                char glyph = '.';
+                if (water)
+                {
+                    glyph = blocked ? 'W' : '~';
+                }
+                else if (blocked)
+                {
+                    glyph = '#';
+                }
+                std::printf("%c", glyph);
+            }
+            std::printf("\n");
+        }
+        std::printf("clipgrid: x from %d to %d\n", x - radius, x + radius);
+        const uint32_t centre = view.clipAt(x, y, plane);
+        std::printf("clipgrid: centre clip 0x%08x\n", static_cast<unsigned>(centre));
+        return 0;
+    }
+    catch (const std::exception &e)
+    {
+        std::printf("clipgrid: failed: %s\n", e.what());
+        return 1;
+    }
+}
+
 int runAreaStats(const char *wwaPath, int minSpan)
 {
     try

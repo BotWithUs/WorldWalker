@@ -3,6 +3,7 @@
 #include "data/Transitions.h"
 #include "format/Artifact.h"
 #include "format/ClipFlags.h"
+#include "runtime/BoatWater.h"
 #include "runtime/InstanceMap.h"
 #include "runtime/TeleportPolicy.h"
 #include "runtime/TileScan.h"
@@ -27,6 +28,17 @@ namespace ww::runtime
         // from, and a finer grid gives it more of them. The planner itself
         // stays deterministic; every random choice is the executor's.
         constexpr std::size_t kWalkStepTiles = 8;
+
+        // How far from lake water a player ashore may stand for a goal on the
+        // water to be planned as a boat route, its first step a click onto the
+        // nearest water. Ed's shed, where the boat is rented, is 17 tiles from
+        // the open lake (src/runtime/BoatWaterRuns.inc); 20 is the agent's
+        // direct click reach.
+        constexpr int32_t kBoardReachTiles = 20;
+
+        // How far from a goal ashore a rowed route looks for the water tile to
+        // end on, the shore nearest the goal.
+        constexpr int32_t kShoreReachTiles = 32;
 
         // Chebyshev radius searched around a blocked goal tile for the nearest
         // standable stand-in. A flag dropped on a wall, a closed door, or the
@@ -478,6 +490,48 @@ namespace ww::runtime
         return isWhollyFree ? nullptr : freeToPlayLand;
     }
 
+    bool PathAssembler::assembleBoatRoute(int32_t startX, int32_t startY, int32_t startPlane,
+                                          int32_t goalX, int32_t goalY, int32_t goalPlane,
+                                          Plan &outPlan)
+    {
+        const bool isStartAfloat = boat_water::isWater(startX, startY, startPlane);
+        const bool isGoalAfloat = boat_water::isWater(goalX, goalY, goalPlane);
+        if (startPlane != goalPlane || (!isStartAfloat && !isGoalAfloat))
+        {
+            return false;
+        }
+        int32_t fromX = startX;
+        int32_t fromY = startY;
+        if (!isStartAfloat
+            && !boat_water::nearestWater(startX, startY, startPlane, kBoardReachTiles, fromX, fromY))
+        {
+            return false;
+        }
+        int32_t toX = goalX;
+        int32_t toY = goalY;
+        if (!isGoalAfloat
+            && !boat_water::nearestWater(goalX, goalY, goalPlane, kShoreReachTiles, toX, toY))
+        {
+            return false;
+        }
+        view->setBoatMode(true);
+        Plan rowed;
+        if (!appendWalkSegment(fromX, fromY, toX, toY, startPlane, TileSearch::kAnyArea, rowed))
+        {
+            view->setBoatMode(false);
+            return false;
+        }
+        outPlan.steps.clear();
+        outPlan.cost = rowed.cost;
+        if (!isStartAfloat)
+        {
+            pushWalk(outPlan, fromX, fromY, startPlane);
+            outPlan.cost += octileDistance(fromX - startX, fromY - startY);
+        }
+        outPlan.steps.insert(outPlan.steps.end(), rowed.steps.begin(), rowed.steps.end());
+        return true;
+    }
+
     bool PathAssembler::appendWalkSegment(int32_t fromX, int32_t fromY, int32_t toX, int32_t toY,
                                           int32_t plane, int32_t area, Plan &outPlan)
     {
@@ -777,6 +831,7 @@ namespace ww::runtime
         isWildernessAvoided = false;
         avoidBoxes.clear();
         fenceBoxes.clear();
+        view->setBoatMode(false);
         decideFreeToPlay(capabilities);
         if (!isLegalPlane(startPlane) || !isLegalPlane(goalPlane))
         {
@@ -803,6 +858,12 @@ namespace ww::runtime
         {
             return assembleTeleportOut(startX, startY, startPlane, goalX, goalY, goalPlane,
                                        capabilities, outPlan);
+        }
+        // Afloat, or bound for the water from beside it: the lake is solid to
+        // every walking plan, so only a rowed route crosses it.
+        if (assembleBoatRoute(startX, startY, startPlane, goalX, goalY, goalPlane, outPlan))
+        {
+            return true;
         }
         const int32_t startArea = view->areaAt(startX, startY, startPlane);
         if (startArea >= 0
