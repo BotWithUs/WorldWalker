@@ -102,7 +102,7 @@ can otherwise use (`members_action_N`), and a members account on a free world.
 
 Every entry may carry a `requirements` object. `skill` is one `{id, level}` or
 an array of them (all must pass), `id` being the stat id the host reports
-(0 Attack, 2 Strength, 6 Magic, 7 Cooking, 10 Fishing, 12 Crafting,
+(0 Attack, 2 Strength, 4 Ranged, 6 Magic, 7 Cooking, 10 Fishing, 12 Crafting,
 14 Mining, 16 Agility, ...); `items` is an array of `{id, count}` and passes when **any** of them is held on
 an item teleport; `varbit` and `varp` are either one `{id, value}` or an
 **array** of them, and each is an exact-value match; `varbit_at_least` and
@@ -1285,9 +1285,38 @@ it, so no row does.
   then a walk into either guild has no route.
 - **Left alone:** the Legends' Guild gate 2391 / 2392 and doors 2896 / 2897
   (who may pass depends on the stage of Legends' Quest, and no dump says
-  which stage opens which); the Ranging Guild, which has no route in at all
-  (the fence door at 2658,3438 bakes no transition), so there is nothing to
-  gate.
+  which stage opens which). The Ranging Guild, left alone here because its
+  door baked no transition, got its rows on 2026-11-26 (next section).
+
+## Ranging Guild door (2026-11-26)
+
+BWU-K5V87F: from 2653,3437, outside the Ranging Guild's fence, a walk to the
+haystack at 2671,3415 (stand tile 2671,3417) had no route at all.
+`wwcli txnear` showed the door's clip at 2658,3438 and no transition.
+
+**Why the bake missed it.** `wwbuild crossings` on square 41,53 places loc
+2514 (`RANGING_GUILD_DOOR`, `Guild door`, op 0 `Open`) at 2658,3438 with
+shape 9, rotation 0: a diagonal wall, which blocks its whole tile instead of
+an edge. `deriveDoorTransitions` needs the door's own tile standable and a
+wall edge from `doorEdgeMask`, and shape 9 has neither, so the door counts
+as `blockedOrigin` and is left to the dataset. The fence runs south-west to
+north-east through the door (2657,3437 and 2659,3439 are blocked). The tiles
+west, north and north-west of it are outside (area 5447 in the 2026-11-20
+release); east, south and south-east are inside (11156).
+
+**Rows.** One per direction, both on the door's diagonal neighbours, the
+tiles across the door from each other, each within a tile of the anchor:
+2657,3439 -> 2659,3437 going in, gated on Ranged (stat 4) 40, and
+2659,3437 -> 2657,3439 going out, with no gate. That is how the other guilds
+are done: only the way in is gated. The level is from the cache: skill guide
+struct 3206, "Access to the Ranging Guild", `skillguide_level` 40,
+`skillguide_skill` 3. In skill guide numbering 3 is Ranged (Magic is 4 in
+struct 5791, Crafting 11 in 6085, Mining 13 in 42965, Fishing 15 in 45992).
+`wwcli scripted` case `ranging_guild_door` checks both levels and the way out.
+
+**Not verified live:** where the game puts the player after the door. Neither
+landing comes from the cache, and both are inside the executor's slack. Also
+unverified: whether the doorman (NPC 679) stops the player with dialogue.
 
 **Not verified live:** every gate above; the alternative landings at the
 Cooks' and Warriors' doors.
