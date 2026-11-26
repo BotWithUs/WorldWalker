@@ -49,6 +49,10 @@
 //                      reaches Canifis through the Holy barrier; without it,
 //                      neither route uses them (a named route; skips on an
 //                      artifact without the gate rows).
+//   ranging_guild_door - Ranged 40 walks into the Ranging Guild through door
+//                      2514 and Ranged 39 does not; leaving takes the door
+//                      either way (a named route; skips on an artifact
+//                      without the door rows).
 namespace
 {
     enum class Outcome { Pass, Fail, Skip };
@@ -971,6 +975,50 @@ namespace
         }
         return {"phasmatys_barrier", Outcome::Pass, nullptr};
     }
+
+    constexpr std::int32_t kRangedStat = 4;
+    constexpr std::int32_t kRangingGuildDoor = 2514;   // RANGING_GUILD_DOOR, shape 9
+
+    // An account with Ranged at `level` and nothing else set.
+    ww::runtime::CapabilitySnapshot rangedAt(std::int32_t level)
+    {
+        ww::runtime::CapabilitySnapshot caps;
+        caps.setSkillLevel(kRangedStat, level);
+        return caps;
+    }
+
+    // Category 9 - a named route: into the Ranging Guild through its door
+    // 2514, a diagonal (shape 9) door whose blocked tile the crossing deriver
+    // skips, so only the dataset rows link the two sides. With Ranged 40 the
+    // walk from outside the fence to the haystack's stand tile takes the door;
+    // at Ranged 39 there is no route in, and leaving is ungated either way.
+    // Skips on an artifact baked before the rows.
+    CaseResult rangingGuildDoor(const ww::format::ArtifactReader &reader,
+                                ww::runtime::PathAssembler &assembler)
+    {
+        const auto txs = reader.transitions();
+        const bool hasDoor = std::any_of(txs.begin(), txs.begin() + reader.bakedTransitions(),
+            [](const ww::format::TransitionRecord &tx) { return tx.objectId == kRangingGuildDoor; });
+        if (!hasDoor)
+        {
+            return {"ranging_guild_door", Outcome::Skip, "the artifact predates the door rows"};
+        }
+        ww::runtime::CapabilitySnapshot able = rangedAt(40);
+        if (!takes(routeObjects(reader, assembler, able, 2653, 3437, 2671, 3417), kRangingGuildDoor))
+        {
+            return {"ranging_guild_door", Outcome::Fail, "Ranged 40: no route in through the door"};
+        }
+        ww::runtime::CapabilitySnapshot low = rangedAt(39);
+        if (takes(routeObjects(reader, assembler, low, 2653, 3437, 2671, 3417), kRangingGuildDoor))
+        {
+            return {"ranging_guild_door", Outcome::Fail, "Ranged 39: the door was used"};
+        }
+        if (!takes(routeObjects(reader, assembler, low, 2671, 3417, 2653, 3437), kRangingGuildDoor))
+        {
+            return {"ranging_guild_door", Outcome::Fail, "Ranged 39: no route out through the door"};
+        }
+        return {"ranging_guild_door", Outcome::Pass, nullptr};
+    }
 }
 
 int runScriptedPaths(const char *wwaPath)
@@ -994,6 +1042,7 @@ int runScriptedPaths(const char *wwaPath)
             portSarimBoat(reader, assembler),
             paterdomusPassage(reader, assembler),
             phasmatysBarrier(reader, assembler),
+            rangingGuildDoor(reader, assembler),
         };
         int passed  = 0;
         int failed  = 0;
