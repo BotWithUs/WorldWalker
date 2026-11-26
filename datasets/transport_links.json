@@ -6046,7 +6046,15 @@
     "option_index": 0,
     "dest_x": 2848,
     "dest_y": 3621,
-    "dest_plane": 0
+    "dest_plane": 0,
+    "requirements": {
+      "items": [
+        {
+          "id": 3105,
+          "count": 1
+        }
+      ]
+    }
   },
   {
     "name": "Climb",
@@ -6140,6 +6148,32 @@
     "dest_plane": 0
   },
   {
+    "name": "Enter",
+    "object_id": 34395,
+    "x": 2922,
+    "y": 3657,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2907,
+    "dest_y": 10035,
+    "dest_plane": 0
+  },
+  {
+    "name": "Exit",
+    "object_id": 3758,
+    "x": 2907,
+    "y": 10018,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2912,
+    "dest_y": 3636,
+    "dest_plane": 0
+  },
+  {
     "name": "Lift",
     "object_id": 35390,
     "x": 2907,
@@ -6163,6 +6197,209 @@
     "option_index": 0,
     "dest_x": 2907,
     "dest_y": 3708,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb",
+    "object_id": 34878,
+    "x": 2874,
+    "y": 3594,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2875,
+    "dest_y": 3598,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb",
+    "object_id": 34878,
+    "x": 2875,
+    "y": 3598,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2874,
+    "dest_y": 3594,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb",
+    "object_id": 3748,
+    "x": 2848,
+    "y": 3621,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 2848,
+    "dest_y": 3619,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb",
+    "object_id": 35391,
+    "x": 2833,
+    "y": 3628,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2835,
+    "dest_y": 3628,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb",
+    "object_id": 35391,
+    "x": 2835,
+    "y": 3628,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2833,
+    "dest_y": 3628,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb",
+    "object_id": 3748,
+    "x": 2816,
+    "y": 3632,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2818,
+    "dest_y": 3632,
+    "dest_plane": 0,
+    "requirements": {
+      "items": [
+        {
+          "id": 3105,
+          "count": 1
+        }
+      ]
+    }
+  },
+  {
+    "name": "Climb",
+    "object_id": 3748,
+    "x": 2818,
+    "y": 3632,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2816,
+    "dest_y": 3632,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb",
+    "object_id": 35391,
+    "x": 2901,
+    "y": 3610,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2899,
+    "dest_y": 3610,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb",
+    "object_id": 34877,
+    "x": 2878,
+    "y": 3622,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2877,
+    "dest_y": 3618,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb",
+    "object_id": 34877,
+    "x": 2894,
+    "y": 3612,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 3,
+    "option_index": 0,
+    "dest_x": 2895,
+    "dest_y": 3616,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb",
+    "object_id": 34889,
+    "x": 2930,
+    "y": 3681,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2934,
+    "dest_y": 3681,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb",
+    "object_id": 34889,
+    "x": 2934,
+    "y": 3681,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2930,
+    "dest_y": 3681,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb",
+    "object_id": 34878,
+    "x": 2950,
+    "y": 3682,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 2954,
+    "dest_y": 3682,
+    "dest_plane": 0
+  },
+  {
+    "name": "Leave",
+    "object_id": 3774,
+    "x": 2837,
+    "y": 10089,
+    "plane": 2,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2848,
+    "dest_y": 3687,
+    "dest_plane": 0
+  },
+  {
+    "name": "Climb-up",
+    "object_id": 18834,
+    "x": 2831,
+    "y": 10076,
+    "plane": 2,
+    "shape": 10,
+    "rotation": 2,
+    "option_index": 0,
+    "dest_x": 2813,
+    "dest_y": 3668,
     "dest_plane": 0
   },
   {

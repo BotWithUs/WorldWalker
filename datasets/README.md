@@ -1848,6 +1848,108 @@ loc in the scene to click it. A gate that matches the loc def does not by
 itself make the host find a multiloc, either (see the Draynor portal's "Why
 the host lost it").
 
+## Trollheim summit and Death Plateau climbs (2026-11-26)
+
+Live (BWU-JARKM9) a hard sextant clue dug at 2848,3684, on the Trollheim
+mountain top, failed five times with no route from 2616,3077. The summit
+(one baked area holding the dig tile, the Trollheim Teleport landing
+2882,3668 and the Troll Stronghold exit 2922,3658) had only one way in, the
+Stronghold, and the overland way to the Stronghold was cut at Death Plateau.
+The Trollheim Farm Teleport landing (2817,3676) was a separate area with no
+way up.
+
+**Why the bake missed them.** Every crossing here is a same-plane "Climb"
+loc (Cliffside / Rocks, shape 10, 3x4 or 5x1) or a cave mouth. The cache
+marks the climbs AGILITY + PLANE_CHANGE, but the freshness deriver pairs only
+vertical columns and the door deriver only wall shapes, so none of them
+becomes a transition by itself (ADR 0003/0009). Each one needs a row, and
+only some had one.
+
+**Evidence.** Every row is a V1 link (`rs3-nav-api` `mapdata.zip`,
+`areas.dat`) on the same loc, with V1's origin and landing tiles. V1's loc
+tile matches the cache placement (`wwbuild crossings`) wherever the loc is a
+crossing: 34878 2874,3595 and 2951,3681; 35391 2834,3626 and 2900,3608; 3748
+2817,3630 and 2846,3620; 34877 2876,3619 and 2893,3613; 34889 2931,3680;
+18834 2831,10077,2. Shape and rotation are the cache's. Loc names are from
+gameval, ops from rs3-cs2-dumps `locations.json` (all op 0).
+
+**Climbing boots.** V1 gates the two climbs up from the low side of the 3748
+`TROLL_CLIMBINGROCKS` rocks on item 3105 `DEATH_CLIMBINGBOOTS`, and leaves
+the climbs down ungated. The existing row 2847,3619 -> 2848,3621 had no gate.
+It now has `items` 3105 x1, and so does the new west climb 2816,3632 ->
+2818,3632. An `items` gate passes on worn or carried, and the game probably
+wants the boots worn (unverified), so a player carrying them unworn will be
+routed over the rocks.
+
+**Rows added** (17; one existing row gated):
+
+| Loc | Name | Origin -> landing | Joins |
+|---|---|---|---|
+| 34878 `TROLLHEIM_MEDIUM_AGILITY_MOUNTAIN_CLIMBING_WALL` | Cliffside | 2874,3594 <-> 2875,3598 | the ledge above the Burthorpe rocks <-> Death Plateau |
+| 3748 `TROLL_CLIMBINGROCKS` | Rocks | 2848,3621 -> 2848,3619 | down to Death Plateau (up is the gated existing row) |
+| 35391 `TROLL_CLIMBINGROCKS_LOW` | Rocks | 2833,3628 <-> 2835,3628 | the Stronghold secret-entrance ledge <-> the plateau top |
+| 3748 `TROLL_CLIMBINGROCKS` | Rocks | 2816,3632 -> 2818,3632 (boots), 2818,3632 -> 2816,3632 | the west lowland <-> the secret-entrance ledge |
+| 35391 `TROLL_CLIMBINGROCKS_LOW` | Rocks | 2901,3610 -> 2899,3610 | back from the arena approach (the way up was a row) |
+| 34877 `TROLLHEIM_LOW_AGILITY_MOUNTAIN_CLIMBING_WALL` | Cliffside | 2878,3622 -> 2877,3618, 2894,3612 -> 2895,3616 | the other direction of both existing rows |
+| 34889 `TROLLHEIM_HIGH_AGILITY_MOUNTAIN_CLIMBING_WALL` | Cliffside | 2930,3681 <-> 2934,3681 | summit <-> the ledge east of it |
+| 34878 `TROLLHEIM_MEDIUM_AGILITY_MOUNTAIN_CLIMBING_WALL` | Cliffside | 2950,3682 -> 2954,3682 | that ledge -> further east (V1 has this direction only) |
+| 3774 `TROLL_STRONGHOLD_TOP_EXIT_MID` | Exit [Leave] | 2837,10089,2 -> 2848,3687,0 | the cave under the summit -> summit |
+| 18834 `MYARM_LADDER` | Troll ladder [Climb-up] | 2831,10076,2 -> 2813,3668,0 | the same cave -> the farm patch (the way down, 18833, was a row) |
+| 34395 `TROLLHEIM_MOUNTAIN_CAVE_ENTRANCE_4X4_1A` | Cave entrance | 2922,3657 -> 2907,10035 | summit -> the Stronghold (back the way its exit lands) |
+| 3758 `TROLL_PASS_EXIT` | Cave Exit | 2907,10018 -> 2912,3636 | the Stronghold -> the arena side |
+
+3774 and 34395 at 2920,3654 are not crossings in the cache (no interact
+type), so their tiles are V1's alone. The 34395 row starts on its 4x4
+footprint, beside the floor at 2922,3658, as the City of Um cave rows do. The
+3758 row starts beside V1's 2907,10019, on the anchor's row. Rotation 0 on
+those two is a placeholder.
+
+**Obj 34395 on the summit is right.** `TROLLHEIM_MOUNTAIN_CAVE_ENTRANCE_4X4_1A`
+"Cave entrance" [Enter] is the shared mountain-cave mouth (it is also used at
+Burthorpe, 2858,3578, and below the Stronghold, 2911,3636). The summit row
+2846,3687 -> 2837,10090,2 is V1's 2848,3687 -> 2837,10089,2, and that cave
+holds both 3774 and the 18833/18834 ladder pair.
+
+**Left alone.** The summit's own climbs (9303..9306, 3803, 3748 at
+2918,3675) join pockets the collision bake already treats as one area, so
+they cannot be rows (a row inside one area is dropped as intra-area). If the
+game really needs those climbs, the walker will walk into the rock there. The
+Troll Stronghold and its arena gates (34836/34839) stay ungated, though the
+game may hold them until Troll Stronghold. The secret entrance 3762
+(2829,3638) and its exit 3761 are not added. No Trollheim tablet (20175
+`POH_TABLET_TROLLHEIMTELEPORT`, 50562 `POH_TABLET_TROLLHEIM_FARM`) is in
+`item_teleports.json`. Its landing is in neither the cache nor V1.
+
+**No agility levels.** The LOW / MEDIUM / HIGH in the gameval names suggest
+Agility levels, but none of 34877, 34878 or 34889 has a param, an extra, a
+dbrow or an enum entry that gives one, and V1 gates none of them. They are
+ungated, like the other agility crossings above.
+
+`wwcli path`, stage bake (local cache, `--op-defs`). The baseline is the same
+bake of master's datasets:
+- Farm Teleport landing 2817,3676 -> 2848,3684: no route before; now 76.8 via
+  ladder 18833 and 3774 (the same with `--ungated`). Back: 79.6 via the summit
+  34395 and 18834.
+- Trollheim Teleport landing 2882,3668 -> 2848,3684: 155.5, walking, before
+  and after.
+- Burthorpe 2900,3550 -> 2848,3684 with `--item 3105=1`: 523.9 over 35391,
+  34878, 3748, 35391, the arena gates, the Stronghold and 3758. With 3105 = 0
+  or `--ungated`: no route. Back from the summit: 523.9 (no boots needed).
+- 2616,3077 (the live start) with `--teleports datasets`: 89.8, by Farm
+  Teleport, 18833 and 3774. With `--skill 6=60` (neither Trollheim spell), the
+  baseline went 518.1 through the Burthorpe cave and the Death Plateau
+  agility cave (2269,4752 -> 3405,4284 -> 2854,3617) and then up the ungated
+  3748. Now it is 512.3 by the Fremennik lodestone and the west rocks with
+  the boots, and there is no route without them.
+- The east ledge 2934,3681 -> 2848,3684: 142.2 over 34889.
+- `check`, `scripted`, `sos`, `exclude`, `walltest`, `instance`: pass.
+  `doors`: 1 failure, the same one (86700 at 3022,3538) on the baseline.
+  `collisionFingerprint` and squares are unchanged; transitions 14119 -> 14136.
+
+**Not verified live:** every landing tile, that 3774 is clicked from 2837,10089,
+that 34395 takes the click from 2922,3658, whether the boots must be worn,
+and the agility levels.
+
 ## How they're consumed
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a
