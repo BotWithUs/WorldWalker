@@ -8739,10 +8739,16 @@
         "id": 12532,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      }
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ]
     },
     "chain": [
       {
@@ -8778,10 +8784,16 @@
         "id": 12532,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      }
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ]
     },
     "chain": [
       {
@@ -8981,10 +8993,16 @@
         "id": 12533,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      }
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ]
     },
     "chain": [
       {
@@ -9020,10 +9038,16 @@
         "id": 12533,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      }
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ]
     },
     "chain": [
       {
@@ -9096,10 +9120,16 @@
     "dest_y": 3482,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      },
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ],
       "varbit": {
         "id": 12535,
         "value": 1
@@ -9137,8 +9167,16 @@
     "requirements": {
       "varbit_at_least": [
         {
+          "id": 12530,
+          "value": 1
+        },
+        {
           "id": 12529,
           "value": 91
+        },
+        {
+          "id": 12531,
+          "value": 1
         },
         {
           "id": 12529,
@@ -9176,10 +9214,16 @@
     "dest_y": 3110,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      },
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ],
       "varbit": {
         "id": 12532,
         "value": 1
@@ -9215,10 +9259,16 @@
     "dest_y": 3302,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      },
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ],
       "varbit": {
         "id": 12534,
         "value": 1
@@ -9254,10 +9304,16 @@
     "dest_y": 3456,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      },
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ],
       "varbit": {
         "id": 12533,
         "value": 1
@@ -9297,10 +9353,16 @@
         "id": 12535,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      }
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ]
     },
     "chain": [
       {
@@ -9336,10 +9398,16 @@
         "id": 12535,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      }
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ]
     },
     "chain": [
       {
@@ -9496,8 +9564,16 @@
     "requirements": {
       "varbit_at_least": [
         {
+          "id": 12531,
+          "value": 1
+        },
+        {
           "id": 12529,
           "value": 200
+        },
+        {
+          "id": 12530,
+          "value": 1
         },
         {
           "id": 12529,
@@ -9535,10 +9611,16 @@
     "dest_y": 3482,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      },
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ],
       "varbit": {
         "id": 12535,
         "value": 1
@@ -9574,10 +9656,16 @@
     "dest_y": 3110,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      },
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ],
       "varbit": {
         "id": 12532,
         "value": 1
@@ -9613,10 +9701,16 @@
     "dest_y": 3302,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      },
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ],
       "varbit": {
         "id": 12534,
         "value": 1
@@ -9652,10 +9746,16 @@
     "dest_y": 3456,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      },
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ],
       "varbit": {
         "id": 12533,
         "value": 1
@@ -9695,10 +9795,16 @@
         "id": 12534,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      }
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ]
     },
     "chain": [
       {
@@ -9734,10 +9840,16 @@
         "id": 12534,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      }
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ]
     },
     "chain": [
       {
