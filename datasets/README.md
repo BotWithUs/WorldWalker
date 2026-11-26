@@ -435,7 +435,8 @@ plane is doubtful: the site's locs dump on planes 1 and 2, the row lands on 0.
 
 Each of the six stations has a 2x2 basket loc that morphs, on the station's
 unlock varbit, from rock or frame into loc 19129 `Basket` (op 0 `Fly`;
-Entrana's is 19128, op 0 `Use`). A row clicks its basket's op 0, waits for
+Entrana's is 19128, op 0 `Use`). See "Multiloc gates" below for how each
+gate is read off the loc. A row clicks its basket's op 0, waits for
 interface 469 `ZEP_BALLOON_MAP`, clicks the destination's button with op 1
 (each button has one op, its place name, read from the raw cache group; the
 decoded interface reads text as ops here, as it does for 95), and waits 6
@@ -446,13 +447,29 @@ ticks. No clientscript touches 469, so any locking is the server's.
 | Castle Wars | 19137 (2463,3109) | 15 | varbit 12532 == 1 |
 | Grand Tree | 19139 (2481,3457) | 16 | varbit 12533 == 1 |
 | Crafting Guild | 19141 (2924,3301) | 17 | varbit 12534 == 1 |
-| Entrana | 19133 (2806,3355) | 18 | varbit 12529 >= 91 |
-| Taverley | 19135 (2928,3411) | 19 | varbit 12529 >= 200 |
+| Entrana | 19133 (2806,3355) | 18 | varbit 12530 >= 1 and 12529 >= 91 |
+| Taverley | 19135 (2928,3411) | 19 | varbit 12531 >= 1 and 12529 >= 200 |
 | Varrock | 19143 (3296,3481) | 20 | varbit 12535 == 1 |
 
 Varbit 12529 is Enlightened Journey (quest 315, complete at 200); the per-
 route gates are the values achievement 2119 "Around the World in Six Ways"
 and clientscript 13281 test. A row carries the gates of both its stations.
+
+Until 2026-11-26 Entrana and Taverley were gated on 12529 alone, but neither
+basket is keyed on it. 19133 is a multiloc on varbit 12530
+(`zep_multi_basket`, zep_var bits 8..9): 0 is 19132 `Basket` with no ops,
+1 and 2 are 19128 [Use], 3 falls to the default (none). 19135 is on 12531
+(`zep_multi_piccard`, bits 10..11): 0 is 67554 `Rock`, 1 and 2 are 19129
+[Fly], 3 none. The 12529 gate stays beside the new one, as the route fact
+clientscript 13281 tests; the basket varbit is the fact the host needs to find
+a loc to click. The other four baskets were already keyed right: each
+`zep_multi_*` bit (12532..12535) at 1 is 19129 [Fly], 0 a rock.
+
+**Unresolved:** `varbit_at_least 1` also admits 3, which shows no basket.
+Excluding it would need an exact 1 row and an exact 2 row per route, each a
+tile apart; nothing in the client dumps sets or tests either varbit, so
+whether 3 is ever used is not settled offline.
+
 The Varrock origin moved from 3298,3482 to 3297,3481, within a tile of its
 basket.
 
@@ -650,6 +667,16 @@ trees. The patch value 20 is the stage that morphs to 8355
 is a conservative guess, not a fact from the data.
 
 Index 11 (your house, 2940,3223, varbit 61257) has no rows.
+
+Checked against `locations.json` on 2026-11-26 (see "Multiloc gates"): every
+patch tree is a multiloc whose child 20 is 8355, and the varbits are the
+6-bit `farming_spirit_tree_varbit_1..4` (64, 66, 68 on varp 15; 45329 on
+varp 9058), so `== 20` is exact. 26723 is on 3-bit varbit 10479
+(`pog_spirit`): 0..2 are 26720 [Talk to], and 26721 [Talk to, Teleport] is
+the last id, the default for 3..7, so `>= 3` is exact. The other trees (68974, 68973, 1317,
+92994) are plain locs with a Teleport op (1317 as `members_action_2`), so the
+loc itself carries no gate. script9765 also admits patch trees as
+destinations on varbit 58466 == 1; the rows do not, which only narrows them.
 
 Because Tree Gnome Village lives in a varp, the live bot plans no spirit tree
 until the host supplies varp 2661 (see "Gates and routes"). No varbit carries
@@ -1794,6 +1821,32 @@ click (the script's experience says so), the landing tiles, whether `Pass`
 with tokens before stage 7 charges them without `Pay toll`, and the worn
 bedsheet, which the barrier refuses ("You can't pass the barriers of Port
 Phasmatys while wearing the bedsheet"); no gate expresses it.
+
+## Multiloc gates
+
+A row whose `object_id` is a multiloc (a loc def with `morphs_1` in
+rs3-cs2-dumps `locations.json`) must be gated so it passes only in the states
+that show the child carrying the op the row clicks. Derive it like this:
+
+1. Read the base loc's `morphs_1`: the `varbit` (or `varp` when the varbit
+   is -1) and the `ids` list. Value N shows `ids[N]`; the **last** id is the
+   default for every value past the list, and `0` there means none.
+2. Look up each child id in `locations.json` and keep the values whose child
+   has the row's op at `option_index` (`actions`, or `members_action_N` for a
+   members op).
+3. Look the var up in `latest_varbits.json` for its width (`lsb`..`msb`): a
+   value the field cannot hold needs no exclusion, and the name says what the
+   var is (`farming_spirit_tree_varbit_1`, `zep_multi_basket`).
+4. Write the narrowest gate that covers exactly those values: `varbit` for one
+   value, `varbit_at_least` when they run to the top of the field. A set that
+   neither spelling covers is two rows (gates AND, see "Gates and routes"), or
+   an unresolved note when the extra rows are not worth it.
+
+Any unlock the destination menu checks (a clientscript or achievement test)
+is ANDed on top. It does not replace the loc's own varbit: the host needs the
+loc in the scene to click it. A gate that matches the loc def does not by
+itself make the host find a multiloc, either (see the Draynor portal's "Why
+the host lost it").
 
 ## How they're consumed
 
