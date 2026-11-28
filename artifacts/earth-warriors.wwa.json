@@ -1,0 +1,52 @@
+{
+    "builtAtUtc":  "2026-11-07T02:08:22Z",
+    "cacheDirMtime":  134378617386350472,
+    "cacheId":  "RuneScape",
+    "cacheIndexVersion":  null,
+    "cacheKind":  "local+live",
+    "collisionFingerprint":  "0x39263A82BA0CBEC8",
+    "command":  "build",
+    "counts":  {
+                   "areas":  52601,
+                   "edges":  13370,
+                   "landmarks":  16,
+                   "squares":  8715,
+                   "teleportZones":  6,
+                   "transitions":  14121
+               },
+    "datasetFiles":  [
+                         {
+                             "bytes":  844664,
+                             "fnv1a64":  "0xD535780C3B5FF2F2",
+                             "name":  "transport_links.json"
+                         },
+                         {
+                             "bytes":  33783,
+                             "fnv1a64":  "0xAAEFE8F3721107FD",
+                             "name":  "spell_teleports.json"
+                         },
+                         {
+                             "bytes":  148506,
+                             "fnv1a64":  "0xACBC15C4B97DCABA",
+                             "name":  "item_teleports.json"
+                         },
+                         {
+                             "bytes":  5779,
+                             "fnv1a64":  "0x01288685E44ACBDB",
+                             "name":  "dialog_zones.json"
+                         },
+                         {
+                             "bytes":  26619,
+                             "fnv1a64":  "0x7D2312DCEBAB2CF5",
+                             "name":  "f2p_zones.json"
+                         }
+                     ],
+    "datasetHash":  "0xAADF518D",
+    "datasetVersion":  "342ce3c",
+    "schema":  1,
+    "serverVersion":  null,
+    "sourceVersion":  "wwa-2026-10-22-37-g342ce3c",
+    "wwbuildBuiltAt":  "Nov  7 2026 03:06:00",
+    "artifactSha256":  "8f958994a09072c8928f2cb6e409e9c6ab365d1c174750659621340e14a6165c",
+    "artifactBytes":  9779213
+}
