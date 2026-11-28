@@ -8739,10 +8739,16 @@
         "id": 12532,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      }
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ]
     },
     "chain": [
       {
@@ -8778,10 +8784,16 @@
         "id": 12532,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      }
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ]
     },
     "chain": [
       {
@@ -8981,10 +8993,16 @@
         "id": 12533,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      }
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ]
     },
     "chain": [
       {
@@ -9020,10 +9038,16 @@
         "id": 12533,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      }
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ]
     },
     "chain": [
       {
@@ -9096,10 +9120,16 @@
     "dest_y": 3482,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      },
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ],
       "varbit": {
         "id": 12535,
         "value": 1
@@ -9137,8 +9167,16 @@
     "requirements": {
       "varbit_at_least": [
         {
+          "id": 12530,
+          "value": 1
+        },
+        {
           "id": 12529,
           "value": 91
+        },
+        {
+          "id": 12531,
+          "value": 1
         },
         {
           "id": 12529,
@@ -9176,10 +9214,16 @@
     "dest_y": 3110,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      },
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ],
       "varbit": {
         "id": 12532,
         "value": 1
@@ -9215,10 +9259,16 @@
     "dest_y": 3302,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      },
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ],
       "varbit": {
         "id": 12534,
         "value": 1
@@ -9254,10 +9304,16 @@
     "dest_y": 3456,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      },
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ],
       "varbit": {
         "id": 12533,
         "value": 1
@@ -9297,10 +9353,16 @@
         "id": 12535,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      }
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ]
     },
     "chain": [
       {
@@ -9336,10 +9398,16 @@
         "id": 12535,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      }
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ]
     },
     "chain": [
       {
@@ -9496,8 +9564,16 @@
     "requirements": {
       "varbit_at_least": [
         {
+          "id": 12531,
+          "value": 1
+        },
+        {
           "id": 12529,
           "value": 200
+        },
+        {
+          "id": 12530,
+          "value": 1
         },
         {
           "id": 12529,
@@ -9535,10 +9611,16 @@
     "dest_y": 3482,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      },
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ],
       "varbit": {
         "id": 12535,
         "value": 1
@@ -9574,10 +9656,16 @@
     "dest_y": 3110,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      },
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ],
       "varbit": {
         "id": 12532,
         "value": 1
@@ -9613,10 +9701,16 @@
     "dest_y": 3302,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      },
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ],
       "varbit": {
         "id": 12534,
         "value": 1
@@ -9652,10 +9746,16 @@
     "dest_y": 3456,
     "dest_plane": 0,
     "requirements": {
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      },
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ],
       "varbit": {
         "id": 12533,
         "value": 1
@@ -9695,10 +9795,16 @@
         "id": 12534,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 200
-      }
+      "varbit_at_least": [
+        {
+          "id": 12531,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 200
+        }
+      ]
     },
     "chain": [
       {
@@ -9734,10 +9840,16 @@
         "id": 12534,
         "value": 1
       },
-      "varbit_at_least": {
-        "id": 12529,
-        "value": 91
-      }
+      "varbit_at_least": [
+        {
+          "id": 12530,
+          "value": 1
+        },
+        {
+          "id": 12529,
+          "value": 91
+        }
+      ]
     },
     "chain": [
       {
@@ -19139,7 +19251,12 @@
       }
     ],
     "extra_cost": 80,
-    "disabled": true
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Brimhaven",
@@ -19505,7 +19622,12 @@
       }
     ],
     "extra_cost": 80,
-    "disabled": true
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Catherby",
@@ -19865,7 +19987,12 @@
       }
     ],
     "extra_cost": 80,
-    "disabled": true
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Karamja (Musa Point)",
@@ -20217,12 +20344,17 @@
     ],
     "extra_cost": 80,
     "requirements": {
-      "varbit_at_least": {
-        "id": 36140,
-        "value": 100
-      }
-    },
-    "disabled": true
+      "varbit_at_least": [
+        {
+          "id": 36140,
+          "value": 100
+        },
+        {
+          "id": 9663,
+          "value": 1
+        }
+      ]
+    }
   },
   {
     "name": "Charter ship - Menaphos",
@@ -20983,7 +21115,12 @@
       }
     ],
     "extra_cost": 80,
-    "disabled": true
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Port Khazard",
@@ -21166,8 +21303,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -21201,8 +21337,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -21236,8 +21371,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -21277,8 +21411,7 @@
         "id": 36140,
         "value": 100
       }
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -21312,8 +21445,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -21347,8 +21479,7 @@
         "wait": 6
       }
     ],
-    "extra_cost": 80,
-    "disabled": true
+    "extra_cost": 80
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -21388,8 +21519,7 @@
         "id": 2102,
         "value": 15
       }
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Charter ship - Port Phasmatys",
@@ -21429,8 +21559,7 @@
         "id": 14042,
         "value": 1
       }
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -21647,7 +21776,12 @@
       }
     ],
     "extra_cost": 80,
-    "disabled": true
+    "requirements": {
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
+      }
+    }
   },
   {
     "name": "Charter ship - Port Sarim",
@@ -22425,9 +22559,12 @@
       "varp_at_least": {
         "id": 2102,
         "value": 15
+      },
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
       }
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Charter ship - Port Tyras",
@@ -22832,9 +22969,12 @@
       "varbit": {
         "id": 14042,
         "value": 1
+      },
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
       }
-    },
-    "disabled": true
+    }
   },
   {
     "name": "Charter ship - Oo'glog",
@@ -46099,9 +46239,9 @@
     "dest_y": 3485,
     "dest_plane": 0,
     "requirements": {
-      "varp_at_least": {
-        "id": 2171,
-        "value": 60
+      "varbit_at_least": {
+        "id": 9663,
+        "value": 1
       }
     },
     "chain": [
@@ -46846,6 +46986,38 @@
   },
   {
     "name": "Open",
+    "object_id": 2514,
+    "x": 2657,
+    "y": 3439,
+    "plane": 0,
+    "shape": 9,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2659,
+    "dest_y": 3437,
+    "dest_plane": 0,
+    "requirements": {
+      "skill": {
+        "id": 4,
+        "level": 40
+      }
+    }
+  },
+  {
+    "name": "Open",
+    "object_id": 2514,
+    "x": 2659,
+    "y": 3437,
+    "plane": 0,
+    "shape": 9,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 2657,
+    "dest_y": 3439,
+    "dest_plane": 0
+  },
+  {
+    "name": "Open",
     "object_id": 1805,
     "x": 3191,
     "y": 3363,
@@ -47273,6 +47445,114 @@
         "level": 92
       }
     }
+  },
+  {
+    "name": "Pass",
+    "object_id": 5259,
+    "x": 3651,
+    "y": 3485,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3653,
+    "dest_y": 3485,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 13497,
+        "value": 7
+      }
+    }
+  },
+  {
+    "name": "Pay toll (2 Ecto-token)",
+    "object_id": 5259,
+    "x": 3651,
+    "y": 3485,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 3,
+    "dest_x": 3653,
+    "dest_y": 3484,
+    "dest_plane": 0,
+    "requirements": {
+      "items": [
+        {
+          "id": 4278,
+          "count": 2
+        }
+      ]
+    },
+    "extra_cost": 10
+  },
+  {
+    "name": "Pass",
+    "object_id": 5259,
+    "x": 3653,
+    "y": 3485,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 0,
+    "option_index": 0,
+    "dest_x": 3651,
+    "dest_y": 3485,
+    "dest_plane": 0
+  },
+  {
+    "name": "Pass",
+    "object_id": 5259,
+    "x": 3659,
+    "y": 3509,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3659,
+    "dest_y": 3507,
+    "dest_plane": 0,
+    "requirements": {
+      "varbit_at_least": {
+        "id": 13497,
+        "value": 7
+      }
+    }
+  },
+  {
+    "name": "Pay toll (2 Ecto-token)",
+    "object_id": 5259,
+    "x": 3659,
+    "y": 3509,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 3,
+    "dest_x": 3659,
+    "dest_y": 3506,
+    "dest_plane": 0,
+    "requirements": {
+      "items": [
+        {
+          "id": 4278,
+          "count": 2
+        }
+      ]
+    },
+    "extra_cost": 10
+  },
+  {
+    "name": "Pass",
+    "object_id": 5259,
+    "x": 3659,
+    "y": 3507,
+    "plane": 0,
+    "shape": 10,
+    "rotation": 1,
+    "option_index": 0,
+    "dest_x": 3659,
+    "dest_y": 3509,
+    "dest_plane": 0
   },
   {
     "name": "Open",
