@@ -61,6 +61,15 @@ namespace
     // "Break" row); the cache gives the tablet none.
     constexpr int32_t kTabletX = 2891;
     constexpr int32_t kTabletY = 3673;
+    // gameval obj 50562 POH_TABLET_TROLLHEIM_FARM ("Trollheim farm teleport",
+    // backpack Break). V1 teleports.dat lands it at 2817,3677 and gates it on
+    // varbit 10236 LUNAR_QUEST_MAIN >= 190 (Lunar Diplomacy) and varbit 16374
+    // LUNARFM_SPELLS_UNLOCKED >= 9.
+    constexpr int32_t kFarmTablet = 50562;
+    constexpr int32_t kFarmTabletX = 2817;
+    constexpr int32_t kFarmTabletY = 3677;
+    constexpr int32_t kLunarQuestVarbit = 10236;
+    constexpr int32_t kLunarQuestDone = 190;
     // Backpack op 1 is the tablet's first widget action, "Break".
     constexpr int32_t kBreakOption = 1;
     constexpr int32_t kBackpackInterface = 1473;
@@ -220,25 +229,57 @@ namespace
         return failures;
     }
 
-    int checkTabletRow(const std::vector<Transition> &txs)
+    struct TabletRow
     {
-        const Transition *t = findLabel(txs, "Trollheim tablet");
+        const char *label;
+        int32_t item;
+        int32_t destX;
+        int32_t destY;
+        std::size_t gateCount;  // requirements on the row, the item included
+    };
+
+    // A carried tablet broken from the backpack: item `row.item` -> its landing.
+    int checkTabletRow(const std::vector<Transition> &txs, const TabletRow &row)
+    {
+        const Transition *t = findLabel(txs, row.label);
         if (t == nullptr)
         {
-            return fail("dataset: no Trollheim tablet row");
+            std::printf("  FAIL: dataset: no '%s' row\n", row.label);
+            return 1;
         }
         const bool isShaped = t->kind == TransitionKind::ItemTeleport && t->isGlobalOrigin
-                              && t->destX == kTabletX && t->destY == kTabletY
-                              && t->destPlane == 0 && t->requirements.size() == 1
+                              && t->destX == row.destX && t->destY == row.destY
+                              && t->destPlane == 0 && t->requirements.size() == row.gateCount
                               && hasRequirement(t->requirements, RequirementKind::Item,
-                                                kTrollheimTablet, 1)
+                                                row.item, 1)
                               && !t->chain.empty()
                               && t->chain.front().kind == ChainStepKind::ClickItem
                               && t->chain.front().e == kBackpackInterface
                               && t->chain.front().f == kBackpackComponent
                               && t->chain.front().g == kBreakOption;
-        return isShaped ? 0 : fail("dataset: the Trollheim tablet row is not item 20175 ->"
-                                   " 2891,3673 by backpack Break");
+        if (!isShaped)
+        {
+            std::printf("  FAIL: dataset: '%s' is not item %d -> %d,%d by backpack Break\n",
+                        row.label, row.item, row.destX, row.destY);
+            return 1;
+        }
+        return 0;
+    }
+
+    int checkTabletRows(const std::vector<Transition> &txs)
+    {
+        int failures = checkTabletRow(txs, {"Trollheim tablet", kTrollheimTablet, kTabletX,
+                                            kTabletY, 1});
+        failures += checkTabletRow(txs, {"Trollheim Farm tablet", kFarmTablet, kFarmTabletX,
+                                         kFarmTabletY, 3});
+        const Transition *farm = findLabel(txs, "Trollheim Farm tablet");
+        const bool isGated = farm != nullptr
+                             && hasRequirement(farm->requirements, RequirementKind::VarbitAtLeast,
+                                               kLunarQuestVarbit, kLunarQuestDone)
+                             && hasRequirement(farm->requirements, RequirementKind::VarbitAtLeast,
+                                               kLunarFarmVarbit, kFarmUnlocked);
+        return failures + (isGated ? 0 : fail("dataset: the Trollheim Farm tablet lacks varbit"
+                                              " 10236 >= 190 or 16374 >= 9"));
     }
 
     int runDatasetChecks(const std::filesystem::path &dir)
@@ -254,7 +295,7 @@ namespace
         failures += expectBook(txs, "Trollheim Farm Teleport", kLunarBook);
         failures += expectBook(txs, "Fishing Guild Teleport", kLunarBook);
         failures += checkTrollheimFarmUnlock(txs);
-        return failures + checkTabletRow(txs);
+        return failures + checkTabletRows(txs);
     }
 
     // ---- planner -----------------------------------------------------------
@@ -284,14 +325,15 @@ namespace
         return UINT32_MAX;
     }
 
-    uint32_t findTablet(const ww::format::ArtifactReader &reader)
+    // The appended item teleport landing on (x, y), or UINT32_MAX.
+    uint32_t findTablet(const ww::format::ArtifactReader &reader, int32_t x, int32_t y)
     {
         const auto txs = reader.transitions();
         for (std::size_t i = 0; i < txs.size(); ++i)
         {
             const ww::format::TransitionRecord &t = txs[i];
-            if (t.kind == static_cast<uint8_t>(TransitionKind::ItemTeleport) && t.destX == kTabletX
-                && t.destY == kTabletY)
+            if (t.kind == static_cast<uint8_t>(TransitionKind::ItemTeleport) && t.destX == x
+                && t.destY == y)
             {
                 return static_cast<uint32_t>(i);
             }
@@ -320,9 +362,12 @@ namespace
         int32_t book{kStandardBook};
         int32_t water{};
         bool hasTablet{};
+        bool hasFarmTablet{};
+        bool isLunarQuestDone{true};
     };
 
-    // An account with every skill at 99, the Trollheim Farm unlocks, astral
+    // An account with every skill at 99, the Trollheim Farm unlocks (and
+    // Lunar Diplomacy unless `isLunarQuestDone` is false), astral
     // and law runes for one Lunar cast, and `water` water runes: 10 admits
     // Trollheim Farm Teleport (not the group cast, 20), 8 the Fishing Guild
     // Teleport (not the group cast, 10). No lodestone is unlocked.
@@ -346,6 +391,11 @@ namespace
         {
             s.setItemCount(kTrollheimTablet, 1);
         }
+        if (a.hasFarmTablet)
+        {
+            s.setItemCount(kFarmTablet, 1);
+        }
+        s.setVarbit(kLunarQuestVarbit, a.isLunarQuestDone ? kLunarQuestDone : 0);
         return s;
     }
 
@@ -459,6 +509,21 @@ namespace
                                        tablet);
     }
 
+    // The Farm tablet needs no runes and no book, only its unlocks: on the
+    // standard book it reaches the farm pocket, and without Lunar Diplomacy
+    // it is never planned.
+    int checkFarmTablet(const Planner &p, uint32_t farmTablet)
+    {
+        const Account carried{kStandardBook, 0, false, true, true};
+        const Account noQuest{kStandardBook, 0, false, true, false};
+        int failures = expectUses(p, {"farm tablet: Yanille -> farm pocket by tablet", kYanilleX,
+                                      kYanilleY, kFarmPocketX, kFarmPocketY, carried},
+                                  farmTablet);
+        return failures + expectAvoids(p, {"farm tablet, no Lunar Diplomacy: not used", kYanilleX,
+                                           kYanilleY, kFarmPocketX, kFarmPocketY, noQuest},
+                                       farmTablet);
+    }
+
     int checkFishingGuild(const Planner &p, uint32_t guild)
     {
         const Account lunar{kLunarBook, 8, false};
@@ -480,8 +545,10 @@ namespace
         const uint32_t farm = findSpell(reader, kFarmX, kFarmY, kFarmComponent);
         const uint32_t guild = findSpell(reader, kFishingGuildX, kFishingGuildY,
                                          kFishingGuildComponent);
-        const uint32_t tablet = findTablet(reader);
-        if (farm == UINT32_MAX || guild == UINT32_MAX || tablet == UINT32_MAX)
+        const uint32_t tablet = findTablet(reader, kTabletX, kTabletY);
+        const uint32_t farmTablet = findTablet(reader, kFarmTabletX, kFarmTabletY);
+        if (farm == UINT32_MAX || guild == UINT32_MAX || tablet == UINT32_MAX
+            || farmTablet == UINT32_MAX)
         {
             return fail("planner: a Farm Teleport, Fishing Guild Teleport or tablet record is"
                         " missing from the appended teleports");
@@ -491,7 +558,8 @@ namespace
         ww::runtime::TileSearch tileSearch(view);
         ww::runtime::PathAssembler assembler(reader, view, areaSearch, tileSearch);
         const Planner p{reader, assembler};
-        return checkTrollheim(p, farm, tablet) + checkFishingGuild(p, guild);
+        return checkTrollheim(p, farm, tablet) + checkFarmTablet(p, farmTablet)
+               + checkFishingGuild(p, guild);
     }
 }
 

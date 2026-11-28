@@ -8004,6 +8004,48 @@
           }
         ]
       }
+    },
+    {
+      "name": "Trollheim Farm tablet",
+      "members": true,
+      "global": true,
+      "dest_x": 2817,
+      "dest_y": 3677,
+      "dest_plane": 0,
+      "cost": 4.0,
+      "chain": [
+        {
+          "click_item": {
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 50562,
+            "count": 1
+          }
+        ],
+        "varbit_at_least": [
+          {
+            "id": 10236,
+            "value": 190
+          },
+          {
+            "id": 16374,
+            "value": 9
+          }
+        ]
+      }
     }
   ]
 }

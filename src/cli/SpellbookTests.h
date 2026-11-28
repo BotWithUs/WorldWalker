@@ -16,7 +16,8 @@
 //
 // Two layers:
 //   * dataset:  every spell row's book gate, the Trollheim Farm pair's unlock,
-//     and the Trollheim tablet row (item, landing, chain). Needs no artifact.
+//     and the Trollheim and Trollheim Farm tablet rows (item, landing, chain,
+//     the Farm tablet's two unlock gates). Needs no artifact.
 //   * planner:  the shipped teleports appended onto a real artifact, then
 //     planned for a Lunar account and for one on the standard book:
 //     - Yanille -> the Trollheim Farm landing pocket casts Trollheim Farm
@@ -26,6 +27,8 @@
 //       baked before that join);
 //     - the same dig breaks a carried Trollheim tablet, on any book;
 //     - with neither the runes nor a tablet, neither step is planned;
+//     - a carried Trollheim Farm tablet reaches the farm pocket on any book,
+//       and is never planned without Lunar Diplomacy;
 //     - far from the Fishing Guild (BWU-JCKQ5S), a Lunar account casts the
 //       Fishing Guild Teleport, one on the standard book does not.
 //     Skipped when no artifact is given.

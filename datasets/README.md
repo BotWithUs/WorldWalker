@@ -281,9 +281,19 @@ has no worn variant. The landing, 2891,3673,0, is V1's (`rs3-nav-api`
 `teleports.dat`, the 20175 `Break` row). The cache gives the tablet no
 destination param. The standard Trollheim Teleport lands at 2882,3668 (struct
 14778 param 2941), nine tiles away on the same summit, and both walk to the
-2848,3684 dig. The landing is not verified live. The Trollheim Farm tablet
-(50562 `POH_TABLET_TROLLHEIM_FARM`) has no row, because no data gives its
-landing.
+2848,3684 dig. The landing is not verified live.
+
+**Trollheim Farm tablet (item 50562).** `POH_TABLET_TROLLHEIM_FARM`, "Trollheim
+farm teleport" in items.json, is a members item whose first widget action is
+`Break`. Its chain is the same backpack op 1 and `wait 12`. Its landing and
+gates come from V1 `teleports.dat`. The row was read from two copies (the
+rs3-nav-api `mapdata.zip` and the bwu-nav-v2 one) and both agree: it lands at
+2817,3677,0, next to the Farm Teleport landing, and it needs varbit 10236
+`LUNAR_QUEST_MAIN` >= 190 (Lunar Diplomacy) and varbit 16374
+`LUNARFM_SPELLS_UNLOCKED` >= 9. The row carries exactly those two
+`varbit_at_least` gates. V1 does not gate the tablet on My Arm's Big Adventure
+(varbit 9987), as the spell is gated, so the row does not either. The cache
+gives the tablet no landing, and none of this is verified live.
 
 BWU-JARKM9 (no route from 2616,3077 to the 2848,3684 dig) had three causes on
 master. The Trollheim Farm Teleport landing, 2817,3676, lies in a pocket whose
