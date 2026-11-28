@@ -239,6 +239,71 @@ check` proves each lands in a seedable area near the intended destination,
 not that it is the real landing spot. Correct them from the first live log
 that uses a row.
 
+## Spellbook gates (2026-11-28)
+
+Every spell row whose ability struct belongs to one book carries
+`"varbit": {"id": 0, "value": <book>}`. Varbit 0 (gameval `ZAROS_SPELLBOOK`)
+is the active book: 0 standard, 1 Ancient Magicks, 2 Lunar. The book value is
+the struct's param 2871 `combatv2_which_spellbook`, where 3 means any book.
+clientscript-2660 hides a spell when param 2871 is neither 3 nor
+`varbitplayer_0`, and clientscript-6889 reads `varbitplayer_0 == 2` as "on
+the Lunar spellbook". War's Retreat and Max guild (2871 = 3) stay ungated.
+That makes 17 standard, 8 Ancient and 21 Lunar rows.
+
+**Why every book and not only Lunar.** The books reuse the ability book's
+grid components (param 2975, the `click` component). Ardougne Teleport and
+Fishing Guild Teleport are both 1461:330. Trollheim Teleport, God Wars
+Dungeon Teleport and Tele-group Trollheim Farm are all 1461:450. An ungated
+row planned on the wrong book clicks whatever spell holds that slot there.
+The executor reads varbit 0 on each plan like any other requirement varbit.
+A host whose varbit read fails reports 0, which admits only standard rows,
+as before this change.
+
+**Trollheim Farm unlock.** clientscript-15411 lets struct 14867 Trollheim
+Farm Teleport through only at varbit 16374 `LUNARFM_SPELLS_UNLOCKED` >= 9 and
+`QUEST_FINISHED(314)` (My Arm's Big Adventure). The group cast, struct 14868,
+needs >= 10 and the same quest. quests.json keeps quest 314 in varbit 9987
+`MYARM`, complete at 320. Both rows carry those two `varbit_at_least` gates.
+The Fishing Guild Teleport (14857) has no case there and no extra gate. The
+other Lunar rows' unlocks are not added here.
+
+**Runes are counted from the backpack and worn items only.** The Java host's
+`readItemCounts` sums those two inventories. Runes in a rune pouch or
+supplied by a staff do not count, so such an account is not planned a spell
+it can in fact cast. That is a host change, not a dataset one.
+
+## Trollheim tablet (item 20175)
+
+`POH_TABLET_TROLLHEIMTELEPORT`, a members item. In rs3-cs2-dumps
+`items.json` its first widget action is `Break`, so the chain is backpack op 1
+(`[1473, 5, 1, -1]`) and then `wait 12`, like the other carried-item rows. It
+has no worn variant. The landing, 2891,3673,0, is V1's (`rs3-nav-api`
+`teleports.dat`, the 20175 `Break` row). The cache gives the tablet no
+destination param. The standard Trollheim Teleport lands at 2882,3668 (struct
+14778 param 2941), nine tiles away on the same summit, and both walk to the
+2848,3684 dig. The landing is not verified live.
+
+**Trollheim Farm tablet (item 50562).** `POH_TABLET_TROLLHEIM_FARM`, "Trollheim
+farm teleport" in items.json, is a members item whose first widget action is
+`Break`. Its chain is the same backpack op 1 and `wait 12`. Its landing and
+gates come from V1 `teleports.dat`. The row was read from two copies (the
+rs3-nav-api `mapdata.zip` and the bwu-nav-v2 one) and both agree: it lands at
+2817,3677,0, next to the Farm Teleport landing, and it needs varbit 10236
+`LUNAR_QUEST_MAIN` >= 190 (Lunar Diplomacy) and varbit 16374
+`LUNARFM_SPELLS_UNLOCKED` >= 9. The row carries exactly those two
+`varbit_at_least` gates. V1 does not gate the tablet on My Arm's Big Adventure
+(varbit 9987), as the spell is gated, so the row does not either. The cache
+gives the tablet no landing, and none of this is verified live.
+
+BWU-JARKM9 (no route from 2616,3077 to the 2848,3684 dig) had three causes on
+master. The Trollheim Farm Teleport landing, 2817,3676, lies in a pocket whose
+only way out is the one-way ladder 18833 down into the cave. The cave's exits
+back up are rows with `object_id` 0, and the bake drops those. The summit
+join on `fix/trollheim-summit` adds them. Second, there was no tablet row.
+Third, there is no ungated overland way onto the mountain. `wwcli spellbook
+<artifact>` pins the planner behaviour. It skips the dig-by-Farm-Teleport
+case on an artifact that lacks the summit join.
+
 ## Op check
 
 A row's `option_index` must name an option its origin has: for a loc row, an
