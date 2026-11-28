@@ -7972,6 +7972,38 @@
           "value": 1
         }
       }
+    },
+    {
+      "name": "Trollheim tablet",
+      "members": true,
+      "global": true,
+      "dest_x": 2891,
+      "dest_y": 3673,
+      "dest_plane": 0,
+      "cost": 4.0,
+      "chain": [
+        {
+          "click_item": {
+            "backpack": [
+              1473,
+              5,
+              1,
+              -1
+            ]
+          }
+        },
+        {
+          "wait": 12
+        }
+      ],
+      "requirements": {
+        "items": [
+          {
+            "id": 20175,
+            "count": 1
+          }
+        ]
+      }
     }
   ]
 }
