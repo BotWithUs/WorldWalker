@@ -14,6 +14,7 @@
 #include "cli/PathExport.h"
 #include "cli/ScriptedPaths.h"
 #include "cli/SosTests.h"
+#include "cli/SpellbookTests.h"
 #include "cli/BoatTests.h"
 #include "cli/WallShapeTests.h"
 #include "data/Transitions.h"
@@ -1081,6 +1082,11 @@ namespace
         return runLodestoneTests(argc >= 1 ? argv[0] : nullptr);
     }
 
+    int runSpellbookTestsCmd(int argc, char **argv)
+    {
+        return runSpellbookTests(argc >= 1 ? argv[0] : nullptr);
+    }
+
     int runScriptedPathsCmd(int, char **argv)
     {
         return runScriptedPaths(argv[0]);
@@ -1307,6 +1313,7 @@ namespace
         {"walltest",   0, "wwcli walltest", runWallShapeTestsCmd},
         {"instance",   0, "wwcli instance", runInstanceTestsCmd},
         {"lodestones", 0, "wwcli lodestones [<artifact.wwa>]", runLodestoneTestsCmd},
+        {"spellbook",  0, "wwcli spellbook [<artifact.wwa>]", runSpellbookTestsCmd},
         {"f2p",        0, "wwcli f2p [<artifact.wwa> [<dataset_dir>]]", runF2pTestsCmd},
         {"scripted",   1, "wwcli scripted <artifact.wwa>", runScriptedPathsCmd},
         {"doors",      1, "wwcli doors <artifact.wwa>", runDoorPathsCmd},

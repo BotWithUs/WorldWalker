@@ -290,6 +290,7 @@ set(wwcli_SOURCES
 	"src/cli/PathExport.cpp"
 	"src/cli/ScriptedPaths.cpp"
 	"src/cli/SosTests.cpp"
+	"src/cli/SpellbookTests.cpp"
 	"src/cli/WallShapeTests.cpp"
 	"src/cli/main.cpp"
 )

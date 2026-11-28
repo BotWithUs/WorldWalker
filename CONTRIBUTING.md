@@ -114,6 +114,7 @@ author intended.
 .\build\Release\wwcli.exe doors <artifact>      # door/crossing traversal
 .\build\Release\wwcli.exe sos <artifact>        # Stronghold of Security rows and portals
 .\build\Release\wwcli.exe exclude <artifact> [<teleport_dir>]  # excluded transitions (WwPlanOptions)
+.\build\Release\wwcli.exe spellbook [<artifact>] # spell rows gated on the active book, Trollheim tablet
 .\build\Release\wwcli.exe bench <artifact>      # planner latency
 ```
 
