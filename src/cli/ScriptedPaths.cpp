@@ -49,6 +49,10 @@
 //                      reaches Canifis through the Holy barrier; without it,
 //                      neither route uses them (a named route; skips on an
 //                      artifact without the gate rows).
+//   ranging_guild_door - Ranged 40 walks into the Ranging Guild through door
+//                      2514 and Ranged 39 does not; leaving takes the door
+//                      either way (a named route; skips on an artifact
+//                      without the door rows).
 namespace
 {
     enum class Outcome { Pass, Fail, Skip };
@@ -762,6 +766,7 @@ namespace
     constexpr std::int32_t kPassageGate = 3444;
     constexpr std::int32_t kDrezelGate = 3445;
     constexpr std::int32_t kHolyBarrier = 3443;
+    constexpr std::int32_t kMorytaniaAccessVarbit = 9663;  // MORYTANIA_ENTRY_ALLOWED
 
     // An account with Priest in Peril at `stage` and without River of Blood,
     // which keeps the tunnel 102095 shut.
@@ -812,6 +817,7 @@ namespace
             return {"paterdomus_passage", Outcome::Skip, "the artifact predates the gate rows"};
         }
         ww::runtime::CapabilitySnapshot done = priestInPerilAt(60);
+        done.setVarbit(kMorytaniaAccessVarbit, 1);
         if (!takesInOrder(routeObjects(reader, assembler, done, 3405, 9906, 3438, 9895),
                           kPassageGate, kDrezelGate))
         {
@@ -820,6 +826,14 @@ namespace
         if (!takes(routeObjects(reader, assembler, done, 3438, 9895, 3510, 3504), kHolyBarrier))
         {
             return {"paterdomus_passage", Outcome::Fail, "quest done: no barrier route to Canifis"};
+        }
+        // Quest at 60 but no Morytania access (no talk with Drezel after it):
+        // the barrier still refuses, so no route crosses it.
+        ww::runtime::CapabilitySnapshot noAccess = priestInPerilAt(60);
+        noAccess.setVarbit(kMorytaniaAccessVarbit, 0);
+        if (takes(routeObjects(reader, assembler, noAccess, 3438, 9895, 3510, 3504), kHolyBarrier))
+        {
+            return {"paterdomus_passage", Outcome::Fail, "quest done, no access: barrier used"};
         }
         ww::runtime::CapabilitySnapshot none = priestInPerilAt(0);
         if (takes(routeObjects(reader, assembler, none, 3405, 9906, 3438, 9895), kPassageGate))
@@ -831,6 +845,179 @@ namespace
             return {"paterdomus_passage", Outcome::Fail, "quest unmet: barrier used"};
         }
         return {"paterdomus_passage", Outcome::Pass, nullptr};
+    }
+
+    constexpr std::int32_t kTownBarrier = 5259;        // AHOY_TOWN_BARRIER
+    constexpr std::int32_t kGhostsAhoyVarbit = 13497;  // AHOY_QUESTVAR, barrier free from 7
+    constexpr std::int32_t kEctoToken = 4278;          // ECTOTOKEN
+    constexpr std::uint8_t kPassOption = 0;
+    constexpr std::uint8_t kPayTollOption = 3;
+    constexpr std::int32_t kPhasmatysDockX = 3702;
+    constexpr std::int32_t kPhasmatysDockY = 3503;
+
+    // An account at Ghosts Ahoy stage `stage` holding `tokens` ecto-tokens and
+    // nothing else, so the 92-Agility low wall south of town stays shut.
+    ww::runtime::CapabilitySnapshot ghostsAhoyAt(std::int32_t stage, std::int32_t tokens)
+    {
+        ww::runtime::CapabilitySnapshot caps;
+        caps.setVarbit(kGhostsAhoyVarbit, stage);
+        caps.setItemCount(kEctoToken, tokens);
+        return caps;
+    }
+
+    // The transition records of the plan from (sx,sy,0) to (gx,gy,0) under
+    // `caps`, in order; empty when there is no route.
+    std::vector<ww::format::TransitionRecord> routeTransitions(
+        const ww::format::ArtifactReader &reader, ww::runtime::PathAssembler &assembler,
+        ww::runtime::CapabilitySnapshot &caps, std::int32_t sx, std::int32_t sy,
+        std::int32_t gx, std::int32_t gy)
+    {
+        ww::runtime::Plan plan;
+        std::vector<ww::format::TransitionRecord> out;
+        if (!assembler.assemble(sx, sy, 0, gx, gy, 0, &caps, plan))
+        {
+            return out;
+        }
+        const auto txs = reader.transitions();
+        for (const ww::runtime::Step &s : plan.steps)
+        {
+            if (s.kind == ww::runtime::StepKind::Transition && s.transitionIndex < txs.size())
+            {
+                out.push_back(txs[s.transitionIndex]);
+            }
+        }
+        return out;
+    }
+
+    // True when `route` clicks the town barrier with `option`.
+    bool crossesBarrier(const std::vector<ww::format::TransitionRecord> &route,
+                        std::uint8_t option)
+    {
+        return std::any_of(route.begin(), route.end(),
+            [option](const ww::format::TransitionRecord &tx)
+            { return tx.objectId == kTownBarrier && tx.optionIndex == option; });
+    }
+
+    // True when `route` clicks the town barrier at all.
+    bool touchesBarrier(const std::vector<ww::format::TransitionRecord> &route)
+    {
+        return std::any_of(route.begin(), route.end(),
+            [](const ww::format::TransitionRecord &tx) { return tx.objectId == kTownBarrier; });
+    }
+
+    // True when `route` lands at the Port Phasmatys charter dock.
+    bool chartersToPhasmatys(const std::vector<ww::format::TransitionRecord> &route)
+    {
+        return std::any_of(route.begin(), route.end(),
+            [](const ww::format::TransitionRecord &tx)
+            { return tx.destX == kPhasmatysDockX && tx.destY == kPhasmatysDockY; });
+    }
+
+    // Category 9 - a named route: into Port Phasmatys. The energy barrier
+    // lets a player in for 2 ecto-tokens (Pay toll) or free once Ghosts Ahoy
+    // reaches 7 (Pass), and out for nothing. Without either, the town is
+    // reached by charter ship from Port Sarim, and from just outside the west
+    // barrier there is no way in at all on baked transitions (one token short
+    // is still short). Skips on an artifact baked before the barrier rows.
+    CaseResult phasmatysBarrier(const ww::format::ArtifactReader &reader,
+                                ww::runtime::PathAssembler &assembler)
+    {
+        const auto txs = reader.transitions();
+        const bool hasBarrier = std::any_of(txs.begin(), txs.begin() + reader.bakedTransitions(),
+            [](const ww::format::TransitionRecord &tx) { return tx.objectId == kTownBarrier; });
+        if (!hasBarrier)
+        {
+            return {"phasmatys_barrier", Outcome::Skip, "the artifact predates the barrier rows"};
+        }
+        constexpr std::int32_t kOutsideX = 3646;  // west of the west barrier
+        constexpr std::int32_t kOutsideY = 3485;
+        constexpr std::int32_t kTownX = 3680;
+        constexpr std::int32_t kTownY = 3490;
+        ww::runtime::CapabilitySnapshot none = ghostsAhoyAt(0, 0);
+        if (touchesBarrier(routeTransitions(reader, assembler, none, kOutsideX, kOutsideY,
+                                            kTownX, kTownY)))
+        {
+            return {"phasmatys_barrier", Outcome::Fail, "no tokens, quest 0: barrier used"};
+        }
+        ww::runtime::CapabilitySnapshot short1 = ghostsAhoyAt(6, 1);
+        if (touchesBarrier(routeTransitions(reader, assembler, short1, kOutsideX, kOutsideY,
+                                            kTownX, kTownY)))
+        {
+            return {"phasmatys_barrier", Outcome::Fail, "1 token, quest 6: barrier used"};
+        }
+        ww::runtime::CapabilitySnapshot tokens = ghostsAhoyAt(0, 2);
+        if (!crossesBarrier(routeTransitions(reader, assembler, tokens, kOutsideX, kOutsideY,
+                                             kTownX, kTownY), kPayTollOption))
+        {
+            return {"phasmatys_barrier", Outcome::Fail, "2 tokens: no Pay toll route in"};
+        }
+        ww::runtime::CapabilitySnapshot freed = ghostsAhoyAt(7, 2);
+        if (!crossesBarrier(routeTransitions(reader, assembler, freed, kOutsideX, kOutsideY,
+                                             kTownX, kTownY), kPassOption))
+        {
+            return {"phasmatys_barrier", Outcome::Fail, "quest 7: no Pass route in"};
+        }
+        if (!crossesBarrier(routeTransitions(reader, assembler, none, kTownX, kTownY,
+                                             kOutsideX, kOutsideY), kPassOption))
+        {
+            return {"phasmatys_barrier", Outcome::Fail, "leaving: no free Pass route out"};
+        }
+        if (chartersToPhasmatys(routeTransitions(reader, assembler, none, 3043, 3191, kTownX, kTownY)))
+        {
+            return {"phasmatys_barrier", Outcome::Fail, "no Morytania access: charter from Port Sarim used"};
+        }
+        ww::runtime::CapabilitySnapshot access = none;
+        access.setVarbit(kMorytaniaAccessVarbit, 1);
+        if (!chartersToPhasmatys(routeTransitions(reader, assembler, access, 3043, 3191,
+                                                  kTownX, kTownY)))
+        {
+            return {"phasmatys_barrier", Outcome::Fail, "Morytania access, no tokens: no charter from Port Sarim"};
+        }
+        return {"phasmatys_barrier", Outcome::Pass, nullptr};
+    }
+
+    constexpr std::int32_t kRangedStat = 4;
+    constexpr std::int32_t kRangingGuildDoor = 2514;   // RANGING_GUILD_DOOR, shape 9
+
+    // An account with Ranged at `level` and nothing else set.
+    ww::runtime::CapabilitySnapshot rangedAt(std::int32_t level)
+    {
+        ww::runtime::CapabilitySnapshot caps;
+        caps.setSkillLevel(kRangedStat, level);
+        return caps;
+    }
+
+    // Category 9 - a named route: into the Ranging Guild through its door
+    // 2514, a diagonal (shape 9) door whose blocked tile the crossing deriver
+    // skips, so only the dataset rows link the two sides. With Ranged 40 the
+    // walk from outside the fence to the haystack's stand tile takes the door;
+    // at Ranged 39 there is no route in, and leaving is ungated either way.
+    // Skips on an artifact baked before the rows.
+    CaseResult rangingGuildDoor(const ww::format::ArtifactReader &reader,
+                                ww::runtime::PathAssembler &assembler)
+    {
+        const auto txs = reader.transitions();
+        const bool hasDoor = std::any_of(txs.begin(), txs.begin() + reader.bakedTransitions(),
+            [](const ww::format::TransitionRecord &tx) { return tx.objectId == kRangingGuildDoor; });
+        if (!hasDoor)
+        {
+            return {"ranging_guild_door", Outcome::Skip, "the artifact predates the door rows"};
+        }
+        ww::runtime::CapabilitySnapshot able = rangedAt(40);
+        if (!takes(routeObjects(reader, assembler, able, 2653, 3437, 2671, 3417), kRangingGuildDoor))
+        {
+            return {"ranging_guild_door", Outcome::Fail, "Ranged 40: no route in through the door"};
+        }
+        ww::runtime::CapabilitySnapshot low = rangedAt(39);
+        if (takes(routeObjects(reader, assembler, low, 2653, 3437, 2671, 3417), kRangingGuildDoor))
+        {
+            return {"ranging_guild_door", Outcome::Fail, "Ranged 39: the door was used"};
+        }
+        if (!takes(routeObjects(reader, assembler, low, 2671, 3417, 2653, 3437), kRangingGuildDoor))
+        {
+            return {"ranging_guild_door", Outcome::Fail, "Ranged 39: no route out through the door"};
+        }
+        return {"ranging_guild_door", Outcome::Pass, nullptr};
     }
 }
 
@@ -854,6 +1041,8 @@ int runScriptedPaths(const char *wwaPath)
             intraAreaRide(reader, view, assembler),
             portSarimBoat(reader, assembler),
             paterdomusPassage(reader, assembler),
+            phasmatysBarrier(reader, assembler),
+            rangingGuildDoor(reader, assembler),
         };
         int passed  = 0;
         int failed  = 0;

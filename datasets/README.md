@@ -102,7 +102,7 @@ can otherwise use (`members_action_N`), and a members account on a free world.
 
 Every entry may carry a `requirements` object. `skill` is one `{id, level}` or
 an array of them (all must pass), `id` being the stat id the host reports
-(0 Attack, 2 Strength, 6 Magic, 7 Cooking, 10 Fishing, 12 Crafting,
+(0 Attack, 2 Strength, 4 Ranged, 6 Magic, 7 Cooking, 10 Fishing, 12 Crafting,
 14 Mining, 16 Agility, ...); `items` is an array of `{id, count}` and passes when **any** of them is held on
 an item teleport; `varbit` and `varp` are either one `{id, value}` or an
 **array** of them, and each is an exact-value match; `varbit_at_least` and
@@ -435,7 +435,8 @@ plane is doubtful: the site's locs dump on planes 1 and 2, the row lands on 0.
 
 Each of the six stations has a 2x2 basket loc that morphs, on the station's
 unlock varbit, from rock or frame into loc 19129 `Basket` (op 0 `Fly`;
-Entrana's is 19128, op 0 `Use`). A row clicks its basket's op 0, waits for
+Entrana's is 19128, op 0 `Use`). See "Multiloc gates" below for how each
+gate is read off the loc. A row clicks its basket's op 0, waits for
 interface 469 `ZEP_BALLOON_MAP`, clicks the destination's button with op 1
 (each button has one op, its place name, read from the raw cache group; the
 decoded interface reads text as ops here, as it does for 95), and waits 6
@@ -446,13 +447,29 @@ ticks. No clientscript touches 469, so any locking is the server's.
 | Castle Wars | 19137 (2463,3109) | 15 | varbit 12532 == 1 |
 | Grand Tree | 19139 (2481,3457) | 16 | varbit 12533 == 1 |
 | Crafting Guild | 19141 (2924,3301) | 17 | varbit 12534 == 1 |
-| Entrana | 19133 (2806,3355) | 18 | varbit 12529 >= 91 |
-| Taverley | 19135 (2928,3411) | 19 | varbit 12529 >= 200 |
+| Entrana | 19133 (2806,3355) | 18 | varbit 12530 >= 1 and 12529 >= 91 |
+| Taverley | 19135 (2928,3411) | 19 | varbit 12531 >= 1 and 12529 >= 200 |
 | Varrock | 19143 (3296,3481) | 20 | varbit 12535 == 1 |
 
 Varbit 12529 is Enlightened Journey (quest 315, complete at 200); the per-
 route gates are the values achievement 2119 "Around the World in Six Ways"
 and clientscript 13281 test. A row carries the gates of both its stations.
+
+Until 2026-11-26 Entrana and Taverley were gated on 12529 alone, but neither
+basket is keyed on it. 19133 is a multiloc on varbit 12530
+(`zep_multi_basket`, zep_var bits 8..9): 0 is 19132 `Basket` with no ops,
+1 and 2 are 19128 [Use], 3 falls to the default (none). 19135 is on 12531
+(`zep_multi_piccard`, bits 10..11): 0 is 67554 `Rock`, 1 and 2 are 19129
+[Fly], 3 none. The 12529 gate stays beside the new one, as the route fact
+clientscript 13281 tests; the basket varbit is the fact the host needs to find
+a loc to click. The other four baskets were already keyed right: each
+`zep_multi_*` bit (12532..12535) at 1 is 19129 [Fly], 0 a rock.
+
+**Unresolved:** `varbit_at_least 1` also admits 3, which shows no basket.
+Excluding it would need an exact 1 row and an exact 2 row per route, each a
+tile apart; nothing in the client dumps sets or tests either varbit, so
+whether 3 is ever used is not settled offline.
+
 The Varrock origin moved from 3298,3482 to 3297,3481, within a tile of its
 basket.
 
@@ -528,7 +545,7 @@ interface dump reads text as ops and is not reliable for this interface.
 | Port | Marker | Name | GO_ (click) | Crew NPC (spawn) | Gate at either end |
 |---|---|---|---|---|---|
 | Port Tyras | 1 | 12 | 23 | 4654 (2145,3122) | Regicide: varp 2102 >= 15 |
-| Port Phasmatys | 2 | 13 | 24 | 4652 (3701,3503) | **disabled**: lock unknown |
+| Port Phasmatys | 2 | 13 | 24 | 4652 (3701,3503) | none (since 2026-11-11, see below) |
 | Catherby | 3 | 14 | 25 | 4656 (2794,3407) | none |
 | Shipyard | 4 | 15 | 26 | 4654 (3001,3034) | **disabled**: lock unknown |
 | Karamja (Musa Point) | 5 | 16 | 27 | 22692 (2954,3156) | none |
@@ -566,8 +583,32 @@ Musa Point take their multinpc id, on the strength of the framework's
 
 A gate applies at both ends of a trip. Cabin Fever and Regicide live only in
 varps, so the live bot takes neither port until the host supplies those
-varps. Nothing in the data says what locks Port Phasmatys or the Shipyard, so
-every row touching them stays disabled.
+varps. Nothing in the data says what locks the Shipyard, so every row
+touching it stays disabled. (V1's navigation data, below, gates the Shipyard
+on varp 2762 >= 9; that varp is not identified here, so the rows wait.)
+
+**Port Phasmatys (2026-11-11).** Enabled with no gate of its own; a trip
+still carries the other port's gate, and the Shipyard -> Port Phasmatys row
+stays disabled with the Shipyard. The evidence that nothing locks it:
+
+- Achievement 855 "Charter A Course" ("Take a trip on a charter ship to the
+  Port Phasmatys dock") lists no quest, where its neighbour 856 (the
+  ectophial) names Ghosts Ahoy.
+- The quests offer the charter as the way in for a player who has not freed
+  the barrier: Ghosts Ahoy's own items text ("ecto-tokens or charter ships to
+  enter Port Phasmatys three times") and Making History's ("2 ecto-tokens (or
+  completion of Ghosts Ahoy), or 2,600gp (1,300gp after Cabin Fever) to
+  charter ship to Port Phasmatys").
+- V1's navigation data (`rs3-nav-api` `mapdata.zip`, `areas.dat`) has a
+  charter link from every port to the dock at 3702,3503 (GO_ 24) and back,
+  each gated on membership only, plus the far port's own gate (Shipyard
+  varp 2762 >= 9, Port Tyras varp 2102 >= 15, Mos Le'Harmless varp 2326 >=
+  140, Menaphos varbit 36140 >= 100, Oo'glog varbit 14041 >= 200).
+
+The dock lands inside the town wall, so a charter is the way in for a
+player who can pay neither toll nor Agility (see "Port Phasmatys energy
+barrier" below). The dock has a `Yes` dialog zone like every enabled port.
+Port Phasmatys <-> Mos Le'Harmless has no rows (V1 has the pair).
 
 **Not verified offline.** Three things need a live read:
 
@@ -626,6 +667,16 @@ trees. The patch value 20 is the stage that morphs to 8355
 is a conservative guess, not a fact from the data.
 
 Index 11 (your house, 2940,3223, varbit 61257) has no rows.
+
+Checked against `locations.json` on 2026-11-26 (see "Multiloc gates"): every
+patch tree is a multiloc whose child 20 is 8355, and the varbits are the
+6-bit `farming_spirit_tree_varbit_1..4` (64, 66, 68 on varp 15; 45329 on
+varp 9058), so `== 20` is exact. 26723 is on 3-bit varbit 10479
+(`pog_spirit`): 0..2 are 26720 [Talk to], and 26721 [Talk to, Teleport] is
+the last id, the default for 3..7, so `>= 3` is exact. The other trees (68974, 68973, 1317,
+92994) are plain locs with a Teleport op (1317 as `members_action_2`), so the
+loc itself carries no gate. script9765 also admits patch trees as
+destinations on varbit 58466 == 1; the rows do not, which only narrows them.
 
 Because Tree Gnome Village lives in a varp, the live bot plans no spirit tree
 until the host supplies varp 2661 (see "Gates and routes"). No varbit carries
@@ -1261,9 +1312,38 @@ it, so no row does.
   then a walk into either guild has no route.
 - **Left alone:** the Legends' Guild gate 2391 / 2392 and doors 2896 / 2897
   (who may pass depends on the stage of Legends' Quest, and no dump says
-  which stage opens which); the Ranging Guild, which has no route in at all
-  (the fence door at 2658,3438 bakes no transition), so there is nothing to
-  gate.
+  which stage opens which). The Ranging Guild, left alone here because its
+  door baked no transition, got its rows on 2026-11-26 (next section).
+
+## Ranging Guild door (2026-11-26)
+
+BWU-K5V87F: from 2653,3437, outside the Ranging Guild's fence, a walk to the
+haystack at 2671,3415 (stand tile 2671,3417) had no route at all.
+`wwcli txnear` showed the door's clip at 2658,3438 and no transition.
+
+**Why the bake missed it.** `wwbuild crossings` on square 41,53 places loc
+2514 (`RANGING_GUILD_DOOR`, `Guild door`, op 0 `Open`) at 2658,3438 with
+shape 9, rotation 0: a diagonal wall, which blocks its whole tile instead of
+an edge. `deriveDoorTransitions` needs the door's own tile standable and a
+wall edge from `doorEdgeMask`, and shape 9 has neither, so the door counts
+as `blockedOrigin` and is left to the dataset. The fence runs south-west to
+north-east through the door (2657,3437 and 2659,3439 are blocked). The tiles
+west, north and north-west of it are outside (area 5447 in the 2026-11-20
+release); east, south and south-east are inside (11156).
+
+**Rows.** One per direction, both on the door's diagonal neighbours, the
+tiles across the door from each other, each within a tile of the anchor:
+2657,3439 -> 2659,3437 going in, gated on Ranged (stat 4) 40, and
+2659,3437 -> 2657,3439 going out, with no gate. That is how the other guilds
+are done: only the way in is gated. The level is from the cache: skill guide
+struct 3206, "Access to the Ranging Guild", `skillguide_level` 40,
+`skillguide_skill` 3. In skill guide numbering 3 is Ranged (Magic is 4 in
+struct 5791, Crafting 11 in 6085, Mining 13 in 42965, Fishing 15 in 45992).
+`wwcli scripted` case `ranging_guild_door` checks both levels and the way out.
+
+**Not verified live:** where the game puts the player after the door. Neither
+landing comes from the cache, and both are inside the executor's slack. Also
+unverified: whether the doorman (NPC 679) stops the player with dialogue.
 
 **Not verified live:** every gate above; the alternative landings at the
 Cooks' and Warriors' doors.
@@ -1660,7 +1740,8 @@ door deriver drops its two hops.
 the wall (62.0); with `--skill 16=1` no route, with or without `--teleports
 datasets`. The wall was the only way into the town. Nothing near the town's
 gates is a transition, so an account under 92 Agility cannot reach Port
-Phasmatys on foot until the gates are rows.
+Phasmatys on foot until the gates are rows. (They are rows since
+2026-11-11: see the next section.)
 
 **Other agility crossings left ungated.** The door deriver also makes ungated
 hops for these same-plane climb, jump and squeeze locs. None has a level in
@@ -1671,6 +1752,203 @@ the cache, so none is gated: 9300 Fence (3230,3331), 12776 Low fence
 (2587,5203 and 2588,5199), 93468 Chain (2847..2848,6163).
 
 **Not verified live:** the level 92, and that the climb lands on 3672,3458.
+
+## Port Phasmatys energy barrier (2026-11-11)
+
+Live on 2026-11-11 a walk into Port Phasmatys ended at the town gate for a
+player with no ecto-tokens; the ghost guard: "All visitors to Port
+Phasmatys must pay a toll charge of 2 Ectotokens".
+
+- **The loc.** 5259 `AHOY_TOWN_BARRIER`, placed twice: anchored at 3652,3485
+  (west wall, 1x2 north-south, outside to the west) and at 3659,3508 (the
+  wall's east-west run, 2x1, outside to the north). Both footprints are
+  blocked in the collision, and the decoder sees no option on 5259 (it drops
+  morph tables), so the bake derived nothing through either: in a bake of
+  master the only way in on foot was the 92-Agility low wall above. Shape 10
+  and the rotations (0 west, 1 north) are read off the blocked footprints;
+  the planner does not use them.
+- **The toll.** 5259 morphs on varbit 13497 `AHOY_QUESTVAR` (Ghosts Ahoy,
+  1..8): 0..6 -> 52760 "Energy Barrier" [`Pass`, -, -, `Pay toll (2
+  Ecto-token)`], 7 and above -> 52761 [`Pass`] (rs3-cs2-dumps
+  `locations.json` `morphs_1`). Ghosts Ahoy's reward is "Free passage into
+  Port Phasmatys". Ecto-token is obj 4278 `ECTOTOKEN`.
+- **Leaving is free.** The Ghosts Ahoy script (BotWithUs-Scripts
+  `GhostsAhoyMoves`) clicks `Pass` from inside at every stage and pays only
+  going in, as V1's data does, so the way out is ungated.
+
+**Rows.** Each barrier has three; the dataset has no OR, so the way in is one
+row per condition, landing one tile apart (see "Gates are ANDed"):
+
+| Barrier | Row | Option | Gate | Lands |
+|---|---|---|---|---|
+| west 3652,3485 | in from 3651,3485 | 0 `Pass` | `varbit_at_least` 13497 >= 7 | 3653,3485 |
+| west | in from 3651,3485 | 3 `Pay toll` | `items` 4278 x2, `extra_cost` 10 | 3653,3484 |
+| west | out from 3653,3485 | 0 `Pass` | none | 3651,3485 |
+| north 3659,3508 | in from 3659,3509 | 0 `Pass` | `varbit_at_least` 13497 >= 7 | 3659,3507 |
+| north | in from 3659,3509 | 3 `Pay toll` | `items` 4278 x2, `extra_cost` 10 | 3659,3506 |
+| north | out from 3659,3507 | 0 `Pass` | none | 3659,3509 |
+
+The `extra_cost` makes a player with both the quest and tokens Pass rather
+than pay (52761 has no `Pay toll` to click anyway). The rows claim both
+sides' origin tiles, so a future bake that does derive the barrier as a door
+cannot add an ungated hop beside them.
+
+**Tokens are in the currency pouch.** The `items` gate is read through the
+host's `readItemCounts` / `readItemCount`, which must report worn + carried
++ the currency pouch (inv 889 `CURRENCY_POUCH`), where ecto-tokens are kept.
+The Java bridge counted only the equipment (inv 94) and the backpack (inv
+93) up to 2026-11-11; until it adds the pouch, a player whose tokens are in
+the pouch is planned by charter or not at all, never through the toll.
+
+`wwcli path`, stage bake, to 3680,3490 (in town), every run with `--skill
+16=1` (no low wall):
+
+| From | `--item 4278=` | `--varbit 13497=` | Before | After |
+|---|---|---|---|---|
+| Canifis 3497,3477 | 0 | 0 | no route | no route |
+| Canifis 3497,3477, `--teleports datasets` | 0 | 0 | no route | 215.9, lodestone, then charter Port Khazard -> dock |
+| Canifis 3497,3477 | 2 | 0 | no route | 244.7, `Pay toll` at the west barrier |
+| Canifis 3497,3477 | 0 | 7 | no route | 234.3, `Pass` at the west barrier |
+| Canifis 3497,3477 | 1 | 6 | no route | no route |
+| Port Sarim 3043,3191 | 0 | 0 | no route | 151.3, charter Port Sarim -> dock |
+
+Out of town, 3680,3490 -> 3497,3477 `--ungated`: `Pass` at the west
+barrier, 237.4 (before: no route). `wwcli scripted` case
+`phasmatys_barrier` covers these.
+
+**Not verified live:** that `Pay toll` takes the player through in one
+click (the script's experience says so), the landing tiles, whether `Pass`
+with tokens before stage 7 charges them without `Pay toll`, and the worn
+bedsheet, which the barrier refuses ("You can't pass the barriers of Port
+Phasmatys while wearing the bedsheet"); no gate expresses it.
+
+## Multiloc gates
+
+A row whose `object_id` is a multiloc (a loc def with `morphs_1` in
+rs3-cs2-dumps `locations.json`) must be gated so it passes only in the states
+that show the child carrying the op the row clicks. Derive it like this:
+
+1. Read the base loc's `morphs_1`: the `varbit` (or `varp` when the varbit
+   is -1) and the `ids` list. Value N shows `ids[N]`; the **last** id is the
+   default for every value past the list, and `0` there means none.
+2. Look up each child id in `locations.json` and keep the values whose child
+   has the row's op at `option_index` (`actions`, or `members_action_N` for a
+   members op).
+3. Look the var up in `latest_varbits.json` for its width (`lsb`..`msb`): a
+   value the field cannot hold needs no exclusion, and the name says what the
+   var is (`farming_spirit_tree_varbit_1`, `zep_multi_basket`).
+4. Write the narrowest gate that covers exactly those values: `varbit` for one
+   value, `varbit_at_least` when they run to the top of the field. A set that
+   neither spelling covers is two rows (gates AND, see "Gates and routes"), or
+   an unresolved note when the extra rows are not worth it.
+
+Any unlock the destination menu checks (a clientscript or achievement test)
+is ANDed on top. It does not replace the loc's own varbit: the host needs the
+loc in the scene to click it. A gate that matches the loc def does not by
+itself make the host find a multiloc, either (see the Draynor portal's "Why
+the host lost it").
+
+## Trollheim summit and Death Plateau climbs (2026-11-26)
+
+Live (BWU-JARKM9) a hard sextant clue dug at 2848,3684, on the Trollheim
+mountain top, failed five times with no route from 2616,3077. The summit
+(one baked area holding the dig tile, the Trollheim Teleport landing
+2882,3668 and the Troll Stronghold exit 2922,3658) had only one way in, the
+Stronghold, and the overland way to the Stronghold was cut at Death Plateau.
+The Trollheim Farm Teleport landing (2817,3676) was a separate area with no
+way up.
+
+**Why the bake missed them.** Every crossing here is a same-plane "Climb"
+loc (Cliffside / Rocks, shape 10, 3x4 or 5x1) or a cave mouth. The cache
+marks the climbs AGILITY + PLANE_CHANGE, but the freshness deriver pairs only
+vertical columns and the door deriver only wall shapes, so none of them
+becomes a transition by itself (ADR 0003/0009). Each one needs a row, and
+only some had one.
+
+**Evidence.** Every row is a V1 link (`rs3-nav-api` `mapdata.zip`,
+`areas.dat`) on the same loc, with V1's origin and landing tiles. V1's loc
+tile matches the cache placement (`wwbuild crossings`) wherever the loc is a
+crossing: 34878 2874,3595 and 2951,3681; 35391 2834,3626 and 2900,3608; 3748
+2817,3630 and 2846,3620; 34877 2876,3619 and 2893,3613; 34889 2931,3680;
+18834 2831,10077,2. Shape and rotation are the cache's. Loc names are from
+gameval, ops from rs3-cs2-dumps `locations.json` (all op 0).
+
+**Climbing boots.** V1 gates the two climbs up from the low side of the 3748
+`TROLL_CLIMBINGROCKS` rocks on item 3105 `DEATH_CLIMBINGBOOTS`, and leaves
+the climbs down ungated. The existing row 2847,3619 -> 2848,3621 had no gate.
+It now has `items` 3105 x1, and so does the new west climb 2816,3632 ->
+2818,3632. An `items` gate passes on worn or carried, and the game probably
+wants the boots worn (unverified), so a player carrying them unworn will be
+routed over the rocks.
+
+**Rows added** (17; one existing row gated):
+
+| Loc | Name | Origin -> landing | Joins |
+|---|---|---|---|
+| 34878 `TROLLHEIM_MEDIUM_AGILITY_MOUNTAIN_CLIMBING_WALL` | Cliffside | 2874,3594 <-> 2875,3598 | the ledge above the Burthorpe rocks <-> Death Plateau |
+| 3748 `TROLL_CLIMBINGROCKS` | Rocks | 2848,3621 -> 2848,3619 | down to Death Plateau (up is the gated existing row) |
+| 35391 `TROLL_CLIMBINGROCKS_LOW` | Rocks | 2833,3628 <-> 2835,3628 | the Stronghold secret-entrance ledge <-> the plateau top |
+| 3748 `TROLL_CLIMBINGROCKS` | Rocks | 2816,3632 -> 2818,3632 (boots), 2818,3632 -> 2816,3632 | the west lowland <-> the secret-entrance ledge |
+| 35391 `TROLL_CLIMBINGROCKS_LOW` | Rocks | 2901,3610 -> 2899,3610 | back from the arena approach (the way up was a row) |
+| 34877 `TROLLHEIM_LOW_AGILITY_MOUNTAIN_CLIMBING_WALL` | Cliffside | 2878,3622 -> 2877,3618, 2894,3612 -> 2895,3616 | the other direction of both existing rows |
+| 34889 `TROLLHEIM_HIGH_AGILITY_MOUNTAIN_CLIMBING_WALL` | Cliffside | 2930,3681 <-> 2934,3681 | summit <-> the ledge east of it |
+| 34878 `TROLLHEIM_MEDIUM_AGILITY_MOUNTAIN_CLIMBING_WALL` | Cliffside | 2950,3682 -> 2954,3682 | that ledge -> further east (V1 has this direction only) |
+| 3774 `TROLL_STRONGHOLD_TOP_EXIT_MID` | Exit [Leave] | 2837,10089,2 -> 2848,3687,0 | the cave under the summit -> summit |
+| 18834 `MYARM_LADDER` | Troll ladder [Climb-up] | 2831,10076,2 -> 2813,3668,0 | the same cave -> the farm patch (the way down, 18833, was a row) |
+| 34395 `TROLLHEIM_MOUNTAIN_CAVE_ENTRANCE_4X4_1A` | Cave entrance | 2922,3657 -> 2907,10035 | summit -> the Stronghold (back the way its exit lands) |
+| 3758 `TROLL_PASS_EXIT` | Cave Exit | 2907,10018 -> 2912,3636 | the Stronghold -> the arena side |
+
+3774 and 34395 at 2920,3654 are not crossings in the cache (no interact
+type), so their tiles are V1's alone. The 34395 row starts on its 4x4
+footprint, beside the floor at 2922,3658, as the City of Um cave rows do. The
+3758 row starts beside V1's 2907,10019, on the anchor's row. Rotation 0 on
+those two is a placeholder.
+
+**Obj 34395 on the summit is right.** `TROLLHEIM_MOUNTAIN_CAVE_ENTRANCE_4X4_1A`
+"Cave entrance" [Enter] is the shared mountain-cave mouth (it is also used at
+Burthorpe, 2858,3578, and below the Stronghold, 2911,3636). The summit row
+2846,3687 -> 2837,10090,2 is V1's 2848,3687 -> 2837,10089,2, and that cave
+holds both 3774 and the 18833/18834 ladder pair.
+
+**Left alone.** The summit's own climbs (9303..9306, 3803, 3748 at
+2918,3675) join pockets the collision bake already treats as one area, so
+they cannot be rows (a row inside one area is dropped as intra-area). If the
+game really needs those climbs, the walker will walk into the rock there. The
+Troll Stronghold and its arena gates (34836/34839) stay ungated, though the
+game may hold them until Troll Stronghold. The secret entrance 3762
+(2829,3638) and its exit 3761 are not added. No Trollheim tablet (20175
+`POH_TABLET_TROLLHEIMTELEPORT`, 50562 `POH_TABLET_TROLLHEIM_FARM`) is in
+`item_teleports.json`. Its landing is in neither the cache nor V1.
+
+**No agility levels.** The LOW / MEDIUM / HIGH in the gameval names suggest
+Agility levels, but none of 34877, 34878 or 34889 has a param, an extra, a
+dbrow or an enum entry that gives one, and V1 gates none of them. They are
+ungated, like the other agility crossings above.
+
+`wwcli path`, stage bake (local cache, `--op-defs`). The baseline is the same
+bake of master's datasets:
+- Farm Teleport landing 2817,3676 -> 2848,3684: no route before; now 76.8 via
+  ladder 18833 and 3774 (the same with `--ungated`). Back: 79.6 via the summit
+  34395 and 18834.
+- Trollheim Teleport landing 2882,3668 -> 2848,3684: 155.5, walking, before
+  and after.
+- Burthorpe 2900,3550 -> 2848,3684 with `--item 3105=1`: 523.9 over 35391,
+  34878, 3748, 35391, the arena gates, the Stronghold and 3758. With 3105 = 0
+  or `--ungated`: no route. Back from the summit: 523.9 (no boots needed).
+- 2616,3077 (the live start) with `--teleports datasets`: 89.8, by Farm
+  Teleport, 18833 and 3774. With `--skill 6=60` (neither Trollheim spell), the
+  baseline went 518.1 through the Burthorpe cave and the Death Plateau
+  agility cave (2269,4752 -> 3405,4284 -> 2854,3617) and then up the ungated
+  3748. Now it is 512.3 by the Fremennik lodestone and the west rocks with
+  the boots, and there is no route without them.
+- The east ledge 2934,3681 -> 2848,3684: 142.2 over 34889.
+- `check`, `scripted`, `sos`, `exclude`, `walltest`, `instance`: pass.
+  `doors`: 1 failure, the same one (86700 at 3022,3538) on the baseline.
+  `collisionFingerprint` and squares are unchanged; transitions 14119 -> 14136.
+
+**Not verified live:** every landing tile, that 3774 is clicked from 2837,10089,
+that 34395 takes the click from 2922,3658, whether the boots must be worn,
+and the agility levels.
 
 ## How they're consumed
 
