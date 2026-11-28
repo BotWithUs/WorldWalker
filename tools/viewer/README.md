@@ -9,7 +9,7 @@ browser, drop a `path.json` on the map, or pick one with the file input.
 ## Generating a path
 
 ```
-wwbuild ... build\test.wwa                                       (one-time)
+wwbuild ... build\test.wwa --op-defs ..\rs3-cs2-dumps           (one-time)
 build\Debug\wwcli.exe path build\test.wwa ^
     3222 3218 0   3210 3424 0   --out lumby.json
 ```

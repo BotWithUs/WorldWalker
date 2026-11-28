@@ -252,7 +252,9 @@ definitions in a checkout of rs3-cs2-dumps (`locations.json`, `npcs.json`),
 which `bake.ps1` finds at `..\rs3-cs2-dumps` or takes from `-OpDefs`:
 
 - `wwbuild build ... --op-defs <dir>` drops the failing rows and lists them by
-  family. Without `--op-defs` the check is skipped and the bake says so.
+  family. `build` now refuses to run without `--op-defs` unless you pass
+  `--no-op-defs`, which skips the check (and the climb-direction fix) on
+  purpose; `bake.ps1` does the same with `-OpDefs` / `-NoOpDefs`.
 - `--strict-ops` (`bake.ps1 -StrictOps`) fails the bake instead.
 - `wwbuild opcheck <dataset_dir> <defs_dir>` runs the check alone in about a
   second, with no cache, and exits 1 on any failing row. Run it on every
@@ -703,6 +705,14 @@ its direction: going up, the lowest slot reading `Climb-up`, `Climb up`,
 `Go-up` or `Walk-up` (any case, `-`, `_` or space); going down, the `down`
 spellings. Only the loc's own options count, not a morph's. A loc with no
 such option keeps the cache's. The bake prints the counts as `climb ops:`.
+
+**The flag is now required.** `wwbuild build` refuses to bake without
+`--op-defs` unless `--no-op-defs` says the skip is on purpose (`bake.ps1`
+matches with `-OpDefs` / `-NoOpDefs`). The released artifact wwa-2026-10-22 was
+baked without it, so 994 derived transitions shipped clicking a bare `Climb":
+including the Grand Tree ladder 69271 at 2466,3495, where players looped
+(bug BWU-YC3CBV). A bake that silently skipped the fix had looked identical to
+one that ran it; now it has to be asked for by name.
 
 - **Result:** 972 -> 0 transitions click a bare `Climb` on a loc that has
   its direction's option. 974 transitions in the artifact changed option, all
@@ -1676,7 +1686,8 @@ the cache, so none is gated: 9300 Fence (3230,3331), 12776 Low fence
 
 - **Offline bake:** `.\scripts\bake.ps1` — one command, from tracked inputs, on a
   machine that has never run this. It wraps
-  `wwbuild build <cache_dir> <this_dir> <out.wwa> --live`, which ingests all of the
+  `wwbuild build <cache_dir> <this_dir> <out.wwa> --live --op-defs <defs_dir>`
+  (`--no-op-defs` instead when the skip is asked for), which ingests all of the
   above and bakes the transition graph into the artifact. **See
   `docs/artifact-delivery.md`** for where the cache comes from, what the bake
   records about itself, which `.wwa` is canonical, and how to get a dataset change
